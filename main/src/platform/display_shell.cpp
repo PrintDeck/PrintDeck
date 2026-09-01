@@ -5441,7 +5441,7 @@ void DisplayShell::show_web_config(const char* ipv4, const char* local_hostname,
     apply_text_style(detail_label_, lv_color_hex(theme_style_.accent_secondary), &lv_font_montserrat_16);
     lv_obj_set_width(detail_label_, 350);
     lv_label_set_long_mode(detail_label_, LV_LABEL_LONG_DOT);
-    lv_obj_align(detail_label_, LV_ALIGN_TOP_MID, 0, 88);
+    lv_obj_align(detail_label_, LV_ALIGN_TOP_MID, 0, 96);
     lv_obj_add_flag(detail_label_, LV_OBJ_FLAG_EVENT_BUBBLE);
     lv_obj_t* qr = lv_qrcode_create(lv_screen_active());
     lv_qrcode_set_size(qr, 154);
