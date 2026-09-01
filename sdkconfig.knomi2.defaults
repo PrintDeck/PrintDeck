@@ -1,0 +1,6 @@
+# KNOMI2 connects the ESP32-S3 UART0 console to its external WCH USB bridge.
+# GPIO19 and GPIO20 are used by the GC9A01 display, so native USB Serial/JTAG
+# must not be initialized for this hardware target.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+# CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG is not set
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y

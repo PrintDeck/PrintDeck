@@ -1,0 +1,65 @@
+name: Feature request
+description: Suggest an improvement that fits the PrintDeck project
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem first, then explain the outcome you would like. Please search existing issues before submitting a new request.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Device interface
+        - Web Config
+        - Moonraker integration
+        - Bambu Lab integration
+        - Camera support
+        - Display hardware
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or limitation
+      description: What is difficult, missing or unclear today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: Describe the result you would like without assuming a particular implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: How do you handle this today, or what other approaches did you consider?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add sanitized mockups, examples or related information if useful.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same request.
+          required: true
+        - label: I removed credentials and private data from this request and its attachments.
+          required: true
+        - label: I understand that a request may be declined when it conflicts with PrintDeck's local-first, privacy or read-only design.
+          required: true
+

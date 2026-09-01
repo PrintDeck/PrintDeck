@@ -1,0 +1,5 @@
+Unscii 2.1 was created by Viznut and is in the Public Domain.
+
+PrintDeck includes an ASCII-only subset of the unscii-8 typeface for the
+Retro Terminal theme. The upstream project and complete notice are available
+at https://viznut.fi/unscii/.

@@ -1,0 +1,156 @@
+{
+  "set": "alloy_iris_cyan",
+  "size": [
+    240,
+    240
+  ],
+  "asset_profile": "knomi2",
+  "files": {
+    "standby": {
+      "file": "standby.gif",
+      "bytes": 184604,
+      "width": 240,
+      "height": 240,
+      "frames": 9,
+      "sha256": "4d29b066aca2471cde088a6fc561ed622235646c88c2e706fc7b60d04a573c4e"
+    },
+    "preparing": {
+      "file": "preparing.gif",
+      "bytes": 10343,
+      "width": 240,
+      "height": 240,
+      "frames": 1,
+      "sha256": "3f2ade06e131b9a9238b4a5cc855b97b5dd638949ddb59aec0f771bed45e16e5"
+    },
+    "nozzle-heating": {
+      "file": "nozzle-heating.gif",
+      "bytes": 40441,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "381695a8cb2599e93d6a4ec4fd74b3174a332c439cd2af9c2c5c9c6d9c0d56d1"
+    },
+    "bed-heating": {
+      "file": "bed-heating.gif",
+      "bytes": 58902,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "fcd67a3545f1737e47a43edb64344bf1cc6d166e31c6f2d12b2464b370e6925f"
+    },
+    "homing": {
+      "file": "homing.gif",
+      "bytes": 59772,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "f0d1e9dbce9fe99acb958ae02b937f840b03ebe10aa02e18b9016dba2415276b"
+    },
+    "bed-leveling": {
+      "file": "bed-leveling.gif",
+      "bytes": 49742,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "77d8be5b0cabe44ae09e3f8e10723c4fdce4ff9e042162b0f705b83394fda08d"
+    },
+    "nozzle-cleaning": {
+      "file": "nozzle-cleaning.gif",
+      "bytes": 12511,
+      "width": 240,
+      "height": 240,
+      "frames": 1,
+      "sha256": "867b3e2a8cfe09bfec5f186086359650d0e30c33d6d0396cdffb9dce80c90b61"
+    },
+    "calibrating": {
+      "file": "calibrating.gif",
+      "bytes": 16565,
+      "width": 240,
+      "height": 240,
+      "frames": 1,
+      "sha256": "9021d4b4dd25e012a37b554b1bfd714925f332f337e596c3b51bc29f828badea"
+    },
+    "filament-changing": {
+      "file": "filament-changing.gif",
+      "bytes": 43459,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "599581674567831ef89c45061b9cb2d185cdbab80303a6997b92f05031ffeccb"
+    },
+    "filament-unloading": {
+      "file": "filament-unloading.gif",
+      "bytes": 37737,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "6fbcedeb54f7bd9e9456af696b95324452c5dc6a02400b43aaf1e5eca2b23d63"
+    },
+    "filament-loading": {
+      "file": "filament-loading.gif",
+      "bytes": 38054,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "7739d2e9ebc269a24db1915aed02ae180a22b3850c390f343d624392f6e3891e"
+    },
+    "filament-purging": {
+      "file": "filament-purging.gif",
+      "bytes": 14135,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "4af41d809b9fbcd7d1091c34f263dd44cda4e77d6c50204da7ec720d7b578138"
+    },
+    "printing": {
+      "file": "printing.gif",
+      "bytes": 16310,
+      "width": 240,
+      "height": 240,
+      "frames": 4,
+      "sha256": "24194a39340a79b3e517a6227f3a981da4126a6ccb5119b82203ac671698ee5c"
+    },
+    "paused": {
+      "file": "paused.gif",
+      "bytes": 11195,
+      "width": 240,
+      "height": 240,
+      "frames": 1,
+      "sha256": "a67035b83edd2866ac283ba854225779d7a6c1456cc660cc040563d17ad5ca98"
+    },
+    "completed": {
+      "file": "completed.gif",
+      "bytes": 10346,
+      "width": 240,
+      "height": 240,
+      "frames": 1,
+      "sha256": "306a0e9def6706f4f9cebb51f0ee08b9726c05f17b38ea5cb4faac430783b684"
+    },
+    "failed": {
+      "file": "failed.gif",
+      "bytes": 11041,
+      "width": 240,
+      "height": 240,
+      "frames": 1,
+      "sha256": "d1f54495572f1d76d9e59df66f8195c79086a6c620f54f96f9b4a5bbf32e39ac"
+    },
+    "cancelled": {
+      "file": "cancelled.gif",
+      "bytes": 10982,
+      "width": 240,
+      "height": 240,
+      "frames": 1,
+      "sha256": "874e52031a941ecabd92602e8ea6cf50c733bad25aab11a91bd33b8c26e84552"
+    },
+    "unavailable": {
+      "file": "unavailable.gif",
+      "bytes": 16588,
+      "width": 240,
+      "height": 240,
+      "frames": 1,
+      "sha256": "0a7ebe9b30c07fedd5bb1c94228550e645e44ff8a9aeba589e852c085d361b75"
+    }
+  },
+  "total_bytes": 642727,
+  "pass": true
+}

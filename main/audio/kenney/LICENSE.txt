@@ -1,0 +1,13 @@
+Kenney audio packs used by PrintDeck:
+
+- Interface Sounds (1.0)
+- Digital Audio (1.0)
+- Sci-Fi Sounds (1.0)
+- UI Audio (1.0)
+
+Created/distributed by Kenney (www.kenney.nl)
+License: Creative Commons Zero (CC0)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+This content is free to use in personal, educational and commercial projects.
+Credit to Kenney or www.kenney.nl is appreciated but not required.

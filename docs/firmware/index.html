@@ -1,0 +1,1256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5f6" id="appearance-theme-color">
+    <title>Firmware · PrintDeck</title>
+    <script>
+      (() => {
+        const storageKey = 'printdeck-installer-appearance';
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+        const allowedModes = new Set(['light', 'dark']);
+        let followsSystem = true;
+        let mode = systemDark.matches ? 'dark' : 'light';
+        try {
+          const storedMode = window.localStorage.getItem(storageKey);
+          if (allowedModes.has(storedMode)) {
+            mode = storedMode;
+            followsSystem = false;
+          }
+        } catch (_) {}
+
+        const updateControls = () => {
+          document.querySelectorAll('[data-appearance-mode]').forEach((button) => {
+            button.setAttribute('aria-pressed', String(button.dataset.appearanceMode === mode));
+          });
+          document.querySelectorAll('.appearance-switch').forEach((control) => {
+            control.setAttribute('aria-checked', String(mode === 'dark'));
+            const localize = window.printDeckInstallerI18n?.t || ((text) => text);
+            control.setAttribute('aria-label', localize(mode === 'dark'
+              ? 'Dark appearance. Activate to use light appearance.'
+              : 'Light appearance. Activate to use dark appearance.'));
+          });
+        };
+        const apply = (nextMode, persist = true) => {
+          mode = allowedModes.has(nextMode) ? nextMode : (systemDark.matches ? 'dark' : 'light');
+          document.documentElement.dataset.appearance = mode;
+          document.documentElement.dataset.appearanceMode = mode;
+          const themeColor = document.getElementById('appearance-theme-color');
+          if (themeColor) themeColor.content = mode === 'dark' ? '#101010' : '#f5f5f6';
+          if (persist) {
+            followsSystem = false;
+            try { window.localStorage.setItem(storageKey, mode); } catch (_) {}
+          }
+          updateControls();
+        };
+        const bind = () => {
+          document.querySelectorAll('.appearance-switch').forEach((control) => {
+            if (control.dataset.appearanceBound) return;
+            control.dataset.appearanceBound = 'true';
+            const toggle = () => apply(mode === 'dark' ? 'light' : 'dark');
+            control.addEventListener('click', toggle);
+            control.addEventListener('keydown', (event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              toggle();
+            });
+          });
+          updateControls();
+        };
+        const followSystem = () => { if (followsSystem) apply(systemDark.matches ? 'dark' : 'light', false); };
+        if (systemDark.addEventListener) systemDark.addEventListener('change', followSystem);
+        else if (systemDark.addListener) systemDark.addListener(followSystem);
+        const syncStoredAppearance = (storedMode) => {
+          if (allowedModes.has(storedMode)) {
+            followsSystem = false;
+            apply(storedMode, false);
+            return;
+          }
+          followsSystem = true;
+          apply(systemDark.matches ? 'dark' : 'light', false);
+        };
+        window.addEventListener('storage', (event) => {
+          if (event.key !== storageKey) return;
+          syncStoredAppearance(event.newValue);
+        });
+        window.addEventListener('pageshow', () => {
+          let storedMode = null;
+          try { storedMode = window.localStorage.getItem(storageKey); } catch (_) {}
+          syncStoredAppearance(storedMode);
+        });
+        window.printDeckInstallerAppearance = { apply, bind };
+        apply(mode, false);
+      })();
+    </script>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--page);
+        color: var(--text);
+        --page: #071018;
+        --page-glow-a: #1d4b5b;
+        --page-glow-b: #16392f;
+        --accent: #35d9a7;
+        --accent-button: #35d9a7;
+        --accent-button-text: #05251d;
+        --text: #eef8fc;
+        --strong: #fff;
+        --muted: #a9bdc9;
+        --body-copy: #c9d9e1;
+        --step-copy: #c8d7df;
+        --code: #c8ffe9;
+        --panel: #0d1b25f2;
+        --panel-solid: #0d1b25;
+        --surface: #102531;
+        --surface-raised: #132733;
+        --surface-deep: #0a1720;
+        --line: #284657;
+        --line-strong: #315466;
+        --selected: #12332e;
+        --shadow: #0009;
+        --shadow-strong: #000c;
+        --warning-text: #ffe9c2;
+        --warning-bg: #3b2a18;
+        --warning-line: #7d5731;
+        --tip-text: #c7e9f6;
+        --tip-bg: #102a37;
+        --tip-line: #28546b;
+        --subtle: #78919f;
+        --footer-link: #9fc3d2;
+        --overlay: #02070dcc;
+        --switch-bg: #071018;
+        --switch-line: #315466;
+        --switch-text: #a9bdc9;
+        --switch-active-bg: #eef8fc;
+        --switch-active-text: #071018;
+        --esp-tools-button-color: var(--accent-button);
+        --esp-tools-button-text-color: var(--accent-button-text);
+        --esp-tools-button-border-radius: 14px;
+      }
+      :root:lang(zh-CN) { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", ui-sans-serif, system-ui, sans-serif; }
+      :root[data-appearance="light"] {
+        color-scheme: light;
+        --page: #eef5f6;
+        --page-glow-a: #c8e9ee;
+        --page-glow-b: #d4eee6;
+        --accent: #087d64;
+        --accent-button: #26cda0;
+        --text: #10242d;
+        --strong: #071820;
+        --muted: #506a76;
+        --body-copy: #425d68;
+        --step-copy: #38545f;
+        --code: #09684f;
+        --panel: linear-gradient(145deg, rgba(255,255,255,.97), rgba(233,243,245,.95));
+        --panel-solid: linear-gradient(145deg, #fff, #eaf3f5);
+        --surface: #f1f7f8;
+        --surface-raised: #edf5f6;
+        --surface-deep: #f7fafb;
+        --line: #bad0d6;
+        --line-strong: #9ebdc6;
+        --selected: #dff3ed;
+        --shadow: #31505a2b;
+        --shadow-strong: #31505a3d;
+        --warning-text: #69420d;
+        --warning-bg: #fff3d9;
+        --warning-line: #d8ad61;
+        --tip-text: #174e62;
+        --tip-bg: #e5f4f8;
+        --tip-line: #83bccb;
+        --subtle: #637d88;
+        --footer-link: #25657a;
+        --overlay: #dce9ebcc;
+        --switch-bg: #dce7e9;
+        --switch-line: #aec6cc;
+        --switch-text: #49626c;
+        --switch-active-bg: #fff;
+        --switch-active-text: #10242d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        padding: clamp(16px, 4vw, 42px);
+        background:
+          radial-gradient(circle at 15% 0%, var(--page-glow-a) 0, transparent 34%),
+          radial-gradient(circle at 90% 90%, var(--page-glow-b) 0, transparent 32%),
+          var(--page);
+      }
+      [hidden] { display: none !important; }
+      #installer-app:not([hidden]) {
+        width: 100%;
+        min-height: 0;
+        display: block;
+      }
+      .shell {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+        padding: clamp(24px, 5vw, 58px);
+        border: 1px solid var(--line);
+        border-radius: clamp(22px, 4vw, 36px);
+        background: var(--panel);
+        box-shadow: 0 30px 90px var(--shadow);
+      }
+      .installer-language { min-height: 44px; padding: 8px 42px 8px 14px; border: 1px solid var(--switch-line); border-radius: 999px; color: var(--text); background-color: var(--switch-bg); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23788f9a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-size: 18px 18px; background-position: right 15px center; appearance: none; -webkit-appearance: none; font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; }
+      .appearance-switch { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--switch-line); border-radius: 999px; background: var(--switch-bg); color: var(--switch-text); cursor: pointer; }
+      .appearance-option { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; pointer-events:none; }
+      .appearance-option svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .appearance-option:hover, .appearance-option:focus-visible { color: var(--strong); outline: none; }
+      .appearance-option:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+      .appearance-option[aria-pressed="true"] { background: var(--switch-active-bg); color: var(--switch-active-text); box-shadow: 0 1px 4px var(--shadow); }
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.16fr) minmax(300px, .84fr);
+        gap: clamp(34px, 5vw, 66px);
+        align-items: start;
+      }
+      .hero-copy { min-width: 0; }
+      .installer-title { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; }
+      .installer-title-icon { width: 56px; height: 56px; flex: 0 0 auto; display: grid; place-items: center; border: 2px solid var(--accent); border-radius: 50%; color: var(--accent); }
+      .installer-title-icon svg { width: 31px; height: 31px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .eyebrow { color: var(--accent); letter-spacing: .15em; font-weight: 850; font-size: .78rem; }
+      h1 {
+        display: flex;
+        align-items: baseline;
+        gap: .12em;
+        margin: 0;
+        white-space: nowrap;
+        font-size: clamp(1.85rem, 3vw, 2.8rem);
+        line-height: 1.02;
+        letter-spacing: -.045em;
+      }
+      .installer-title-slash { font-size: .72em; font-weight: 400; letter-spacing: 0; }
+      :root:lang(pl) .installer-title h1,
+      :root:lang(es) .installer-title h1,
+      :root:lang(fr) .installer-title h1,
+      :root:lang(de) .installer-title h1 { font-size: clamp(1.55rem, 2.15vw, 2.25rem); }
+      h2 { margin: 0 0 10px; font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -.025em; }
+      h3 { margin: 0 0 8px; font-size: 1.08rem; }
+      .instructions > h3 { margin-top: 28px; }
+      .lead { max-width: 640px; margin: 0; color: var(--muted); font-size: 1.08rem; line-height: 1.65; }
+      .firmware-version { width: min(100%, 480px); min-height: 60px; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(180px, 1.2fr); align-items: stretch; margin-top: 88px; border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; color: var(--muted); background: var(--surface); font-size: .96rem; }
+      .firmware-version-label { display: flex; align-items: center; padding: 0 18px; white-space: nowrap; }
+      .firmware-version select { width: 100%; min-width: 0; padding: 12px 46px 12px 18px; border: 0; border-left: 1px solid var(--line-strong); border-radius: 15px; color: var(--strong); background-color: var(--surface-raised); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23788f9a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-size: 20px 20px; background-position: right 16px center; appearance: none; -webkit-appearance: none; font: inherit; font-weight: 800; cursor: pointer; }
+      .product-photo {
+        position: relative;
+        width: 100%;
+        max-height: 390px;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border: 1px solid var(--line-strong);
+        border-radius: 24px;
+        box-shadow: 0 18px 48px var(--shadow);
+      }
+      .hardware-product-photo {
+        aspect-ratio: 1;
+        max-height: none;
+        justify-self: end;
+        background: #101010;
+      }
+      .hardware-product-photo[data-hardware="lcd_1_54"] { background: #e9ebed; }
+      .hardware-product-photo[data-hardware="knomi2"] { background: transparent; border-color: transparent; box-shadow: none; }
+      .hardware-product-image {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: contain;
+      }
+      .hardware-product-image.knomi2-product-image {
+        -webkit-mask-image: radial-gradient(circle 36.8% at 50% 44.2%, #000 99%, transparent 100%), linear-gradient(#000 0 0);
+        -webkit-mask-position: center, center 86.4%;
+        -webkit-mask-size: 100% 100%, 24% 8%;
+        -webkit-mask-repeat: no-repeat;
+        -webkit-mask-composite: source-over;
+        mask-image: radial-gradient(circle 36.8% at 50% 44.2%, #000 99%, transparent 100%), linear-gradient(#000 0 0);
+        mask-position: center, center 86.4%;
+        mask-size: 100% 100%, 24% 8%;
+        mask-repeat: no-repeat;
+        mask-composite: add;
+      }
+      .hardware-product-screen {
+        position: absolute;
+        top: 21.2%;
+        left: 21.35%;
+        width: 57.3%;
+        aspect-ratio: 1;
+        overflow: hidden;
+        border-radius: 50%;
+      }
+      .hardware-product-screen img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+      }
+      .device { grid-column: 1 / -1; margin-top: -62px; color: var(--body-copy); }
+      .device > strong { display: block; margin-bottom: 18px; color: var(--strong); font-size: 1.38rem; }
+      .hardware-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+      .hardware-option { position: relative; min-width: 0; min-height: 152px; display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 16px; align-items: center; padding: 22px 46px 22px 20px; border: 1px solid var(--line-strong); border-radius: 17px; background: var(--surface); color: var(--body-copy); cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+      .hardware-option:hover { transform: translateY(-1px); border-color: var(--accent); }
+      .hardware-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .hardware-option.selected { border-color: var(--accent); background: var(--selected); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); }
+      .hardware-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+      .hardware-option::after { content: ''; position: absolute; top: 18px; right: 18px; width: 19px; height: 19px; border: 2px solid var(--line-strong); border-radius: 50%; background: var(--surface-deep); }
+      .hardware-option.selected::after { border-color: var(--accent); box-shadow: inset 0 0 0 4px var(--surface-deep); background: var(--accent); }
+      .hardware-option-shell { position: relative; min-width: 0; }
+      .hardware-option-shell .hardware-option { height: 100%; box-sizing: border-box; }
+      .hardware-option--with-link { padding-bottom: 42px; }
+      .hardware-more { position: absolute; right: 18px; bottom: 14px; z-index: 1; color: var(--accent); font-size: .76rem; font-weight: 850; line-height: 1.2; text-decoration: none; text-underline-offset: 3px; }
+      .hardware-more:hover { text-decoration: underline; }
+      .hardware-more:focus-visible { border-radius: 4px; outline: 2px solid var(--accent); outline-offset: 3px; }
+      .hardware-icon { width: 68px; height: 72px; display: grid; place-items: center; color: var(--strong); }
+      .hardware-icon svg { width: 100%; height: 100%; display: block; overflow: visible; }
+      .hardware-icon .icon-frame { fill: var(--surface-deep); stroke: var(--accent); }
+      .hardware-icon .icon-screen { fill: none; stroke: currentColor; }
+      .hardware-icon .icon-detail { fill: currentColor; stroke: none; }
+      .hardware-icon text { fill: currentColor; font-family: Poppins, ui-sans-serif, system-ui, sans-serif; font-size: 5.5px; font-weight: 600; letter-spacing: -.15px; }
+      .hardware-icon-knomi .icon-frame { fill: #101010; }
+      .hardware-icon-knomi .icon-screen { stroke: #f7f7f7; }
+      .hardware-icon-knomi .icon-detail { fill: #f7f7f7; }
+      .hardware-icon-knomi text { fill: #f7f7f7; }
+      .hardware-copy { min-width: 0; }
+      .hardware-copy b { display: block; color: var(--strong); font-size: 1.02rem; }
+      .hardware-copy small { display: grid; gap: 1px; margin-top: 10px; color: var(--muted); font-size: .82rem; line-height: 1.35; }
+      .hardware-copy small span { display: block; }
+      .driver-card { margin-top: 28px; padding: clamp(22px, 4vw, 34px); border: 2px solid #e34848; border-radius: 20px; background: #fff; color: #10242d; }
+      .driver-card h2 { margin-bottom: 8px; color: #071820; }
+      .driver-card-intro { max-width: 880px; margin: 0; color: #50636c; line-height: 1.55; }
+      .driver-instructions-title { margin: 22px 0 0; color: #071820; font-size: 1.08rem; font-weight: 850; }
+      .driver-instructions-title + .driver-os-tabs { margin-top: 10px; }
+      .driver-os-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
+      .driver-os-tab { min-height: 82px; display: flex; align-items: center; justify-content: center; gap: 11px; padding: 14px; border: 1px solid #c8d2d6; border-radius: 14px; background: #f5f7f8; color: #344b55; font: inherit; font-weight: 850; cursor: pointer; }
+      .driver-os-tab svg { width: 30px; height: 30px; flex: 0 0 auto; fill: currentColor; }
+      .driver-os-tab:hover, .driver-os-tab:focus-visible { border-color: #26a985; outline: none; }
+      .driver-os-tab.selected { border-color: #16b98d; background: #e4f7f1; color: #075f4b; box-shadow: 0 0 0 2px rgba(22,185,141,.14); }
+      .driver-panel { margin-top: 16px; padding: 18px 20px; border: 1px solid #d5dde0; border-radius: 14px; background: #f8fafb; color: #38505a; line-height: 1.55; }
+      .driver-panel ol { margin: 0; padding-left: 1.3rem; }
+      .driver-panel li + li { margin-top: 8px; }
+      .driver-panel a { color: #087d64; font-weight: 800; text-underline-offset: 3px; }
+      .driver-panel code { color: #075f4b; }
+      .driver-check { margin-top: 18px; padding-top: 50px; padding-bottom:50px; width: 30%;margin-left:auto;margin-right:auto;}
+      .driver-check p { margin: 0 0 12px; color: #50636c; line-height: 1.55; }
+      .driver-check-button { width: 100%; padding: 14px 18px; border: 0; border-radius: 12px; background: #26cda0; color: #05251d; font: inherit; font-weight: 900; cursor: pointer; }
+      .driver-check-button:disabled { opacity: .6; cursor: wait; }
+      .workflow { margin-top: clamp(36px, 7vw, 72px); }
+      .step-label { margin-bottom: 12px; color: var(--accent); font-weight: 800; font-size: .82rem; letter-spacing: .1em; }
+      .mode-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 16px; align-items: stretch; }
+      .mode-or { align-self: center; margin: 0 16px; color: var(--strong); font-size: 2.36rem; font-weight: 900; letter-spacing: .04em; }
+      .mode {
+        min-height: 150px;
+        padding: 22px;
+        border: 1px solid var(--line-strong);
+        border-radius: 18px;
+        color: var(--text);
+        background: var(--surface);
+        text-align: left;
+        font: inherit;
+        cursor: pointer;
+        transition: transform .15s ease, border-color .15s ease, background .15s ease;
+      }
+      .mode:hover, .mode:focus-visible { transform: translateY(-2px); border-color: var(--accent); outline: none; }
+      .mode.selected { border-color: var(--accent); background: var(--selected); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
+      .mode:disabled { opacity: .46; color: var(--muted); background: color-mix(in srgb, var(--surface) 76%, var(--page)); cursor: not-allowed; }
+      .mode:disabled:hover { transform: none; border-color: var(--line-strong); }
+      .mode-title { display: block; margin-bottom: 8px; font-size: 1.12rem; font-weight: 850; }
+      .mode-copy { display: block; color: var(--muted); line-height: 1.5; }
+      .instructions { margin-top: 18px; padding: clamp(20px, 4vw, 34px); border: 1px solid var(--line); border-radius: 20px; background: var(--surface-deep); }
+      .instructions > p { color: var(--muted); line-height: 1.6; }
+      .steps { margin: 24px 0 0; padding: 0; list-style: none; counter-reset: setup; }
+      .steps-continued { counter-reset: setup 3; }
+      .steps li { position: relative; min-height: 54px; margin: 0 0 20px; padding-left: 58px; color: var(--step-copy); line-height: 1.6; counter-increment: setup; }
+      .steps li::before {
+        content: counter(setup);
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--surface-raised);
+        color: var(--accent);
+        font-weight: 900;
+      }
+      .steps strong { color: var(--strong); }
+      code { color: var(--code); font-size: .95em; }
+      esp-web-install-button { display: block; margin: 26px 0 12px; }
+      esp-web-install-button button {
+        width: 100%;
+        border: 0;
+        padding: 17px 22px;
+        border-radius: 14px;
+        color: var(--accent-button-text);
+        background: var(--accent-button);
+        font: inherit;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .usb-update-button { width: 100%; margin: 26px 0 12px; border: 0; padding: 17px 22px; border-radius: 14px; color: var(--accent-button-text); background: var(--accent-button); font: inherit; font-weight: 900; cursor: pointer; }
+      .usb-update-button:disabled { opacity: .55; cursor: wait; }
+      .update-progress { margin: 14px 0 18px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+      .update-progress-track { height: 8px; overflow: hidden; border-radius: 999px; background: var(--line); }
+      .update-progress-fill { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #62c7ff); transition: width .2s ease; }
+      .update-progress-text { margin-top: 9px; color: var(--muted); font-size: .9rem; }
+      .update-progress-text.error { color: var(--warning-text); }
+      .warning, .tip { margin-top: 18px; padding: 16px 18px; border-radius: 14px; line-height: 1.55; }
+      .warning { color: var(--warning-text); background: var(--warning-bg); border: 1px solid var(--warning-line); }
+      .tip { color: var(--tip-text); background: var(--tip-bg); border: 1px solid var(--tip-line); }
+      .fine-print { color: var(--subtle); font-size: .88rem; }
+      .site-footer { width: min(1180px, 100%); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; margin: 30px auto 0; color: var(--subtle); font-size: .88rem; }
+      .footer-copy { grid-column: 2; text-align: center; }
+      .footer-controls { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 9px; }
+      .site-footer a { color: var(--footer-link); text-underline-offset: 3px; }
+      .site-footer a:hover, .site-footer a:focus-visible { color: var(--accent); }
+      .unsupported-wrap { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; justify-items: center; }
+      .unsupported { max-width: 670px; text-align: center; }
+      .unsupported-wrap > .site-footer { width: min(670px, 100%); grid-template-columns: 1fr; justify-items: center; }
+      .unsupported-wrap > .site-footer .footer-copy, .unsupported-wrap > .site-footer .footer-controls { grid-column: 1; justify-self: center; }
+      .unsupported h1 { white-space: normal; font-size: clamp(2rem, 6vw, 3.8rem); }
+      .browser-grid { display: flex; justify-content: center; gap: 18px; margin: 32px 0; }
+      .browser-card { width: 150px; padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); font-weight: 800; }
+      .browser-card img { width: 66px; height: 66px; display: block; margin: 0 auto 12px; object-fit: contain; }
+      .completion-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: var(--overlay); backdrop-filter: blur(8px); }
+      .completion-card { width: min(620px, 100%); max-height: calc(100vh - 36px); overflow-y: auto; padding: clamp(24px, 5vw, 42px); border: 1px solid var(--line); border-radius: 28px; background: var(--panel-solid); box-shadow: 0 30px 100px var(--shadow-strong); text-align: center; }
+      .completion-icon { font-size: 3rem; line-height: 1; }
+      .completion-card h2 { margin-top: 16px; }
+      .completion-card > p { color: var(--muted); line-height: 1.6; }
+      .completion-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+      .completion-step { min-width: 0; padding: 16px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--surface); text-align: left; line-height: 1.55; }
+      .completion-step:only-child { grid-column: 1 / -1; }
+      .completion-step strong { display: block; min-height: 3.1em; margin-bottom: 4px; }
+      .completion-step p { margin: 0; color: var(--step-copy); }
+      .completion-step p + p { margin-top: 8px; }
+      .completion-qr { width: 164px; min-height: 164px; margin: 14px auto; padding: 10px; border-radius: 16px; background: #fff; }
+      .completion-qr img, .completion-qr canvas { display: block; width: 144px !important; height: 144px !important; }
+      .completion-actions { margin-top: 20px; }
+      .completion-actions button { width: 100%; padding: 14px; border: 0; border-radius: 12px; background: var(--accent-button); color: var(--accent-button-text); font: inherit; font-weight: 900; cursor: pointer; }
+      @media (max-width: 940px) {
+        .hero { grid-template-columns: 1fr; }
+        .hero-copy { order: 1; }
+        .product-photo { order: 2; width: min(100%, 430px); max-height: 360px; justify-self: center; }
+        .device { order: 3; margin-top: -8px; }
+        .mode-grid { grid-template-columns: 1fr; }
+        .mode-or { justify-self: center; margin: 0; padding: 4px 0; }
+        .hardware-options { grid-template-columns: 1fr; }
+        .hardware-option { min-height: 118px; }
+        .driver-card { margin-top: 24px; }
+      }
+      @media (max-width: 420px) {
+        body { padding: 10px; }
+        .shell { padding: 22px 17px; }
+        .installer-title { align-items: flex-start; gap: 13px; }
+        .installer-title-icon { width: 46px; height: 46px; }
+        .installer-title-icon svg { width: 26px; height: 26px; }
+        h1 { flex-wrap: nowrap; gap: 0 .1em; white-space: nowrap; font-size: clamp(1.12rem, 6vw, 1.55rem); }
+        :root:lang(pl) .installer-title h1,
+        :root:lang(es) .installer-title h1,
+        :root:lang(fr) .installer-title h1,
+        :root:lang(de) .installer-title h1 { font-size: 1rem; }
+        .firmware-version { grid-template-columns: 1fr; margin-top: 60px; }
+        .firmware-version-label { min-height: 48px; }
+        .firmware-version select { min-height: 52px; border-top: 1px solid var(--line-strong); border-left: 0; border-radius: 0; }
+        .step-label { font-size: .72rem; letter-spacing: .055em; }
+        .browser-card { width: 125px; padding: 15px; }
+        .steps li { padding-left: 50px; }
+        .hardware-option { grid-template-columns: 56px minmax(0, 1fr); gap: 14px; padding: 18px 42px 18px 16px; }
+        .hardware-option--with-link { padding-bottom: 42px; }
+        .hardware-icon { width: 56px; height: 60px; }
+        .driver-os-tabs { grid-template-columns: 1fr; }
+        .driver-os-tab { min-height: 62px; }
+      }
+      @media (max-width: 680px) {
+        .site-footer { grid-template-columns: 1fr; justify-items: center; }
+        .footer-copy, .footer-controls { grid-column: 1; justify-self: center; }
+        .completion-steps { grid-template-columns: 1fr; }
+        .completion-step strong { min-height: 0; }
+      }
+    </style>
+  <link rel="stylesheet" href="../assets/site.css?v=20260901-5">
+  </head>
+  <body class="site-page firmware-page" data-page-title="Firmware · PrintDeck">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="../" aria-label="Home">
+          <img class="site-logo site-logo-white" src="../assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="../assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        </a>
+        <nav class="site-tabs" aria-label="PrintDeck website">
+          <a class="site-tab" href="../">Home</a>
+          <a class="site-tab" href="../firmware/" aria-current="page">Firmware</a>
+          <a class="site-tab" href="../case-designs/">Case Designs</a>
+          <a class="site-tab" href="../knomi2/">KNOMI2</a>
+          <a class="site-tab" href="../support/">Support</a>
+        </nav>
+      </div>
+    </header>
+    <div id="installer-app" hidden>
+      <main class="shell">
+        <section class="hero">
+          <div class="hero-copy">
+            <div class="installer-title">
+              <span class="installer-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4"></path><path d="M5 15v4h14v-4"></path></svg>
+              </span>
+              <h1><span>Install</span><span class="installer-title-slash" aria-hidden="true">/</span><span>Update firmware</span></h1>
+            </div>
+            <p class="lead">Install PrintDeck from your computer with a guided USB setup. No programming tools or electronics experience required.</p>
+            <label class="firmware-version" for="firmware-version">
+              <span class="firmware-version-label">Firmware version</span>
+              <select id="firmware-version" aria-label="Firmware version">
+                <option value="1.0.0" selected>1.0.0 (latest)</option>
+              </select>
+            </label>
+          </div>
+          <div class="product-photo hardware-product-photo" id="product-visual" data-hardware="amoled_1_75" role="img" aria-label="PrintDeck round status display">
+            <img class="hardware-product-image" id="product-visual-image" src="../assets/marketing/home/riverstone-hero-green-cutout.png" alt="" aria-hidden="true" fetchpriority="high">
+            <div class="hardware-product-screen" id="product-visual-screen" aria-hidden="true">
+              <img src="../assets/screens/reaction-printing.png" alt="">
+            </div>
+          </div>
+          <div class="device">
+            <strong id="hardware-label">Choose your display</strong>
+            <div class="hardware-options" role="radiogroup" aria-labelledby="hardware-label">
+              <label class="hardware-option selected">
+                <input type="radio" name="hardware" value="amoled_1_75" checked>
+                <span class="hardware-icon" aria-hidden="true">
+                  <svg viewBox="0 0 72 72">
+                    <circle class="icon-frame" cx="36" cy="36" r="32" stroke-width="3"></circle>
+                    <text x="36" y="19" text-anchor="middle">PrintDeck</text>
+                    <rect class="icon-screen" x="17" y="23" width="38" height="26" rx="2.5" stroke-width="2.5"></rect>
+                    <path class="icon-screen" d="M29 30a7 7 0 1 0 4.9 12M29 30v7h7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <rect class="icon-detail" x="40" y="38" width="3.5" height="7" rx=".7"></rect>
+                    <rect class="icon-detail" x="46" y="33" width="3.5" height="12" rx=".7"></rect>
+                    <rect class="icon-detail" x="23" y="55" width="3" height="7" rx=".6"></rect>
+                    <rect class="icon-detail" x="29" y="52" width="3" height="10" rx=".6"></rect>
+                    <rect class="icon-detail" x="40" y="54" width="3" height="8" rx=".6"></rect>
+                    <rect class="icon-detail" x="46" y="50" width="3" height="12" rx=".6"></rect>
+                  </svg>
+                </span>
+                <span class="hardware-copy"><b>Round</b><small><span>Waveshare</span><span>ESP32-S3 Touch AMOLED 1.75″</span><span>466 × 466 · 16 MB</span></small></span>
+              </label>
+              <label class="hardware-option">
+                <input type="radio" name="hardware" value="lcd_1_54">
+                <span class="hardware-icon" aria-hidden="true">
+                  <svg viewBox="0 0 72 72">
+                    <rect class="icon-frame" x="5" y="5" width="62" height="62" rx="10" stroke-width="3"></rect>
+                    <text x="36" y="20" text-anchor="middle">PrintDeck</text>
+                    <rect class="icon-screen" x="17" y="24" width="38" height="25" rx="2" stroke-width="2.5"></rect>
+                    <path class="icon-screen" d="m21 43 8-8 7 5 12-12 4 3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <rect class="icon-detail" x="22" y="55" width="3" height="7" rx=".6"></rect>
+                    <rect class="icon-detail" x="28" y="52" width="3" height="10" rx=".6"></rect>
+                    <rect class="icon-detail" x="39" y="54" width="3" height="8" rx=".6"></rect>
+                    <rect class="icon-detail" x="45" y="50" width="3" height="12" rx=".6"></rect>
+                  </svg>
+                </span>
+                <span class="hardware-copy"><b>Square</b><small><span>Waveshare</span><span>ESP32-S3 LCD 1.54″</span><span>240 × 240 · 16 MB</span></small></span>
+              </label>
+              <div class="hardware-option-shell">
+                <label class="hardware-option hardware-option--with-link">
+                  <input type="radio" name="hardware" value="knomi2">
+                  <span class="hardware-icon hardware-icon-knomi" aria-hidden="true">
+                    <svg viewBox="0 0 72 76">
+                      <path d="M27 63h18v6h-4v3h-4v-3h-6v3h-4v-3h-4v-6Z" fill="#232323" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"></path>
+                      <rect x="31" y="68" width="5" height="3" rx=".6" fill="#c9a34a"></rect>
+                      <rect x="38" y="68" width="5" height="3" rx=".6" fill="#c9a34a"></rect>
+                      <circle class="icon-frame" cx="36" cy="34" r="30" stroke-width="3"></circle>
+                      <text x="36" y="17" text-anchor="middle">PrintDeck</text>
+                      <rect class="icon-screen" x="18" y="22" width="36" height="25" rx="2" stroke-width="2.5"></rect>
+                      <path class="icon-screen" d="m22 41 7-7 7 5 11-11 4 3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                      <rect class="icon-detail" x="22" y="53" width="3" height="7" rx=".6"></rect>
+                      <rect class="icon-detail" x="28" y="50" width="3" height="10" rx=".6"></rect>
+                      <rect class="icon-detail" x="39" y="52" width="3" height="8" rx=".6"></rect>
+                      <rect class="icon-detail" x="45" y="48" width="3" height="12" rx=".6"></rect>
+                    </svg>
+                  </span>
+                  <span class="hardware-copy"><b>KNOMI2</b><small><span>BIGTREETECH</span><span>KNOMI2</span><span>240 × 240 · 16 MB</span></small></span>
+                </label>
+                <a class="hardware-more" href="../knomi2/" aria-label="More about KNOMI2">More →</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="driver-card" id="knomi-driver-card" hidden>
+          <h2>USB driver may be required</h2>
+          <p class="driver-card-intro">KNOMI2 uses a WCH USB-to-serial bridge. Unlike the Waveshare screens, it does not use a standard native USB connection, so a WCH driver may be required before Chrome can see it. This comes from the KNOMI2 hardware design, not PrintDeck. Click below to start installation and open Chrome's protected device list. Look for WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB…. If you do not see one, close the list, choose your system and follow the driver instructions below.</p>
+          <div class="driver-check">
+            <button class="driver-check-button" id="knomi-install-start" type="button">Start KNOMI2 installation</button>
+          </div>
+          <p class="driver-instructions-title">Install Driver Instructions:</p>
+          <div class="driver-os-tabs" role="tablist" aria-label="Operating system">
+            <button class="driver-os-tab" type="button" role="tab" data-driver-os="windows" aria-controls="driver-panel-windows" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 4.1 10.5 3v8.2H2V4.1Zm9.5-1.2L22 1.5v9.7H11.5V2.9ZM2 12.2h8.5V21L2 19.9v-7.7Zm9.5 0H22v10.3l-10.5-1.4v-8.9Z"></path></svg>
+              <span>Windows</span>
+            </button>
+            <button class="driver-os-tab" type="button" role="tab" data-driver-os="mac" aria-controls="driver-panel-mac" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.1 12.5c0-2.7 2.2-4 2.3-4.1-1.3-1.9-3.3-2.1-4-2.1-1.7-.2-3.3 1-4.2 1-.9 0-2.3-1-3.8-1-1.9 0-3.7 1.1-4.7 2.8-2 3.5-.5 8.7 1.4 11.5.9 1.4 2.1 2.9 3.6 2.8 1.4-.1 2-1 3.7-1s2.2 1 3.7 1c1.5 0 2.5-1.4 3.4-2.8 1.1-1.6 1.5-3.1 1.5-3.2-.1 0-2.9-1.1-2.9-4.9ZM14.3 4.5c.8-1 1.4-2.4 1.2-3.8-1.2.1-2.7.8-3.5 1.8-.8.9-1.4 2.3-1.2 3.7 1.3.1 2.7-.7 3.5-1.7Z"></path></svg>
+              <span>macOS</span>
+            </button>
+            <button class="driver-os-tab" type="button" role="tab" data-driver-os="linux" aria-controls="driver-panel-linux" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c-2.5 0-4 2.1-4 4.7 0 1.3.3 2.3.1 3.2-.3 1.2-1.5 2.2-2.2 3.4-.8 1.3-1.4 3-.8 4.3.4.9 1.2 1.3 2.2 1.2.8 1.7 2.5 2.7 4.7 2.7s3.9-1 4.7-2.7c1 .1 1.8-.3 2.2-1.2.6-1.3 0-3-.8-4.3-.7-1.2-1.9-2.2-2.2-3.4-.2-.9.1-1.9.1-3.2C16 4.1 14.5 2 12 2Zm-1.8 4.2c.5 0 .8.4.8.9s-.3.9-.8.9-.8-.4-.8-.9.3-.9.8-.9Zm3.6 0c.5 0 .8.4.8.9s-.3.9-.8.9-.8-.4-.8-.9.3-.9.8-.9ZM12 8.1c.8 0 1.5.5 1.5 1.1 0 .5-.7.9-1.5.9s-1.5-.4-1.5-.9c0-.6.7-1.1 1.5-1.1Zm-4 6.1c.6 0 1.1.7 1.1 1.6S8.6 17.4 8 17.4s-1.1-.7-1.1-1.6.5-1.6 1.1-1.6Zm8 0c.6 0 1.1.7 1.1 1.6s-.5 1.6-1.1 1.6-1.1-.7-1.1-1.6.5-1.6 1.1-1.6Zm-6.2 1.5h4.4c.1 1.8-.7 3.2-2.2 3.2s-2.3-1.4-2.2-3.2Z"></path></svg>
+              <span>Linux</span>
+            </button>
+          </div>
+          <div class="driver-panel" id="driver-panel-mac" role="tabpanel" data-driver-panel="mac" hidden>
+            <ol>
+              <li>Download the <a href="https://www.wch-ic.com/downloads/CH34XSER_MAC_ZIP.html" target="_blank" rel="noopener">official WCH driver for macOS</a>.</li>
+              <li>Unzip the download, run the installer and allow the WCH extension in <strong>System Settings → Privacy &amp; Security</strong> if macOS asks.</li>
+              <li>A restart may not be required. Try the connection check here first. If Chrome cannot see KNOMI2, restart your Mac, reconnect KNOMI2 with a USB data cable, and try again.</li>
+            </ol>
+          </div>
+          <div class="driver-panel" id="driver-panel-windows" role="tabpanel" data-driver-panel="windows" hidden>
+            <ol>
+              <li>Connect KNOMI2 and wait a few seconds. Windows usually installs the recommended driver automatically through Windows Update.</li>
+              <li>Click the connection check below. If <strong>USB Serial</strong> appears, no additional installation is needed.</li>
+              <li>If KNOMI2 is missing, download the <a href="https://www.wch-ic.com/downloads/CH341SER_ZIP.html" target="_blank" rel="noopener">official WCH driver for Windows</a>, run <strong>SETUP.EXE</strong>, choose <strong>Install</strong>, then reconnect KNOMI2.</li>
+            </ol>
+          </div>
+          <div class="driver-panel" id="driver-panel-linux" role="tabpanel" data-driver-panel="linux" hidden>
+            <ol>
+              <li>Connect KNOMI2. Most Linux distributions already include the <strong>ch341</strong> driver, so no download is normally required.</li>
+              <li>If the serial port is blocked, run <code>sudo usermod -aG dialout "$USER"</code>, then sign out and sign back in.</li>
+              <li>Return here and check the connection below.</li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="workflow">
+          <div class="mode-grid">
+            <button class="mode" type="button" data-mode="install" aria-controls="install-panel" aria-expanded="false">
+              <span class="mode-title">First installation / Factory reset</span>
+              <span class="mode-copy">Use this for a new screen or when you want to start again. Saved settings will be erased.</span>
+            </button>
+            <div class="mode-or">OR</div>
+            <button class="mode" type="button" data-mode="update" aria-controls="update-panel" aria-expanded="false">
+              <span class="mode-title">Firmware update</span>
+              <span class="mode-copy">Update a working screen safely over USB or Wi-Fi. Saved settings stay on the device.</span>
+            </button>
+          </div>
+
+          <section class="instructions" id="install-panel" hidden>
+            <div class="step-label">FIRST INSTALLATION / FACTORY RESET</div>
+            <h2>Prepare and connect your screen</h2>
+            <ol class="steps">
+              <li><strong>Get a USB-C data cable.</strong> It must transfer data, not only charge devices. The cable supplied with a phone or external drive usually works.</li>
+              <li data-hardware-instruction="waveshare"><strong>Connect the screen directly to your computer.</strong> Plug the USB-C end into the Waveshare display and the other end into your PC or Mac. Avoid a USB hub for the first installation.</li>
+              <li data-hardware-instruction="knomi2" hidden><strong>Connect KNOMI2 directly to your computer.</strong> Use a USB-C data cable and avoid a USB hub for the first installation.</li>
+              <li data-hardware-instruction="waveshare"><strong>Start the installer below.</strong> Choose the serial device whose name contains ESP32, USB, UART, JTAG or CP210. Confirm the full erase when asked, then wait until installation reaches 100%.</li>
+              <li data-hardware-instruction="knomi2" hidden><strong>Start the installer below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB…. Confirm the full erase when asked, then wait until installation reaches 100%.</li>
+            </ol>
+            <esp-web-install-button id="install-button" manifest="../manifest-install.json">
+              <button slot="activate" id="install-button-label">Install 1.0.0 or factory reset</button>
+              <span slot="not-allowed">USB access requires this page to be opened over HTTPS.</span>
+            </esp-web-install-button>
+            <div class="tip" data-hardware-instruction="waveshare"><strong>If no device appears:</strong> unplug the cable. Hold the display's <strong>BOOT</strong> button, reconnect USB-C, release BOOT after two seconds and try again.</div>
+            <div class="tip" data-hardware-instruction="knomi2" hidden><strong>If KNOMI2 does not appear:</strong> close the device list, follow the USB driver instructions in the red section above, reconnect KNOMI2 and start the installation again.</div>
+            <ol class="steps steps-continued">
+              <li><strong>Wait for the Wi-Fi setup screen.</strong> The display will show a QR code and create a temporary network named <code>PrintDeck-XXXXXX</code>, with a unique ending for that screen.</li>
+              <li><strong>Connect a phone or computer to your screen.</strong> Scan the QR code with your phone's camera, or select the exact open network shown on PrintDeck. Wi-Fi setup should open automatically. No password is required, and it is normal for the device to say that this network has no internet.</li>
+              <li><strong>If setup does not open automatically.</strong> While still connected to the PrintDeck setup network, enter <code>http://printdeck.local</code> in your browser. If needed, use <code>http://192.168.4.1</code> as the fallback address.</li>
+              <li><strong>Connect your screen to your normal Wi-Fi.</strong> Use <strong>Scan networks</strong>, select your network, enter its password and save. Printer details are added separately after Wi-Fi setup.</li>
+              <li><strong>Reconnect your phone or computer to its normal Wi-Fi.</strong> Your screen restarts on an empty <strong>My Printers</strong> screen and shows its Web Config address.</li>
+              <li><strong>Add your printer from Web Config.</strong> Open the address shown on your screen, add your Klipper or Bambu Lab printer and save the connection.</li>
+            </ol>
+            <p class="warning"><strong>Factory reset:</strong> this option erases all settings stored on your screen. It does not change anything on your printer or its controller.</p>
+          </section>
+
+          <section class="instructions" id="update-panel" hidden>
+            <div class="step-label">FIRMWARE UPDATE</div>
+            <h2 id="usb-update-heading">Update without losing your settings</h2>
+            <p id="usb-update-intro">Update a working screen over USB without erasing saved Wi-Fi, printers, appearance or other configuration. This updater writes the application and boot selection only; the NVS settings partition is never erased.</p>
+            <ol class="steps" id="usb-update-steps">
+              <li data-hardware-instruction="waveshare"><strong>Connect the screen directly to this computer with a USB-C data cable.</strong></li>
+              <li data-hardware-instruction="knomi2" hidden><strong>Connect KNOMI2 directly to this computer with a USB-C data cable.</strong></li>
+              <li><strong>Select the firmware version above.</strong> The newest release is selected by default; an older version can be chosen for rollback.</li>
+              <li data-hardware-instruction="waveshare"><strong>Start the USB update below.</strong> Choose the ESP32, USB, UART, JTAG or CP210 serial device when prompted.</li>
+              <li data-hardware-instruction="knomi2" hidden><strong>Start the USB update below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB… when prompted.</li>
+              <li><strong>Wait for the screen to restart.</strong> Do not disconnect USB while the update progress is visible.</li>
+            </ol>
+            <button class="usb-update-button" id="usb-update-button" type="button" disabled>Update to 1.0.0 over USB</button>
+            <div class="tip" data-hardware-instruction="knomi2" hidden><strong>If KNOMI2 is missing:</strong> follow the USB driver instructions in the red section above, reconnect it, then start the update again.</div>
+            <p class="warning" id="full-install-required" role="status"></p>
+            <div class="update-progress" id="update-progress" role="status" aria-live="polite" hidden>
+              <div class="update-progress-track"><div class="update-progress-fill" id="update-progress-fill"></div></div>
+              <div class="update-progress-text" id="update-progress-text">Preparing update…</div>
+            </div>
+            <div class="tip" id="usb-update-safety"><strong>Your configuration stays safe:</strong> this path cannot request or perform a full-device erase. If the screen cannot be updated, use <strong>First installation / Factory reset</strong> only as a recovery option.</div>
+            <h3 id="wifi-update-heading">Prefer updating over Wi-Fi?</h3>
+            <p id="wifi-update-description">Open your screen's local Web Config page, choose <strong>Check for updates</strong>, then confirm <strong>Install update</strong>. The Wi-Fi updater also preserves saved settings.</p>
+          </section>
+
+        </section>
+      </main>
+      <footer class="site-footer">
+        <span class="footer-copy">PrintDeck · ADVANCED WIRELESS 3D PRINT MONITOR · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">GitHub repository</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">License</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">Notice</a></span>
+        <div class="footer-controls">
+          <label hidden for="installer-language">Language</label>
+          <select class="installer-language" id="installer-language" data-installer-language aria-label="Language"></select>
+          <div class="appearance-switch" role="switch" tabindex="0" aria-label="Page appearance">
+            <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="Light appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+            <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="Dark appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <div id="completion" class="completion-backdrop" hidden>
+      <section class="completion-card" role="dialog" aria-modal="true" aria-labelledby="completion-title">
+        <div class="completion-icon">🎉</div>
+        <h2 id="completion-title">Congratulations!</h2>
+        <p id="completion-message"></p>
+        <div id="completion-install-details" hidden>
+          <div class="completion-steps">
+            <section class="completion-step">
+              <strong>1. Join the PrintDeck setup network</strong>
+              <div id="completion-wifi-qr" class="completion-qr" aria-label="QR code for the screen setup network" hidden></div>
+              <p id="completion-network-line" hidden><span>Join the open Wi-Fi network</span> <code id="completion-network-name"></code>. <span>No password is required.</span></p>
+              <p id="completion-network-fallback">Scan the QR code shown on the PrintDeck screen, or join the exact PrintDeck-XXXXXX network shown there.</p>
+            </section>
+            <section class="completion-step">
+              <strong>2. Open the PrintDeck setup page</strong>
+              <div id="completion-web-qr" class="completion-qr" aria-label="QR code for the PrintDeck setup page"></div>
+              <p>Open http://printdeck.local. If needed, use http://192.168.4.1, then select your normal Wi-Fi network and enter its password.</p>
+            </section>
+          </div>
+        </div>
+        <div class="completion-actions"><button id="completion-close" type="button">Done</button></div>
+      </section>
+    </div>
+
+    <div id="unsupported-app" class="unsupported-wrap" hidden>
+      <main class="shell unsupported">
+        <div class="eyebrow">BROWSER NOT SUPPORTED</div>
+        <h1>Open this installer in Chrome or Edge</h1>
+        <p class="lead">USB firmware installation needs Web Serial, which is not available here. Use the desktop version of Google Chrome or Microsoft Edge on a PC or Mac.</p>
+        <div class="browser-grid" aria-label="Supported browsers">
+          <div class="browser-card">
+            <img src="../assets/google-chrome.svg" alt="" aria-hidden="true">
+            Google Chrome
+          </div>
+          <div class="browser-card">
+            <img src="../assets/microsoft-edge.png" alt="" aria-hidden="true">
+            Microsoft Edge
+          </div>
+        </div>
+        <p class="fine-print">Mobile browsers, Safari and Firefox cannot access the USB serial port required by this installer.</p>
+      </main>
+      <footer class="site-footer">
+        <span class="footer-copy">PrintDeck · ADVANCED WIRELESS 3D PRINT MONITOR · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">GitHub repository</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">License</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">Notice</a></span>
+        <div class="footer-controls">
+          <label hidden for="unsupported-language">Language</label>
+          <select class="installer-language" id="unsupported-language" data-installer-language aria-label="Language"></select>
+          <div class="appearance-switch" role="switch" tabindex="0" aria-label="Page appearance">
+            <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="Light appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+            <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="Dark appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script src="../localizations.js?v=20260901-5"></script>
+    <script type="module">
+      import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.6.0/bundle.js';
+
+      const wait = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+      const t = (english, values = {}) => window.printDeckInstallerI18n?.t(english, values) || english;
+      const resetAndDisconnect = async (transport, loader) => {
+        try {
+          await transport.setRTS(true);
+          await wait(100);
+          await loader.after();
+        } finally {
+          await transport.disconnect();
+        }
+      };
+
+      window.printDeckUsbUpdate = async ({ applicationUrl, otaDataUrl, onProgress }) => {
+        const port = await navigator.serial.requestPort();
+        const transport = new Transport(port);
+        const loader = new ESPLoader({ transport, baudrate: 115200, enableTracing: false });
+        let connected = false;
+        try {
+          onProgress(1, t('Connecting to the screen…'));
+          await loader.main();
+          await loader.flashId();
+          connected = true;
+          if (loader.chip.CHIP_NAME !== 'ESP32-S3') {
+            throw new Error(t('Unsupported device: {device}. Connect the PrintDeck ESP32-S3 display.', { device: loader.chip.CHIP_NAME }));
+          }
+
+          onProgress(4, t("Checking the screen's storage layout…"));
+          const applicationLocation = new URL(applicationUrl, window.location.href);
+          const partitionTableUrl = new URL('partition-table.bin', applicationLocation);
+          const partitionTableResponse = await fetch(partitionTableUrl);
+          if (!partitionTableResponse.ok) {
+            throw new Error(t('The USB update failed. Reconnect the screen and try again.'));
+          }
+          const expectedPartitionTable = new Uint8Array(await partitionTableResponse.arrayBuffer());
+          if (expectedPartitionTable.length !== 0xC00 ||
+              expectedPartitionTable[0] !== 0xAA || expectedPartitionTable[1] !== 0x50) {
+            throw new Error(t('The USB update failed. Reconnect the screen and try again.'));
+          }
+          const installedPartitionTable = await loader.readFlash(0x8000, expectedPartitionTable.length);
+          const storageLayoutMatches = installedPartitionTable.length === expectedPartitionTable.length &&
+            expectedPartitionTable.every((byte, index) => installedPartitionTable[index] === byte);
+          if (!storageLayoutMatches) {
+            throw new Error(t("The screen's storage layout does not match this firmware version. No firmware was written. Use First installation / Factory reset; saved settings will be erased."));
+          }
+
+          onProgress(5, t('Downloading and validating the selected firmware…'));
+          const [applicationResponse, otaDataResponse] = await Promise.all([
+            fetch(applicationUrl),
+            fetch(otaDataUrl)
+          ]);
+          if (!applicationResponse.ok) throw new Error(t('Firmware download failed ({status}).', { status: applicationResponse.status }));
+          if (!otaDataResponse.ok) throw new Error(t('Boot data download failed ({status}).', { status: otaDataResponse.status }));
+          const application = new Uint8Array(await applicationResponse.arrayBuffer());
+          const otaData = new Uint8Array(await otaDataResponse.arrayBuffer());
+          if (application.length < 32 || application[0] !== 0xE9) {
+            throw new Error(t('The selected application image is not a valid ESP32 firmware file.'));
+          }
+          if (otaData.length !== 8192) {
+            throw new Error(t('The selected boot data has an unexpected size.'));
+          }
+
+          const totalBytes = application.length + otaData.length;
+          const files = [
+            { data: application, address: 0x20000 },
+            { data: otaData, address: 0xF000 }
+          ];
+          let completedBytes = 0;
+          onProgress(6, t('Writing the application without erasing saved settings…'));
+          await loader.writeFlash({
+            fileArray: files,
+            flashSize: 'keep',
+            flashMode: 'keep',
+            flashFreq: 'keep',
+            eraseAll: false,
+            compress: true,
+            reportProgress: (fileIndex, written, total) => {
+              const currentBytes = total ? (written / total) * files[fileIndex].data.length : 0;
+              const percentage = Math.min(99, Math.floor(((completedBytes + currentBytes) / totalBytes) * 93) + 6);
+              onProgress(percentage, t('Writing firmware… {percent}%', { percent: percentage }));
+              if (written === total) completedBytes += files[fileIndex].data.length;
+            }
+          });
+          onProgress(100, t('Update complete. Restarting PrintDeck…'));
+          await resetAndDisconnect(transport, loader);
+        } catch (error) {
+          if (connected) {
+            try { await resetAndDisconnect(transport, loader); } catch (_) {}
+          } else {
+            try { await transport.disconnect(); } catch (_) {}
+          }
+          throw error;
+        }
+      };
+
+      window.printDeckReadKnomi2SetupNetwork = async () => {
+        const ports = (await navigator.serial.getPorts())
+          .filter((port) => port.getInfo().usbVendorId === 0x1A86);
+        for (const port of ports) {
+          const transport = new Transport(port);
+          const loader = new ESPLoader({ transport, baudrate: 115200, enableTracing: false });
+          let connected = false;
+          let setupNetwork = '';
+          try {
+            await loader.main();
+            connected = true;
+            if (loader.chip.CHIP_NAME === 'ESP32-S3') {
+              const baseMac = String(await loader.chip.readMac(loader)).replace(/[^0-9a-f]/gi, '');
+              if (baseMac.length === 12) {
+                const softApMac = (Number.parseInt(baseMac, 16) + 1).toString(16).padStart(12, '0').slice(-12);
+                setupNetwork = `PrintDeck-${softApMac.slice(-6).toUpperCase()}`;
+              }
+            }
+          } catch (_) {
+          } finally {
+            if (connected) {
+              try { await resetAndDisconnect(transport, loader); } catch (_) {}
+            } else {
+              try { await transport.disconnect(); } catch (_) {}
+            }
+          }
+          if (setupNetwork) return setupNetwork;
+        }
+        return '';
+      };
+
+    </script>
+
+    <script>
+      window.printDeckInstallerAppearance.bind();
+      window.printDeckInstallerI18n.init();
+      const contactAddress = [115, 117, 112, 112, 111, 114, 116, 64, 112, 114, 105, 110, 116, 100, 101, 99, 107, 46, 120, 121, 122]
+        .map((code) => String.fromCharCode(code))
+        .join('');
+      document.querySelectorAll('[data-contact-email]').forEach((link) => {
+        link.textContent = contactAddress;
+        link.href = `mailto:${contactAddress}`;
+      });
+      const userAgent = navigator.userAgent;
+      const isEdge = /Edg\//.test(userAgent);
+      const isChrome = /Chrome\//.test(userAgent) && !/Edg\//.test(userAgent) && !/OPR\//.test(userAgent);
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+      const localUnsupportedPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('unsupported-preview');
+      const supported = !localUnsupportedPreview && (isChrome || isEdge) && !isMobile && ('serial' in navigator) && window.isSecureContext;
+
+      document.getElementById(supported ? 'installer-app' : 'unsupported-app').hidden = false;
+
+      if (supported) {
+        let activeInstallMode = 'install';
+        let activeVersion = '1.0.0';
+        let activeHardware = 'amoled_1_75';
+        let activeInstallHardware = 'amoled_1_75';
+        const versionSelect = document.getElementById('firmware-version');
+        const hardwareInputs = [...document.querySelectorAll('input[name="hardware"]')];
+        const productVisual = document.getElementById('product-visual');
+        const productVisualImage = document.getElementById('product-visual-image');
+        const productVisualScreen = document.getElementById('product-visual-screen');
+        const installButton = document.getElementById('install-button');
+        const installButtonLabel = document.getElementById('install-button-label');
+        const usbUpdateButton = document.getElementById('usb-update-button');
+        const updateProgress = document.getElementById('update-progress');
+        const updateProgressFill = document.getElementById('update-progress-fill');
+        const updateProgressText = document.getElementById('update-progress-text');
+        const fullInstallRequired = document.getElementById('full-install-required');
+        const usbUpdateHeading = document.getElementById('usb-update-heading');
+        const usbUpdateIntro = document.getElementById('usb-update-intro');
+        const usbUpdateSteps = document.getElementById('usb-update-steps');
+        const usbUpdateSafety = document.getElementById('usb-update-safety');
+        const wifiUpdateHeading = document.getElementById('wifi-update-heading');
+        const wifiUpdateDescription = document.getElementById('wifi-update-description');
+        const driverCard = document.getElementById('knomi-driver-card');
+        const knomiInstallStart = document.getElementById('knomi-install-start');
+        const driverOsTabs = [...document.querySelectorAll('[data-driver-os]')];
+        const driverPanels = [...document.querySelectorAll('[data-driver-panel]')];
+        const hardwareInstructions = [...document.querySelectorAll('[data-hardware-instruction]')];
+        let setupNetworkName = '';
+        const releaseBase = 'https://raw.githubusercontent.com/PrintDeck/PrintDeck';
+        const versions = {
+          '1.0.0': {
+            releaseTag: 'amoled_1_75-v1.0.0',
+            installManifest: '../manifest-install.json',
+            application: '../firmware/printdeck.bin',
+            otaData: '../firmware/ota_data_initial.bin',
+            lcd_1_54: {
+              releaseTag: 'lcd_1_54-v1.0.0',
+              installManifest: '../manifest-install-lcd-1-54.json',
+              application: '../firmware/lcd_1_54/printdeck.bin',
+              otaData: '../firmware/lcd_1_54/ota_data_initial.bin'
+            },
+            knomi2: {
+              releaseTag: 'knomi2-v1.0.0',
+              installManifest: '../manifest-install-knomi2.json',
+              application: '../firmware/knomi2/printdeck.bin',
+              otaData: '../firmware/knomi2/ota_data_initial.bin'
+            }
+          }
+        };
+        Object.entries(versions).forEach(([version, configuration]) => {
+          const makePageRelative = (url) => /^(?:https:\/\/|\.\.\/|\/)/.test(url) ? url : `../${url}`;
+          if (configuration.installManifest) {
+            configuration.installManifest = makePageRelative(configuration.installManifest);
+            if (configuration.application) configuration.application = makePageRelative(configuration.application);
+            if (configuration.otaData) configuration.otaData = makePageRelative(configuration.otaData);
+          }
+          ['lcd_1_54', 'knomi2'].forEach((hardware) => {
+            const targetConfiguration = configuration[hardware];
+            if (!targetConfiguration) return;
+            targetConfiguration.installManifest = makePageRelative(targetConfiguration.installManifest);
+            if (targetConfiguration.application) targetConfiguration.application = makePageRelative(targetConfiguration.application);
+            if (targetConfiguration.otaData) targetConfiguration.otaData = makePageRelative(targetConfiguration.otaData);
+          });
+          if (configuration.installManifest && !configuration.application) {
+            const firmwareBase = `${releaseBase}/${configuration.releaseTag || `v${version}`}/docs/firmware`;
+            configuration.application = `${firmwareBase}/printdeck.bin`;
+            configuration.otaData = `${firmwareBase}/ota_data_initial.bin`;
+          }
+          ['lcd_1_54', 'knomi2'].forEach((hardware) => {
+            const targetConfiguration = configuration[hardware];
+            if (!targetConfiguration || targetConfiguration.application) return;
+            const firmwareBase = `${releaseBase}/${targetConfiguration.releaseTag || configuration.releaseTag || `v${version}`}/docs/firmware`;
+            targetConfiguration.application = `${firmwareBase}/${hardware}/printdeck.bin`;
+            targetConfiguration.otaData = `${firmwareBase}/${hardware}/ota_data_initial.bin`;
+          });
+        });
+
+        const configurationForHardware = (configuration, hardware) => {
+          if (!configuration) return null;
+          if (hardware === 'amoled_1_75') return configuration.installManifest ? configuration : null;
+          return configuration[hardware] || null;
+        };
+        const selectedConfiguration = (version = versionSelect.value) => {
+          return configurationForHardware(versions[version], activeHardware);
+        };
+        const minimumSelectableVersionByHardware = {
+          amoled_1_75: '1.0.0',
+          lcd_1_54: '1.0.0',
+          knomi2: '1.0.0'
+        };
+        const compareVersions = (left, right) => {
+          const leftParts = left.split('.').map(Number);
+          const rightParts = right.split('.').map(Number);
+          for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+            const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+            if (difference !== 0) return difference;
+          }
+          return 0;
+        };
+        const versionAvailableForHardware = (version, hardware) => {
+          const minimumVersion = minimumSelectableVersionByHardware[hardware];
+          return Boolean(configurationForHardware(versions[version], hardware))
+            && (!minimumVersion || compareVersions(version, minimumVersion) >= 0);
+        };
+        const selectedVersionByHardware = {};
+        const modeButtons = [...document.querySelectorAll('[data-mode]')];
+        const selectMode = (selectedMode, scroll = false) => {
+          const selectedButton = modeButtons.find((button) => button.dataset.mode === selectedMode);
+          if (!selectedButton || selectedButton.disabled) return;
+          modeButtons.forEach((candidate) => {
+            const selected = candidate === selectedButton;
+            candidate.classList.toggle('selected', selected);
+            candidate.setAttribute('aria-expanded', String(selected));
+          });
+          document.getElementById('install-panel').hidden = selectedMode !== 'install';
+          document.getElementById('update-panel').hidden = selectedMode !== 'update';
+          if (scroll) {
+            document.getElementById(`${selectedMode}-panel`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        };
+
+        const applySelectedVersion = () => {
+          const version = versionSelect.value;
+          const configuration = selectedConfiguration(version);
+          if (!configuration) return;
+          const factoryOnly = Boolean(configuration.fullOnly);
+          const updateModeButton = modeButtons.find((button) => button.dataset.mode === 'update');
+          updateModeButton.disabled = factoryOnly;
+          updateModeButton.setAttribute('aria-disabled', String(factoryOnly));
+          if (factoryOnly) selectMode('install');
+          installButton.manifest = configuration.installManifest;
+          installButton.setAttribute('manifest', configuration.installManifest);
+          installButtonLabel.textContent = window.printDeckInstallerI18n.t('Install {version} or factory reset', { version });
+          usbUpdateButton.disabled = Boolean(configuration.fullOnly);
+          usbUpdateHeading.textContent = window.printDeckInstallerI18n.t(
+            configuration.fullOnly ? 'Use full installation for {version}' : 'Update without losing your settings',
+            { version }
+          );
+          usbUpdateButton.textContent = window.printDeckInstallerI18n.t(
+            configuration.fullOnly ? 'Use full installation for {version}' : 'Update to {version} over USB',
+            { version }
+          );
+          [usbUpdateIntro, usbUpdateSteps, usbUpdateSafety, wifiUpdateHeading, wifiUpdateDescription]
+            .forEach((element) => { element.hidden = Boolean(configuration.fullOnly); });
+          fullInstallRequired.hidden = !configuration.fullOnly;
+          fullInstallRequired.textContent = configuration.fullOnly
+            ? window.printDeckInstallerI18n.t('Version {version} uses a new storage layout. Install it with First installation / Factory reset. Saved settings will be erased.', { version })
+            : '';
+        };
+
+        const applySelectedHardware = () => {
+          const nextHardware = hardwareInputs.find((input) => input.checked)?.value || 'amoled_1_75';
+          if (nextHardware !== activeHardware && versionAvailableForHardware(versionSelect.value, activeHardware)) {
+            selectedVersionByHardware[activeHardware] = versionSelect.value;
+          }
+          activeHardware = nextHardware;
+          hardwareInputs.forEach((input) => input.closest('.hardware-option')?.classList.toggle('selected', input.checked));
+          [...versionSelect.options].forEach((option) => {
+            const available = versionAvailableForHardware(option.value, activeHardware);
+            option.disabled = !available;
+            option.hidden = !available;
+          });
+          const firstAvailable = [...versionSelect.options].find((option) => !option.disabled);
+          const preferredVersion = selectedVersionByHardware[activeHardware];
+          versionSelect.value = preferredVersion && versionAvailableForHardware(preferredVersion, activeHardware)
+            ? preferredVersion
+            : firstAvailable?.value || '';
+          selectedVersionByHardware[activeHardware] = versionSelect.value;
+          [...versionSelect.options].forEach((option) => {
+            option.dataset.latest = String(option === firstAvailable);
+          });
+          window.printDeckInstallerI18n.refreshVersionLabels();
+          productVisual.dataset.hardware = activeHardware;
+          const squareHardware = activeHardware === 'lcd_1_54';
+          const knomi2Hardware = activeHardware === 'knomi2';
+          driverCard.hidden = !knomi2Hardware;
+          hardwareInstructions.forEach((element) => {
+            element.hidden = element.dataset.hardwareInstruction !== (knomi2Hardware ? 'knomi2' : 'waveshare');
+          });
+          productVisual.hidden = false;
+          productVisualImage.src = knomi2Hardware
+            ? 'assets/knomi2-product.png'
+            : squareHardware
+              ? '../assets/marketing/home/u1-mini-cutout.png'
+              : '../assets/marketing/home/riverstone-hero-green-cutout.png';
+          productVisualImage.classList.toggle('knomi2-product-image', knomi2Hardware);
+          productVisualScreen.hidden = squareHardware || knomi2Hardware;
+          productVisual.setAttribute('aria-label', knomi2Hardware
+            ? 'KNOMI2'
+            : window.printDeckInstallerI18n.t(squareHardware
+              ? 'PrintDeck square status display'
+              : 'PrintDeck round status display'));
+          applySelectedVersion();
+        };
+        hardwareInputs.forEach((input) => input.addEventListener('change', applySelectedHardware));
+        versionSelect.addEventListener('change', () => {
+          selectedVersionByHardware[activeHardware] = versionSelect.value;
+          applySelectedVersion();
+        });
+        window.addEventListener('printdeck-installer-language-changed', () => {
+          applySelectedHardware();
+        });
+        applySelectedHardware();
+
+        modeButtons.forEach((button) => {
+          button.addEventListener('click', () => selectMode(button.dataset.mode, true));
+        });
+
+        const detectedPlatform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent;
+        const defaultDriverOs = /Win/i.test(detectedPlatform)
+          ? 'windows'
+          : /Linux|Android/i.test(detectedPlatform)
+            ? 'linux'
+            : 'mac';
+        const selectDriverOs = (os) => {
+          driverOsTabs.forEach((tab) => {
+            const selected = tab.dataset.driverOs === os;
+            tab.classList.toggle('selected', selected);
+            tab.setAttribute('aria-selected', String(selected));
+            tab.tabIndex = selected ? 0 : -1;
+          });
+          driverPanels.forEach((panel) => { panel.hidden = panel.dataset.driverPanel !== os; });
+        };
+        driverOsTabs.forEach((tab) => tab.addEventListener('click', () => selectDriverOs(tab.dataset.driverOs)));
+        selectDriverOs(defaultDriverOs);
+
+        knomiInstallStart.addEventListener('click', () => {
+          selectMode('install');
+          activeInstallMode = 'install';
+          activeVersion = versionSelect.value;
+          activeInstallHardware = activeHardware;
+          installButtonLabel.click();
+        });
+
+        installButton.addEventListener('click', () => {
+          activeInstallMode = 'install';
+          activeVersion = versionSelect.value;
+          activeInstallHardware = activeHardware;
+        }, { capture: true });
+
+        const completion = document.getElementById('completion');
+        const completionDetails = document.getElementById('completion-install-details');
+        const completionMessage = document.getElementById('completion-message');
+        const completionWifiQr = document.getElementById('completion-wifi-qr');
+        const completionWebQr = document.getElementById('completion-web-qr');
+        const completionNetworkLine = document.getElementById('completion-network-line');
+        const completionNetworkName = document.getElementById('completion-network-name');
+        const completionNetworkFallback = document.getElementById('completion-network-fallback');
+        let webQrCreated = false;
+        const createQr = (host, text) => {
+          host.replaceChildren();
+          new window.QRCode(host, { text, width: 152, height: 152, correctLevel: window.QRCode.CorrectLevel.M });
+        };
+        const renderCompletionQrs = () => {
+          if (!window.QRCode) return;
+          if (!webQrCreated) {
+            createQr(completionWebQr, 'http://192.168.4.1/');
+            webQrCreated = true;
+          }
+          const exactNetworkKnown = Boolean(setupNetworkName);
+          completionWifiQr.hidden = !exactNetworkKnown;
+          completionNetworkLine.hidden = !exactNetworkKnown;
+          completionNetworkFallback.hidden = exactNetworkKnown;
+          if (exactNetworkKnown) {
+            completionNetworkName.textContent = setupNetworkName;
+            createQr(completionWifiQr, `WIFI:T:nopass;S:${setupNetworkName};;`);
+          }
+        };
+
+        const showCompletion = () => {
+          const firstInstall = activeInstallMode === 'install';
+          completionDetails.hidden = !firstInstall;
+          completionMessage.textContent = firstInstall
+            ? window.printDeckInstallerI18n.t('PrintDeck {version} is installed. Follow these two steps to connect it to your Wi-Fi.', { version: activeVersion })
+            : window.printDeckInstallerI18n.t('Firmware {version} is installed. The screen will restart and reconnect using its saved settings.', { version: activeVersion });
+          if (firstInstall) renderCompletionQrs();
+          completion.hidden = false;
+          if (firstInstall && activeInstallHardware === 'knomi2' && !setupNetworkName && window.printDeckReadKnomi2SetupNetwork) {
+            window.setTimeout(async () => {
+              try {
+                setupNetworkName = await window.printDeckReadKnomi2SetupNetwork();
+                if (setupNetworkName) renderCompletionQrs();
+              } catch (_) {}
+            }, 350);
+          }
+        };
+
+        const completionPreview = new URLSearchParams(location.search).get('completion-preview');
+        if (completionPreview === 'install' || completionPreview === 'update') {
+          activeInstallMode = completionPreview;
+          window.setTimeout(showCompletion, 100);
+        }
+
+        document.getElementById('completion-close').addEventListener('click', () => {
+          completion.hidden = true;
+        });
+
+        usbUpdateButton.addEventListener('click', async () => {
+          activeInstallMode = 'update';
+          activeVersion = versionSelect.value;
+          const configuration = selectedConfiguration(activeVersion);
+          if (!configuration || configuration.fullOnly) return;
+          usbUpdateButton.disabled = true;
+          updateProgress.hidden = false;
+          updateProgressText.classList.remove('error');
+          updateProgressFill.style.width = '0%';
+          updateProgressText.textContent = window.printDeckInstallerI18n.t('Preparing the USB update…');
+          try {
+            if (!window.printDeckUsbUpdate) throw new Error(window.printDeckInstallerI18n.t('The USB updater did not load. Refresh the page and try again.'));
+            await window.printDeckUsbUpdate({
+              applicationUrl: configuration.application,
+              otaDataUrl: configuration.otaData,
+              onProgress: (percentage, message) => {
+                updateProgressFill.style.width = `${percentage}%`;
+                updateProgressText.textContent = message;
+              }
+            });
+            window.setTimeout(showCompletion, 200);
+          } catch (error) {
+            if (error?.name === 'NotFoundError') {
+              updateProgress.hidden = true;
+            } else {
+              updateProgressText.classList.add('error');
+              updateProgressText.textContent = error?.message || window.printDeckInstallerI18n.t('The USB update failed. Reconnect the screen and try again.');
+            }
+          } finally {
+            usbUpdateButton.disabled = Boolean(selectedConfiguration()?.fullOnly);
+          }
+        });
+
+        const dialogObserver = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+            if (!(node instanceof HTMLElement) || node.tagName !== 'EWT-INSTALL-DIALOG') return;
+            const watchFinished = window.setInterval(() => {
+              const finished = node._installState?.state === 'finished' ||
+                node.shadowRoot?.textContent?.includes('Installation complete!');
+              if (!finished) return;
+              window.clearInterval(watchFinished);
+              const nativeDialog = node.shadowRoot?.querySelector('ew-dialog');
+              nativeDialog?.close();
+              window.setTimeout(showCompletion, 150);
+            }, 200);
+            node.addEventListener('closed', () => window.clearInterval(watchFinished), { once: true });
+          }));
+        });
+        dialogObserver.observe(document.body, { childList: true });
+      }
+    </script>
+  </body>
+</html>

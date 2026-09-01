@@ -1,0 +1,95 @@
+name: Bug report
+description: Report a reproducible problem with PrintDeck firmware
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve PrintDeck.
+
+        Do not include Wi-Fi credentials, LAN access codes, API keys, tokens, printer serial numbers, private addresses, SSIDs or private job names. Security vulnerabilities must be reported privately by following [SECURITY.md](https://github.com/PrintDeck/PrintDeck/blob/main/SECURITY.md).
+
+  - type: input
+    id: firmware-version
+    attributes:
+      label: PrintDeck version
+      description: The firmware version shown in System Details or Web Config.
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Display hardware
+      options:
+        - Waveshare ESP32-S3-Touch-AMOLED-1.75 (round)
+        - Waveshare ESP32-S3-Touch-LCD-1.54 (square)
+        - BIGTREETECH KNOMI2 (round)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: printer-connection
+    attributes:
+      label: Printer connection
+      options:
+        - Not printer-specific
+        - Klipper / Moonraker
+        - Bambu Lab LAN
+        - Other or unknown
+    validations:
+      required: true
+
+  - type: input
+    id: printer
+    attributes:
+      label: Printer brand and model
+      description: Leave blank when the problem is not printer-specific.
+      placeholder: e.g. Snapmaker U1
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and when it occurs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide the shortest reliable sequence that triggers the problem.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should PrintDeck have done instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Additional context
+      description: Add sanitized logs, screenshots or other useful details. Drag files into this field to attach them.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I checked this report and every attachment for credentials and private data.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
