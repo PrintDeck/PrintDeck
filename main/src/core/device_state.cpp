@@ -128,6 +128,11 @@ PrinterSnapshot SnapshotStore::read() const {
   return *value_;
 }
 
+void SnapshotStore::read_into(PrinterSnapshot& destination) const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  destination = *value_;
+}
+
 void SnapshotStore::replace(PrinterSnapshot next) {
   next.job.normalize();
   const std::lock_guard<std::mutex> lock(mutex_);

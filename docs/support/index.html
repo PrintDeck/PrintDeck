@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>Support · PrintDeck</title>
-  <link rel="stylesheet" href="../assets/site.css?v=20260901-9">
+  <link rel="stylesheet" href="../assets/site.css?v=20260902-13">
     <script src="../assets/site.js?v=20260830-2"></script>
   </head>
   <body class="site-page support-page" data-page-title="Support · PrintDeck">
@@ -30,64 +30,74 @@
         <div class="support-inner support-hero-grid">
           <div class="support-hero-copy">
             <span class="support-eyebrow">Support</span>
-            <h1>Help when you need it.</h1>
-            <p class="support-lead">Documentation, troubleshooting and contact options now have a dedicated home.</p>
+            <h1>Need help?</h1>
+            <p class="support-lead">Find the user guide, answers to common problems and ways to contact us—all in one place.</p>
           </div>
 
           <nav class="support-hero-resources" aria-label="Support resources">
             <a class="support-hero-resource" href="../printdeck-user-manual.pdf" target="_blank" rel="noopener">
               <span class="support-resource-index">01</span>
-              <span class="support-resource-copy"><strong>User manual</strong><span>Read the current PrintDeck setup and navigation guide.</span></span>
+              <span class="support-resource-copy"><strong>User manual</strong><span>Learn how to set up and use PrintDeck.</span></span>
               <span class="support-resource-arrow" aria-hidden="true">↗</span>
             </a>
             <a class="support-hero-resource" href="https://github.com/PrintDeck/PrintDeck/issues" target="_blank" rel="noopener">
               <span class="support-resource-index">02</span>
-              <span class="support-resource-copy"><strong>Project support</strong><span>Report a problem or review the source in the PrintDeck repository.</span></span>
+              <span class="support-resource-copy"><strong>GitHub</strong><span>Report a bug or browse the PrintDeck source code.</span></span>
               <span class="support-resource-arrow" aria-hidden="true">↗</span>
             </a>
             <a class="support-hero-resource" href="mailto:support@printdeck.xyz">
               <span class="support-resource-index">03</span>
-              <span class="support-resource-copy"><strong>Contact PrintDeck</strong><span>Contact us about official DIY sets, complete devices or commercial licensing.</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">→</span>
+              <span class="support-resource-copy"><strong>Contact us</strong><span>Ask about compatible hardware, individual assembly assistance or commercial firmware licensing.</span></span>
+              <span class="support-resource-arrow" aria-hidden="true">↗</span>
             </a>
+            <a class="support-hero-resource" href="../unified-printer-api/">
+              <span class="support-resource-index">04</span>
+              <span class="support-resource-copy"><strong>Unified API</strong><span>Build local software with one read-only JSON format for supported printers.</span></span>
+              <span class="support-resource-arrow" aria-hidden="true">↗</span>
+            </a>
+            <div class="support-contact-prompt">
+              <span class="support-contact-icon" aria-hidden="true">?</span>
+              <p><span>Didn't find the answer?</span><br><a href="mailto:support@printdeck.xyz">Contact us</a><span> — we’ll be happy to help.</span></p>
+            </div>
           </nav>
         </div>
       </section>
 
       <div class="campaign-signal support-signal" aria-label="Support resources">
         <span>Clear documentation</span>
-        <span>Privacy-safe diagnostics</span>
-        <span>Open development</span>
+        <span>Reports without private data</span>
+        <span>Public source code</span>
         <span>Direct contact</span>
       </div>
 
       <div class="support-inner support-body">
         <aside class="support-compatibility">
-          <strong>Help us support more Bambu Lab printers</strong>
-          <p>After installing PrintDeck, connect your Bambu Lab printer and open Web Config. Go to <strong>My Printers &rarr; Add printer &rarr; Bambu Lab &rarr; Check compatibility</strong> to generate a privacy-safe report that can help us add support for more printer models. Download the report and email it to <a href="mailto:support@printdeck.xyz">support@printdeck.xyz</a>. Nothing is uploaded automatically.</p>
+          <strong>Help us support more Bambu Lab models</strong>
+          <p>After installing PrintDeck, open Web Config and choose <strong>My Printers &rarr; Add printer &rarr; Bambu Lab &rarr; Check compatibility</strong>. PrintDeck will create a report with private data removed, which helps us support more models. Download it and email it to <a href="mailto:support@printdeck.xyz">support@printdeck.xyz</a>. PrintDeck does not send the report automatically.</p>
         </aside>
 
         <section class="faq-section" aria-labelledby="faq-title">
           <header class="faq-heading">
             <span class="home-kicker">FAQ</span>
-            <h2 id="faq-title">Frequently Asked Questions</h2>
+            <h2 id="faq-title">Questions and answers</h2>
           </header>
           <div class="faq-list">
             <article class="faq-item">
               <h3>Can PrintDeck control my printer?</h3>
-              <p>No. PrintDeck is designed for monitoring. It works entirely inside your local Wi-Fi network, requires no cloud service and does not send data anywhere.</p>
-              <p>The only printer control it can expose is switching the chamber light on or off, and only when its compatibility analysis confirms a safe, supported path. Everything happens locally on the device.</p>
+              <p>No. PrintDeck is made for monitoring. It works on your local Wi-Fi network, needs no cloud service and does not send printer data outside your network.</p>
+              <p>The only exception is the chamber light. PrintDeck can switch it on or off only when the compatibility check confirms that this is safe for your printer model. Everything happens locally on the device.</p>
             </article>
             <article class="faq-item">
-              <h3>Some features do not work, or I cannot see my printer. Why?</h3>
-              <p>The short answer is that printer manufacturers do not follow one consistent standard. PrintDeck uses advanced communication analysis to interpret manufacturer-specific details, but it cannot recognize every variation.</p>
-              <p>Please use <a href="../printdeck-user-manual.pdf#page=12">Compatibility Check</a>. It gathers the required diagnostic data locally, anonymizes it and lets you download a report. PrintDeck never collects or uploads this data automatically; you must download the report and send it to support yourself.</p>
-              <p>This report helps us add support for your printer.</p>
+              <h3>Why can’t I see my printer or some features?</h3>
+              <p>Printer manufacturers do not use one common communication standard. PrintDeck handles many differences between brands and models, but it cannot recognize every variant.</p>
+              <p><a href="../printdeck-user-manual.pdf#page=12">Run Compatibility Check</a>. PrintDeck gathers the required data locally, removes private information from the report and lets you download it. The report is not sent automatically—download it and email it to us.</p>
+              <p>This report helps us support your printer model.</p>
             </article>
             <article class="faq-item">
-              <h3>I would like a different enclosure. Where can I get one?</h3>
-              <p>PrintDeck encourages creative mods, improvements and enclosure designs. Free models for three enclosures are available for you to print yourself.</p>
-              <p>You can also <a href="mailto:support@printdeck.xyz">contact support</a> for a DIY kit or a proven-in-action, ready-to-use device. Choose your filament, colour, texture and multicolour combination.</p>
+              <h3>Where can I find other enclosures?</h3>
+              <p>We provide free models for three enclosures that you can print yourself. You are also welcome to create your own modifications and designs.</p>
+              <p><a href="mailto:support@printdeck.xyz">Need help building your own display? Contact us about compatible components, enclosure options, firmware installation and individual assembly assistance.</a></p>
+              <p>Display hardware is manufactured by third parties.</p>
             </article>
           </div>
         </section>
@@ -105,7 +115,7 @@
         </div>
       </div>
     </footer>
-    <script src="../localizations.js?v=20260901-6"></script>
+    <script src="../localizations.js?v=20260902-6"></script>
     <script>window.printDeckInstallerI18n.init();</script>
   </body>
 </html>

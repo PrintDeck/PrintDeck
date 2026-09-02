@@ -301,6 +301,10 @@ void MoonrakerAdapter::configure(const core::PrinterProfile* selected_profile) {
 
 core::PrinterSnapshot MoonrakerAdapter::snapshot() const { return snapshots_.read(); }
 
+void MoonrakerAdapter::snapshot_into(core::PrinterSnapshot& destination) const {
+  snapshots_.read_into(destination);
+}
+
 bool MoonrakerAdapter::request_chamber_light(bool enabled) {
   TaskHandle_t task = nullptr;
   {

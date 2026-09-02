@@ -37,6 +37,7 @@ constexpr std::uint64_t kBambuCompletedReactionHoldMs = 45'000;
 constexpr std::uint64_t kBambuAudioBaselineSettleMs = 5'000;
 constexpr std::uint64_t kConfigurationBackupActivityLeaseMs = 60'000;
 constexpr std::uint64_t kRestartAudioLeaseMs = 60'000;
+constexpr std::uint64_t kUnifiedApiConnectionLeaseMs = 15'000;
 
 void verify_heap(const char* stage) {
   if (!heap_caps_check_integrity_all(true)) {
@@ -217,6 +218,9 @@ void Runtime::start() {
   web_config_.set_configuration_backup_activity_callback(
       configuration_backup_activity_entry, this);
   web_config_.set_restart_requested_callback(restart_requested_entry, this);
+  web_config_.set_selected_printer_snapshot_callback(
+      selected_printer_snapshot_entry, this);
+  web_config_.set_unified_api_activity_callback(unified_api_activity_entry, this);
   const esp_err_t web_result =
       web_config_.start(settings_, settings_store_, network_, moonraker_probe_, printer_discovery_,
                         firmware_update_, reaction_assets_,
@@ -467,6 +471,33 @@ void Runtime::update_install_entry(void* context) {
   if (!runtime->firmware_update_.request_install()) {
     ESP_LOGW(kLogTag, "Firmware install request was rejected");
   }
+  if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
+}
+
+bool Runtime::selected_printer_snapshot_entry(
+    void* context, core::PrinterSnapshot& destination) {
+  auto* runtime = static_cast<Runtime*>(context);
+  if (runtime == nullptr) return false;
+  const int protocol = runtime->selected_printer_protocol_.load(std::memory_order_acquire);
+  if (protocol == static_cast<int>(core::PrinterProtocol::moonraker) &&
+      runtime->moonraker_.running()) {
+    runtime->moonraker_.snapshot_into(destination);
+    return destination.profile_id != 0;
+  }
+  if (protocol == static_cast<int>(core::PrinterProtocol::bambu_lan) &&
+      runtime->bambu_lan_.running()) {
+    runtime->bambu_lan_.snapshot_into(destination);
+    return destination.profile_id != 0;
+  }
+  return false;
+}
+
+void Runtime::unified_api_activity_entry(void* context) {
+  auto* runtime = static_cast<Runtime*>(context);
+  if (runtime == nullptr) return;
+  const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  runtime->unified_api_active_until_ms_.store(
+      now_ms + kUnifiedApiConnectionLeaseMs, std::memory_order_release);
   if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
 }
 
@@ -965,8 +996,7 @@ bool Runtime::clear_unavailable_selection(std::uint32_t profile_id) {
   connection_failure_since_ms_ = 0;
   connection_grace_until_ms_ = 0;
   pending_dashboard_profile_ = 0;
-  web_config_.update_selected_printer_status(
-      0, core::LinkState::stopped, core::JobPhase::unknown, 0.0F);
+  web_config_.update_selected_printer_status({});
   display_.return_to_printer_list();
   ESP_LOGW(kLogTag,
            "Printer %lu remained unavailable; cleared selection and returned to My Printers",
@@ -1216,7 +1246,13 @@ void Runtime::monitor_loop() {
         selected->protocol == core::PrinterProtocol::bambu_lan;
     const bool selected_is_moonraker = selected != nullptr &&
         selected->protocol == core::PrinterProtocol::moonraker;
-    const bool full_connection_active = network.station_connected && printer_detail_active;
+    const std::uint64_t connection_now_ms =
+        static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    const bool unified_api_connection_active = settings_.unified_api_enabled &&
+        connection_now_ms <
+            unified_api_active_until_ms_.load(std::memory_order_acquire);
+    const bool full_connection_active = network.station_connected && selected != nullptr &&
+        (printer_detail_active || unified_api_connection_active);
     const bool want_bambu_connection = full_connection_active && selected_is_bambu;
     const bool want_moonraker_connection = full_connection_active && selected_is_moonraker;
     const bool camera_page_visible = display_.camera_page_active() && screen_visible;
@@ -1307,6 +1343,7 @@ void Runtime::monitor_loop() {
       snapshot.job.kind = status->kind;
       snapshot.job.name = status->job_name;
       snapshot.job.remaining_seconds = status->remaining_seconds;
+      snapshot.updated_at_ms = status->updated_at_ms;
       return snapshot;
     };
     if (network.station_connected) {
@@ -1376,10 +1413,7 @@ void Runtime::monitor_loop() {
         }
       }
       web_config_.update_selected_printer_status(
-          selected != nullptr ? selected->id : 0,
-          selected != nullptr ? selected_snapshot.link : core::LinkState::stopped,
-          selected != nullptr ? selected_snapshot.job.phase : core::JobPhase::unknown,
-          selected != nullptr ? selected_snapshot.job.completion : 0.0F);
+          selected != nullptr ? selected_snapshot : core::PrinterSnapshot{});
       const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
       const bool selected_online = selected != nullptr && selected_snapshot_ready &&
                                    selected_snapshot.link == core::LinkState::online;

@@ -10,6 +10,7 @@ set(PRINTDECK_SRCS
         "src/core/settings.cpp"
         "src/core/timezone.cpp"
         "src/core/theme.cpp"
+        "src/core/unified_printer_api.cpp"
         "include/font/mdi_40.c"
         "include/img/printer_brand_logos.c"
         "include/img/printer_brand_logos_small.c"

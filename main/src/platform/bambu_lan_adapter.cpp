@@ -84,6 +84,10 @@ void BambuLanAdapter::configure(const core::PrinterProfile* selected_profile) {
 
 core::PrinterSnapshot BambuLanAdapter::snapshot() const { return snapshots_.read(); }
 
+void BambuLanAdapter::snapshot_into(core::PrinterSnapshot& destination) const {
+  snapshots_.read_into(destination);
+}
+
 BambuModelCapabilities BambuLanAdapter::capabilities() const {
   return bambu_capabilities_for(model_.load());
 }

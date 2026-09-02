@@ -76,6 +76,7 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   std::uint8_t printer_animations_enabled = 0;
   std::uint8_t reaction_progress_bar_enabled = 1;
   std::uint8_t reaction_progress_percent_enabled = 1;
+  std::uint8_t unified_api_enabled = 0;
   result = nvs_get_u8(handle, "schema", &schema);
   if (result == ESP_ERR_NVS_NOT_FOUND) result = ESP_OK;
   if (result == ESP_OK && schema > core::kSettingsSchemaVersion) result = ESP_ERR_INVALID_VERSION;
@@ -144,6 +145,13 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   }
   loaded.reaction_progress_bar_enabled = reaction_progress_bar_enabled != 0;
   loaded.reaction_progress_percent_enabled = reaction_progress_percent_enabled != 0;
+  if (result == ESP_OK && schema >= 9) {
+    result = read_optional_u8(handle, "api_enabled", unified_api_enabled);
+  }
+  if (result == ESP_OK && schema >= 9) {
+    result = read_text(handle, "api_token", loaded.unified_api_token);
+  }
+  loaded.unified_api_enabled = unified_api_enabled != 0;
   if (result == ESP_OK && schema >= 4) {
     result = read_text(handle, "audio_set", loaded.audio_preset);
   }
@@ -267,6 +275,8 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   write(nvs_set_u8(handle, "react_bar", settings.reaction_progress_bar_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "react_percent",
                    settings.reaction_progress_percent_enabled ? 1 : 0));
+  write(nvs_set_u8(handle, "api_enabled", settings.unified_api_enabled ? 1 : 0));
+  write(write_text(handle, "api_token", settings.unified_api_token));
   write(nvs_erase_key(handle, "protected"));
   write(nvs_set_u8(handle, "audio", settings.audio_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "audio_vol", settings.audio_volume_percent));

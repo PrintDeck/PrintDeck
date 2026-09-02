@@ -117,6 +117,30 @@
 })();
 
 (() => {
+  const bindCaseJumps = () => {
+    document.querySelectorAll('[data-case-jump]').forEach((link) => {
+      if (link.dataset.caseJumpBound) return;
+      link.dataset.caseJumpBound = 'true';
+      link.addEventListener('click', (event) => {
+        const href = link.getAttribute('href');
+        if (!href || !href.startsWith('#')) return;
+
+        const target = document.getElementById(href.slice(1));
+        if (!target) return;
+
+        event.preventDefault();
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+        if (window.location.hash !== href) history.pushState(null, '', href);
+      });
+    });
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindCaseJumps);
+  else bindCaseJumps();
+})();
+
+(() => {
   const bindHeroScreenRotation = () => {
     const product = document.querySelector('[data-hero-product]');
     const device = product?.querySelector('[data-hero-device]');
@@ -317,6 +341,12 @@
     if (typeof window.Plyr !== 'function' || !mediaIds.length) return;
 
     const players = new Map();
+    const viewportStates = new Map(mediaIds.map((mediaId) => [mediaId, {
+      isIntersecting: false,
+      hasStartedInView: false,
+      resumeWhenDocumentVisible: false,
+      waitingForPlayer: false
+    }]));
 
     const translatedLabels = () => {
       const t = window.printDeckInstallerI18n?.t || ((value) => value);
@@ -342,6 +372,7 @@
 
       const t = window.printDeckInstallerI18n?.t || ((value) => value);
       media.autoplay = false;
+      media.muted = typeof state.muted === 'boolean' ? state.muted : true;
       media.setAttribute('aria-label', t(media.dataset.videoLabel));
       const player = new window.Plyr(media, {
         autoplay: false,
@@ -367,6 +398,102 @@
 
     mediaIds.forEach((mediaId) => players.set(mediaId, createPlayer(mediaId)));
 
+    const playVisibleVideo = (mediaId) => {
+      const player = players.get(mediaId);
+      const viewportState = viewportStates.get(mediaId);
+      if (!player || !viewportState || !viewportState.isIntersecting || document.hidden) return;
+
+      if (!player.ready) {
+        if (viewportState.waitingForPlayer) return;
+        viewportState.waitingForPlayer = true;
+        player.once('ready', () => {
+          viewportState.waitingForPlayer = false;
+          playVisibleVideo(mediaId);
+        });
+        return;
+      }
+
+      const playback = player.play();
+      if (playback?.catch) {
+        playback.catch(() => {
+          if (!viewportState.isIntersecting || document.hidden || player.muted) return;
+          player.muted = true;
+          player.play().catch(() => {});
+        });
+      }
+    };
+
+    const updateVideoVisibility = (mediaId, isIntersecting, intersectionRatio) => {
+      const player = players.get(mediaId);
+      const viewportState = viewportStates.get(mediaId);
+      if (!player || !viewportState) return;
+
+      viewportState.isIntersecting = isIntersecting;
+
+      if (!isIntersecting) {
+        viewportState.hasStartedInView = false;
+        viewportState.resumeWhenDocumentVisible = false;
+        player.pause();
+        return;
+      }
+
+      if (viewportState.hasStartedInView || intersectionRatio < .25) return;
+      viewportState.hasStartedInView = true;
+      viewportState.resumeWhenDocumentVisible = document.hidden;
+      playVisibleVideo(mediaId);
+    };
+
+    const observedElements = new Map();
+    mediaIds.forEach((mediaId) => {
+      const media = document.querySelector(`[data-home-video="${mediaId}"]`);
+      const viewport = media?.closest('.home-section-video') || media;
+      if (viewport) observedElements.set(viewport, mediaId);
+    });
+
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          const mediaId = observedElements.get(entry.target);
+          if (mediaId) updateVideoVisibility(mediaId, entry.isIntersecting, entry.intersectionRatio);
+        });
+      }, { threshold: [0, .25] });
+      observedElements.forEach((_, element) => observer.observe(element));
+    } else {
+      let fallbackFrame = 0;
+      const updateFallbackVisibility = () => {
+        fallbackFrame = 0;
+        observedElements.forEach((mediaId, element) => {
+          const rect = element.getBoundingClientRect();
+          const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+          const ratio = rect.height > 0 ? visibleHeight / rect.height : 0;
+          updateVideoVisibility(mediaId, ratio > 0, ratio);
+        });
+      };
+      const scheduleFallbackVisibility = () => {
+        if (!fallbackFrame) fallbackFrame = window.requestAnimationFrame(updateFallbackVisibility);
+      };
+      window.addEventListener('scroll', scheduleFallbackVisibility, { passive: true });
+      window.addEventListener('resize', scheduleFallbackVisibility);
+      scheduleFallbackVisibility();
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      viewportStates.forEach((viewportState, mediaId) => {
+        const player = players.get(mediaId);
+        if (!player) return;
+
+        if (document.hidden) {
+          viewportState.resumeWhenDocumentVisible = viewportState.isIntersecting
+            && (!player.paused || viewportState.waitingForPlayer);
+          player.pause();
+          return;
+        }
+
+        if (viewportState.resumeWhenDocumentVisible) playVisibleVideo(mediaId);
+        viewportState.resumeWhenDocumentVisible = false;
+      });
+    });
+
     window.addEventListener('printdeck-installer-language-changed', () => {
       players.forEach((player, mediaId) => {
         if (!player?.ready) return;
@@ -383,4 +510,173 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindHomeVideos);
   else bindHomeVideos();
+})();
+
+(() => {
+  const bindApiExplorer = () => {
+    const explorer = document.querySelector('[data-api-explorer]');
+    const example = document.querySelector('[data-api-example]');
+    if (!explorer || !example || explorer.dataset.apiBound) return;
+
+    const pathLabel = example.querySelector('[data-api-example-path]');
+    const requestCode = example.querySelector('[data-api-request] code');
+    const responseCode = example.querySelector('[data-api-response] code');
+    const requestPanel = example.querySelector('[data-api-request]');
+    const responsePanel = example.querySelector('[data-api-response]');
+    const endpoints = Array.from(explorer.querySelectorAll('[data-api-endpoint]'));
+    if (!pathLabel || !requestCode || !responseCode || !endpoints.length) return;
+
+    explorer.dataset.apiBound = 'true';
+
+    const printer = {
+      id: 1,
+      name: 'Workshop Voron',
+      protocol: 'moonraker',
+      manufacturer: 'Voron',
+      model: '2.4',
+      endpoint: '192.168.1.50:7125',
+      selected: true,
+      reachability: 'online',
+      capabilities: { status: true, nozzles: true, materials: true }
+    };
+    const connection = {
+      state: 'online',
+      reachability: 'online',
+      detail_level: 'full',
+      stale: false,
+      updated_at_ms: 418520
+    };
+    const job = {
+      phase: 'printing',
+      kind: 'print',
+      activity: 'printing',
+      name: 'Bracket',
+      progress_percent: 42.5,
+      elapsed_seconds: 1260,
+      remaining_seconds: 1740,
+      current_layer: 48,
+      total_layers: 112
+    };
+
+    const responses = {
+      '/v1/info': {
+        api_version: 'v1',
+        product: 'PrintDeck',
+        firmware_version: '1.0.3',
+        hardware: 'amoled_1_75',
+        network: {
+          wifi_name: 'Workshop Wi-Fi',
+          ipv4: '192.168.1.42',
+          hostname: 'printdeck.local'
+        },
+        read_only: true
+      },
+      '/v1/printers': { api_version: 'v1', printers: [printer] },
+      '/v1/printers/status': {
+        api_version: 'v1',
+        statuses: [{ printer_id: 1, connection, job }]
+      },
+      '/v1/printers/{id}': { api_version: 'v1', printer },
+      '/v1/printers/{id}/status': {
+        api_version: 'v1',
+        status: {
+          printer_id: 1,
+          connection,
+          job,
+          temperatures: {
+            nozzle_current_c: 200.4,
+            nozzle_target_c: 200,
+            bed_current_c: 59.8,
+            bed_target_c: 60,
+            chamber_current_c: null
+          }
+        }
+      },
+      '/v1/printers/{id}/nozzles': {
+        api_version: 'v1',
+        printer_id: 1,
+        detail_level: 'full',
+        stale: false,
+        updated_at_ms: 418520,
+        nozzles: [{
+          id: 'T0',
+          active: true,
+          state: 'ready',
+          diameter_mm: 0.4,
+          temperature: { current_c: 133, target_c: 200 },
+          material: { type: 'PLA', color: '#111111FF' },
+          filament_detected: true
+        }]
+      },
+      '/v1/printers/{id}/materials': {
+        api_version: 'v1',
+        printer_id: 1,
+        available: true,
+        detail_level: 'full',
+        stale: false,
+        updated_at_ms: 418520,
+        system: 'ams_or_ams_lite',
+        slots: [{
+          id: 'slot-0',
+          installed: true,
+          feeding: true,
+          material: 'PLA',
+          color: '#E6B422FF',
+          remaining_percent: 72,
+          source_unit: 0,
+          source_slot: 0
+        }],
+        external_spools: []
+      }
+    };
+
+    const selectEndpoint = (endpoint, animate = true) => {
+      const path = endpoint.dataset.apiEndpoint;
+      const response = responses[path];
+      if (!response) return;
+
+      endpoints.forEach((item) => item.setAttribute('aria-pressed', String(item === endpoint)));
+      const requestPath = path.replace('{id}', '1');
+      pathLabel.textContent = `GET ${path}`;
+      requestCode.textContent = `curl http://PRINTDECK-IP${requestPath} \\\n  -H 'Authorization: Bearer pd_your_token_here'`;
+      responseCode.textContent = JSON.stringify(response, null, 2);
+      if (requestPanel) requestPanel.scrollLeft = 0;
+      if (responsePanel) {
+        responsePanel.scrollLeft = 0;
+        responsePanel.scrollTop = 0;
+      }
+
+      if (!animate) return;
+      example.classList.remove('is-updating');
+      void example.offsetWidth;
+      example.classList.add('is-updating');
+    };
+
+    endpoints.forEach((endpoint, index) => {
+      endpoint.addEventListener('click', () => selectEndpoint(endpoint));
+      endpoint.addEventListener('keydown', (event) => {
+        const last = endpoints.length - 1;
+        const nextIndex = event.key === 'ArrowDown' ? Math.min(index + 1, last)
+          : event.key === 'ArrowUp' ? Math.max(index - 1, 0)
+            : event.key === 'Home' ? 0
+              : event.key === 'End' ? last
+                : -1;
+        if (nextIndex < 0) return;
+        event.preventDefault();
+        endpoints[nextIndex].focus();
+        selectEndpoint(endpoints[nextIndex]);
+      });
+    });
+
+    window.addEventListener('printdeck-installer-language-changed', () => {
+      const selected = endpoints.find((endpoint) => endpoint.getAttribute('aria-pressed') === 'true') || endpoints[0];
+      selectEndpoint(selected, false);
+    });
+
+    const selected = endpoints.find((endpoint) => endpoint.getAttribute('aria-pressed') === 'true') || endpoints[0];
+    selectEndpoint(selected, false);
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindApiExplorer);
+  else bindApiExplorer();
 })();

@@ -71,6 +71,7 @@ class SnapshotStore {
   SnapshotStore& operator=(const SnapshotStore&) = delete;
 
   PrinterSnapshot read() const;
+  void read_into(PrinterSnapshot& destination) const;
   void replace(PrinterSnapshot next);
 
  private:

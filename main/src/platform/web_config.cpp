@@ -17,6 +17,7 @@
 #include "esp_heap_caps.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
+#include "esp_random.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "mbedtls/gcm.h"
@@ -56,6 +57,8 @@ constexpr std::string_view kBackupReactionAadPrefix =
 constexpr std::int64_t kRestartDelayUs = 750'000;
 constexpr std::size_t kOtaReceiveBufferBytes = 4096;
 constexpr std::uint64_t kOtaReceiveDeadlineMs = 120'000;
+constexpr std::uint64_t kUnifiedApiSelectedStaleMs = 15'000;
+constexpr std::uint64_t kUnifiedApiMinimumRequestIntervalMs = 1'000;
 
 esp_err_t send_gzip_asset(httpd_req_t* request,
                           std::string_view asset,
@@ -416,6 +419,19 @@ esp_err_t send_json(httpd_req_t* request, const char* status, const char* body) 
   return httpd_resp_sendstr(request, body);
 }
 
+std::string generate_unified_api_token() {
+  std::array<std::uint8_t, 32> random{};
+  esp_fill_random(random.data(), random.size());
+  static constexpr char kHex[] = "0123456789abcdef";
+  std::string token = "pd_";
+  token.reserve(core::kUnifiedApiTokenLength);
+  for (const std::uint8_t byte : random) {
+    token.push_back(kHex[(byte >> 4U) & 0x0FU]);
+    token.push_back(kHex[byte & 0x0FU]);
+  }
+  return token;
+}
+
 }  // namespace
 
 esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsStore& store,
@@ -452,7 +468,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
 
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.core_id = kServiceCore;
-  config.max_uri_handlers = 50;
+  config.max_uri_handlers = 64;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
   result = httpd_start(&server_, &config);
@@ -482,6 +498,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/update/url", .method = HTTP_POST, .handler = update_url_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_GET, .handler = settings_get_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_POST, .handler = settings_post_entry, .user_ctx = this},
+      {.uri = "/api/unified-printer-api", .method = HTTP_GET, .handler = unified_api_settings_get_entry, .user_ctx = this},
+      {.uri = "/api/unified-printer-api", .method = HTTP_POST, .handler = unified_api_settings_post_entry, .user_ctx = this},
       {.uri = "/api/configuration-backup/export", .method = HTTP_POST, .handler = configuration_backup_export_entry, .user_ctx = this},
       {.uri = "/api/configuration-backup/check", .method = HTTP_POST, .handler = configuration_backup_check_entry, .user_ctx = this},
       {.uri = "/api/configuration-backup/restore", .method = HTTP_POST, .handler = configuration_backup_restore_entry, .user_ctx = this},
@@ -501,6 +519,10 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/bambu/compatibility/status", .method = HTTP_GET, .handler = compatibility_status_entry, .user_ctx = this},
       {.uri = "/api/bambu/compatibility/report", .method = HTTP_GET, .handler = compatibility_report_entry, .user_ctx = this},
       {.uri = "/api/bambu/compatibility/cancel", .method = HTTP_POST, .handler = compatibility_cancel_entry, .user_ctx = this},
+      {.uri = "/v1/info", .method = HTTP_GET, .handler = unified_api_info_entry, .user_ctx = this},
+      {.uri = "/v1/printers", .method = HTTP_GET, .handler = unified_api_printers_entry, .user_ctx = this},
+      {.uri = "/v1/printers/status", .method = HTTP_GET, .handler = unified_api_statuses_entry, .user_ctx = this},
+      {.uri = "/v1/printers/*", .method = HTTP_GET, .handler = unified_api_printer_entry, .user_ctx = this},
       {.uri = "/*", .method = HTTP_GET, .handler = captive_entry, .user_ctx = this},
   };
   for (const auto& route : routes) {
@@ -511,15 +533,12 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   return ESP_OK;
 }
 
-void WebConfig::update_selected_printer_status(std::uint32_t profile_id,
-                                               core::LinkState link,
-                                               core::JobPhase phase,
-                                               float completion) {
+void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snapshot) {
   const std::lock_guard<std::mutex> lock(mutex_);
-  selected_status_profile_ = profile_id;
-  selected_link_ = link;
-  selected_phase_ = phase;
-  selected_completion_ = std::clamp(completion, 0.0F, 100.0F);
+  selected_status_profile_ = snapshot.profile_id;
+  selected_link_ = snapshot.link;
+  selected_phase_ = snapshot.job.phase;
+  selected_completion_ = std::clamp(snapshot.job.completion, 0.0F, 100.0F);
 }
 
 void WebConfig::set_settings_changed_callback(SettingsChangedCallback callback, void* context) {
@@ -546,6 +565,20 @@ void WebConfig::set_restart_requested_callback(RestartRequestedCallback callback
   const std::lock_guard<std::mutex> lock(mutex_);
   restart_requested_callback_ = callback;
   restart_requested_context_ = context;
+}
+
+void WebConfig::set_selected_printer_snapshot_callback(
+    SelectedPrinterSnapshotCallback callback, void* context) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  selected_printer_snapshot_callback_ = callback;
+  selected_printer_snapshot_context_ = context;
+}
+
+void WebConfig::set_unified_api_activity_callback(
+    UnifiedApiActivityCallback callback, void* context) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  unified_api_activity_callback_ = callback;
+  unified_api_activity_context_ = context;
 }
 
 void WebConfig::synchronize_settings(const core::DeviceSettings& settings) {
@@ -859,6 +892,30 @@ esp_err_t WebConfig::settings_get_entry(httpd_req_t* request) {
 
 esp_err_t WebConfig::settings_post_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->save_settings(request);
+}
+
+esp_err_t WebConfig::unified_api_settings_get_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_unified_api_settings(request);
+}
+
+esp_err_t WebConfig::unified_api_settings_post_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->save_unified_api_settings(request);
+}
+
+esp_err_t WebConfig::unified_api_info_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_unified_api_info(request);
+}
+
+esp_err_t WebConfig::unified_api_printers_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_unified_api_printers(request);
+}
+
+esp_err_t WebConfig::unified_api_statuses_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_unified_api_statuses(request);
+}
+
+esp_err_t WebConfig::unified_api_printer_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_unified_api_printer(request);
 }
 
 esp_err_t WebConfig::configuration_backup_export_entry(httpd_req_t* request) {
@@ -1177,6 +1234,283 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   body += ",\"wifi_setup_active\":";
   body += network_->status().recovery_ap_active ? "true" : "false";
   body.push_back('}');
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::serve_unified_api_settings(httpd_req_t* request) const {
+  core::DeviceSettings current;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    current = settings_;
+  }
+  std::string body = "{\"enabled\":";
+  body += current.unified_api_enabled ? "true" : "false";
+  body += ",\"token\":";
+  append_json_string(body, current.unified_api_token);
+  body += ",\"base_path\":\"/v1\",\"documentation_url\":";
+  append_json_string(body,
+                     "https://printdeck.xyz/printdeck-unified-printer-api.pdf");
+  body += "}";
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::save_unified_api_settings(httpd_req_t* request) {
+  const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+  std::string body;
+  std::string action;
+  if (!receive_form(request, body) || !form_value(body, "action", action) ||
+      (action != "enable" && action != "disable" && action != "regenerate")) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"Choose a valid Unified Printer API action.\"}");
+  }
+  core::DeviceSettings candidate;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    candidate = settings_;
+  }
+  if (action == "enable") {
+    if (candidate.unified_api_token.empty()) {
+      candidate.unified_api_token = generate_unified_api_token();
+    }
+    candidate.unified_api_enabled = true;
+  } else if (action == "disable") {
+    candidate.unified_api_enabled = false;
+  } else {
+    candidate.unified_api_token = generate_unified_api_token();
+  }
+  if (!core::validate(candidate).empty() || store_->save(candidate) != ESP_OK) {
+    return send_json(request, "500 Internal Server Error",
+                     "{\"error\":\"PrintDeck could not save the API setting. Please try again.\"}");
+  }
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    settings_ = candidate;
+  }
+  notify_settings_changed(candidate, true);
+  return serve_unified_api_settings(request);
+}
+
+bool WebConfig::authorize_unified_api(httpd_req_t* request) const {
+  bool enabled = false;
+  std::string expected_token;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    enabled = settings_.unified_api_enabled;
+    expected_token = settings_.unified_api_token;
+  }
+  if (!enabled) {
+    send_json(request, "403 Forbidden",
+              "{\"error\":{\"code\":\"api_disabled\",\"message\":\"Unified Printer API is disabled.\"}}");
+    return false;
+  }
+  const std::size_t length = httpd_req_get_hdr_value_len(request, "Authorization");
+  std::array<char, 96> authorization{};
+  bool valid = length > 7 && length < authorization.size() &&
+      httpd_req_get_hdr_value_str(request, "Authorization", authorization.data(),
+                                  authorization.size()) == ESP_OK;
+  const std::string_view prefix = "Bearer ";
+  const std::string_view value(authorization.data(), valid ? length : 0);
+  valid = valid && value.substr(0, prefix.size()) == prefix;
+  const std::string_view supplied = valid ? value.substr(prefix.size()) : std::string_view{};
+  valid = valid && supplied.size() == expected_token.size();
+  unsigned difference = 0;
+  if (valid) {
+    for (std::size_t index = 0; index < supplied.size(); ++index) {
+      difference |= static_cast<unsigned>(
+          static_cast<unsigned char>(supplied[index]) ^
+          static_cast<unsigned char>(expected_token[index]));
+    }
+    valid = difference == 0;
+  }
+  if (!valid) {
+    httpd_resp_set_hdr(request, "WWW-Authenticate",
+                       "Bearer realm=\"PrintDeck Unified Printer API\"");
+    send_json(request, "401 Unauthorized",
+              "{\"error\":{\"code\":\"unauthorized\",\"message\":\"Provide a valid Bearer token.\"}}");
+    return false;
+  }
+  const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  std::uint64_t next_request_ms =
+      unified_api_next_request_ms_.load(std::memory_order_acquire);
+  while (true) {
+    if (now_ms < next_request_ms) {
+      httpd_resp_set_hdr(request, "Retry-After", "1");
+      send_json(request, "429 Too Many Requests",
+                "{\"error\":{\"code\":\"rate_limited\",\"message\":\"Unified Printer API allows one request per second.\"}}");
+      return false;
+    }
+    if (unified_api_next_request_ms_.compare_exchange_weak(
+            next_request_ms, now_ms + kUnifiedApiMinimumRequestIntervalMs,
+            std::memory_order_acq_rel, std::memory_order_acquire)) {
+      break;
+    }
+  }
+  return true;
+}
+
+std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views() const {
+  // UnifiedPrinterView contains a complete normalized snapshot and is large.
+  // Keep every copy in the request-owned vector (PSRAM for allocations above
+  // the configured threshold) instead of placing snapshots on the 4 KiB HTTP
+  // task stack or retaining a second live copy while the API is idle.
+  std::vector<core::UnifiedPrinterView> views;
+  std::uint32_t selected_profile = 0;
+  std::uint32_t poll_interval_s = 60;
+  SelectedPrinterSnapshotCallback snapshot_callback = nullptr;
+  void* snapshot_context = nullptr;
+  UnifiedApiActivityCallback activity_callback = nullptr;
+  void* activity_context = nullptr;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    selected_profile = settings_.selected_profile;
+    poll_interval_s = settings_.inactive_printer_poll_interval_s;
+    snapshot_callback = selected_printer_snapshot_callback_;
+    snapshot_context = selected_printer_snapshot_context_;
+    activity_callback = unified_api_activity_callback_;
+    activity_context = unified_api_activity_context_;
+    views.reserve(settings_.profiles.size());
+    for (const core::PrinterProfile& profile : settings_.profiles) {
+      views.emplace_back();
+      core::UnifiedPrinterView& view = views.back();
+      view.id = profile.id;
+      view.protocol = profile.protocol;
+      view.display_name = profile.display_name;
+      view.endpoint = profile.endpoint;
+      view.manufacturer = profile.manufacturer;
+      view.model = profile.model;
+      view.selected = profile.id == selected_profile;
+    }
+  }
+  if (activity_callback != nullptr) activity_callback(activity_context);
+  std::unique_ptr<core::PrinterSnapshot> selected_snapshot;
+  bool selected_snapshot_available = false;
+  if (selected_profile != 0 && snapshot_callback != nullptr) {
+    selected_snapshot = std::make_unique<core::PrinterSnapshot>();
+    selected_snapshot_available = snapshot_callback(snapshot_context, *selected_snapshot) &&
+        selected_snapshot->profile_id == selected_profile;
+    selected_snapshot->job.preview.reset();
+    selected_snapshot->job.camera_frame.reset();
+    selected_snapshot->job.preview_hint.clear();
+    selected_snapshot->job.preview_plate_hint.clear();
+    selected_snapshot->job.camera_detail.clear();
+  }
+  const InactivePrinterSnapshot inactive = inactive_printer_poller_ != nullptr
+      ? inactive_printer_poller_->snapshot() : InactivePrinterSnapshot{};
+  const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  const std::uint64_t inactive_stale_ms = std::max<std::uint64_t>(
+      30'000, static_cast<std::uint64_t>(poll_interval_s) * 2'000);
+  for (core::UnifiedPrinterView& view : views) {
+    if (view.selected && selected_snapshot_available) {
+      const core::LinkState link = selected_snapshot->link;
+      const std::uint64_t updated_at_ms = selected_snapshot->updated_at_ms;
+      view.snapshot = std::move(*selected_snapshot);
+      view.detail_level = updated_at_ms > 0
+          ? core::UnifiedApiDetailLevel::full
+          : core::UnifiedApiDetailLevel::summary;
+      if (link == core::LinkState::online) {
+        view.reachability = core::PrinterReachability::online;
+      } else if (link == core::LinkState::failed) {
+        view.reachability = core::PrinterReachability::offline;
+      }
+      view.stale = link != core::LinkState::online || updated_at_ms == 0 ||
+          now_ms < updated_at_ms || now_ms - updated_at_ms > kUnifiedApiSelectedStaleMs;
+    } else {
+      view.snapshot.profile_id = view.id;
+      const auto status = std::find_if(
+          inactive.printers.begin(), inactive.printers.end(),
+          [&view](const InactivePrinterStatus& candidate) {
+            return candidate.profile_id == view.id;
+          });
+      if (status != inactive.printers.end()) {
+        view.snapshot.link = status->checking ? core::LinkState::connecting
+                                             : status->connected ? core::LinkState::online
+                                                                 : core::LinkState::failed;
+        view.snapshot.updated_at_ms = status->updated_at_ms;
+        view.snapshot.job.reachable = status->connected;
+        view.snapshot.job.phase = status->phase;
+        view.snapshot.job.kind = status->kind;
+        view.snapshot.job.name = status->job_name;
+        view.snapshot.job.remaining_seconds = status->remaining_seconds;
+        view.reachability = !status->available ? core::PrinterReachability::unknown
+            : status->connected ? core::PrinterReachability::online
+                                : core::PrinterReachability::offline;
+        view.stale = !status->available || status->checking || status->updated_at_ms == 0 ||
+            now_ms < status->updated_at_ms ||
+            now_ms - status->updated_at_ms > inactive_stale_ms;
+      }
+    }
+  }
+  return views;
+}
+
+esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
+  if (!authorize_unified_api(request)) return ESP_OK;
+  const NetworkStatus network = network_->status();
+  std::string body = "{\"api_version\":\"v1\",\"product\":\"PrintDeck\",\"firmware_version\":";
+  append_json_string(body, PRINTDECK_VERSION);
+  body += ",\"hardware\":";
+  append_json_string(body, kBoardVariant);
+  body += ",\"network\":{\"wifi_name\":";
+  append_json_string(body, network.station_name);
+  body += ",\"ipv4\":";
+  if (network.ipv4.empty()) body += "null";
+  else append_json_string(body, network.ipv4);
+  body += ",\"hostname\":";
+  if (network.local_hostname.empty()) body += "null";
+  else append_json_string(body, network.local_hostname);
+  body += "},\"read_only\":true}";
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::serve_unified_api_printers(httpd_req_t* request) const {
+  if (!authorize_unified_api(request)) return ESP_OK;
+  const std::vector<core::UnifiedPrinterView> views = unified_printer_views();
+  const std::string body = core::unified_api_printers_json(views);
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::serve_unified_api_statuses(httpd_req_t* request) const {
+  if (!authorize_unified_api(request)) return ESP_OK;
+  const std::vector<core::UnifiedPrinterView> views = unified_printer_views();
+  const std::string body = core::unified_api_statuses_json(views);
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::serve_unified_api_printer(httpd_req_t* request) const {
+  if (!authorize_unified_api(request)) return ESP_OK;
+  std::string_view path(request->uri);
+  const std::size_t query = path.find('?');
+  if (query != std::string_view::npos) path = path.substr(0, query);
+  constexpr std::string_view prefix = "/v1/printers/";
+  if (path.substr(0, prefix.size()) != prefix) {
+    return send_json(request, "404 Not Found",
+                     "{\"error\":{\"code\":\"not_found\",\"message\":\"Endpoint not found.\"}}");
+  }
+  path.remove_prefix(prefix.size());
+  const std::size_t slash = path.find('/');
+  const std::string_view id_text = path.substr(0, slash);
+  const std::string_view resource = slash == std::string_view::npos
+      ? std::string_view{} : path.substr(slash + 1);
+  std::uint32_t id = 0;
+  if (!parse_id(id_text, id) || id == 0 ||
+      (!resource.empty() && resource != "status" && resource != "nozzles" &&
+       resource != "materials")) {
+    return send_json(request, "404 Not Found",
+                     "{\"error\":{\"code\":\"not_found\",\"message\":\"Endpoint not found.\"}}");
+  }
+  const std::vector<core::UnifiedPrinterView> views = unified_printer_views();
+  const auto printer = std::find_if(
+      views.begin(), views.end(), [id](const core::UnifiedPrinterView& view) {
+        return view.id == id;
+      });
+  if (printer == views.end()) {
+    return send_json(request, "404 Not Found",
+                     "{\"error\":{\"code\":\"printer_not_found\",\"message\":\"Printer not found.\"}}");
+  }
+  const std::string body = resource.empty() ? core::unified_api_printer_json(*printer)
+      : resource == "status" ? core::unified_api_status_json(*printer)
+      : resource == "nozzles" ? core::unified_api_nozzles_json(*printer)
+                               : core::unified_api_materials_json(*printer);
   return send_json(request, "200 OK", body.c_str());
 }
 

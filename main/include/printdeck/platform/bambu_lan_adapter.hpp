@@ -23,6 +23,7 @@ class BambuLanAdapter {
   bool running() const { return running_.load(std::memory_order_acquire); }
   void configure(const core::PrinterProfile* selected_profile);
   core::PrinterSnapshot snapshot() const;
+  void snapshot_into(core::PrinterSnapshot& destination) const;
   BambuPrinterModel detected_model() const { return model_.load(); }
   BambuModelCapabilities capabilities() const;
   bool request_chamber_light(bool enabled);

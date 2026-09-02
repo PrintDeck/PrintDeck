@@ -23,6 +23,7 @@ struct InactivePrinterStatus {
   core::JobKind kind = core::JobKind::print;
   std::string job_name;
   std::uint32_t remaining_seconds = 0;
+  std::uint64_t updated_at_ms = 0;
 };
 
 struct InactivePrinterSnapshot {

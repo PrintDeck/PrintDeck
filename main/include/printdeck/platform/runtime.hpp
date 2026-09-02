@@ -51,6 +51,9 @@ class Runtime {
   static void camera_mode_changed_entry(void* context, bool live);
   static void update_check_entry(void* context);
   static void update_install_entry(void* context);
+  static bool selected_printer_snapshot_entry(
+      void* context, core::PrinterSnapshot& destination);
+  static void unified_api_activity_entry(void* context);
   static bool background_update_blocked_entry(void* context);
   static void settings_changed_entry(void* context, const core::DeviceSettings& settings,
                                      bool play_feedback);
@@ -127,6 +130,7 @@ class Runtime {
   std::atomic<bool> restart_ready_{false};
   std::atomic<std::uint64_t> restart_expires_at_ms_{0};
   std::atomic<int> selected_printer_protocol_{-1};
+  std::atomic<std::uint64_t> unified_api_active_until_ms_{0};
   std::mutex pending_settings_mutex_;
   std::optional<core::DeviceSettings> pending_settings_;
   bool pending_settings_feedback_ = false;

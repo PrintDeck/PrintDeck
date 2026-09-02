@@ -9,7 +9,7 @@ Building from independently sourced parts requires enough electronics
 experience to verify connector type, polarity, voltage, insulation and power
 routing before anything is connected. If you are not comfortable making those
 checks, please [contact PrintDeck Support](https://printdeck.xyz/support/)
-about DIY sets or complete devices.
+about choosing compatible parts or individual assembly assistance.
 
 Choose one display and enclosure combination. Battery power, wireless
 charging, magnets and audio are optional unless a case-specific list states

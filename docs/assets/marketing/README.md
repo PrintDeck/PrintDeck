@@ -5,6 +5,16 @@ These images belong to the marketing website only.
 - `cases/riverstone.webp` - The Riverstone main product image.
 - `cases/riverstone-story.webp` - The Riverstone image used in its design story.
 - `cases/gulios-round.webp` - The Scuttle product image.
+- `cases/gulios-color-collection.webp` - optimized 1440 x 1080 studio hero
+  prepared from the private full-resolution HEIC source for The Scuttle.
+- `cases/gulios-red-angle.webp` - optimized 800 x 600 studio supporting view
+  prepared from the private full-resolution HEIC source.
+- `cases/gulios-black-angle.webp` - 800 x 800 black/yellow supporting view.
+- `cases/thumbs/scuttle-white-transparent.webp` and
+  `cases/thumbs/scuttle-black-transparent.webp` are isolated 800 x 533 cutouts
+  used only by The Scuttle overview gallery. They deliberately do not replace
+  `cases/gulios-round.webp`, which retains its studio background for the design
+  story, and they are not shared with the user manual, Web Config or firmware.
 - `cases/snapmaker-u1-mini.webp` - Snapmaker U1 Mini case product image.
 - `cases/details/` contains three replaceable detail images for each case.
   The files are initially physical copies of the corresponding product image;

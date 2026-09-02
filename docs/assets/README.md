@@ -15,7 +15,9 @@ affiliated with or endorsed by Google or Microsoft.
 ## Public website brand assets
 
 - `brand/printdeck-logo-black.svg` and `brand/printdeck-logo-white.svg` are the
-  public-site vector logos supplied for light and dark surfaces.
+  public-site vector logos supplied for light and dark surfaces. Their
+  letterforms are stored as compact vector paths; do not embed complete font
+  files back into either logo.
 - Matching PNG copies remain in `brand/` for raster-only consumers.
 - `fonts/Poppins-Regular.ttf` and `fonts/Poppins-SemiBold.ttf` are extracted
   from the supplied logo artwork so the public website uses the exact same two

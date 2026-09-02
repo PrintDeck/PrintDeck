@@ -281,6 +281,7 @@ void InactivePrinterPoller::mark_offline(std::uint32_t profile_id) {
     offline.profile_id = profile_id;
     offline.available = true;
     offline.connected = false;
+    offline.updated_at_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
     if (found == snapshot_.printers.end()) snapshot_.printers.push_back(offline);
     else *found = offline;
     ++snapshot_.revision;
@@ -409,6 +410,7 @@ void InactivePrinterPoller::task_loop() {
           static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
       if (begin_automatic_check(profile.id, generation, now_ms)) {
         InactivePrinterStatus result = probe(profile);
+        result.updated_at_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
         finish_automatic_check(profile.id, now_ms);
         // Publish each completed probe immediately. A slow or offline profile
         // later in the queue must not delay an earlier card's fresh status.

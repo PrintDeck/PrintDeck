@@ -2,17 +2,18 @@
 
 **Your print status, always in view.**
 
-PrintDeck turns a compact touch display into a dedicated local companion for
-your 3D printer. It connects directly to Klipper and supported Bambu Lab
-printers, keeping progress, tools, temperatures and camera views one glance
-away—without requiring a cloud account.
+PrintDeck is independent firmware built by 3D-printing enthusiasts for the
+community. It turns a compatible third-party touch display into a dedicated
+local companion for your 3D printer. It connects directly to Klipper and
+supported Bambu Lab printers, keeping progress, tools, temperatures and camera
+views one glance away—without requiring a cloud account.
 
 [Project website](https://printdeck.xyz/) ·
 [Install firmware](https://printdeck.xyz/firmware/) ·
 [Case designs](https://printdeck.xyz/case-designs/) ·
 [User manual](https://printdeck.xyz/printdeck-user-manual.pdf)
 
-[![The Riverstone, The Scuttle and Snapmaker U1 Mini PrintDeck devices](docs/assets/marketing/cases/home-hero-v2.webp)](https://printdeck.xyz/)
+[![Compatible displays running PrintDeck firmware in The Riverstone, The Scuttle and Snapmaker U1 Mini enclosures](docs/assets/marketing/cases/home-hero-v2.webp)](https://printdeck.xyz/)
 
 ## Built for a glance
 
@@ -30,6 +31,15 @@ away—without requiring a cloud account.
   print-completion wake-up behavior.
 - **Easy maintenance:** guided USB installation, factory reset and
   configuration-preserving USB or over-the-air updates.
+
+## Device Unified API
+
+PrintDeck can expose an optional, token-protected and read-only Unified Printer
+API on the device's local IP address. It translates Klipper/Moonraker and
+supported Bambu Lab telemetry into one stable JSON format, so dashboards,
+Home Assistant, Node-RED and custom software can read printer status,
+temperatures, nozzles and material data without implementing each vendor's
+protocol; see the [Unified Printer API overview](https://printdeck.xyz/unified-printer-api/).
 
 ## U1 Mini case
 
@@ -68,8 +78,10 @@ supported display formats. Experienced builders can use the project
 [bill of materials](docs/BOM.md); it documents compatibility requirements
 without recommending individual sellers or unverified components.
 
-For official DIY sets or a complete, tested PrintDeck device, please
-[contact PrintDeck Support](https://printdeck.xyz/support/).
+The supported display boards are manufactured by third parties. If you need
+help selecting compatible components, assembling a personal build or
+installing the firmware, [contact PrintDeck Support](https://printdeck.xyz/support/)
+about individual assembly assistance.
 
 ## Source and support
 

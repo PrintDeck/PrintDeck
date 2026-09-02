@@ -105,6 +105,14 @@ bool supported_audio_preset(std::string_view id) {
          id == "arcade" || id == "scifi" || id == "clean";
 }
 
+bool valid_unified_api_token(std::string_view token) {
+  if (token.size() != kUnifiedApiTokenLength || token.substr(0, 3) != "pd_") return false;
+  return std::all_of(token.begin() + 3, token.end(), [](unsigned char character) {
+    return (character >= '0' && character <= '9') ||
+           (character >= 'a' && character <= 'f');
+  });
+}
+
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
   if (settings.theme == "blue") settings.theme = "banana";
@@ -121,6 +129,10 @@ bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema < 8) {
     settings.reaction_progress_bar_enabled = true;
     settings.reaction_progress_percent_enabled = true;
+  }
+  if (source_schema < 9) {
+    settings.unified_api_enabled = false;
+    settings.unified_api_token.clear();
   }
   return true;
 }
@@ -168,6 +180,11 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
   if (settings.camera_snapshot_fps != 1 && settings.camera_snapshot_fps != 2 &&
       settings.camera_snapshot_fps != 5) {
     issues.push_back({"camera_snapshot_fps", "Camera snapshot rate must be 1, 2 or 5 FPS"});
+  }
+  if ((!settings.unified_api_token.empty() &&
+       !valid_unified_api_token(settings.unified_api_token)) ||
+      (settings.unified_api_enabled && settings.unified_api_token.empty())) {
+    issues.push_back({"unified_api_token", "Unified Printer API token is invalid"});
   }
   const std::uint32_t poll_interval = settings.inactive_printer_poll_interval_s;
   if (poll_interval != 0 && poll_interval != 30 && poll_interval != 60 &&
@@ -222,6 +239,7 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
 
 DeviceSettings redact_secrets(DeviceSettings settings) {
   settings.wifi_password.clear();
+  settings.unified_api_token.clear();
   for (auto& profile : settings.profiles) {
     profile.api_key.clear();
     profile.access_code.clear();

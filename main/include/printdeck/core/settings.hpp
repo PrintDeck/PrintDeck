@@ -11,7 +11,8 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 8;
+constexpr std::uint8_t kSettingsSchemaVersion = 9;
+constexpr std::size_t kUnifiedApiTokenLength = 67;
 constexpr std::uint16_t kAudioEventMuteMask = (1U << 14U) - 1U;
 
 struct DisplayPowerPolicy {
@@ -48,6 +49,8 @@ struct DeviceSettings {
   std::uint32_t inactive_printer_poll_interval_s = 60;
   std::string camera_mode = "snapshots";
   std::uint8_t camera_snapshot_fps = 1;
+  bool unified_api_enabled = false;
+  std::string unified_api_token;
   DisplayPowerPolicy display_power;
 };
 
@@ -60,6 +63,7 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings);
 DeviceSettings redact_secrets(DeviceSettings settings);
 bool is_local_printer_endpoint(std::string_view endpoint, PrinterProtocol protocol);
 bool supported_audio_preset(std::string_view id);
+bool valid_unified_api_token(std::string_view token);
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings);
 
 }  // namespace printdeck::core

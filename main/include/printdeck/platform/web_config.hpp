@@ -1,17 +1,20 @@
 #pragma once
 
+#include <atomic>
 #include <array>
 #include <mutex>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "esp_err.h"
 #include "esp_http_server.h"
 #include "esp_timer.h"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/core/configuration_backup.hpp"
+#include "printdeck/core/unified_printer_api.hpp"
 #include "printdeck/platform/network_service.hpp"
 #include "printdeck/platform/settings_store.hpp"
 #include "printdeck/platform/moonraker_connection_probe.hpp"
@@ -32,6 +35,9 @@ class WebConfig {
   using ConfigurationBackupActivityCallback =
       void (*)(void*, core::ConfigurationBackupActivity activity, bool play_feedback);
   using RestartRequestedCallback = bool (*)(void* context);
+  using SelectedPrinterSnapshotCallback =
+      bool (*)(void* context, core::PrinterSnapshot& destination);
+  using UnifiedApiActivityCallback = void (*)(void* context);
 
   esp_err_t start(const core::DeviceSettings& settings, const SettingsStore& store,
                   NetworkService& network, MoonrakerConnectionProbe& moonraker_probe,
@@ -45,9 +51,11 @@ class WebConfig {
   void set_configuration_backup_activity_callback(
       ConfigurationBackupActivityCallback callback, void* context);
   void set_restart_requested_callback(RestartRequestedCallback callback, void* context);
+  void set_selected_printer_snapshot_callback(
+      SelectedPrinterSnapshotCallback callback, void* context);
+  void set_unified_api_activity_callback(UnifiedApiActivityCallback callback, void* context);
   void synchronize_settings(const core::DeviceSettings& settings);
-  void update_selected_printer_status(std::uint32_t profile_id, core::LinkState link,
-                                      core::JobPhase phase, float completion);
+  void update_selected_printer_status(const core::PrinterSnapshot& snapshot);
   esp_err_t save_brightness(int percent);
   esp_err_t save_audio(bool enabled, int volume_percent);
   esp_err_t save_audio_preset(std::string_view preset);
@@ -81,6 +89,12 @@ class WebConfig {
   static esp_err_t update_url_entry(httpd_req_t* request);
   static esp_err_t settings_get_entry(httpd_req_t* request);
   static esp_err_t settings_post_entry(httpd_req_t* request);
+  static esp_err_t unified_api_settings_get_entry(httpd_req_t* request);
+  static esp_err_t unified_api_settings_post_entry(httpd_req_t* request);
+  static esp_err_t unified_api_info_entry(httpd_req_t* request);
+  static esp_err_t unified_api_printers_entry(httpd_req_t* request);
+  static esp_err_t unified_api_statuses_entry(httpd_req_t* request);
+  static esp_err_t unified_api_printer_entry(httpd_req_t* request);
   static esp_err_t configuration_backup_export_entry(httpd_req_t* request);
   static esp_err_t configuration_backup_check_entry(httpd_req_t* request);
   static esp_err_t configuration_backup_restore_entry(httpd_req_t* request);
@@ -127,6 +141,14 @@ class WebConfig {
   esp_err_t install_update_url(httpd_req_t* request);
   esp_err_t serve_settings(httpd_req_t* request) const;
   esp_err_t save_settings(httpd_req_t* request);
+  esp_err_t serve_unified_api_settings(httpd_req_t* request) const;
+  esp_err_t save_unified_api_settings(httpd_req_t* request);
+  esp_err_t serve_unified_api_info(httpd_req_t* request) const;
+  esp_err_t serve_unified_api_printers(httpd_req_t* request) const;
+  esp_err_t serve_unified_api_statuses(httpd_req_t* request) const;
+  esp_err_t serve_unified_api_printer(httpd_req_t* request) const;
+  bool authorize_unified_api(httpd_req_t* request) const;
+  std::vector<core::UnifiedPrinterView> unified_printer_views() const;
   esp_err_t export_configuration_backup(httpd_req_t* request) const;
   esp_err_t check_configuration_backup(httpd_req_t* request) const;
   esp_err_t restore_configuration_backup(httpd_req_t* request);
@@ -183,6 +205,11 @@ class WebConfig {
   void* configuration_backup_activity_context_ = nullptr;
   RestartRequestedCallback restart_requested_callback_ = nullptr;
   void* restart_requested_context_ = nullptr;
+  SelectedPrinterSnapshotCallback selected_printer_snapshot_callback_ = nullptr;
+  void* selected_printer_snapshot_context_ = nullptr;
+  UnifiedApiActivityCallback unified_api_activity_callback_ = nullptr;
+  void* unified_api_activity_context_ = nullptr;
+  mutable std::atomic<std::uint64_t> unified_api_next_request_ms_{0};
   mutable std::array<std::uint8_t, 16> backup_crypto_salt_{};
   mutable std::array<std::uint8_t, 32> backup_crypto_verifier_{};
   mutable std::array<std::uint8_t, 32> backup_crypto_key_{};
