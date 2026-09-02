@@ -1,0 +1,26 @@
+blueprint:
+  name: "PrintDeck：打印完成时开灯"
+  description: >-
+    监控一台 PrintDeck 打印机的打印阶段传感器，并在阶段变为已完成时打开所选灯具。
+  domain: automation
+  author: kitek
+  homeassistant: {min_version: 2025.10.0}
+  input:
+    print_phase:
+      name: 打印阶段传感器
+      description: 选择属于该打印机的打印阶段实体。
+      selector: {entity: {filter: [{integration: printdeck, domain: sensor, device_class: enum}]}}
+    light_target:
+      name: 灯具
+      description: 选择打印完成后要打开的灯具。
+      selector: {target: {entity: {domain: light}}}
+triggers:
+  - {trigger: state, entity_id: !input print_phase, to: completed}
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and
+         trigger.from_state.state in ['preparing', 'printing', 'paused'] }}
+actions:
+  - {action: light.turn_on, target: !input light_target}
+mode: single

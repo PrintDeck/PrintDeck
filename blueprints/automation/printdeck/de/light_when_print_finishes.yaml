@@ -1,0 +1,27 @@
+blueprint:
+  name: "PrintDeck: Licht nach Druckabschluss einschalten"
+  description: >-
+    Überwacht den Sensor Druckphase eines PrintDeck-Druckers und schaltet das
+    gewählte Licht ein, wenn die Phase auf Abgeschlossen wechselt.
+  domain: automation
+  author: kitek
+  homeassistant: {min_version: 2025.10.0}
+  input:
+    print_phase:
+      name: Druckphasen-Sensor
+      description: Wähle die Entität Druckphase des Druckers.
+      selector: {entity: {filter: [{integration: printdeck, domain: sensor, device_class: enum}]}}
+    light_target:
+      name: Licht
+      description: Wähle das Licht, das nach Druckabschluss eingeschaltet wird.
+      selector: {target: {entity: {domain: light}}}
+triggers:
+  - {trigger: state, entity_id: !input print_phase, to: completed}
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and
+         trigger.from_state.state in ['preparing', 'printing', 'paused'] }}
+actions:
+  - {action: light.turn_on, target: !input light_target}
+mode: single

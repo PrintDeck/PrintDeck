@@ -41,6 +41,29 @@ Home Assistant, Node-RED and custom software can read printer status,
 temperatures, nozzles and material data without implementing each vendor's
 protocol; see the [Unified Printer API overview](https://printdeck.xyz/unified-printer-api/).
 
+## Home Assistant integration
+
+The native PrintDeck integration discovers compatible devices through mDNS,
+asks for the Unified API token in the Home Assistant interface and creates a
+device with printer phase, activity, progress, timing, layer, temperature and
+connection entities. It polls one aggregate local endpoint every ten seconds;
+printer credentials remain on PrintDeck.
+
+Until PrintDeck is included in the default HACS catalog, add this repository as
+a custom **Integration** repository in HACS, download **PrintDeck**, restart
+Home Assistant and choose **Settings > Devices & services > Add integration >
+PrintDeck**. Enable Unified Printer API in PrintDeck Web Config before setup.
+The integration requires a PrintDeck firmware version that advertises native
+Home Assistant support.
+
+Ready-made automation blueprints are also available:
+
+- [turn on a light when a print finishes](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2FPrintDeck%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Flight_when_print_finishes.yaml);
+- [use different lights at 25%, 50% and 75%](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2FPrintDeck%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Fprogress_milestone_lights.yaml).
+
+Polish, Spanish, French, German and Simplified Chinese blueprint variants live
+next to the English files under `blueprints/automation/printdeck/`.
+
 ## U1 Mini case
 
 For Snapmaker U1, PrintDeck recognizes the stock configuration over the local

@@ -1,0 +1,43 @@
+blueprint:
+  name: "PrintDeck: Turn on a light when a print finishes"
+  description: >-
+    Watches one PrintDeck Print phase sensor and turns on the selected light
+    when the phase changes to Completed.
+  domain: automation
+  author: kitek
+  homeassistant:
+    min_version: 2025.10.0
+  input:
+    print_phase:
+      name: Print phase sensor
+      description: Select the Print phase entity belonging to the printer.
+      selector:
+        entity:
+          filter:
+            - integration: printdeck
+              domain: sensor
+              device_class: enum
+    light_target:
+      name: Light
+      description: Select the light that should turn on after the print finishes.
+      selector:
+        target:
+          entity:
+            domain: light
+
+triggers:
+  - trigger: state
+    entity_id: !input print_phase
+    to: completed
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and
+         trigger.from_state.state in ['preparing', 'printing', 'paused'] }}
+
+actions:
+  - action: light.turn_on
+    target: !input light_target
+
+mode: single

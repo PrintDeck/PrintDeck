@@ -1,0 +1,32 @@
+blueprint:
+  name: "PrintDeck: Luces por hitos de progreso"
+  description: >-
+    Enciende una luz diferente cuando una impresión de PrintDeck supera el
+    25%, 50% y 75%. Cada luz se selecciona por separado.
+  domain: automation
+  author: kitek
+  homeassistant: {min_version: 2025.10.0}
+  input:
+    progress_sensor:
+      name: Sensor de progreso de impresión
+      description: Selecciona la entidad Progreso de impresión de la impresora.
+      selector: {entity: {filter: [{integration: printdeck, domain: sensor}]}}
+    light_25: {name: "Luz al 25%", selector: {target: {entity: {domain: light}}}}
+    light_50: {name: "Luz al 50%", selector: {target: {entity: {domain: light}}}}
+    light_75: {name: "Luz al 75%", selector: {target: {entity: {domain: light}}}}
+triggers:
+  - {trigger: numeric_state, entity_id: !input progress_sensor, above: 24.9, id: progress_25}
+  - {trigger: numeric_state, entity_id: !input progress_sensor, above: 49.9, id: progress_50}
+  - {trigger: numeric_state, entity_id: !input progress_sensor, above: 74.9, id: progress_75}
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and
+         trigger.from_state.state not in ['unknown', 'unavailable'] }}
+actions:
+  - choose:
+      - {conditions: [{condition: trigger, id: progress_25}], sequence: [{action: light.turn_on, target: !input light_25}]}
+      - {conditions: [{condition: trigger, id: progress_50}], sequence: [{action: light.turn_on, target: !input light_50}]}
+      - {conditions: [{condition: trigger, id: progress_75}], sequence: [{action: light.turn_on, target: !input light_75}]}
+mode: queued
+max: 3

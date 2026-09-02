@@ -1,0 +1,22 @@
+{
+  "title": "PrintDeck",
+  "config": {
+    "step": {
+      "user": {"title": "Połącz z PrintDeckiem", "description": "Włącz Unified Printer API w [Web Config PrintDecka]({configuration_url}), a następnie podaj lokalny host i token API.", "data": {"host": "Host lub adres IP", "token": "Token Unified API"}, "data_description": {"host": "Na przykład printdeck.local lub lokalny adres IP wyświetlany przez PrintDeck.", "token": "Token widoczny w Ustawienia > Unified API w Web Config PrintDecka."}},
+      "zeroconf_confirm": {"title": "Dodaj wykryty PrintDeck", "description": "Znaleziono {name} pod adresem `{host}`. Włącz Unified Printer API w [Web Config PrintDecka]({configuration_url}) i podaj jego token.", "data": {"token": "Token Unified API"}},
+      "reauth_confirm": {"title": "Zaktualizuj token PrintDecka", "description": "Bieżący token Unified API został odrzucony. Podaj aktywny token z Web Config PrintDecka.", "data": {"token": "Token Unified API"}},
+      "reconfigure": {"title": "Skonfiguruj ponownie PrintDeck", "description": "Zmień lokalny adres lub token. Możesz je sprawdzić w [Web Config PrintDecka]({configuration_url}).", "data": {"host": "Host lub adres IP", "token": "Token Unified API"}}
+    },
+    "error": {"cannot_connect": "Nie można połączyć się z PrintDeckiem.", "invalid_auth": "Token Unified API jest nieprawidłowy.", "api_disabled": "Unified Printer API jest wyłączone. Włącz je w Web Config PrintDecka.", "unsupported_firmware": "Zaktualizuj firmware PrintDecka do wersji obsługującej integrację Home Assistant.", "invalid_response": "PrintDeck zwrócił nieprawidłową odpowiedź.", "invalid_input": "Podaj prawidłowy lokalny host i token API.", "unknown": "Wystąpił nieoczekiwany błąd."},
+    "abort": {"already_configured": "Ten PrintDeck jest już skonfigurowany.", "invalid_discovery": "Wykryta usługa nie zawiera prawidłowej tożsamości PrintDecka.", "reauth_successful": "Token PrintDecka został zaktualizowany.", "reconfigure_successful": "PrintDeck został ponownie skonfigurowany."}
+  },
+  "entity": {
+    "binary_sensor": {"online": {"name": "Połączenie"}, "selected": {"name": "Wybrana drukarka"}, "data_stale": {"name": "Nieaktualne dane"}},
+    "sensor": {
+      "phase": {"name": "Faza wydruku", "state": {"unknown": "Nieznana", "idle": "Bezczynna", "preparing": "Przygotowanie", "printing": "Drukowanie", "paused": "Wstrzymano", "completed": "Zakończono", "failed": "Błąd", "cancelled": "Anulowano"}},
+      "activity": {"name": "Aktywność drukarki", "state": {"unknown": "Nieznana", "standby": "Gotowość", "preparing": "Przygotowanie", "nozzle_heating": "Nagrzewanie dyszy", "bed_heating": "Nagrzewanie stołu", "homing": "Bazowanie", "bed_leveling": "Poziomowanie stołu", "nozzle_cleaning": "Czyszczenie dyszy", "calibrating": "Kalibracja", "filament_changing": "Zmiana filamentu", "filament_unloading": "Wyładowywanie filamentu", "filament_loading": "Ładowanie filamentu", "filament_purging": "Przepłukiwanie filamentu", "printing": "Drukowanie", "paused": "Wstrzymano", "completed": "Zakończono", "failed": "Błąd", "cancelled": "Anulowano"}},
+      "progress": {"name": "Postęp wydruku"}, "job_name": {"name": "Nazwa wydruku"}, "job_kind": {"name": "Typ zadania", "state": {"print": "Wydruk", "calibration": "Kalibracja"}}, "remaining_time": {"name": "Pozostały czas"}, "elapsed_time": {"name": "Czas od rozpoczęcia"}, "current_layer": {"name": "Bieżąca warstwa"}, "total_layers": {"name": "Liczba warstw"}, "nozzle_temperature": {"name": "Temperatura dyszy"}, "nozzle_target_temperature": {"name": "Docelowa temperatura dyszy"}, "bed_temperature": {"name": "Temperatura stołu"}, "bed_target_temperature": {"name": "Docelowa temperatura stołu"}, "chamber_temperature": {"name": "Temperatura komory"},
+      "connection_state": {"name": "Stan połączenia", "state": {"unknown": "Nieznany", "stopped": "Zatrzymane", "waiting_for_network": "Oczekiwanie na sieć", "connecting": "Łączenie", "online": "Online", "offline": "Offline"}}, "reachability": {"name": "Dostępność", "state": {"unknown": "Nieznana", "online": "Online", "offline": "Offline"}}, "detail_level": {"name": "Szczegółowość danych", "state": {"summary": "Podsumowanie", "full": "Pełne dane"}}
+    }
+  }
+}

@@ -29,6 +29,7 @@ struct UnifiedPrinterView {
 
 std::string unified_api_printers_json(std::span<const UnifiedPrinterView> printers);
 std::string unified_api_statuses_json(std::span<const UnifiedPrinterView> printers);
+std::string unified_api_snapshot_json(std::span<const UnifiedPrinterView> printers);
 std::string unified_api_printer_json(const UnifiedPrinterView& printer);
 std::string unified_api_status_json(const UnifiedPrinterView& printer);
 std::string unified_api_nozzles_json(const UnifiedPrinterView& printer);

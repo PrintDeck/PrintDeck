@@ -24,6 +24,7 @@ struct NetworkStatus {
   std::string ipv4;
   std::string netmask;
   std::string local_hostname;
+  std::string device_id;
   std::string setup_network_name;
 };
 
@@ -63,6 +64,7 @@ class NetworkService {
   std::string saved_station_name_;
   std::string saved_station_password_;
   std::string setup_network_name_;
+  std::string device_id_;
   std::string captive_portal_uri_;
   esp_netif_t* access_point_netif_ = nullptr;
   std::uint8_t setup_client_count_ = 0;

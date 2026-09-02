@@ -1,0 +1,31 @@
+blueprint:
+  name: "PrintDeck：进度阶段灯"
+  description: >-
+    当 PrintDeck 打印进度超过 25%、50% 和 75% 时分别打开不同的灯具。
+  domain: automation
+  author: kitek
+  homeassistant: {min_version: 2025.10.0}
+  input:
+    progress_sensor:
+      name: 打印进度传感器
+      description: 选择属于该打印机的打印进度实体。
+      selector: {entity: {filter: [{integration: printdeck, domain: sensor}]}}
+    light_25: {name: "25% 时的灯具", selector: {target: {entity: {domain: light}}}}
+    light_50: {name: "50% 时的灯具", selector: {target: {entity: {domain: light}}}}
+    light_75: {name: "75% 时的灯具", selector: {target: {entity: {domain: light}}}}
+triggers:
+  - {trigger: numeric_state, entity_id: !input progress_sensor, above: 24.9, id: progress_25}
+  - {trigger: numeric_state, entity_id: !input progress_sensor, above: 49.9, id: progress_50}
+  - {trigger: numeric_state, entity_id: !input progress_sensor, above: 74.9, id: progress_75}
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and
+         trigger.from_state.state not in ['unknown', 'unavailable'] }}
+actions:
+  - choose:
+      - {conditions: [{condition: trigger, id: progress_25}], sequence: [{action: light.turn_on, target: !input light_25}]}
+      - {conditions: [{condition: trigger, id: progress_50}], sequence: [{action: light.turn_on, target: !input light_50}]}
+      - {conditions: [{condition: trigger, id: progress_75}], sequence: [{action: light.turn_on, target: !input light_75}]}
+mode: queued
+max: 3

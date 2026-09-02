@@ -62,12 +62,12 @@
           <a class="ha-back-link" href="/pl/unified-printer-api/"><span aria-hidden="true">←</span> Unified Printer API</a>
           <div class="ha-hero-grid">
             <div class="ha-hero-copy">
-              <span class="api-eyebrow">HOME ASSISTANT · RĘCZNA KONFIGURACJA REST</span>
+              <span class="api-eyebrow">HOME ASSISTANT · INTEGRACJA PRINTDECK</span>
               <h1>Twoja drukarka staje się<br><strong>częścią inteligentnego domu.</strong></h1>
               <p class="api-lead">Home Assistant może odpytywać PrintDeck w sieci lokalnej, przekształcać znormalizowane dane drukarki w encje i reagować na każdą zmianę stanu wydruku.</p>
               <div class="site-actions">
-                <a class="site-button" href="#quick-start">Skonfiguruj pierwszą automatyzację</a>
-                <a class="site-button secondary" href="#all-sensors">Dodaj wszystkie sensory statusu</a>
+                <a class="site-button" href="#native-integration">Zainstaluj integrację PrintDeck</a>
+                <a class="site-button secondary" href="#quick-start">Użyj ręcznej konfiguracji REST</a>
               </div>
             </div>
             <div class="ha-hero-mark" aria-label="PrintDeck przekazuje dane drukarki do Home Assistant">
@@ -80,7 +80,7 @@
       </section>
 
       <div class="campaign-signal api-signal" aria-label="Najważniejsze cechy integracji z Home Assistant">
-        <span>Lokalne odpytywanie REST</span>
+        <span>Automatyczne wykrywanie mDNS</span>
         <span>Jedno żądanie, wiele sensorów</span>
         <span>Chronione tokenem Bearer</span>
         <span>Klipper i Bambu Lab</span>
@@ -91,7 +91,7 @@
           <header class="api-section-head">
             <span class="home-kicker">POMYSŁ</span>
             <h2>PrintDeck tłumaczy.<br><strong>Home Assistant reaguje.</strong></h2>
-            <p>PrintDeck już rozumie protokół używany przez drukarkę. Home Assistant musi jedynie odpytywać Unified Printer API w bezpiecznym odstępie i używać zwracanych wartości jak zwykłych encji.</p>
+            <p>Integracja PrintDeck wykrywa zgodne urządzenia, prosi o token Unified API w interfejsie Home Assistant i automatycznie tworzy dostępne encje drukarek.</p>
           </header>
           <div class="ha-example-grid">
             <article><span>01</span><h3>Zakończony wydruk</h3><p>Włącz lampę, wyślij powiadomienie na telefon albo ogłoś, że wydruk jest gotowy.</p></article>
@@ -102,12 +102,41 @@
         </div>
       </section>
 
+      <section class="api-section ha-quick-start" id="native-integration">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">NATYWNE DOŚWIADCZENIE HOME ASSISTANT</span>
+            <h2>Bez configuration.yaml.<br><strong>Skonfiguruj wszystko w interfejsie.</strong></h2>
+            <p>Zainstaluj utrzymywaną przez PrintDeck integrację niestandardową przez HACS. Korzysta ona ze standardowego procesu Urządzenia i usługi w Home Assistant; HACS jest tylko metodą instalacji.</p>
+          </header>
+          <ol class="ha-guide-steps">
+            <li>
+              <div class="ha-step-copy"><span>01</span><div><h3>Włącz API</h3><p>Otwórz Web Config w PrintDeck, wybierz Unified Printer API, włącz je i skopiuj wygenerowany token dostępu.</p></div></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>02</span><div><h3>Zainstaluj przez HACS</h3><p>Dodaj repozytorium PrintDeck jako niestandardowe repozytorium typu Integracja w HACS, pobierz PrintDeck i uruchom ponownie Home Assistant.</p></div></div>
+              <div class="site-actions"><a class="site-button secondary" href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">Otwórz repozytorium PrintDeck</a></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>03</span><div><h3>Dodaj PrintDeck</h3><p>Otwórz Ustawienia &gt; Urządzenia i usługi &gt; Dodaj integrację. Wybierz wykryty PrintDeck lub wyszukaj PrintDeck, a następnie podaj token Unified API.</p></div></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>04</span><div><h3>Importuj schemat automatyzacji</h3><p>Wybierz gotową automatyzację, a następnie wskaż sensor PrintDeck i światło w interfejsie Home Assistant.</p></div></div>
+              <div class="site-actions">
+                <a class="site-button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2FPrintDeck%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Flight_when_print_finishes.yaml" target="_blank" rel="noopener">Światło po zakończeniu wydruku</a>
+                <a class="site-button secondary" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2FPrintDeck%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Fprogress_milestone_lights.yaml" target="_blank" rel="noopener">Światła przy 25%, 50% i 75%</a>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
       <section class="api-section ha-quick-start" id="quick-start">
         <div class="api-inner">
           <header class="api-section-head">
-            <span class="home-kicker">JEDEN STAN, JEDNA LAMPA</span>
-            <h2>Włącz światło<br><strong>gdy jedna drukarka zakończy pracę.</strong></h2>
-            <p>Ten pierwszy przykład obserwuje etap jednej drukarki i włącza jedną encję światła. Zastąp przykładowy adres IP, identyfikator drukarki i encję światła własnymi wartościami.</p>
+            <span class="home-kicker">RĘCZNA ALTERNATYWA REST</span>
+            <h2>Wolisz YAML?<br><strong>Połącz jeden stan z jednym światłem.</strong></h2>
+            <p>Ta alternatywna konfiguracja nie wymaga integracji PrintDeck. Obserwuje etap jednej drukarki i włącza jedną encję światła przez sensor REST Home Assistant.</p>
           </header>
           <ol class="ha-guide-steps">
             <li>
@@ -363,7 +392,7 @@
             <h2>Lokalne z założenia.<br><strong>Tylko do odczytu z założenia.</strong></h2>
           </div>
           <div>
-            <p>Home Assistant odpytuje PrintDeck; PrintDeck nie wysyła webhooków. Trzymaj oba urządzenia w zaufanej sieci lokalnej, nie udostępniaj portu API w internecie i przechowuj token Bearer w pliku secrets.yaml.</p>
+            <p>Home Assistant odpytuje PrintDeck; PrintDeck nie wysyła webhooków. Trzymaj oba urządzenia w zaufanej sieci lokalnej i nie udostępniaj portu API w internecie. Integracja zapisuje token we wpisie konfiguracyjnym Home Assistant; przy ręcznej konfiguracji REST przechowuj go w secrets.yaml.</p>
             <p>Postęp, temperatury i szczegółowe aktywności używane przez reakcje są najpełniejsze dla drukarki aktualnie wybranej w PrintDeck. Informacje o połączeniu i skrócony stan zadania pozostają dostępne dla pozostałych zapisanych drukarek.</p>
             <a class="site-button" href="/pl/unified-printer-api/">Wróć do Unified Printer API</a>
           </div>

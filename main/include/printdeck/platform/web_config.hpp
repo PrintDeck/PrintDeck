@@ -92,6 +92,7 @@ class WebConfig {
   static esp_err_t unified_api_settings_get_entry(httpd_req_t* request);
   static esp_err_t unified_api_settings_post_entry(httpd_req_t* request);
   static esp_err_t unified_api_info_entry(httpd_req_t* request);
+  static esp_err_t unified_api_snapshot_entry(httpd_req_t* request);
   static esp_err_t unified_api_printers_entry(httpd_req_t* request);
   static esp_err_t unified_api_statuses_entry(httpd_req_t* request);
   static esp_err_t unified_api_printer_entry(httpd_req_t* request);
@@ -144,6 +145,7 @@ class WebConfig {
   esp_err_t serve_unified_api_settings(httpd_req_t* request) const;
   esp_err_t save_unified_api_settings(httpd_req_t* request);
   esp_err_t serve_unified_api_info(httpd_req_t* request) const;
+  esp_err_t serve_unified_api_snapshot(httpd_req_t* request) const;
   esp_err_t serve_unified_api_printers(httpd_req_t* request) const;
   esp_err_t serve_unified_api_statuses(httpd_req_t* request) const;
   esp_err_t serve_unified_api_printer(httpd_req_t* request) const;

@@ -1,0 +1,31 @@
+name: Validate Home Assistant integration
+
+on:
+  push:
+    paths:
+      - ".github/workflows/validate-home-assistant.yml"
+      - "custom_components/printdeck/**"
+      - "hacs.json"
+  pull_request:
+    paths:
+      - ".github/workflows/validate-home-assistant.yml"
+      - "custom_components/printdeck/**"
+      - "hacs.json"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration

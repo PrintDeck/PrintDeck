@@ -433,6 +433,29 @@ std::string generate_unified_api_token() {
   return token;
 }
 
+std::uint32_t generate_printer_profile_id(
+    const std::vector<core::PrinterProfile>& profiles) {
+  for (int attempt = 0; attempt < 32; ++attempt) {
+    const std::uint32_t candidate = esp_random();
+    if (candidate != 0 &&
+        std::none_of(profiles.begin(), profiles.end(),
+                     [candidate](const core::PrinterProfile& profile) {
+                       return profile.id == candidate;
+                     })) {
+      return candidate;
+    }
+  }
+  for (std::uint32_t candidate = 1; candidate != 0; ++candidate) {
+    if (std::none_of(profiles.begin(), profiles.end(),
+                     [candidate](const core::PrinterProfile& profile) {
+                       return profile.id == candidate;
+                     })) {
+      return candidate;
+    }
+  }
+  return 0;
+}
+
 }  // namespace
 
 esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsStore& store,
@@ -521,6 +544,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/bambu/compatibility/report", .method = HTTP_GET, .handler = compatibility_report_entry, .user_ctx = this},
       {.uri = "/api/bambu/compatibility/cancel", .method = HTTP_POST, .handler = compatibility_cancel_entry, .user_ctx = this},
       {.uri = "/v1/info", .method = HTTP_GET, .handler = unified_api_info_entry, .user_ctx = this},
+      {.uri = "/v1/snapshot", .method = HTTP_GET, .handler = unified_api_snapshot_entry, .user_ctx = this},
       {.uri = "/v1/printers", .method = HTTP_GET, .handler = unified_api_printers_entry, .user_ctx = this},
       {.uri = "/v1/printers/status", .method = HTTP_GET, .handler = unified_api_statuses_entry, .user_ctx = this},
       {.uri = "/v1/printers/*", .method = HTTP_GET, .handler = unified_api_printer_entry, .user_ctx = this},
@@ -905,6 +929,10 @@ esp_err_t WebConfig::unified_api_settings_post_entry(httpd_req_t* request) {
 
 esp_err_t WebConfig::unified_api_info_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_unified_api_info(request);
+}
+
+esp_err_t WebConfig::unified_api_snapshot_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_unified_api_snapshot(request);
 }
 
 esp_err_t WebConfig::unified_api_printers_entry(httpd_req_t* request) {
@@ -1451,6 +1479,9 @@ esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
   append_json_string(body, PRINTDECK_VERSION);
   body += ",\"hardware\":";
   append_json_string(body, kBoardVariant);
+  body += ",\"device_id\":";
+  append_json_string(body, network.device_id);
+  body += ",\"capabilities\":{\"snapshot\":true,\"home_assistant\":true}";
   body += ",\"network\":{\"wifi_name\":";
   append_json_string(body, network.station_name);
   body += ",\"ipv4\":";
@@ -1460,6 +1491,13 @@ esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
   if (network.local_hostname.empty()) body += "null";
   else append_json_string(body, network.local_hostname);
   body += "},\"read_only\":true}";
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::serve_unified_api_snapshot(httpd_req_t* request) const {
+  if (!authorize_unified_api(request)) return ESP_OK;
+  const std::vector<core::UnifiedPrinterView> views = unified_printer_views();
+  const std::string body = core::unified_api_snapshot_json(views);
   return send_json(request, "200 OK", body.c_str());
 }
 
@@ -2943,8 +2981,11 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
                      "{\"error\":\"Your printer list is full. Remove an unused printer before adding another.\"}");
   }
   if (profile_id == 0) {
-    std::uint32_t next_id = 1;
-    for (const auto& value : candidate.profiles) next_id = std::max(next_id, value.id + 1);
+    const std::uint32_t next_id = generate_printer_profile_id(candidate.profiles);
+    if (next_id == 0) {
+      return send_json(request, "500 Internal Server Error",
+                       "{\"error\":\"PrintDeck could not create a printer identifier. Please try again.\"}");
+    }
     profile.id = next_id;
     candidate.profiles.push_back(std::move(profile));
     // The first available printer becomes active. Adding more printers in one

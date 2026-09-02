@@ -23,6 +23,7 @@ constexpr char kLogTag[] = "network";
 constexpr char kSetupNetworkPrefix[] = "PrintDeck";
 constexpr char kMdnsHostname[] = "printdeck";
 constexpr char kMdnsInstanceName[] = "PrintDeck";
+constexpr char kMdnsApiService[] = "_printdeck";
 constexpr std::int64_t kStationConnectTimeoutUs = 20'000'000;
 constexpr std::int64_t kFailureMessageDurationUs = 4'000'000;
 constexpr std::int64_t kRecoveryRetryIntervalUs = 30'000'000;
@@ -150,6 +151,14 @@ esp_err_t NetworkService::start(const core::DeviceSettings& settings) {
   std::array<std::uint8_t, 6> access_point_mac{};
   result = esp_read_mac(access_point_mac.data(), ESP_MAC_WIFI_SOFTAP);
   if (result != ESP_OK) return result;
+  std::array<std::uint8_t, 6> station_mac{};
+  result = esp_read_mac(station_mac.data(), ESP_MAC_WIFI_STA);
+  if (result != ESP_OK) return result;
+  std::array<char, 23> device_id{};
+  std::snprintf(device_id.data(), device_id.size(), "printdeck-%02x%02x%02x%02x%02x%02x",
+                station_mac[0], station_mac[1], station_mac[2], station_mac[3],
+                station_mac[4], station_mac[5]);
+  device_id_ = device_id.data();
   std::array<char, 33> setup_network{};
   std::snprintf(setup_network.data(), setup_network.size(), "%s-%02X%02X%02X",
                 kSetupNetworkPrefix, access_point_mac[3], access_point_mac[4],
@@ -184,6 +193,7 @@ esp_err_t NetworkService::start(const core::DeviceSettings& settings) {
     status_.station_name = settings.wifi_name;
     status_.station_connecting = !settings.wifi_name.empty();
     status_.setup_network_name = setup_network_name_;
+    status_.device_id = device_id_;
   }
 
   const esp_err_t mdns_result = start_mdns();
@@ -228,6 +238,16 @@ esp_err_t NetworkService::start_mdns() {
   if (result == ESP_OK) result = mdns_instance_name_set(kMdnsInstanceName);
   if (result == ESP_OK) {
     result = mdns_service_add(nullptr, "_http", "_tcp", 80, nullptr, 0);
+  }
+  mdns_txt_item_t api_txt[] = {
+      {.key = "id", .value = device_id_.c_str()},
+      {.key = "api", .value = "v1"},
+      {.key = "path", .value = "/v1"},
+      {.key = "auth", .value = "bearer"},
+  };
+  if (result == ESP_OK) {
+    result = mdns_service_add(kMdnsInstanceName, kMdnsApiService, "_tcp", 80,
+                              api_txt, std::size(api_txt));
   }
   if (result != ESP_OK) {
     mdns_free();

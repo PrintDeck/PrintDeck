@@ -265,6 +265,22 @@ std::string unified_api_statuses_json(std::span<const UnifiedPrinterView> printe
   return output;
 }
 
+std::string unified_api_snapshot_json(std::span<const UnifiedPrinterView> printers) {
+  std::string output = "{\"api_version\":\"v1\",\"printers\":[";
+  bool first = true;
+  for (const UnifiedPrinterView& printer : printers) {
+    if (!first) output.push_back(',');
+    first = false;
+    output += "{\"printer\":";
+    append_printer_object(output, printer);
+    output += ",\"status\":";
+    append_status_object(output, printer, false);
+    output += "}";
+  }
+  output += "]}";
+  return output;
+}
+
 std::string unified_api_printer_json(const UnifiedPrinterView& printer) {
   std::string output = "{\"api_version\":\"v1\",\"printer\":";
   append_printer_object(output, printer);
