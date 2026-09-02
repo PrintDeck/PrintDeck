@@ -117,14 +117,6 @@
           </div>
           <div class="site-actions ha-prerequisite-actions"><a class="site-button secondary" href="https://www.hacs.xyz/docs/use/download/download/" target="_blank" rel="noopener">Open the official HACS installation guide</a></div>
 
-          <details class="ha-migration">
-            <summary>Already used the old YAML setup? Clean it up first</summary>
-            <div class="ha-migration-body">
-              <p>Remove only the old PrintDeck REST resource and its PrintDeck sensors from configuration.yaml. Remove printdeck_api_bearer from secrets.yaml only if nothing else uses it, and disable or remove automations that reference the old REST sensor entity IDs. Do not delete unrelated REST integrations.</p>
-              <p>Check the configuration and restart Home Assistant before installing the native integration. Your normal Home Assistant devices, lights and unrelated automations stay untouched.</p>
-            </div>
-          </details>
-
           <ol class="ha-guide-steps">
             <li>
               <div class="ha-step-copy"><span>01</span><div><h3>Enable the API in PrintDeck</h3><p>Open PrintDeck Web Config, choose Settings &gt; Unified Printer API, enable it and copy the generated token. Keep it private; you will paste the raw token into Home Assistant without adding the word Bearer.</p></div></div>

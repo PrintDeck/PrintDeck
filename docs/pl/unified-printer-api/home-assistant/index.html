@@ -117,14 +117,6 @@
           </div>
           <div class="site-actions ha-prerequisite-actions"><a class="site-button secondary" href="https://www.hacs.xyz/docs/use/download/download/" target="_blank" rel="noopener">Otwórz oficjalną instrukcję instalacji HACS</a></div>
 
-          <details class="ha-migration">
-            <summary>Korzystasz już ze starej konfiguracji YAML? Najpierw ją uporządkuj</summary>
-            <div class="ha-migration-body">
-              <p>Usuń z configuration.yaml wyłącznie stary zasób REST PrintDeck i jego sensory PrintDeck. Usuń printdeck_api_bearer z secrets.yaml tylko wtedy, gdy nic innego z niego nie korzysta, oraz wyłącz lub usuń automatyzacje odwołujące się do identyfikatorów starych sensorów REST. Nie usuwaj niezwiązanych integracji REST.</p>
-              <p>Sprawdź konfigurację i uruchom ponownie Home Assistant przed instalacją natywnej integracji. Zwykłe urządzenia, światła i niezwiązane automatyzacje Home Assistant pozostaną bez zmian.</p>
-            </div>
-          </details>
-
           <ol class="ha-guide-steps">
             <li>
               <div class="ha-step-copy"><span>01</span><div><h3>Włącz API w PrintDeck</h3><p>Otwórz PrintDeck Web Config, wybierz Ustawienia &gt; Unified Printer API, włącz API i skopiuj wygenerowany token. Zachowaj go dla siebie; do Home Assistant wkleisz sam token bez dopisywania słowa Bearer.</p></div></div>

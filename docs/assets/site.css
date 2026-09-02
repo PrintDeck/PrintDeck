@@ -4853,14 +4853,12 @@ body.site-page {
 .api-integration-page .ha-prerequisites p { margin: 0; color: #5e7176; font-size: .78rem; line-height: 1.55; }
 .api-integration-page .ha-prerequisites strong { display: block; margin-bottom: 4px; color: var(--api-ink); font-size: .82rem; }
 .api-integration-page .ha-prerequisite-actions { margin: 0 0 24px; }
-.api-integration-page .ha-migration,
 .api-integration-page .ha-advanced {
   margin: 0 0 24px;
   border: 1px solid #b7c9c5;
   border-radius: 18px;
   background: #eef5f3;
 }
-.api-integration-page .ha-migration summary,
 .api-integration-page .ha-advanced > summary {
   padding: 18px 22px;
   color: #18443a;
@@ -4868,9 +4866,6 @@ body.site-page {
   font-weight: 820;
   cursor: pointer;
 }
-.api-integration-page .ha-migration-body { padding: 0 22px 19px; }
-.api-integration-page .ha-migration-body p { margin: 0 0 10px; color: #526c66; font-size: .8rem; line-height: 1.65; }
-.api-integration-page .ha-migration-body p:last-child { margin-bottom: 0; }
 .api-integration-page .ha-guide-steps { display: grid; gap: 18px; margin: 0; padding: 0; counter-reset: none; list-style: none; }
 .api-integration-page .ha-guide-steps > li { display: grid; grid-template-columns: minmax(0, .72fr) minmax(430px, 1.28fr); gap: 34px; align-items: start; padding: 26px; border: 1px solid #c5d3d0; border-radius: 22px; background: #f7fbfa; }
 .api-integration-page .ha-guide-steps > li:only-child,
@@ -5038,15 +5033,12 @@ body.site-page {
 :root[data-appearance="dark"] .api-integration-page .ha-quick-start,
 :root[data-appearance="dark"] .api-integration-page .ha-boundary { background: #171c1a; }
 :root[data-appearance="dark"] .api-integration-page .ha-all-sensors { background: #101412; }
-:root[data-appearance="dark"] .api-integration-page .ha-migration,
 :root[data-appearance="dark"] .api-integration-page .ha-advanced,
 :root[data-appearance="dark"] .api-integration-page .ha-blueprints { border-color: #35413d; background: #1a211f; }
-:root[data-appearance="dark"] .api-integration-page .ha-migration summary,
 :root[data-appearance="dark"] .api-integration-page .ha-advanced > summary,
 :root[data-appearance="dark"] .api-integration-page .ha-note strong,
 :root[data-appearance="dark"] .api-integration-page .ha-inline-help summary,
 :root[data-appearance="dark"] .api-integration-page .ha-inline-help a { color: #70e1c2; }
-:root[data-appearance="dark"] .api-integration-page .ha-migration-body p { color: #a8b8b3; }
 :root[data-appearance="dark"] .api-integration-page .ha-note { background: #142b24; }
 :root[data-appearance="dark"] .api-integration-page .ha-troubleshooting { border-color: #35413d; }
 :root[data-appearance="dark"] .api-integration-page .ha-callout { border-color: #27594d; background: #122821; }

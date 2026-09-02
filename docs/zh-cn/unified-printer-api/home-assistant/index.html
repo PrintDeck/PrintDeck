@@ -117,14 +117,6 @@
           </div>
           <div class="site-actions ha-prerequisite-actions"><a class="site-button secondary" href="https://www.hacs.xyz/docs/use/download/download/" target="_blank" rel="noopener">打开 HACS 官方安装指南</a></div>
 
-          <details class="ha-migration">
-            <summary>以前使用旧的 YAML 设置？请先清理</summary>
-            <div class="ha-migration-body">
-              <p>仅从 configuration.yaml 中删除旧的 PrintDeck REST 资源及其 PrintDeck 传感器。只有在其他内容不再使用时，才从 secrets.yaml 中删除 printdeck_api_bearer；同时停用或删除引用旧 REST 传感器实体 ID 的自动化。不要删除无关的 REST 集成。</p>
-              <p>安装原生集成前，请检查配置并重启 Home Assistant。现有设备、灯光和无关的自动化不会受到影响。</p>
-            </div>
-          </details>
-
           <ol class="ha-guide-steps">
             <li>
               <div class="ha-step-copy"><span>01</span><div><h3>在 PrintDeck 中启用 API</h3><p>打开 PrintDeck Web Config，选择“设置”&gt;“Unified Printer API”，启用后复制生成的令牌。请妥善保管；在 Home Assistant 中粘贴原始令牌时不要添加 Bearer。</p></div></div>
