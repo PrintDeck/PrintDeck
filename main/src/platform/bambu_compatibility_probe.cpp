@@ -299,7 +299,8 @@ const char* to_string(BambuCompatibilityState state) {
   return "idle";
 }
 
-esp_err_t BambuCompatibilityProbe::start(BambuLocalConnection connection) {
+esp_err_t BambuCompatibilityProbe::start(BambuLocalConnection connection,
+                                         BambuProbePurpose purpose) {
   if (!connection.is_ready()) return ESP_ERR_INVALID_ARG;
   bool expected = false;
   if (!running_.compare_exchange_strong(expected, true)) return ESP_ERR_INVALID_STATE;
@@ -311,10 +312,13 @@ esp_err_t BambuCompatibilityProbe::start(BambuLocalConnection connection) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
     pending_connection_ = std::move(connection);
+    pending_purpose_ = purpose;
     snapshot_ = {};
     snapshot_.state = BambuCompatibilityState::kConnecting;
     snapshot_.progress_percent = 3;
-    snapshot_.detail = "Preparing the read-only BambuLab probe";
+    snapshot_.detail = purpose == BambuProbePurpose::kConnectionTest
+        ? "Preparing the Bambu Lab connection test"
+        : "Preparing the read-only BambuLab probe";
     report_json_.clear();
     schema_fields_.clear();
     numeric_fields_.clear();
@@ -364,12 +368,15 @@ void BambuCompatibilityProbe::task_entry(void* context) {
     return;
   }
   BambuLocalConnection connection;
+  BambuProbePurpose purpose = BambuProbePurpose::kCompatibilityReport;
   {
     std::lock_guard<std::mutex> lock(probe->mutex_);
     connection = std::move(probe->pending_connection_);
     probe->pending_connection_ = {};
+    purpose = probe->pending_purpose_;
+    probe->pending_purpose_ = BambuProbePurpose::kCompatibilityReport;
   }
-  probe->task_loop(std::move(connection));
+  probe->task_loop(std::move(connection), purpose);
   vTaskDeleteWithCaps(nullptr);
 }
 
@@ -381,7 +388,8 @@ void BambuCompatibilityProbe::set_status(BambuCompatibilityState state, int prog
   snapshot_.detail = detail;
 }
 
-void BambuCompatibilityProbe::task_loop(BambuLocalConnection connection) {
+void BambuCompatibilityProbe::task_loop(BambuLocalConnection connection,
+                                        BambuProbePurpose purpose) {
   report_topic_ = "device/" + connection.serial + "/report";
   request_topic_ = "device/" + connection.serial + "/request";
   mqtt_client_id_ = make_client_id();
@@ -417,6 +425,7 @@ void BambuCompatibilityProbe::task_loop(BambuLocalConnection connection) {
   while (!cancel_requested_.load()) {
     const uint64_t elapsed = monotonic_ms() - started_ms;
     if (first_report_received_.load()) {
+      if (purpose == BambuProbePurpose::kConnectionTest) break;
       if (first_report_ms == 0) first_report_ms = monotonic_ms();
       const uint64_t collecting_ms = monotonic_ms() - first_report_ms;
       set_status(BambuCompatibilityState::kCollecting,
@@ -438,6 +447,27 @@ void BambuCompatibilityProbe::task_loop(BambuLocalConnection connection) {
   const bool mqtt_available = first_report_received_.load();
   const bool mqtt_transport_available = mqtt_connected_observed_.load();
   stop_mqtt();
+
+  if (purpose == BambuProbePurpose::kConnectionTest) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    snapshot_.state = mqtt_available ? BambuCompatibilityState::kComplete
+                                     : BambuCompatibilityState::kFailed;
+    snapshot_.progress_percent = 100;
+    snapshot_.detail = mqtt_available
+        ? "Bambu Lab connection verified."
+        : mqtt_transport_available
+              ? "The printer answered, but it did not accept these connection details."
+              : "PrintDeck could not reach this Bambu Lab printer. Check the address, LAN access code and Wi-Fi network.";
+    snapshot_.connection_verified = mqtt_available;
+    snapshot_.report_ready = false;
+    connection.access_code.assign(connection.access_code.size(), '\0');
+    connection = {};
+    report_topic_.clear();
+    request_topic_.clear();
+    mqtt_client_id_.clear();
+    running_.store(false);
+    return;
+  }
 
   bool service_6000 = false;
   bool service_322 = false;
@@ -807,6 +837,7 @@ void BambuCompatibilityProbe::finish_report(const BambuLocalConnection& connecti
   snapshot_.progress_percent = 100;
   snapshot_.detail = terminal_detail;
   snapshot_.report_ready = true;
+  snapshot_.connection_verified = mqtt_available;
 }
 
 void BambuCompatibilityProbe::stop_mqtt() {

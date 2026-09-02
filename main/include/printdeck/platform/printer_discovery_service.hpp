@@ -23,6 +23,9 @@ struct DiscoveredPrinter {
   std::string host;
   std::string serial;
   std::uint16_t port = 0;
+  std::uint64_t last_seen_ms = 0;
+  std::uint64_t retain_until_ms = 0;
+  bool seen_in_current_scan = false;
 };
 
 struct PrinterDiscoverySnapshot {
@@ -50,6 +53,7 @@ class PrinterDiscoveryService {
   mutable std::mutex mutex_;
   NetworkStatus network_;
   std::vector<std::string> saved_ipv4_hosts_;
+  std::string cache_network_key_;
   PrinterDiscoverySnapshot snapshot_;
   std::atomic<bool> cancel_requested_{false};
   std::atomic<bool> running_{false};

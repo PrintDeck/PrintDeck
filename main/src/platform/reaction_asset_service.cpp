@@ -43,6 +43,7 @@ constexpr char kResetMaskKey[] = "reset";
 constexpr std::size_t kMaximumManifestBytes = 8 * 1024;
 constexpr std::size_t kMaximumGifBytes = 1536 * 1024;
 constexpr std::size_t kMaximumActiveReactionBytes = 1536 * 1024;
+constexpr std::uint16_t kMaximumCustomGifFrames = 10;
 constexpr std::size_t kStorageSafetyBytes = 128 * 1024;
 constexpr std::uint32_t kReaperStackBytes = 3072;
 constexpr std::uint64_t kProfileMigrationInitialDelayMs = 15'000;
@@ -389,7 +390,8 @@ esp_err_t ReactionAssetService::start(const NetworkService& network) {
     core::GifMetadata metadata;
     custom_present[index] = (reset_mask_ & (1UL << index)) == 0 &&
                             read_file(path, snapshot_.maximum_file_bytes, bytes) &&
-                            core::inspect_gif(bytes, metadata);
+                            core::inspect_gif(bytes, metadata, kDisplayWidth,
+                                              kMaximumCustomGifFrames);
     if (custom_present[index]) custom_sizes[index] = bytes.size();
   }
   {
@@ -596,7 +598,10 @@ esp_err_t ReactionAssetService::install_custom(
     if (!snapshot_.available || bytes.empty() ||
         bytes.size() > snapshot_.maximum_file_bytes) return ESP_ERR_INVALID_SIZE;
   }
-  if (!core::inspect_gif(bytes, metadata)) return ESP_ERR_INVALID_ARG;
+  if (!core::inspect_gif(bytes, metadata, kDisplayWidth,
+                         kMaximumCustomGifFrames)) {
+    return ESP_ERR_INVALID_ARG;
+  }
   const std::lock_guard<std::mutex> mutation_lock(filesystem_mutation_mutex_);
   const std::string current = std::string(kCustomPath) + "/" + std::string(id) + ".gif";
   const std::string temporary = current + ".tmp";

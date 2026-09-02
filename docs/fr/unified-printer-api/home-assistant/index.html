@@ -1,0 +1,389 @@
+<!DOCTYPE html><html lang="fr"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#071018">
+
+
+
+
+
+    <title>Home Assistant · Unified Printer API · PrintDeck</title>
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-23">
+    <script>window.printDeckInstallerI18n={language:"fr",t:(source,values={})=>{let result=({"Play":"Lire","Pause":"Pause","Seek":"Rechercher","{currentTime} of {duration}":"{currentTime} sur {duration}","Played":"Lu","Buffered":"Mis en mémoire tampon","Current time":"Temps actuel","Volume":"Volume","Mute":"Couper le son","Unmute":"Rétablir le son","Enter fullscreen":"Passer en plein écran","Exit fullscreen":"Quitter le plein écran"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-2"></script>
+
+    <meta name="description" content="Connectez Home Assistant à Unified Printer API de PrintDeck et transformez les états, la progression et les températures locales de l’imprimante en capteurs et automatisations.">
+    <link rel="canonical" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant/">
+    <link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant/">
+    <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant/">
+    <link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/home-assistant/">
+    <link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant/">
+    <link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/home-assistant/">
+    <link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/">
+    <link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/home-assistant/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PrintDeck">
+    <meta property="og:locale" content="fr_FR">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="pl_PL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:title" content="Home Assistant · Unified Printer API · PrintDeck">
+    <meta property="og:description" content="Connectez Home Assistant à Unified Printer API de PrintDeck et transformez les états, la progression et les températures locales de l’imprimante en capteurs et automatisations.">
+    <meta property="og:url" content="https://printdeck.xyz/fr/unified-printer-api/home-assistant/">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Home Assistant · Unified Printer API · PrintDeck">
+    <meta name="twitter:description" content="Connectez Home Assistant à Unified Printer API de PrintDeck et transformez les états, la progression et les températures locales de l’imprimante en capteurs et automatisations.">
+    <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Home Assistant · Unified Printer API · PrintDeck","description":"Connectez Home Assistant à Unified Printer API de PrintDeck et transformez les états, la progression et les températures locales de l’imprimante en capteurs et automatisations.","url":"https://printdeck.xyz/fr/unified-printer-api/home-assistant/","inLanguage":"fr","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
+  </head>
+  <body class="site-page api-page api-integration-page" data-page-title="Home Assistant · Unified Printer API · PrintDeck">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="/fr/" aria-label="Accueil">
+          <img class="site-logo site-logo-white" src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="/assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        </a>
+        <nav class="site-tabs" aria-label="Site PrintDeck">
+          <a class="site-tab" href="/fr/">Accueil</a>
+          <a class="site-tab" href="/fr/firmware/">Micrologiciel</a>
+          <a class="site-tab" href="/fr/case-designs/">Modèles de boîtiers</a>
+          <a class="site-tab" href="/fr/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/fr/unified-printer-api/" aria-current="page">Unified API</a>
+          <a class="site-tab" href="/fr/support/">Assistance</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="api-content">
+      <section class="ha-hero">
+        <div class="api-inner">
+          <a class="ha-back-link" href="/fr/unified-printer-api/"><span aria-hidden="true">←</span> Unified Printer API</a>
+          <div class="ha-hero-grid">
+            <div class="ha-hero-copy">
+              <span class="api-eyebrow">HOME ASSISTANT · CONFIGURATION REST MANUELLE</span>
+              <h1>Votre imprimante devient<br><strong>un élément de votre maison connectée.</strong></h1>
+              <p class="api-lead">Home Assistant peut interroger PrintDeck sur votre réseau local, convertir ses données d’imprimante normalisées en entités et réagir à chaque changement d’état d’une impression.</p>
+              <div class="site-actions">
+                <a class="site-button" href="#quick-start">Configurez la première automatisation</a>
+                <a class="site-button secondary" href="#all-sensors">Ajouter tous les capteurs d’état</a>
+              </div>
+            </div>
+            <div class="ha-hero-mark" aria-label="PrintDeck relie les données de l’imprimante à Home Assistant">
+              <div class="ha-mark-logo"><img src="/assets/integrations/home-assistant.png" alt="Logo Home Assistant"></div>
+              <div class="ha-mark-flow" aria-hidden="true"><span>IMPRIMANTE</span><i>→</i><span>PRINTDECK API</span><i>→</i><span>HOME ASSISTANT</span></div>
+              <p>Interrogation locale. Une requête d’état en lecture seule. Aucun relais cloud.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="campaign-signal api-signal" aria-label="Points forts de l’intégration Home Assistant">
+        <span>Interrogation REST locale</span>
+        <span>Une requête, de nombreux capteurs</span>
+        <span>Protégé par un jeton Bearer</span>
+        <span>Klipper et Bambu Lab</span>
+      </div>
+
+      <section class="api-section ha-idea">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">LE PRINCIPE</span>
+            <h2>PrintDeck traduit.<br><strong>Home Assistant réagit.</strong></h2>
+            <p>PrintDeck comprend déjà le protocole propre à l’imprimante. Home Assistant doit simplement interroger Unified Printer API à un intervalle raisonnable et utiliser les valeurs renvoyées comme des entités ordinaires.</p>
+          </header>
+          <div class="ha-example-grid">
+            <article><span>01</span><h3>Impression terminée</h3><p>Allumez une lampe, envoyez une notification sur un téléphone ou annoncez que la pièce est prête.</p></article>
+            <article><span>02</span><h3>Jalons de progression</h3><p>Réagissez lorsque la progression dépasse 25 %, 50 % ou 75 % afin de modifier un voyant ou de mettre à jour un tableau de bord.</p></article>
+            <article><span>03</span><h3>Tâche en pause ou arrêtée</h3><p>Réagissez aux tâches en pause, échouées ou annulées avant de retourner à l’atelier.</p></article>
+            <article><span>04</span><h3>Vue d’ensemble de l’atelier</h3><p>Affichez la connexion, les températures, le temps restant et la couche actuelle sur un même tableau de bord local.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section ha-quick-start" id="quick-start">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">UN ÉTAT, UNE LAMPE</span>
+            <h2>Allumez une lumière<br><strong>lorsqu’une imprimante termine.</strong></h2>
+            <p>Ce premier exemple surveille la phase d’une imprimante et allume une seule entité d’éclairage. Remplacez l’adresse IP, l’identifiant de l’imprimante et l’entité d’éclairage d’exemple par vos propres valeurs.</p>
+          </header>
+          <ol class="ha-guide-steps">
+            <li>
+              <div class="ha-step-copy"><span>01</span><div><h3>Activez l’API</h3><p>Ouvrez Web Config sur PrintDeck, choisissez Unified Printer API, activez-la et copiez le jeton d’accès généré.</p></div></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>02</span><div><h3>Trouvez l’identifiant de l’imprimante</h3><p>Demandez la liste des imprimantes et notez l’identifiant de celle que vous souhaitez surveiller.</p></div></div>
+              <div class="ha-code-card"><div class="ha-code-title">Terminal</div><pre><code>curl http://PRINTDECK-IP/v1/printers \
+  -H 'Authorization: Bearer pd_your_token_here'</code></pre></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>03</span><div><h3>Conservez le jeton dans secrets.yaml</h3><p>Incluez le mot Bearer dans la valeur du secret.</p></div></div>
+              <div class="ha-code-card"><div class="ha-code-title">secrets.yaml</div><pre><code>printdeck_api_bearer: "Bearer pd_your_token_here"</code></pre></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>04</span><div><h3>Ajoutez le capteur de phase</h3><p>Cette configuration envoie une requête toutes les 10 secondes. Modifiez PRINTDECK-IP et l’identifiant d’imprimante 1 dans l’URL.</p></div></div>
+              <div class="ha-code-card"><div class="ha-code-title">configuration.yaml</div><pre><code>rest:
+  - resource: "http://PRINTDECK-IP/v1/printers/1/status"
+    method: GET
+    headers:
+      Authorization: !secret printdeck_api_bearer
+    scan_interval: 10
+    timeout: 5
+    sensor:
+      - name: "PrintDeck Phase"
+        unique_id: printdeck_printer_1_phase
+        value_template: "{{ value_json.status.job.phase }}"</code></pre></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>05</span><div><h3>Vérifiez et redémarrez Home Assistant</h3><p>Validez le YAML dans les Outils de développement, redémarrez Home Assistant, puis vérifiez que l’entité PrintDeck Phase possède une valeur.</p></div></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>06</span><div><h3>Ajoutez l’automatisation</h3><p>Remplacez light.living_room par l’identifiant d’entité de votre lampe.</p></div></div>
+              <div class="ha-code-card"><div class="ha-code-title">automations.yaml</div><pre><code>- alias: "PrintDeck - light on when print completes"
+  id: printdeck_light_on_when_print_completes
+  triggers:
+    - trigger: state
+      entity_id: sensor.printdeck_phase
+      to: "completed"
+  conditions:
+    - condition: template
+      value_template: &gt;-
+        {{ trigger.from_state is not none and
+           trigger.from_state.state in ['preparing', 'printing', 'paused'] }}
+  actions:
+    - action: light.turn_on
+      target:
+        entity_id: light.living_room
+  mode: single</code></pre></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>07</span><div><h3>Lancez une courte impression de test</h3><p>Observez l’entité de phase passer à completed. Si la lampe ne s’allume pas, ouvrez la trace de l’automatisation pour consulter les résultats du déclencheur et de la condition.</p></div></div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="api-section ha-status-reference" id="status-reference">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">TOUS LES ÉTATS NORMALISÉS</span>
+            <h2>Utilisez des phases générales<br><strong>ou des activités détaillées.</strong></h2>
+            <p>La phase de la tâche convient à la plupart des automatisations. L’activité de la tâche expose les activités détaillées qui déclenchent les réactions de PrintDeck lorsque l’imprimante les transmet.</p>
+          </header>
+          <div class="ha-reference-grid">
+            <div class="ha-reference-card">
+              <h3>Phases de la tâche</h3>
+              <p>Toutes les valeurs de phase de tâche prises en charge :</p>
+              <div class="ha-token-list"><code>unknown</code><code>idle</code><code>preparing</code><code>printing</code><code>paused</code><code>completed</code><code>failed</code><code>cancelled</code></div>
+            </div>
+            <div class="ha-reference-card wide">
+              <h3>Activités détaillées</h3>
+              <p>Toutes les valeurs d’activité de tâche prises en charge :</p>
+              <div class="ha-token-list"><code>unknown</code><code>standby</code><code>preparing</code><code>nozzle_heating</code><code>bed_heating</code><code>homing</code><code>bed_leveling</code><code>nozzle_cleaning</code><code>calibrating</code><code>filament_changing</code><code>filament_unloading</code><code>filament_loading</code><code>filament_purging</code><code>printing</code><code>paused</code><code>completed</code><code>failed</code><code>cancelled</code></div>
+              <p class="ha-reference-tip">Vous n’avez pas besoin d’une entité par valeur. Le capteur PrintDeck Activity ci-dessous passe d’une activité répertoriée à l’autre et une automatisation peut réagir à la valeur choisie.</p>
+            </div>
+            <div class="ha-reference-card">
+              <h3>Valeurs de connexion et d’état</h3>
+              <dl class="ha-value-groups">
+                <div><dt><code>connection.state</code></dt><dd><code>stopped</code> <code>waiting_for_network</code> <code>connecting</code> <code>online</code> <code>offline</code></dd></div>
+                <div><dt><code>connection.reachability</code></dt><dd><code>unknown</code> <code>online</code> <code>offline</code></dd></div>
+                <div><dt><code>connection.detail_level</code></dt><dd><code>summary</code> <code>full</code></dd></div>
+                <div><dt><code>job.kind</code></dt><dd><code>print</code> <code>calibration</code></dd></div>
+              </dl>
+            </div>
+          </div>
+          <p class="ha-reference-note">La disponibilité des activités détaillées dépend des informations transmises par l’imprimante connectée. La valeur API unknown utilise la réaction unavailable de PrintDeck comme solution de repli. L’imprimante sélectionnée fournit des données complètes en temps réel ; les autres imprimantes enregistrées peuvent fournir des données résumées selon l’intervalle configuré d’actualisation de la liste des imprimantes.</p>
+        </div>
+      </section>
+
+      <section class="api-section ha-all-sensors" id="all-sensors">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">ENSEMBLE COMPLET DE CAPTEURS D’ÉTAT</span>
+            <h2>Une requête API.<br><strong>Chaque champ d’état détaillé.</strong></h2>
+            <p>Utilisez ce bloc à la place du bloc plus court limité à la phase. Il crée des entités pour chaque champ renvoyé par l’endpoint d’état détaillé, tout en n’interrogeant PrintDeck qu’une seule fois par intervalle.</p>
+          </header>
+          <div class="ha-code-card ha-code-card-large">
+            <div class="ha-code-title">configuration.yaml</div>
+            <pre><code>rest:
+  - resource: "http://PRINTDECK-IP/v1/printers/1/status"
+    method: GET
+    headers:
+      Authorization: !secret printdeck_api_bearer
+    scan_interval: 10
+    timeout: 5
+    sensor:
+      - name: "PrintDeck Printer ID"
+        unique_id: printdeck_printer_1_id
+        value_template: "{{ value_json.status.printer_id }}"
+
+      - name: "PrintDeck Connection"
+        unique_id: printdeck_printer_1_connection
+        value_template: "{{ value_json.status.connection.state }}"
+
+      - name: "PrintDeck Reachability"
+        unique_id: printdeck_printer_1_reachability
+        value_template: "{{ value_json.status.connection.reachability }}"
+
+      - name: "PrintDeck Detail Level"
+        unique_id: printdeck_printer_1_detail_level
+        value_template: "{{ value_json.status.connection.detail_level }}"
+
+      - name: "PrintDeck Update Marker"
+        unique_id: printdeck_printer_1_updated_at_ms
+        value_template: "{{ value_json.status.connection.updated_at_ms }}"
+        unit_of_measurement: "ms"
+
+      - name: "PrintDeck Phase"
+        unique_id: printdeck_printer_1_phase
+        value_template: "{{ value_json.status.job.phase }}"
+
+      - name: "PrintDeck Job Kind"
+        unique_id: printdeck_printer_1_job_kind
+        value_template: "{{ value_json.status.job.kind }}"
+
+      - name: "PrintDeck Activity"
+        unique_id: printdeck_printer_1_activity
+        value_template: "{{ value_json.status.job.activity }}"
+
+      - name: "PrintDeck Job Name"
+        unique_id: printdeck_printer_1_job_name
+        value_template: "{{ value_json.status.job.name | default('none', true) }}"
+
+      - name: "PrintDeck Progress"
+        unique_id: printdeck_printer_1_progress
+        value_template: "{{ value_json.status.job.progress_percent }}"
+        availability: &gt;-
+          {{ value_json.status.connection.detail_level == 'full' and
+             not value_json.status.connection.stale }}
+        unit_of_measurement: "%"
+
+      - name: "PrintDeck Elapsed"
+        unique_id: printdeck_printer_1_elapsed
+        value_template: "{{ value_json.status.job.elapsed_seconds }}"
+        availability: &gt;-
+          {{ value_json.status.connection.detail_level == 'full' and
+             not value_json.status.connection.stale }}
+        device_class: duration
+        unit_of_measurement: "s"
+
+      - name: "PrintDeck Remaining"
+        unique_id: printdeck_printer_1_remaining
+        value_template: "{{ value_json.status.job.remaining_seconds }}"
+        availability: "{{ not value_json.status.connection.stale }}"
+        device_class: duration
+        unit_of_measurement: "s"
+
+      - name: "PrintDeck Current Layer"
+        unique_id: printdeck_printer_1_current_layer
+        value_template: "{{ value_json.status.job.current_layer }}"
+        availability: &gt;-
+          {{ value_json.status.connection.detail_level == 'full' and
+             not value_json.status.connection.stale }}
+
+      - name: "PrintDeck Total Layers"
+        unique_id: printdeck_printer_1_total_layers
+        value_template: "{{ value_json.status.job.total_layers }}"
+        availability: &gt;-
+          {{ value_json.status.connection.detail_level == 'full' and
+             not value_json.status.connection.stale }}
+
+      - name: "PrintDeck Nozzle Temperature"
+        unique_id: printdeck_printer_1_nozzle_temperature
+        value_template: "{{ value_json.status.temperatures.nozzle_current_c }}"
+        availability: &gt;-
+          {{ value_json.status.temperatures.nozzle_current_c is not none and
+             not value_json.status.connection.stale }}
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+
+      - name: "PrintDeck Nozzle Target"
+        unique_id: printdeck_printer_1_nozzle_target
+        value_template: "{{ value_json.status.temperatures.nozzle_target_c }}"
+        availability: &gt;-
+          {{ value_json.status.temperatures.nozzle_target_c is not none and
+             not value_json.status.connection.stale }}
+        device_class: temperature
+        unit_of_measurement: "°C"
+
+      - name: "PrintDeck Bed Temperature"
+        unique_id: printdeck_printer_1_bed_temperature
+        value_template: "{{ value_json.status.temperatures.bed_current_c }}"
+        availability: &gt;-
+          {{ value_json.status.temperatures.bed_current_c is not none and
+             not value_json.status.connection.stale }}
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+
+      - name: "PrintDeck Bed Target"
+        unique_id: printdeck_printer_1_bed_target
+        value_template: "{{ value_json.status.temperatures.bed_target_c }}"
+        availability: &gt;-
+          {{ value_json.status.temperatures.bed_target_c is not none and
+             not value_json.status.connection.stale }}
+        device_class: temperature
+        unit_of_measurement: "°C"
+
+      - name: "PrintDeck Chamber Temperature"
+        unique_id: printdeck_printer_1_chamber_temperature
+        value_template: "{{ value_json.status.temperatures.chamber_current_c }}"
+        availability: &gt;-
+          {{ value_json.status.temperatures.chamber_current_c is not none and
+             not value_json.status.connection.stale }}
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+
+    binary_sensor:
+      - name: "PrintDeck Data Stale"
+        unique_id: printdeck_printer_1_data_stale
+        value_template: "{{ value_json.status.connection.stale }}"
+        device_class: problem
+
+      - name: "PrintDeck Online"
+        unique_id: printdeck_printer_1_online
+        value_template: "{{ value_json.status.connection.state == 'online' }}"
+        device_class: connectivity</code></pre>
+          </div>
+          <div class="ha-callout">
+            <strong>Avant de redémarrer</strong>
+            <p>Conservez le jeton correspondant dans secrets.yaml, puis remplacez PRINTDECK-IP et l’identifiant d’imprimante 1. Si configuration.yaml contient déjà une section rest de premier niveau, ajoutez cette ressource dessous au lieu de créer une seconde clé rest.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section ha-boundary">
+        <div class="api-inner ha-boundary-grid">
+          <div>
+            <span class="home-kicker">BON À SAVOIR</span>
+            <h2>Local par conception.<br><strong>En lecture seule par conception.</strong></h2>
+          </div>
+          <div>
+            <p>Home Assistant interroge PrintDeck ; PrintDeck n’envoie pas de webhooks. Conservez les deux appareils sur un réseau local de confiance, n’exposez pas le port de l’API à Internet et stockez le jeton Bearer dans secrets.yaml.</p>
+            <p>La progression, les températures et les activités détaillées utilisées par les réactions sont les plus complètes pour l’imprimante actuellement sélectionnée dans PrintDeck. La connexion et l’état résumé de la tâche restent disponibles pour les autres imprimantes enregistrées.</p>
+            <a class="site-button" href="/fr/unified-printer-api/">Revenir à Unified Printer API</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span class="footer-copy">PrintDeck · <span>MONITEUR SANS FIL AVANCÉ D’IMPRESSION 3D</span> · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">Dépôt GitHub</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">Mentions</a></span>
+      <div class="footer-controls">
+        <label hidden="" for="ha-language">Langue</label>
+        <select class="installer-language" id="ha-language" aria-label="Langue" data-site-language=""><option value="/unified-printer-api/home-assistant/">English</option><option value="/pl/unified-printer-api/home-assistant/">Polski</option><option value="/es/unified-printer-api/home-assistant/">Español</option><option value="/fr/unified-printer-api/home-assistant/" selected="">Français</option><option value="/de/unified-printer-api/home-assistant/">Deutsch</option><option value="/zh-cn/unified-printer-api/home-assistant/">简体中文</option></select>
+        <div class="appearance-switch" data-site-appearance="" role="switch" tabindex="0" aria-label="Apparence de la page">
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="Apparence claire"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="Apparence sombre"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+        </div>
+      </div>
+    </footer>
+
+
+
+
+<script>(()=>{const language="fr";try{localStorage.setItem('printdeck-installer-language',language)}catch(_){}document.querySelectorAll('[data-site-language]').forEach((selector)=>selector.addEventListener('change',()=>location.assign(selector.value)));})();</script></body></html>

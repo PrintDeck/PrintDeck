@@ -8,7 +8,7 @@
 
 
     <title>Unified Printer API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260902-20">
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-23">
     <script>window.printDeckInstallerI18n={language:"en",t:(source,values={})=>{let result=({"Play":"Play","Pause":"Pause","Seek":"Seek","{currentTime} of {duration}":"{currentTime} of {duration}","Played":"Played","Buffered":"Buffered","Current time":"Current time","Volume":"Volume","Mute":"Mute","Unmute":"Unmute","Enter fullscreen":"Enter fullscreen","Exit fullscreen":"Exit fullscreen"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-2"></script>
 
     <meta name="description" content="PrintDeck translates supported printer protocols into one versioned, read-only JSON contract. Build your software once and read the same shape from Klipper and supported Bambu Lab printers.">
@@ -50,6 +50,7 @@
           <a class="site-tab" href="/firmware/">Firmware</a>
           <a class="site-tab" href="/case-designs/">Case Designs</a>
           <a class="site-tab" href="/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/unified-printer-api/" aria-current="page">Unified API</a>
           <a class="site-tab" href="/support/">Support</a>
         </nav>
       </div>
@@ -67,15 +68,28 @@
               <a class="site-button secondary" href="#contract">Explore endpoints</a>
             </div>
           </div>
-          <div class="api-flow" aria-label="Printer formats normalized by PrintDeck into one JSON API">
-            <div class="api-flow-sources">
-              <div><span>01</span><strong>Moonraker</strong><small>Klipper telemetry</small></div>
-              <div><span>02</span><strong>Bambu LAN</strong><small>Local status reports</small></div>
+          <div class="api-hero-visual">
+            <div class="api-flow" aria-label="Printer formats normalized by PrintDeck into one JSON API">
+              <div class="api-flow-sources">
+                <div><span>01</span><strong>Moonraker</strong><small>Klipper telemetry</small></div>
+                <div><span>02</span><strong>Bambu LAN</strong><small>Local status reports</small></div>
+              </div>
+              <i aria-hidden="true">→</i>
+              <div class="api-flow-core"><span>PRINTDECK</span><strong>Normalize</strong><small>Cached, protocol-neutral state</small></div>
+              <i aria-hidden="true">→</i>
+              <div class="api-flow-output"><span>GET /v1/...</span><strong>One JSON</strong><small>Your application</small></div>
             </div>
-            <i aria-hidden="true">→</i>
-            <div class="api-flow-core"><span>PRINTDECK</span><strong>Normalize</strong><small>Cached, protocol-neutral state</small></div>
-            <i aria-hidden="true">→</i>
-            <div class="api-flow-output"><span>GET /v1/...</span><strong>One JSON</strong><small>Your application</small></div>
+            <div class="api-integrations-rail" aria-label="Unified Printer API integrations">
+              <span>INTEGRATIONS:</span>
+              <div class="api-integrations-viewport">
+                <div class="api-integrations-track">
+                  <a class="api-integration-chip" href="/unified-printer-api/home-assistant/" aria-label="Home Assistant REST setup guide">
+                    <img src="/assets/integrations/home-assistant.png" alt="">
+                    <strong>Home Assistant</strong>
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -176,6 +190,27 @@
             <p>The Unified Printer API never returns printer passwords, LAN access codes, serial numbers, Wi-Fi passwords, camera frames or raw vendor payloads. Keep PrintDeck on a trusted local network and do not forward its port to the internet.</p>
             <p class="api-boundary-note">No webhooks. No cloud relay. No printer-control endpoints.</p>
             <a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Read the complete API guide</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section api-usecase-directory" id="use-cases">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">USE CASES</span>
+            <h2>Connect printer data<br><strong>to the tools you already use.</strong></h2>
+            <p>Each guide turns the Unified Printer API into a practical local integration, with working examples and a clear setup path.</p>
+          </header>
+          <div class="api-usecase-grid">
+            <a class="api-usecase-card" href="/unified-printer-api/home-assistant/">
+              <span class="api-usecase-logo"><img src="/assets/integrations/home-assistant.png" alt="Home Assistant logo"></span>
+              <span class="api-usecase-copy">
+                <small>SMART HOME</small>
+                <strong>Home Assistant</strong>
+                <span>Turn PrintDeck printer states, progress and temperatures into local sensors and automations.</span>
+              </span>
+              <span class="api-usecase-arrow" aria-hidden="true">→</span>
+            </a>
           </div>
         </div>
       </section>

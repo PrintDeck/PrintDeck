@@ -25,3 +25,12 @@ affiliated with or endorsed by Google or Microsoft.
 
 These files belong to the public website under `docs/`. They must not be loaded
 from the embedded Web Config or documentation/manual asset trees.
+
+## Integration marks
+
+- `integrations/home-assistant.png` comes from the official Home Assistant
+  website: `https://www.home-assistant.io/images/favicon-192x192-full.png`.
+
+Home Assistant and its logo are trademarks of their respective owners. The
+mark is used only to identify an integration guide; PrintDeck is not affiliated
+with or endorsed by Home Assistant or the Open Home Foundation.

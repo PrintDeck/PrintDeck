@@ -45,6 +45,7 @@ constexpr std::size_t kProbeBatchSize = 5;
 constexpr std::size_t kProbeBatchSizeWithSsdp = 3;
 constexpr std::size_t kSocketOpenAttempts = 12;
 constexpr std::size_t kMaximumResults = 24;
+constexpr std::uint64_t kRecentResultLifetimeMs = 5 * 60 * 1000;
 constexpr std::uint16_t kBambuTlsPort = 8883;
 constexpr char kSsdpGroup[] = "239.255.255.250";
 
@@ -79,6 +80,10 @@ std::string ipv4_from_endpoint(std::string endpoint) {
   const std::size_t colon = endpoint.find(':');
   if (colon != std::string::npos) endpoint.resize(colon);
   return valid_ipv4(endpoint) ? endpoint : std::string{};
+}
+
+std::string discovery_network_key(const NetworkStatus& network) {
+  return network.station_name + "|" + network.ipv4 + "|" + network.netmask;
 }
 
 bool valid_bambu_serial(const std::string& serial) {
@@ -250,6 +255,20 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
       running_.store(false, std::memory_order_release);
       return ESP_ERR_INVALID_STATE;
     }
+    const std::uint64_t started_at_ms = now_ms();
+    const std::string network_key = discovery_network_key(network);
+    std::vector<DiscoveredPrinter> recent = std::move(snapshot_.printers);
+    if (cache_network_key_ != network_key) {
+      recent.clear();
+    } else {
+      recent.erase(
+          std::remove_if(recent.begin(), recent.end(), [started_at_ms](const auto& printer) {
+            return printer.retain_until_ms == 0 || printer.retain_until_ms <= started_at_ms;
+          }),
+          recent.end());
+      for (auto& printer : recent) printer.seen_in_current_scan = false;
+    }
+    cache_network_key_ = network_key;
     network_ = std::move(network);
     saved_ipv4_hosts_.clear();
     for (const auto& profile : settings.profiles) {
@@ -263,7 +282,7 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
         .progress_percent = 0,
         .network_name = network_.station_name,
         .detail = "Starting local network search…",
-        .printers = {},
+        .printers = std::move(recent),
     };
     cancel_requested_.store(false);
   }
@@ -292,7 +311,18 @@ bool PrinterDiscoveryService::cancel(std::uint32_t scan_id) {
 
 PrinterDiscoverySnapshot PrinterDiscoveryService::snapshot() const {
   const std::lock_guard<std::mutex> lock(mutex_);
-  return snapshot_;
+  PrinterDiscoverySnapshot result = snapshot_;
+  if (result.state != PrinterDiscoveryState::scanning) {
+    const std::uint64_t current_ms = now_ms();
+    result.printers.erase(
+        std::remove_if(result.printers.begin(), result.printers.end(),
+                       [current_ms](const auto& printer) {
+                         return printer.retain_until_ms != 0 &&
+                                printer.retain_until_ms <= current_ms;
+                       }),
+        result.printers.end());
+  }
+  return result;
 }
 
 void PrinterDiscoveryService::task_entry(void* context) {
@@ -304,16 +334,22 @@ void PrinterDiscoveryService::publish_progress(std::size_t completed, std::size_
   const std::lock_guard<std::mutex> lock(mutex_);
   const int next = static_cast<int>((completed * 100U) / std::max<std::size_t>(total, 1));
   snapshot_.progress_percent = std::max(snapshot_.progress_percent, std::min(next, 99));
-  snapshot_.detail = snapshot_.printers.empty()
+  const std::size_t current_results = static_cast<std::size_t>(std::count_if(
+      snapshot_.printers.begin(), snapshot_.printers.end(),
+      [](const auto& printer) { return printer.seen_in_current_scan; }));
+  snapshot_.detail = current_results == 0
                          ? "Looking for supported printers…"
-                         : "Found " + std::to_string(snapshot_.printers.size()) +
-                               (snapshot_.printers.size() == 1 ? " printer so far…"
-                                                               : " printers so far…");
+                         : "Found " + std::to_string(current_results) +
+                               (current_results == 1 ? " printer so far…"
+                                                     : " printers so far…");
 }
 
 void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
   if (!valid_ipv4(result.host)) return;
   const std::lock_guard<std::mutex> lock(mutex_);
+  result.last_seen_ms = now_ms();
+  result.retain_until_ms = 0;
+  result.seen_in_current_scan = true;
   if (std::find(saved_ipv4_hosts_.begin(), saved_ipv4_hosts_.end(), result.host) !=
       saved_ipv4_hosts_.end()) return;
   const auto existing = std::find_if(snapshot_.printers.begin(), snapshot_.printers.end(),
@@ -327,6 +363,9 @@ void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
     if (!result.model.empty()) existing->model = std::move(result.model);
     if (!result.serial.empty()) existing->serial = std::move(result.serial);
     if (existing->port == 0 || existing->port == 80) existing->port = result.port;
+    existing->last_seen_ms = result.last_seen_ms;
+    existing->retain_until_ms = 0;
+    existing->seen_in_current_scan = true;
     return;
   }
   if (snapshot_.printers.size() >= kMaximumResults) return;
@@ -660,7 +699,8 @@ void PrinterDiscoveryService::run() {
         deduplication_complete = false;
         break;
       }
-      if (printer.protocol != core::PrinterProtocol::moonraker) {
+      if (!printer.seen_in_current_scan ||
+          printer.protocol != core::PrinterProtocol::moonraker) {
         deduplicated.push_back(std::move(printer));
         continue;
       }
@@ -682,22 +722,42 @@ void PrinterDiscoveryService::run() {
     const std::lock_guard<std::mutex> lock(mutex_);
     cancelled = cancel_requested_.exchange(false) || cancelled;
     if (!cancelled && deduplication_complete) snapshot_.printers = std::move(deduplicated);
+    const std::uint64_t completed_at_ms = now_ms();
+    for (auto& printer : snapshot_.printers) {
+      if (printer.seen_in_current_scan) {
+        printer.retain_until_ms = completed_at_ms + kRecentResultLifetimeMs;
+      }
+    }
+    snapshot_.printers.erase(
+        std::remove_if(snapshot_.printers.begin(), snapshot_.printers.end(),
+                       [completed_at_ms](const auto& printer) {
+                         return !printer.seen_in_current_scan &&
+                                (printer.retain_until_ms == 0 ||
+                                 printer.retain_until_ms <= completed_at_ms);
+                       }),
+        snapshot_.printers.end());
     std::sort(snapshot_.printers.begin(), snapshot_.printers.end(),
               [](const DiscoveredPrinter& left, const DiscoveredPrinter& right) {
+      if (left.seen_in_current_scan != right.seen_in_current_scan) {
+        return left.seen_in_current_scan;
+      }
       if (left.protocol != right.protocol) return left.protocol == core::PrinterProtocol::bambu_lan;
       return left.name < right.name;
     });
+    const bool found_current = std::any_of(
+        snapshot_.printers.begin(), snapshot_.printers.end(),
+        [](const auto& printer) { return printer.seen_in_current_scan; });
     if (cancelled) {
       snapshot_.state = PrinterDiscoveryState::idle;
       snapshot_.detail = "Network search stopped.";
-    } else if (timed_out && snapshot_.printers.empty()) {
+    } else if (timed_out && !found_current) {
       snapshot_.state = PrinterDiscoveryState::failed;
       snapshot_.detail = "The 3-minute safety limit was reached before a supported printer responded.";
     } else if (timed_out) {
       snapshot_.state = PrinterDiscoveryState::complete;
       snapshot_.progress_percent = 100;
       snapshot_.detail = "Network search complete. Results found before the safety limit are shown.";
-    } else if (resource_pressure && snapshot_.printers.empty()) {
+    } else if (resource_pressure && !found_current) {
       snapshot_.state = PrinterDiscoveryState::failed;
       snapshot_.detail = "The network was busy, so the search could not be completed. Try again.";
       snapshot_.progress_percent = 100;
@@ -708,7 +768,7 @@ void PrinterDiscoveryService::run() {
     } else {
       snapshot_.state = PrinterDiscoveryState::complete;
       snapshot_.progress_percent = 100;
-      snapshot_.detail = snapshot_.printers.empty()
+      snapshot_.detail = !found_current
                              ? "No supported printers were found. You can still add one manually."
                              : "Network search complete.";
     }

@@ -360,4 +360,64 @@
     <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/"/>
   </url>
+  <url>
+    <loc>https://printdeck.xyz/unified-printer-api/home-assistant/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/unified-printer-api/home-assistant/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/unified-printer-api/home-assistant/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/unified-printer-api/home-assistant/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/unified-printer-api/home-assistant/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/home-assistant/"/>
+  </url>
 </urlset>

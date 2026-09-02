@@ -1489,6 +1489,7 @@ body.site-page {
 }
 
 .site-tab {
+  position: relative;
   padding: 7px 0;
   border-radius: 0;
   color: var(--text);
@@ -1502,6 +1503,20 @@ body.site-page {
   color: var(--accent);
   background: transparent;
   box-shadow: none;
+}
+
+@media (min-width: 721px) {
+  .site-tab + .site-tab::before {
+    content: "";
+    position: absolute;
+    left: -20px;
+    top: 50%;
+    width: 1px;
+    height: 1em;
+    background: color-mix(in srgb, var(--muted) 30%, transparent);
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
 }
 
 .site-content:not(.home-content) {
@@ -2379,10 +2394,19 @@ body.site-page {
   .home-page .home-cases .home-section-head h2 { white-space: normal; }
 }
 
-@media (max-width: 1100px) and (min-width: 721px) {
+@media (max-width: 1100px) and (min-width: 901px) {
   .site-brand { width: 190px; height: 42px; }
-  .site-tabs { width: auto; gap: 26px; }
-  .site-tab { font-size: 1rem; }
+  .site-tabs { width: auto; gap: 22px; }
+  .site-tab { font-size: .96rem; }
+  .site-tab + .site-tab::before { left: -11px; }
+}
+
+@media (max-width: 900px) and (min-width: 721px) {
+  .site-brand { width: 145px; height: 34px; }
+  .site-header-inner { gap: 20px; }
+  .site-tabs { width: auto; gap: 14px; }
+  .site-tab { font-size: .86rem; }
+  .site-tab + .site-tab::before { left: -7px; }
 }
 
 @media (max-width: 720px) {
@@ -4139,6 +4163,11 @@ body.site-page {
 }
 
 @media (max-width: 560px) {
+  .api-integration-page .ha-hero .site-actions { grid-template-columns: 1fr; }
+  .api-integration-page .ha-hero .site-button { width: 100%; }
+}
+
+@media (max-width: 460px) {
   .support-page .support-hero-resources {
     grid-template-columns: 1fr;
   }
@@ -4579,6 +4608,360 @@ body.site-page {
   .api-page .api-code-card pre { padding: 17px; font-size: .63rem; }
   .api-page .api-code-card .api-json { height: 350px; }
   .api-page .api-boundary-grid { gap: 28px; }
+}
+
+/* Integration directory on the Unified Printer API page. */
+.api-page .api-hero-visual {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.api-page .api-integrations-rail {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 13px 10px 16px;
+  border: 1px solid #ffffff1f;
+  border-radius: 18px;
+  background: #04131180;
+  box-shadow: 0 18px 40px #0004;
+  backdrop-filter: blur(14px);
+}
+
+.api-page .api-integrations-rail > span {
+  flex: 0 0 auto;
+  color: #78978f;
+  font-size: .6rem;
+  font-weight: 850;
+  letter-spacing: .11em;
+}
+
+.api-page .api-integrations-viewport {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.api-page .api-integrations-track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 10px;
+}
+
+.api-page .api-integration-chip {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 7px;
+  border-radius: 12px;
+  color: #e8f7f2;
+  background: #ffffff0b;
+  text-decoration: none;
+  transition: color .2s ease, background-color .2s ease, transform .2s ease;
+}
+
+.api-page .api-integration-chip:hover {
+  color: #fff;
+  background: #ffffff16;
+  transform: translateY(-1px);
+}
+
+.api-page .api-integration-chip:focus-visible {
+  outline: 2px solid var(--api-green);
+  outline-offset: 3px;
+}
+
+.api-page .api-integration-chip img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.api-page .api-integration-chip strong { font-size: .74rem; white-space: nowrap; }
+
+.api-page .api-usecase-directory { background: #e3ecea; }
+.api-page .api-usecase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.api-page .api-usecase-card {
+  display: grid;
+  min-height: 225px;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  grid-column: span 2;
+  align-items: center;
+  gap: 23px;
+  padding: 28px;
+  border: 1px solid #bfd0cc;
+  border-radius: 26px;
+  color: var(--api-ink);
+  background: #fff;
+  box-shadow: 0 22px 50px #1e51451c;
+  text-decoration: none;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.api-page .api-usecase-card:hover {
+  border-color: #72bba8;
+  box-shadow: 0 28px 60px #1e51452b;
+  transform: translateY(-4px);
+}
+
+.api-page .api-usecase-card:focus-visible {
+  outline: 3px solid #159b7a;
+  outline-offset: 4px;
+}
+
+.api-page .api-usecase-logo {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+  border-radius: 18px;
+  background: #ecf8ff;
+}
+
+.api-page .api-usecase-logo img { width: 46px; height: 46px; object-fit: contain; }
+.api-page .api-usecase-copy { display: grid; gap: 8px; }
+.api-page .api-usecase-copy small { color: #1583b9; font-size: .64rem; font-weight: 850; letter-spacing: .1em; }
+.api-page .api-usecase-copy > strong { font-size: 1.45rem; letter-spacing: -.025em; }
+.api-page .api-usecase-copy > span { max-width: 470px; color: #607378; font-size: .86rem; line-height: 1.65; }
+.api-page .api-usecase-arrow { color: #159b7a; font-size: 1.5rem; transition: transform .2s ease; }
+.api-page .api-usecase-card:hover .api-usecase-arrow { transform: translateX(5px); }
+
+:root[data-appearance="dark"] .api-page .api-usecase-directory { background: #171c1a; }
+:root[data-appearance="dark"] .api-page .api-usecase-card { border-color: #35413d; color: #f3f7f5; background: #1d2321; box-shadow: 0 22px 50px #0005; }
+:root[data-appearance="dark"] .api-page .api-usecase-copy > span { color: #a5b5b0; }
+:root[data-appearance="dark"] .api-page .api-usecase-logo { background: #142d38; }
+
+/* Home Assistant use-case guide. */
+.api-integration-page .ha-hero {
+  position: relative;
+  overflow: hidden;
+  color: #effaf6;
+  background:
+    radial-gradient(circle at 79% 22%, #18a7df52 0, transparent 31%),
+    radial-gradient(circle at 14% 95%, #35d9a728 0, transparent 34%),
+    linear-gradient(128deg, #071117 0, #0b171a 58%, #08212b 100%);
+}
+
+.api-integration-page .ha-hero::after {
+  content: "";
+  position: absolute;
+  right: -10%;
+  bottom: -190px;
+  width: 64%;
+  height: 300px;
+  border-radius: 50%;
+  background: #18a7df36;
+  filter: blur(70px);
+}
+
+.api-integration-page .ha-hero .api-inner { position: relative; z-index: 1; padding: 34px 0 72px; }
+.api-integration-page .ha-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #a8c6c5;
+  font-size: .76rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+.api-integration-page .ha-back-link:hover { color: #fff; }
+.api-integration-page .ha-back-link:focus-visible { outline: 2px solid var(--api-green); outline-offset: 4px; }
+
+.api-integration-page .ha-hero-grid {
+  display: grid;
+  min-height: 470px;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, .78fr);
+  gap: 64px;
+  align-items: center;
+}
+
+.api-integration-page .ha-hero h1 {
+  max-width: 620px;
+  margin: 17px 0 22px;
+  color: #f6fbf9;
+  font-size: clamp(2.85rem, 4.7vw, 4.5rem);
+  font-weight: 620;
+  letter-spacing: -.052em;
+  line-height: 1.01;
+}
+
+.api-integration-page .ha-hero h1 strong { color: #29b7ee; }
+.api-integration-page .ha-hero .site-actions { margin-top: 28px; }
+.api-integration-page .ha-hero .site-button { border-radius: 999px; }
+
+.api-integration-page .ha-hero-mark {
+  display: grid;
+  min-height: 350px;
+  place-items: center;
+  align-content: center;
+  gap: 28px;
+  padding: 38px 28px;
+  border: 1px solid #ffffff20;
+  border-radius: 32px;
+  background: linear-gradient(145deg, #ffffff0e, #04151d99);
+  box-shadow: 0 30px 70px #0006;
+  backdrop-filter: blur(14px);
+}
+
+.api-integration-page .ha-mark-logo {
+  display: grid;
+  width: 116px;
+  height: 116px;
+  place-items: center;
+  border-radius: 30px;
+  background: #f2fbff;
+  box-shadow: 0 16px 44px #0005;
+}
+.api-integration-page .ha-mark-logo img { width: 88px; height: 88px; object-fit: contain; }
+.api-integration-page .ha-mark-flow { display: flex; max-width: 100%; align-items: center; justify-content: center; gap: 9px; }
+.api-integration-page .ha-mark-flow span { color: #a6c2c6; font-size: .56rem; font-weight: 850; letter-spacing: .08em; white-space: nowrap; }
+.api-integration-page .ha-mark-flow i { color: #35d9a7; font-style: normal; }
+.api-integration-page .ha-hero-mark p { margin: 0; color: #9eb4b7; font-size: .75rem; text-align: center; }
+
+.api-integration-page .ha-example-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 15px;
+}
+.api-integration-page .ha-example-grid article { padding: 25px 22px; border: 1px solid #ccd9d7; border-radius: 22px; background: #fff; }
+.api-integration-page .ha-example-grid article > span { color: #1583b9; font-size: .68rem; font-weight: 850; }
+.api-integration-page .ha-example-grid h3 { margin: 46px 0 11px; color: var(--api-ink); font-size: 1rem; }
+.api-integration-page .ha-example-grid p { margin: 0; color: #61757a; font-size: .82rem; line-height: 1.62; }
+
+.api-integration-page .ha-quick-start { background: #e3ecea; }
+.api-integration-page .ha-guide-steps { display: grid; gap: 18px; margin: 0; padding: 0; counter-reset: none; list-style: none; }
+.api-integration-page .ha-guide-steps > li { display: grid; grid-template-columns: minmax(0, .72fr) minmax(430px, 1.28fr); gap: 34px; align-items: start; padding: 26px; border: 1px solid #c5d3d0; border-radius: 22px; background: #f7fbfa; }
+.api-integration-page .ha-guide-steps > li:only-child,
+.api-integration-page .ha-guide-steps > li:not(:has(.ha-code-card)) { grid-template-columns: 1fr; }
+.api-integration-page .ha-step-copy { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 15px; }
+.api-integration-page .ha-step-copy > span { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; color: #08745e; background: #d9f2eb; font-size: .69rem; font-weight: 850; }
+.api-integration-page .ha-step-copy h3 { margin: 2px 0 9px; color: var(--api-ink); font-size: 1rem; }
+.api-integration-page .ha-step-copy p { margin: 0; color: #5e7176; font-size: .84rem; line-height: 1.65; }
+.api-integration-page p code,
+.api-integration-page dd code { padding: .13em .4em; border-radius: 5px; color: #08745e; background: #dceee9; font-size: .82em; }
+
+.api-integration-page .ha-code-card { min-width: 0; overflow: hidden; border: 1px solid #263b42; border-radius: 15px; background: #071018; box-shadow: 0 18px 40px #12372e1f; }
+.api-integration-page .ha-code-title { padding: 10px 14px; border-bottom: 1px solid #263b42; color: #88a2a9; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .66rem; }
+.api-integration-page .ha-code-card pre { overflow-x: auto; margin: 0; padding: 18px; color: #cce7df; font-size: .72rem; line-height: 1.58; }
+.api-integration-page .ha-code-card-large { border-radius: 22px; box-shadow: 0 28px 60px #12372e2b; }
+.api-integration-page .ha-code-card-large pre { max-height: 760px; padding: 26px; font-size: .74rem; }
+
+.api-integration-page .ha-status-reference { color: #eaf7f2; background: #0b1113; }
+.api-integration-page .ha-status-reference h2 { color: #fff; }
+.api-integration-page .ha-status-reference .api-section-head > p { color: #adbfba; }
+.api-integration-page .ha-status-reference p code { color: #78e5c7; background: #173029; }
+.api-integration-page .ha-reference-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.api-integration-page .ha-reference-card { padding: 27px; border: 1px solid #33433e; border-radius: 22px; background: #121b19; }
+.api-integration-page .ha-reference-card.wide { grid-row: span 2; }
+.api-integration-page .ha-reference-card h3 { margin: 0 0 10px; color: #fff; font-size: 1.05rem; }
+.api-integration-page .ha-reference-card > p { margin: 0 0 22px; color: #93a8a2; font-size: .82rem; }
+.api-integration-page .ha-reference-card > .ha-reference-tip { margin: 22px 0 0; padding-top: 18px; border-top: 1px solid #2d3c38; color: #b6c8c3; line-height: 1.65; }
+.api-integration-page .ha-token-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.api-integration-page .ha-token-list code,
+.api-integration-page .ha-value-groups dd code { padding: 6px 9px; border: 1px solid #295c4f; border-radius: 8px; color: #9bf0d9; background: #112b24; font-size: .68rem; }
+.api-integration-page .ha-value-groups { display: grid; gap: 19px; margin: 0; }
+.api-integration-page .ha-value-groups div { display: grid; gap: 10px; }
+.api-integration-page .ha-value-groups dt code { color: #fff; font-size: .74rem; }
+.api-integration-page .ha-value-groups dd { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.api-integration-page .ha-reference-note { margin: 22px 0 0; padding-left: 16px; border-left: 3px solid var(--api-green); color: #99afa9; font-size: .82rem; line-height: 1.65; }
+
+.api-integration-page .ha-all-sensors { background: #fff; }
+.api-integration-page .ha-callout { margin-top: 22px; padding: 22px 24px; border: 1px solid #a9d3c8; border-radius: 17px; background: #e4f5f0; }
+.api-integration-page .ha-callout strong { color: #086b57; font-size: .84rem; }
+.api-integration-page .ha-callout p { margin: 7px 0 0; color: #49665f; font-size: .82rem; line-height: 1.65; }
+
+.api-integration-page .ha-boundary { background: #e3ecea; }
+.api-integration-page .ha-boundary-grid { display: grid; grid-template-columns: minmax(0, .84fr) minmax(400px, 1.16fr); gap: 72px; align-items: start; }
+.api-integration-page .ha-boundary-grid p { margin: 0 0 18px; color: #52686e; line-height: 1.7; }
+.api-integration-page .ha-boundary-grid .site-button { margin-top: 8px; }
+
+:root[data-appearance="dark"] .api-integration-page .ha-example-grid article,
+:root[data-appearance="dark"] .api-integration-page .ha-guide-steps > li { border-color: #35413d; background: #1d2321; }
+:root[data-appearance="dark"] .api-integration-page .ha-example-grid h3,
+:root[data-appearance="dark"] .api-integration-page .ha-step-copy h3 { color: #f1f6f4; }
+:root[data-appearance="dark"] .api-integration-page .ha-example-grid p,
+:root[data-appearance="dark"] .api-integration-page .ha-step-copy p { color: #a5b5b0; }
+:root[data-appearance="dark"] .api-integration-page .ha-quick-start,
+:root[data-appearance="dark"] .api-integration-page .ha-boundary { background: #171c1a; }
+:root[data-appearance="dark"] .api-integration-page .ha-all-sensors { background: #101412; }
+:root[data-appearance="dark"] .api-integration-page .ha-callout { border-color: #27594d; background: #122821; }
+:root[data-appearance="dark"] .api-integration-page .ha-callout strong { color: #70e1c2; }
+:root[data-appearance="dark"] .api-integration-page .ha-callout p,
+:root[data-appearance="dark"] .api-integration-page .ha-boundary-grid p { color: #a8b8b3; }
+
+@media (prefers-reduced-motion: reduce) {
+  .api-page .api-integration-chip,
+  .api-page .api-usecase-card,
+  .api-page .api-usecase-arrow { transition: none; }
+}
+
+@media (max-width: 980px) {
+  .api-page .api-usecase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .api-page .api-usecase-card { grid-column: span 2; }
+  .api-integration-page .ha-hero-grid,
+  .api-integration-page .ha-boundary-grid { grid-template-columns: 1fr; }
+  .api-integration-page .ha-hero-grid { gap: 42px; padding-top: 38px; }
+  .api-integration-page .ha-hero-mark { min-height: 300px; }
+  .api-integration-page .ha-example-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .api-integration-page .ha-guide-steps > li { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  .api-page .api-integrations-rail { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .api-page .api-integrations-viewport { width: 100%; overflow-x: auto; }
+  .api-page .api-usecase-grid { grid-template-columns: 1fr; }
+  .api-page .api-usecase-card { min-height: 0; grid-template-columns: 54px minmax(0, 1fr) auto; grid-column: auto; gap: 16px; padding: 21px; }
+  .api-page .api-usecase-logo { width: 54px; height: 54px; }
+  .api-page .api-usecase-logo img { width: 40px; height: 40px; }
+  .api-integration-page .ha-hero .api-inner { padding-bottom: 54px; }
+  .api-integration-page .ha-hero-copy { text-align: center; }
+  .api-integration-page .ha-hero h1 { font-size: clamp(2.6rem, 11vw, 3.5rem); }
+  .api-integration-page .ha-hero .api-lead { margin-inline: auto; }
+  .api-integration-page .ha-hero .site-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: center;
+  }
+  .api-integration-page .ha-hero .site-button {
+    min-width: 0;
+    padding-inline: 12px;
+    font-size: clamp(.76rem, 2.1vw, .86rem);
+  }
+  .api-integration-page .ha-example-grid,
+  .api-integration-page .ha-reference-grid { grid-template-columns: 1fr; }
+  .api-integration-page .ha-reference-card.wide { grid-row: auto; }
+  .api-integration-page .ha-code-card-large pre { padding: 20px; font-size: .67rem; }
+}
+
+@media (max-width: 560px) {
+  .api-integration-page .ha-hero .site-actions { grid-template-columns: 1fr; }
+  .api-integration-page .ha-hero .site-button { width: 100%; }
+}
+
+@media (max-width: 460px) {
+  .api-page .api-usecase-card { grid-template-columns: 52px minmax(0, 1fr); }
+  .api-page .api-usecase-arrow { display: none; }
+  .api-page .api-usecase-copy > strong { font-size: 1.2rem; }
+  .api-integration-page .ha-hero .site-actions { display: grid; grid-template-columns: 1fr; }
+  .api-integration-page .ha-hero .site-button { width: 100%; }
+  .api-integration-page .ha-hero-mark { min-height: 270px; padding-inline: 16px; }
+  .api-integration-page .ha-mark-logo { width: 98px; height: 98px; }
+  .api-integration-page .ha-mark-logo img { width: 74px; height: 74px; }
+  .api-integration-page .ha-mark-flow { flex-wrap: wrap; }
+  .api-integration-page .ha-guide-steps > li { padding: 20px 16px; }
+  .api-integration-page .ha-step-copy { grid-template-columns: 38px minmax(0, 1fr); gap: 12px; }
+  .api-integration-page .ha-step-copy > span { width: 38px; height: 38px; }
+  .api-integration-page .ha-code-card pre,
+  .api-integration-page .ha-code-card-large pre { padding: 15px; font-size: .6rem; }
 }
 
 /* Shared campaign signal strip below dark page headers. */

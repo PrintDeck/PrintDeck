@@ -19,6 +19,7 @@
 #include "esp_partition.h"
 #include "esp_random.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "mbedtls/gcm.h"
 #include "mbedtls/md.h"
@@ -2579,6 +2580,8 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
 esp_err_t WebConfig::serve_printer_discovery(httpd_req_t* request,
                                              std::optional<bool> started) const {
   const PrinterDiscoverySnapshot snapshot = printer_discovery_->snapshot();
+  const std::uint64_t current_ms =
+      static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
   const char* state = "idle";
   if (snapshot.state == PrinterDiscoveryState::scanning) state = "scanning";
   else if (snapshot.state == PrinterDiscoveryState::complete) state = "complete";
@@ -2611,7 +2614,14 @@ esp_err_t WebConfig::serve_printer_discovery(httpd_req_t* request,
     append_json_string(body, printer.host);
     body += ",\"serial\":";
     append_json_string(body, printer.serial);
-    body += ",\"port\":" + std::to_string(printer.port) + "}";
+    body += ",\"port\":" + std::to_string(printer.port);
+    body += ",\"seen_now\":";
+    body += printer.seen_in_current_scan ? "true" : "false";
+    const std::uint64_t age_seconds =
+        printer.last_seen_ms > 0 && current_ms >= printer.last_seen_ms
+            ? (current_ms - printer.last_seen_ms) / 1000
+            : 0;
+    body += ",\"age_seconds\":" + std::to_string(age_seconds) + "}";
   }
   body += "]}";
   httpd_resp_set_type(request, "application/json");
@@ -2937,7 +2947,9 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     for (const auto& value : candidate.profiles) next_id = std::max(next_id, value.id + 1);
     profile.id = next_id;
     candidate.profiles.push_back(std::move(profile));
-    candidate.selected_profile = next_id;
+    // The first available printer becomes active. Adding more printers in one
+    // discovery session must not repeatedly tear down the current connection.
+    if (candidate.selected_profile == 0) candidate.selected_profile = next_id;
   } else {
     profile.id = profile_id;
     if (profile.protocol == existing->protocol) {
@@ -3031,6 +3043,7 @@ esp_err_t WebConfig::start_compatibility_probe(httpd_req_t* request) {
   }
   std::string profile_id_text;
   std::string protocol;
+  std::string purpose_text;
   BambuLocalConnection connection;
   std::uint32_t profile_id = 0;
   if (!form_value(body, "profile_id", profile_id_text) ||
@@ -3054,7 +3067,15 @@ esp_err_t WebConfig::start_compatibility_probe(httpd_req_t* request) {
     return send_json(request, "400 Bad Request",
                      "{\"error\":\"Enter the printer address, serial number and LAN access code before testing.\"}");
   }
-  const esp_err_t result = compatibility_probe_->start(std::move(connection));
+  const bool has_purpose = form_value(body, "purpose", purpose_text);
+  if (has_purpose && purpose_text != "connection" && purpose_text != "report") {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"Choose a valid printer test.\"}");
+  }
+  const BambuProbePurpose purpose = purpose_text == "connection"
+      ? BambuProbePurpose::kConnectionTest
+      : BambuProbePurpose::kCompatibilityReport;
+  const esp_err_t result = compatibility_probe_->start(std::move(connection), purpose);
   if (result == ESP_ERR_INVALID_STATE) {
     return send_json(request, "409 Conflict",
                      "{\"error\":\"A connection test is already in progress.\"}");
@@ -3079,6 +3100,8 @@ esp_err_t WebConfig::serve_compatibility_status(httpd_req_t* request) const {
   append_json_string(body, localized(snapshot.detail));
   body += ",\"report_ready\":";
   body += snapshot.report_ready ? "true" : "false";
+  body += ",\"connection_verified\":";
+  body += snapshot.connection_verified ? "true" : "false";
   body.push_back('}');
   httpd_resp_set_type(request, "application/json");
   httpd_resp_set_hdr(request, "Cache-Control", "no-store");

@@ -25,6 +25,11 @@ enum class BambuCompatibilityState : uint8_t {
   kCancelled,
 };
 
+enum class BambuProbePurpose : uint8_t {
+  kCompatibilityReport,
+  kConnectionTest,
+};
+
 struct BambuCompatibilitySnapshot {
   BambuCompatibilityState state = BambuCompatibilityState::kIdle;
   int progress_percent = 0;
@@ -33,6 +38,7 @@ struct BambuCompatibilitySnapshot {
   size_t mqtt_messages = 0;
   bool active_print_observed = false;
   bool report_ready = false;
+  bool connection_verified = false;
 };
 
 struct BambuNumericFieldObservation {
@@ -55,7 +61,9 @@ class BambuCompatibilityProbe {
     std::string software_version;
   };
 
-  esp_err_t start(BambuLocalConnection connection);
+  esp_err_t start(
+      BambuLocalConnection connection,
+      BambuProbePurpose purpose = BambuProbePurpose::kCompatibilityReport);
   void cancel();
   BambuCompatibilitySnapshot snapshot() const;
   std::string report_json() const;
@@ -65,7 +73,7 @@ class BambuCompatibilityProbe {
   static void mqtt_event_handler(void* context, esp_event_base_t base,
                                  int32_t event_id, void* event_data);
 
-  void task_loop(BambuLocalConnection connection);
+  void task_loop(BambuLocalConnection connection, BambuProbePurpose purpose);
   void handle_mqtt_event(esp_mqtt_event_handle_t event);
   void consume_report(const char* payload, size_t length);
   void set_status(BambuCompatibilityState state, int progress,
@@ -79,6 +87,7 @@ class BambuCompatibilityProbe {
   mutable std::mutex mutex_{};
   BambuCompatibilitySnapshot snapshot_{};
   BambuLocalConnection pending_connection_{};
+  BambuProbePurpose pending_purpose_ = BambuProbePurpose::kCompatibilityReport;
   std::string report_json_{};
   std::set<std::string> schema_fields_{};
   std::map<std::string, BambuNumericFieldObservation> numeric_fields_{};

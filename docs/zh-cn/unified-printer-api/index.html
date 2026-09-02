@@ -8,7 +8,7 @@
 
 
     <title>统一打印机 API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260902-20">
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-23">
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-2"></script>
 
     <meta name="description" content="PrintDeck 将受支持的打印机协议转换为统一、版本化的只读 JSON 约定。软件只需开发一次，即可从 Klipper 和受支持的 Bambu Lab 打印机读取相同结构。">
@@ -50,6 +50,7 @@
           <a class="site-tab" href="/zh-cn/firmware/">固件</a>
           <a class="site-tab" href="/zh-cn/case-designs/">外壳设计</a>
           <a class="site-tab" href="/zh-cn/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/zh-cn/unified-printer-api/" aria-current="page">Unified API</a>
           <a class="site-tab" href="/zh-cn/support/">支持</a>
         </nav>
       </div>
@@ -67,15 +68,28 @@
               <a class="site-button secondary" href="#contract">查看端点</a>
             </div>
           </div>
-          <div class="api-flow" aria-label="PrintDeck 将打印机格式统一为一个 JSON API">
-            <div class="api-flow-sources">
-              <div><span>01</span><strong>Moonraker</strong><small>Klipper 遥测数据</small></div>
-              <div><span>02</span><strong>Bambu LAN</strong><small>本地状态报告</small></div>
+          <div class="api-hero-visual">
+            <div class="api-flow" aria-label="PrintDeck 将打印机格式统一为一个 JSON API">
+              <div class="api-flow-sources">
+                <div><span>01</span><strong>Moonraker</strong><small>Klipper 遥测数据</small></div>
+                <div><span>02</span><strong>Bambu LAN</strong><small>本地状态报告</small></div>
+              </div>
+              <i aria-hidden="true">→</i>
+              <div class="api-flow-core"><span>PRINTDECK</span><strong>统一转换</strong><small>缓存的协议无关状态</small></div>
+              <i aria-hidden="true">→</i>
+              <div class="api-flow-output"><span>GET /v1/...</span><strong>统一 JSON</strong><small>你的应用</small></div>
             </div>
-            <i aria-hidden="true">→</i>
-            <div class="api-flow-core"><span>PRINTDECK</span><strong>统一转换</strong><small>缓存的协议无关状态</small></div>
-            <i aria-hidden="true">→</i>
-            <div class="api-flow-output"><span>GET /v1/...</span><strong>统一 JSON</strong><small>你的应用</small></div>
+            <div class="api-integrations-rail" aria-label="Unified Printer API 集成">
+              <span>集成：</span>
+              <div class="api-integrations-viewport">
+                <div class="api-integrations-track">
+                  <a class="api-integration-chip" href="/zh-cn/unified-printer-api/home-assistant/" aria-label="Home Assistant REST 设置指南">
+                    <img src="/assets/integrations/home-assistant.png" alt="">
+                    <strong>Home Assistant</strong>
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -176,6 +190,27 @@
             <p>统一打印机 API 绝不会返回打印机密码、LAN 访问码、序列号、Wi-Fi 密码、摄像头画面或厂商原始数据。请将 PrintDeck 保持在可信本地网络中，不要把其端口转发到互联网。</p>
             <p class="api-boundary-note">无 Webhook。无云端中继。无打印机控制端点。</p>
             <a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">阅读完整 API 指南</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section api-usecase-directory" id="use-cases">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">使用场景</span>
+            <h2>连接打印机数据<br><strong>到你已经使用的工具。</strong></h2>
+            <p>每份指南都会通过可用示例和清晰的设置步骤，将 Unified Printer API 转化为实用的本地集成。</p>
+          </header>
+          <div class="api-usecase-grid">
+            <a class="api-usecase-card" href="/zh-cn/unified-printer-api/home-assistant/">
+              <span class="api-usecase-logo"><img src="/assets/integrations/home-assistant.png" alt="Home Assistant 标志"></span>
+              <span class="api-usecase-copy">
+                <small>智能家居</small>
+                <strong>Home Assistant</strong>
+                <span>将 PrintDeck 提供的打印机状态、进度和温度转换为本地传感器和自动化。</span>
+              </span>
+              <span class="api-usecase-arrow" aria-hidden="true">→</span>
+            </a>
           </div>
         </div>
       </section>
