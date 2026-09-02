@@ -8,8 +8,8 @@
 
 
     <title>Home Assistant · Unified Printer API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260902-25">
-    <script>window.printDeckInstallerI18n={language:"en",t:(source,values={})=>{let result=({"Play":"Play","Pause":"Pause","Seek":"Seek","{currentTime} of {duration}":"{currentTime} of {duration}","Played":"Played","Buffered":"Buffered","Current time":"Current time","Volume":"Volume","Mute":"Mute","Unmute":"Unmute","Enter fullscreen":"Enter fullscreen","Exit fullscreen":"Exit fullscreen"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-2"></script>
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-26">
+    <script>window.printDeckInstallerI18n={language:"en",t:(source,values={})=>{let result=({"Play":"Play","Pause":"Pause","Seek":"Seek","{currentTime} of {duration}":"{currentTime} of {duration}","Played":"Played","Buffered":"Buffered","Current time":"Current time","Volume":"Volume","Mute":"Mute","Unmute":"Unmute","Enter fullscreen":"Enter fullscreen","Exit fullscreen":"Exit fullscreen"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-3"></script>
 
     <meta name="description" content="Connect Home Assistant to the PrintDeck Unified Printer API and turn local printer states, progress and temperatures into sensors and automations.">
     <link rel="canonical" href="https://printdeck.xyz/unified-printer-api/home-assistant/">
@@ -67,7 +67,7 @@
               <p class="api-lead">Home Assistant can poll PrintDeck on your local network, turn its normalized printer data into entities, and react whenever a print changes state.</p>
               <div class="site-actions">
                 <a class="site-button" href="#native-integration">Install the PrintDeck integration</a>
-                <a class="site-button secondary" href="#quick-start">Use manual REST setup</a>
+                <a class="site-button secondary" href="#first-automation">Create the first automation</a>
               </div>
             </div>
             <div class="ha-hero-mark" aria-label="PrintDeck connects printer data to Home Assistant">
@@ -105,39 +105,133 @@
       <section class="api-section ha-quick-start" id="native-integration">
         <div class="api-inner">
           <header class="api-section-head">
-            <span class="home-kicker">NATIVE HOME ASSISTANT EXPERIENCE</span>
+            <span class="home-kicker">START HERE · NO YAML REQUIRED</span>
             <h2>No configuration.yaml.<br><strong>Set it up in the interface.</strong></h2>
-            <p>Install the maintained PrintDeck custom integration through HACS. It uses the normal Home Assistant Devices &amp; services flow; HACS is only the installation method.</p>
+            <p>HACS installs the maintained PrintDeck integration. After that, everything happens in the normal Home Assistant interface: discovery, token entry, devices, sensors and automations.</p>
           </header>
+
+          <div class="ha-prerequisites" aria-label="Before you start">
+            <div><span aria-hidden="true">1</span><p><strong>Same local network</strong>Home Assistant and PrintDeck must be able to reach each other.</p></div>
+            <div><span aria-hidden="true">2</span><p><strong>Current PrintDeck firmware</strong>Update the monitor before connecting the integration.</p></div>
+            <div><span aria-hidden="true">3</span><p><strong>HACS installed</strong>If you do not have HACS yet, install it first using the official guide.</p></div>
+          </div>
+          <div class="site-actions ha-prerequisite-actions"><a class="site-button secondary" href="https://www.hacs.xyz/docs/use/download/download/" target="_blank" rel="noopener">Open the official HACS installation guide</a></div>
+
+          <details class="ha-migration">
+            <summary>Already used the old YAML setup? Clean it up first</summary>
+            <div class="ha-migration-body">
+              <p>Remove only the old PrintDeck REST resource and its PrintDeck sensors from configuration.yaml. Remove printdeck_api_bearer from secrets.yaml only if nothing else uses it, and disable or remove automations that reference the old REST sensor entity IDs. Do not delete unrelated REST integrations.</p>
+              <p>Check the configuration and restart Home Assistant before installing the native integration. Your normal Home Assistant devices, lights and unrelated automations stay untouched.</p>
+            </div>
+          </details>
+
           <ol class="ha-guide-steps">
             <li>
-              <div class="ha-step-copy"><span>01</span><div><h3>Enable the API</h3><p>Open Web Config on PrintDeck, choose Unified Printer API, enable it and copy the generated access token.</p></div></div>
+              <div class="ha-step-copy"><span>01</span><div><h3>Enable the API in PrintDeck</h3><p>Open PrintDeck Web Config, choose Settings &gt; Unified Printer API, enable it and copy the generated token. Keep it private; you will paste the raw token into Home Assistant without adding the word Bearer.</p></div></div>
             </li>
             <li>
-              <div class="ha-step-copy"><span>02</span><div><h3>Install through HACS</h3><p>Add the PrintDeck repository as a custom Integration repository in HACS, download PrintDeck and restart Home Assistant.</p></div></div>
-              <div class="site-actions"><a class="site-button secondary" href="https://github.com/PrintDeck/home-assistant" target="_blank" rel="noopener">Open the PrintDeck repository</a></div>
-            </li>
-            <li>
-              <div class="ha-step-copy"><span>03</span><div><h3>Add PrintDeck</h3><p>Open Settings &gt; Devices &amp; services &gt; Add integration. Choose a discovered PrintDeck or search for PrintDeck, then enter the Unified API token.</p></div></div>
-            </li>
-            <li>
-              <div class="ha-step-copy"><span>04</span><div><h3>Import an automation blueprint</h3><p>Choose a ready-made automation and select your PrintDeck sensor and light in the Home Assistant interface.</p></div></div>
-              <div class="site-actions">
-                <a class="site-button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2Fhome-assistant%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Flight_when_print_finishes.yaml" target="_blank" rel="noopener">Light when a print finishes</a>
-                <a class="site-button secondary" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2Fhome-assistant%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Fprogress_milestone_lights.yaml" target="_blank" rel="noopener">Lights at 25%, 50% and 75%</a>
+              <div class="ha-step-copy"><span>02</span><div><h3>Add PrintDeck to HACS</h3><p>Use the button below. It opens the PrintDeck custom repository directly in HACS. If the button cannot reach your Home Assistant, use the manual path shown underneath.</p></div></div>
+              <div class="ha-step-actions">
+                <a class="site-button" href="https://my.home-assistant.io/redirect/hacs_repository/?owner=PrintDeck&amp;repository=home-assistant&amp;category=integration" target="_blank" rel="noopener">Open PrintDeck in HACS</a>
+                <details class="ha-inline-help"><summary>Add the repository manually</summary><p>Open HACS &gt; Integrations &gt; three-dot menu &gt; Custom repositories. Paste https://github.com/PrintDeck/home-assistant, choose Integration as the type, then select Add.</p><a href="https://www.hacs.xyz/docs/faq/custom_repositories/" target="_blank" rel="noopener">Read the official HACS custom repository guide</a></details>
               </div>
             </li>
+            <li>
+              <div class="ha-step-copy"><span>03</span><div><h3>Download and restart</h3><p>In HACS, select PrintDeck, choose Download and install the newest version. Restart Home Assistant when HACS asks. Refreshing the browser is not a restart.</p></div></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>04</span><div><h3>Add the integration</h3><p>Open Settings &gt; Devices &amp; services &gt; Add integration and search for PrintDeck. Choose a discovered monitor, or enter printdeck.local or its local IP address. Paste the raw Unified API token and submit.</p></div></div>
+              <div class="ha-step-actions"><a class="site-button secondary" href="https://my.home-assistant.io/redirect/config_flow_start/?domain=printdeck" target="_blank" rel="noopener">Add PrintDeck to Home Assistant</a><button class="ha-example-button" type="button" data-example-dialog="ha-example-find">See example</button></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>05</span><div><h3>Name and assign</h3><p>Home Assistant shows the PrintDeck monitor and every configured printer. Rename them or assign areas if useful, then choose Finish. Use Add hub only when you have another physical PrintDeck monitor.</p></div></div>
+              <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-assign">See example</button></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>06</span><div><h3>Confirm the entities</h3><p>Open the PrintDeck integration. You should see one hub and a device for every printer. Each printer exposes progress, phase, activity, temperatures, layers, time and connection data when available.</p></div></div>
+              <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-entities">See example</button></div>
+              <div class="ha-note"><strong>New printers appear automatically</strong><p>Add a printer in PrintDeck and Home Assistant creates its device and entities after the next polling cycle. If you remove a printer, its old entities become unavailable so Home Assistant can preserve history; delete that device manually if you no longer want it.</p></div>
+            </li>
           </ol>
+
+          <div class="ha-first-automation" id="first-automation">
+            <header><span class="home-kicker">YOUR FIRST AUTOMATION</span><h2>Turn on one light<br><strong>when progress reaches 75%.</strong></h2><p>This example uses the visual automation editor. It works with any percentage, including 82% or 88%.</p></header>
+            <ol class="ha-recipe">
+              <li><span>WHEN</span><p>Choose Numeric state, select the printer's Print progress entity and set Above to 74.9.</p></li>
+              <li><span>AND IF</span><p>Choose State, select the same printer's Print phase entity and set the state to Printing.</p></li>
+              <li><span>THEN DO</span><p>Choose Light: Turn on and select one light. Use Turn on rather than Toggle so the result is predictable.</p></li>
+              <li><span>SAVE</span><p>Give the automation a name and save it. Run actions tests only the light; a short print tests the trigger and condition.</p></li>
+            </ol>
+            <div class="ha-callout"><strong>Why 74.9 instead of 75?</strong><p>Home Assistant's Above test is strict. A threshold of 74.9 triggers when the sensor first reports 75 or any higher value. The Printing condition prevents an old stored progress value from turning on the light while the printer is idle.</p></div>
+            <div class="site-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-automation">See finished example</button></div>
+          </div>
+
+          <div class="ha-blueprints">
+            <div><span class="home-kicker">READY-MADE BLUEPRINTS</span><h3>Prefer a guided form?</h3><p>Import a blueprint, then choose the printer sensor and light from dropdowns in Home Assistant.</p></div>
+            <div class="site-actions">
+              <a class="site-button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2Fhome-assistant%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Flight_when_print_finishes.yaml" target="_blank" rel="noopener">Light when a print finishes</a>
+              <a class="site-button secondary" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2Fhome-assistant%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Fprogress_milestone_lights.yaml" target="_blank" rel="noopener">Lights at 25%, 50% and 75%</a>
+            </div>
+          </div>
+
+          <section class="ha-troubleshooting" aria-labelledby="ha-troubleshooting-title">
+            <header><span class="home-kicker">QUICK TROUBLESHOOTING</span><h2 id="ha-troubleshooting-title">If something does not appear,<br><strong>check these first.</strong></h2></header>
+            <div class="ha-troubleshooting-grid">
+              <article><h3>PrintDeck is missing from Add integration</h3><p>Confirm that HACS downloaded it, restart Home Assistant and refresh the browser after the restart.</p></article>
+              <article><h3>Home Assistant asks for a firmware update</h3><p>Update the PrintDeck monitor, then try the connection again. This message means the monitor does not yet advertise native integration support.</p><button class="ha-example-button" type="button" data-example-dialog="ha-example-firmware">See this message</button></article>
+              <article><h3>Cannot connect to the host</h3><p>Keep Home Assistant and PrintDeck on the same local network. If printdeck.local does not resolve, enter the local IP shown by PrintDeck.</p></article>
+              <article><h3>The token is rejected</h3><p>Copy a fresh token from PrintDeck Web Config and paste it exactly. Do not add Bearer in the native integration form.</p></article>
+              <article><h3>Progress is unavailable</h3><p>Select that printer on PrintDeck so it has a full live connection. Some inactive printers expose only summary data.</p></article>
+              <article><h3>The light did not turn on</h3><p>Open the automation and choose Traces. The trace shows whether the progress trigger fired and whether the Printing condition passed.</p></article>
+            </div>
+          </section>
         </div>
       </section>
 
-      <section class="api-section ha-quick-start" id="quick-start">
+      <dialog class="ha-example-dialog" id="ha-example-find" aria-labelledby="ha-example-find-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">HOME ASSISTANT EXAMPLE</span><h2 id="ha-example-find-title">Find PrintDeck in Add integration</h2></div><button class="ha-example-close" type="button" aria-label="Close example">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/find-printdeck.webp" loading="lazy" alt="Home Assistant Add integration search showing PrintDeck"><figcaption>Search for PrintDeck and select the result with the round PrintDeck icon.</figcaption></figure>
+        </div>
+      </dialog>
+
+      <dialog class="ha-example-dialog" id="ha-example-assign" aria-labelledby="ha-example-assign-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">HOME ASSISTANT EXAMPLE</span><h2 id="ha-example-assign-title">Name the monitor and printers</h2></div><button class="ha-example-close" type="button" aria-label="Close example">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/name-and-assign.webp" loading="lazy" alt="Home Assistant Name and assign screen for a PrintDeck monitor and its printers"><figcaption>Areas are optional. Choose Skip and finish if you do not want to organize the devices yet.</figcaption></figure>
+        </div>
+      </dialog>
+
+      <dialog class="ha-example-dialog" id="ha-example-entities" aria-labelledby="ha-example-entities-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">HOME ASSISTANT EXAMPLE</span><h2 id="ha-example-entities-title">A hub with its printer devices</h2></div><button class="ha-example-close" type="button" aria-label="Close example">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/devices-and-entities.webp" loading="lazy" alt="PrintDeck integration page showing one hub and four printer devices"><figcaption>The hub represents the physical PrintDeck monitor. The rows below it are the printers configured on that monitor.</figcaption></figure>
+        </div>
+      </dialog>
+
+      <dialog class="ha-example-dialog" id="ha-example-automation" aria-labelledby="ha-example-automation-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">HOME ASSISTANT EXAMPLE</span><h2 id="ha-example-automation-title">A complete progress automation</h2></div><button class="ha-example-close" type="button" aria-label="Close example">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/progress-light-automation.webp" loading="lazy" alt="Home Assistant automation with progress trigger, Printing condition and Turn on light action"><figcaption>This working example uses 82%. For 75%, enter Above 74.9 and keep the same Printing condition.</figcaption></figure>
+        </div>
+      </dialog>
+
+      <dialog class="ha-example-dialog" id="ha-example-firmware" aria-labelledby="ha-example-firmware-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">TROUBLESHOOTING EXAMPLE</span><h2 id="ha-example-firmware-title">Firmware update required</h2></div><button class="ha-example-close" type="button" aria-label="Close example">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/unsupported-firmware.webp" loading="lazy" alt="Home Assistant PrintDeck connection form showing a firmware update warning"><figcaption>This is an error example, not the expected success screen. Update PrintDeck and submit the connection again.</figcaption></figure>
+        </div>
+      </dialog>
+
+      <section class="api-section ha-quick-start" id="manual-rest">
         <div class="api-inner">
           <header class="api-section-head">
             <span class="home-kicker">MANUAL REST FALLBACK</span>
             <h2>Prefer YAML?<br><strong>Connect one state and one light.</strong></h2>
-            <p>This alternative setup does not require the PrintDeck integration. It watches one printer's phase and turns on one light entity through Home Assistant's REST sensor.</p>
+            <p>The native integration above is recommended. Open this advanced fallback only when HACS cannot be used or you deliberately want to maintain the REST sensors yourself.</p>
           </header>
+          <details class="ha-advanced">
+            <summary>Show the manual REST instructions</summary>
           <ol class="ha-guide-steps">
             <li>
               <div class="ha-step-copy"><span>01</span><div><h3>Enable the API</h3><p>Open Web Config on PrintDeck, choose Unified Printer API, enable it and copy the generated access token.</p></div></div>
@@ -191,6 +285,7 @@
               <div class="ha-step-copy"><span>07</span><div><h3>Run a short test print</h3><p>Watch the phase entity move to completed. If the lamp does not switch on, open the automation trace to see the trigger and condition results.</p></div></div>
             </li>
           </ol>
+          </details>
         </div>
       </section>
 
@@ -232,8 +327,10 @@
           <header class="api-section-head">
             <span class="home-kicker">COMPLETE STATUS SENSOR PACK</span>
             <h2>One API request.<br><strong>Every detailed-status field.</strong></h2>
-            <p>Use this block instead of the smaller phase-only block above. It creates entities for every field returned by the detailed status endpoint while still polling PrintDeck only once per interval.</p>
+            <p>The native integration creates these entities automatically. This YAML pack is kept for advanced manual REST installations.</p>
           </header>
+          <details class="ha-advanced">
+            <summary>Show the complete manual sensor YAML</summary>
           <div class="ha-code-card ha-code-card-large">
             <div class="ha-code-title">configuration.yaml</div>
             <pre><code>rest:
@@ -382,6 +479,7 @@
             <strong>Before you restart</strong>
             <p>Keep the matching token in secrets.yaml, replace PRINTDECK-IP and printer ID 1. If configuration.yaml already has a top-level rest section, add this resource below it instead of creating a second rest key.</p>
           </div>
+          </details>
         </div>
       </section>
 

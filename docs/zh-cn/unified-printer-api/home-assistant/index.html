@@ -8,8 +8,8 @@
 
 
     <title>Home Assistant · Unified Printer API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260902-25">
-    <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-2"></script>
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-26">
+    <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-3"></script>
 
     <meta name="description" content="将 Home Assistant 连接到 PrintDeck Unified Printer API，把本地打印机状态、进度和温度转换为传感器和自动化。">
     <link rel="canonical" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant/">
@@ -67,7 +67,7 @@
               <p class="api-lead">Home Assistant 可以在本地网络中轮询 PrintDeck，将标准化打印机数据转换为实体，并在打印状态变化时作出响应。</p>
               <div class="site-actions">
                 <a class="site-button" href="#native-integration">安装 PrintDeck 集成</a>
-                <a class="site-button secondary" href="#quick-start">使用手动 REST 设置</a>
+                <a class="site-button secondary" href="#first-automation">创建第一个自动化</a>
               </div>
             </div>
             <div class="ha-hero-mark" aria-label="PrintDeck 将打印机数据连接到 Home Assistant">
@@ -105,39 +105,133 @@
       <section class="api-section ha-quick-start" id="native-integration">
         <div class="api-inner">
           <header class="api-section-head">
-            <span class="home-kicker">原生 HOME ASSISTANT 体验</span>
+            <span class="home-kicker">从这里开始 · 无需 YAML</span>
             <h2>无需 configuration.yaml。<br><strong>在界面中完成设置。</strong></h2>
-            <p>通过 HACS 安装由 PrintDeck 维护的自定义集成。它使用 Home Assistant 标准的“设备与服务”流程；HACS 只是安装方式。</p>
+            <p>HACS 会安装持续维护的 PrintDeck 集成。之后，发现、令牌输入、设备、传感器和自动化都在 Home Assistant 的常规界面中完成。</p>
           </header>
+
+          <div class="ha-prerequisites" aria-label="开始之前">
+            <div><span aria-hidden="true">1</span><p><strong>同一本地网络</strong>Home Assistant 和 PrintDeck 必须能够互相访问。</p></div>
+            <div><span aria-hidden="true">2</span><p><strong>最新的 PrintDeck 固件</strong>连接集成前请更新显示器。</p></div>
+            <div><span aria-hidden="true">3</span><p><strong>已安装 HACS</strong>如果尚未安装 HACS，请先按照官方指南进行安装。</p></div>
+          </div>
+          <div class="site-actions ha-prerequisite-actions"><a class="site-button secondary" href="https://www.hacs.xyz/docs/use/download/download/" target="_blank" rel="noopener">打开 HACS 官方安装指南</a></div>
+
+          <details class="ha-migration">
+            <summary>以前使用旧的 YAML 设置？请先清理</summary>
+            <div class="ha-migration-body">
+              <p>仅从 configuration.yaml 中删除旧的 PrintDeck REST 资源及其 PrintDeck 传感器。只有在其他内容不再使用时，才从 secrets.yaml 中删除 printdeck_api_bearer；同时停用或删除引用旧 REST 传感器实体 ID 的自动化。不要删除无关的 REST 集成。</p>
+              <p>安装原生集成前，请检查配置并重启 Home Assistant。现有设备、灯光和无关的自动化不会受到影响。</p>
+            </div>
+          </details>
+
           <ol class="ha-guide-steps">
             <li>
-              <div class="ha-step-copy"><span>01</span><div><h3>启用 API</h3><p>在 PrintDeck 上打开 Web Config，选择 Unified Printer API，将其启用并复制生成的访问令牌。</p></div></div>
+              <div class="ha-step-copy"><span>01</span><div><h3>在 PrintDeck 中启用 API</h3><p>打开 PrintDeck Web Config，选择“设置”&gt;“Unified Printer API”，启用后复制生成的令牌。请妥善保管；在 Home Assistant 中粘贴原始令牌时不要添加 Bearer。</p></div></div>
             </li>
             <li>
-              <div class="ha-step-copy"><span>02</span><div><h3>通过 HACS 安装</h3><p>在 HACS 中将 PrintDeck 仓库添加为“集成”类型的自定义仓库，下载 PrintDeck，然后重启 Home Assistant。</p></div></div>
-              <div class="site-actions"><a class="site-button secondary" href="https://github.com/PrintDeck/home-assistant" target="_blank" rel="noopener">打开 PrintDeck 仓库</a></div>
-            </li>
-            <li>
-              <div class="ha-step-copy"><span>03</span><div><h3>添加 PrintDeck</h3><p>打开“设置 &gt; 设备与服务 &gt; 添加集成”。选择已发现的 PrintDeck 或搜索 PrintDeck，然后输入 Unified API 令牌。</p></div></div>
-            </li>
-            <li>
-              <div class="ha-step-copy"><span>04</span><div><h3>导入自动化蓝图</h3><p>选择一个现成的自动化，然后在 Home Assistant 界面中选择 PrintDeck 传感器和灯光。</p></div></div>
-              <div class="site-actions">
-                <a class="site-button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2Fhome-assistant%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Flight_when_print_finishes.yaml" target="_blank" rel="noopener">打印完成时开灯</a>
-                <a class="site-button secondary" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2Fhome-assistant%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Fprogress_milestone_lights.yaml" target="_blank" rel="noopener">在 25%、50% 和 75% 时开灯</a>
+              <div class="ha-step-copy"><span>02</span><div><h3>将 PrintDeck 添加到 HACS</h3><p>使用下方按钮可直接在 HACS 中打开 PrintDeck 自定义仓库。如果按钮无法访问你的 Home Assistant，请使用下方的手动路径。</p></div></div>
+              <div class="ha-step-actions">
+                <a class="site-button" href="https://my.home-assistant.io/redirect/hacs_repository/?owner=PrintDeck&amp;repository=home-assistant&amp;category=integration" target="_blank" rel="noopener">在 HACS 中打开 PrintDeck</a>
+                <details class="ha-inline-help"><summary>手动添加仓库</summary><p>打开 HACS &gt; 集成 &gt; 三点菜单 &gt; 自定义仓库。粘贴 https://github.com/PrintDeck/home-assistant，类型选择“集成”，然后点击“添加”。</p><a href="https://www.hacs.xyz/docs/faq/custom_repositories/" target="_blank" rel="noopener">阅读 HACS 自定义仓库官方指南</a></details>
               </div>
             </li>
+            <li>
+              <div class="ha-step-copy"><span>03</span><div><h3>下载并重启</h3><p>在 HACS 中选择 PrintDeck，点击“下载”并安装最新版本。HACS 提示时请重启 Home Assistant；刷新浏览器不等于重启。</p></div></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>04</span><div><h3>添加集成</h3><p>打开“设置”&gt;“设备与服务”&gt;“添加集成”并搜索 PrintDeck。选择已发现的显示器，或输入 printdeck.local 或其本地 IP 地址。粘贴原始 Unified API 令牌并提交。</p></div></div>
+              <div class="ha-step-actions"><a class="site-button secondary" href="https://my.home-assistant.io/redirect/config_flow_start/?domain=printdeck" target="_blank" rel="noopener">将 PrintDeck 添加到 Home Assistant</a><button class="ha-example-button" type="button" data-example-dialog="ha-example-find">查看示例</button></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>05</span><div><h3>命名并分配</h3><p>Home Assistant 会显示 PrintDeck 显示器和每台已配置的打印机。可按需重命名或分配区域，然后选择“完成”。只有拥有另一台实体 PrintDeck 显示器时才使用“添加集线器”。</p></div></div>
+              <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-assign">查看示例</button></div>
+            </li>
+            <li>
+              <div class="ha-step-copy"><span>06</span><div><h3>确认实体</h3><p>打开 PrintDeck 集成。你应看到一个集线器以及每台打印机对应的设备。每台打印机会在数据可用时提供进度、阶段、活动、温度、层数、时间和连接信息。</p></div></div>
+              <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-entities">查看示例</button></div>
+              <div class="ha-note"><strong>新打印机会自动出现</strong><p>在 PrintDeck 中添加打印机后，Home Assistant 会在下一次轮询时创建设备和实体。如果删除打印机，其旧实体会变为不可用，以便 Home Assistant 保留历史记录；若不再需要，请手动删除该设备。</p></div>
+            </li>
           </ol>
+
+          <div class="ha-first-automation" id="first-automation">
+            <header><span class="home-kicker">你的第一个自动化</span><h2>打开一盏灯<br><strong>当进度达到 75% 时。</strong></h2><p>此示例使用可视化自动化编辑器，适用于任意百分比，包括 82% 或 88%。</p></header>
+            <ol class="ha-recipe">
+              <li><span>当</span><p>选择“数值状态”，选择打印机的“打印进度”实体，并将“高于”设为 74.9。</p></li>
+              <li><span>并且如果</span><p>选择“状态”，选择同一打印机的“打印阶段”实体，并将状态设为 Printing。</p></li>
+              <li><span>然后执行</span><p>选择“灯光：打开”并选择一盏灯。使用“打开”而不是“切换”，结果会更可预测。</p></li>
+              <li><span>保存</span><p>为自动化命名并保存。“运行动作”只会测试灯光；短时间打印可测试触发器和条件。</p></li>
+            </ol>
+            <div class="ha-callout"><strong>为什么是 74.9 而不是 75？</strong><p>Home Assistant 的“高于”判断是严格比较。阈值设为 74.9 后，传感器首次报告 75 或更高值时会触发。Printing 条件可防止打印机空闲时由旧的进度值打开灯光。</p></div>
+            <div class="site-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-automation">查看完成示例</button></div>
+          </div>
+
+          <div class="ha-blueprints">
+            <div><span class="home-kicker">现成蓝图</span><h3>更喜欢引导式表单？</h3><p>导入蓝图，然后在 Home Assistant 的下拉列表中选择打印机传感器和灯光。</p></div>
+            <div class="site-actions">
+              <a class="site-button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2Fhome-assistant%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Fzh-cn%2Flight_when_print_finishes.yaml" target="_blank" rel="noopener">打印完成时开灯</a>
+              <a class="site-button secondary" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPrintDeck%2Fhome-assistant%2Fmain%2Fblueprints%2Fautomation%2Fprintdeck%2Fzh-cn%2Fprogress_milestone_lights.yaml" target="_blank" rel="noopener">在 25%、50% 和 75% 时开灯</a>
+            </div>
+          </div>
+
+          <section class="ha-troubleshooting" aria-labelledby="ha-troubleshooting-title">
+            <header><span class="home-kicker">快速故障排除</span><h2 id="ha-troubleshooting-title">如果某项没有出现，<br><strong>请先检查这些项目。</strong></h2></header>
+            <div class="ha-troubleshooting-grid">
+              <article><h3>“添加集成”中没有 PrintDeck</h3><p>确认 HACS 已下载该集成，重启 Home Assistant，然后刷新浏览器。</p></article>
+              <article><h3>Home Assistant 要求更新固件</h3><p>更新 PrintDeck 显示器后再次尝试连接。此消息表示显示器尚未声明支持原生集成。</p><button class="ha-example-button" type="button" data-example-dialog="ha-example-firmware">查看此消息</button></article>
+              <article><h3>无法连接到主机</h3><p>请让 Home Assistant 和 PrintDeck 位于同一本地网络。如果 printdeck.local 无法解析，请输入 PrintDeck 显示的本地 IP 地址。</p></article>
+              <article><h3>令牌被拒绝</h3><p>从 PrintDeck Web Config 复制新令牌并原样粘贴。不要在原生集成表单中添加 Bearer。</p></article>
+              <article><h3>进度不可用</h3><p>在 PrintDeck 上选择该打印机，使其获得完整的实时连接。部分未激活的打印机仅提供摘要数据。</p></article>
+              <article><h3>灯光没有打开</h3><p>打开自动化并选择“跟踪”。跟踪会显示进度触发器是否触发，以及 Printing 条件是否通过。</p></article>
+            </div>
+          </section>
         </div>
       </section>
 
-      <section class="api-section ha-quick-start" id="quick-start">
+      <dialog class="ha-example-dialog" id="ha-example-find" aria-labelledby="ha-example-find-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">HOME ASSISTANT 示例</span><h2 id="ha-example-find-title">在“添加集成”中找到 PrintDeck</h2></div><button class="ha-example-close" type="button" aria-label="关闭示例">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/find-printdeck.webp" loading="lazy" alt="Home Assistant 添加集成搜索中显示 PrintDeck"><figcaption>搜索 PrintDeck，然后选择带有圆形 PrintDeck 图标的结果。</figcaption></figure>
+        </div>
+      </dialog>
+
+      <dialog class="ha-example-dialog" id="ha-example-assign" aria-labelledby="ha-example-assign-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">HOME ASSISTANT 示例</span><h2 id="ha-example-assign-title">为显示器和打印机命名</h2></div><button class="ha-example-close" type="button" aria-label="关闭示例">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/name-and-assign.webp" loading="lazy" alt="PrintDeck 显示器及其打印机的 Home Assistant 命名和分配页面"><figcaption>区域是可选的。如果暂时不想整理设备，请选择“跳过并完成”。</figcaption></figure>
+        </div>
+      </dialog>
+
+      <dialog class="ha-example-dialog" id="ha-example-entities" aria-labelledby="ha-example-entities-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">HOME ASSISTANT 示例</span><h2 id="ha-example-entities-title">包含打印机设备的集线器</h2></div><button class="ha-example-close" type="button" aria-label="关闭示例">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/devices-and-entities.webp" loading="lazy" alt="PrintDeck 集成页面显示一个集线器和四台打印机设备"><figcaption>集线器代表实体 PrintDeck 显示器。其下方各行是该显示器上配置的打印机。</figcaption></figure>
+        </div>
+      </dialog>
+
+      <dialog class="ha-example-dialog" id="ha-example-automation" aria-labelledby="ha-example-automation-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">HOME ASSISTANT 示例</span><h2 id="ha-example-automation-title">完整的进度自动化</h2></div><button class="ha-example-close" type="button" aria-label="关闭示例">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/progress-light-automation.webp" loading="lazy" alt="包含进度触发器、Printing 条件和打开灯光动作的 Home Assistant 自动化"><figcaption>此有效示例使用 82%。若需 75%，请将“高于”设为 74.9，并保留相同的 Printing 条件。</figcaption></figure>
+        </div>
+      </dialog>
+
+      <dialog class="ha-example-dialog" id="ha-example-firmware" aria-labelledby="ha-example-firmware-title">
+        <div class="ha-example-dialog-card">
+          <header><div><span class="home-kicker">故障排除示例</span><h2 id="ha-example-firmware-title">需要更新固件</h2></div><button class="ha-example-close" type="button" aria-label="关闭示例">×</button></header>
+          <figure><img src="/assets/integrations/home-assistant/unsupported-firmware.webp" loading="lazy" alt="Home Assistant PrintDeck 连接表单显示固件更新警告"><figcaption>这是错误示例，不是预期的成功页面。请更新 PrintDeck，然后重新提交连接。</figcaption></figure>
+        </div>
+      </dialog>
+
+      <section class="api-section ha-quick-start" id="manual-rest">
         <div class="api-inner">
           <header class="api-section-head">
             <span class="home-kicker">手动 REST 备选方案</span>
             <h2>更喜欢 YAML？<br><strong>连接一个状态和一盏灯。</strong></h2>
-            <p>此备选设置不需要 PrintDeck 集成。它通过 Home Assistant 的 REST 传感器监控一台打印机的阶段并打开一个灯光实体。</p>
+            <p>建议使用上方的原生集成。仅在无法使用 HACS，或你明确希望自行维护 REST 传感器时，才展开此高级备用方案。</p>
           </header>
+          <details class="ha-advanced">
+            <summary>显示手动 REST 说明</summary>
           <ol class="ha-guide-steps">
             <li>
               <div class="ha-step-copy"><span>01</span><div><h3>启用 API</h3><p>在 PrintDeck 上打开 Web Config，选择 Unified Printer API，将其启用并复制生成的访问令牌。</p></div></div>
@@ -191,6 +285,7 @@
               <div class="ha-step-copy"><span>07</span><div><h3>运行一次简短的测试打印</h3><p>观察阶段实体变为 completed。如果灯具未开启，请打开自动化跟踪以查看触发器和条件结果。</p></div></div>
             </li>
           </ol>
+          </details>
         </div>
       </section>
 
@@ -232,8 +327,10 @@
           <header class="api-section-head">
             <span class="home-kicker">完整状态传感器包</span>
             <h2>一个 API 请求。<br><strong>每个详细状态字段。</strong></h2>
-            <p>请使用此配置块替代上方较小的仅阶段配置块。它会为详细状态端点返回的每个字段创建实体，同时每个轮询周期仍只请求 PrintDeck 一次。</p>
+            <p>原生集成会自动创建这些实体。此 YAML 包保留用于高级手动 REST 安装。</p>
           </header>
+          <details class="ha-advanced">
+            <summary>显示完整的手动传感器 YAML</summary>
           <div class="ha-code-card ha-code-card-large">
             <div class="ha-code-title">configuration.yaml</div>
             <pre><code>rest:
@@ -382,6 +479,7 @@
             <strong>重新启动前</strong>
             <p>请将对应令牌保存在 secrets.yaml 中，并替换 PRINTDECK-IP 和打印机 ID 1。如果 configuration.yaml 已有顶层 rest 部分，请在其下添加此资源，不要创建第二个 rest 键。</p>
           </div>
+          </details>
         </div>
       </section>
 

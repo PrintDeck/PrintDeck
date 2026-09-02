@@ -680,3 +680,27 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindApiExplorer);
   else bindApiExplorer();
 })();
+
+(() => {
+  const bindExampleDialogs = () => {
+    document.querySelectorAll('[data-example-dialog]').forEach((button) => {
+      if (button.dataset.exampleBound) return;
+      button.dataset.exampleBound = 'true';
+      const dialog = document.getElementById(button.dataset.exampleDialog);
+      if (!(dialog instanceof HTMLDialogElement)) return;
+      button.addEventListener('click', () => dialog.showModal());
+    });
+
+    document.querySelectorAll('.ha-example-dialog').forEach((dialog) => {
+      if (dialog.dataset.dialogBound) return;
+      dialog.dataset.dialogBound = 'true';
+      dialog.querySelector('.ha-example-close')?.addEventListener('click', () => dialog.close());
+      dialog.addEventListener('click', (event) => {
+        if (event.target === dialog) dialog.close();
+      });
+    });
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindExampleDialogs);
+  else bindExampleDialogs();
+})();

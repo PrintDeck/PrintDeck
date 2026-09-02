@@ -4823,6 +4823,54 @@ body.site-page {
 .api-integration-page .ha-example-grid p { margin: 0; color: #61757a; font-size: .82rem; line-height: 1.62; }
 
 .api-integration-page .ha-quick-start { background: #e3ecea; }
+.api-integration-page .ha-prerequisites {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.api-integration-page .ha-prerequisites > div {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 18px;
+  border: 1px solid #c5d3d0;
+  border-radius: 18px;
+  background: #f7fbfa;
+}
+.api-integration-page .ha-prerequisites span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  color: #08745e;
+  background: #d9f2eb;
+  font-size: .68rem;
+  font-weight: 850;
+}
+.api-integration-page .ha-prerequisites p { margin: 0; color: #5e7176; font-size: .78rem; line-height: 1.55; }
+.api-integration-page .ha-prerequisites strong { display: block; margin-bottom: 4px; color: var(--api-ink); font-size: .82rem; }
+.api-integration-page .ha-prerequisite-actions { margin: 0 0 24px; }
+.api-integration-page .ha-migration,
+.api-integration-page .ha-advanced {
+  margin: 0 0 24px;
+  border: 1px solid #b7c9c5;
+  border-radius: 18px;
+  background: #eef5f3;
+}
+.api-integration-page .ha-migration summary,
+.api-integration-page .ha-advanced > summary {
+  padding: 18px 22px;
+  color: #18443a;
+  font-size: .82rem;
+  font-weight: 820;
+  cursor: pointer;
+}
+.api-integration-page .ha-migration-body { padding: 0 22px 19px; }
+.api-integration-page .ha-migration-body p { margin: 0 0 10px; color: #526c66; font-size: .8rem; line-height: 1.65; }
+.api-integration-page .ha-migration-body p:last-child { margin-bottom: 0; }
 .api-integration-page .ha-guide-steps { display: grid; gap: 18px; margin: 0; padding: 0; counter-reset: none; list-style: none; }
 .api-integration-page .ha-guide-steps > li { display: grid; grid-template-columns: minmax(0, .72fr) minmax(430px, 1.28fr); gap: 34px; align-items: start; padding: 26px; border: 1px solid #c5d3d0; border-radius: 22px; background: #f7fbfa; }
 .api-integration-page .ha-guide-steps > li:only-child,
@@ -4831,6 +4879,107 @@ body.site-page {
 .api-integration-page .ha-step-copy > span { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; color: #08745e; background: #d9f2eb; font-size: .69rem; font-weight: 850; }
 .api-integration-page .ha-step-copy h3 { margin: 2px 0 9px; color: var(--api-ink); font-size: 1rem; }
 .api-integration-page .ha-step-copy p { margin: 0; color: #5e7176; font-size: .84rem; line-height: 1.65; }
+.api-integration-page .ha-step-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; padding-left: 57px; }
+.api-integration-page .ha-step-actions .site-button { width: fit-content; max-width: 100%; white-space: normal; text-align: center; }
+.api-integration-page .ha-example-button {
+  min-height: 46px;
+  padding: 0 19px;
+  border: 1px solid #138f72;
+  border-radius: 999px;
+  color: #08745e;
+  background: transparent;
+  font: inherit;
+  font-size: .76rem;
+  font-weight: 800;
+  line-height: 1.25;
+  cursor: pointer;
+}
+.api-integration-page .ha-example-button:hover { color: #fff; background: #08745e; }
+.api-integration-page .ha-example-button:focus-visible { outline: 3px solid #159b7a; outline-offset: 3px; }
+.api-integration-page .ha-inline-help { flex: 1 1 100%; max-width: 760px; }
+.api-integration-page .ha-inline-help summary { color: #49665f; font-size: .76rem; font-weight: 760; cursor: pointer; }
+.api-integration-page .ha-inline-help p { margin: 11px 0 7px; color: #5e7176; font-size: .78rem; line-height: 1.65; }
+.api-integration-page .ha-inline-help a { color: #08745e; font-size: .76rem; font-weight: 760; }
+.api-integration-page .ha-note { margin-left: 57px; padding: 17px 19px; border-left: 3px solid #159b7a; border-radius: 0 12px 12px 0; background: #e5f3ef; }
+.api-integration-page .ha-note strong { color: #164f42; font-size: .78rem; }
+.api-integration-page .ha-note p { margin: 5px 0 0; color: #526c66; font-size: .78rem; line-height: 1.6; }
+
+.api-integration-page .ha-first-automation {
+  margin-top: 46px;
+  padding: 34px;
+  border: 1px solid #223933;
+  border-radius: 26px;
+  color: #eaf7f2;
+  background: linear-gradient(135deg, #0d1715, #10231e);
+  scroll-margin-top: 24px;
+}
+.api-integration-page .ha-first-automation h2 { margin: 10px 0 14px; color: #fff; font-size: clamp(1.8rem, 3.3vw, 3rem); line-height: 1.04; letter-spacing: -.04em; }
+.api-integration-page .ha-first-automation h2 strong { color: #35d9a7; }
+.api-integration-page .ha-first-automation header > p { max-width: 720px; margin: 0; color: #a9bcb6; line-height: 1.65; }
+.api-integration-page .ha-recipe { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; margin: 28px 0 20px; padding: 0; list-style: none; }
+.api-integration-page .ha-recipe li { padding: 20px; border: 1px solid #31473f; border-radius: 17px; background: #16231f; }
+.api-integration-page .ha-recipe span { color: #35d9a7; font-size: .62rem; font-weight: 850; letter-spacing: .1em; }
+.api-integration-page .ha-recipe p { margin: 10px 0 0; color: #b8c9c3; font-size: .8rem; line-height: 1.62; }
+.api-integration-page .ha-first-automation .ha-callout { margin: 0; border-color: #2f6557; background: #132d26; }
+.api-integration-page .ha-first-automation .ha-callout strong { color: #7be5c8; }
+.api-integration-page .ha-first-automation .ha-callout p { color: #b5c9c2; }
+.api-integration-page .ha-first-automation .site-actions { margin-top: 19px; }
+.api-integration-page .ha-first-automation .ha-example-button { color: #7be5c8; border-color: #35d9a7; }
+.api-integration-page .ha-first-automation .ha-example-button:hover { color: #07130f; background: #35d9a7; }
+
+.api-integration-page .ha-blueprints {
+  display: grid;
+  grid-template-columns: minmax(0, .72fr) minmax(380px, 1.28fr);
+  gap: 32px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 27px;
+  border: 1px solid #a9cbc2;
+  border-radius: 22px;
+  background: #f5faf8;
+}
+.api-integration-page .ha-blueprints h3 { margin: 8px 0 6px; color: var(--api-ink); font-size: 1.25rem; }
+.api-integration-page .ha-blueprints p { margin: 0; color: #5e7176; font-size: .8rem; line-height: 1.6; }
+.api-integration-page .ha-blueprints .site-actions { margin: 0; justify-content: flex-end; }
+.api-integration-page .ha-blueprints .site-button { max-width: 100%; white-space: normal; text-align: center; }
+
+.api-integration-page .ha-troubleshooting { margin-top: 54px; padding-top: 42px; border-top: 1px solid #bdcbc8; }
+.api-integration-page .ha-troubleshooting h2 { margin: 10px 0 25px; color: var(--api-ink); font-size: clamp(1.7rem, 3vw, 2.6rem); line-height: 1.08; letter-spacing: -.035em; }
+.api-integration-page .ha-troubleshooting-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.api-integration-page .ha-troubleshooting-grid article { padding: 21px; border: 1px solid #c5d3d0; border-radius: 18px; background: #f7fbfa; }
+.api-integration-page .ha-troubleshooting-grid h3 { margin: 0 0 9px; color: var(--api-ink); font-size: .88rem; }
+.api-integration-page .ha-troubleshooting-grid p { margin: 0; color: #5e7176; font-size: .77rem; line-height: 1.62; }
+.api-integration-page .ha-troubleshooting-grid .ha-example-button { min-height: 38px; margin-top: 14px; padding: 0 14px; font-size: .7rem; }
+
+.api-integration-page .ha-advanced { margin: 0; background: #f7fbfa; }
+.api-integration-page .ha-advanced[open] > summary { border-bottom: 1px solid #c5d3d0; }
+.api-integration-page .ha-advanced > .ha-guide-steps,
+.api-integration-page .ha-advanced > .ha-code-card { margin: 20px; }
+.api-integration-page .ha-advanced > .ha-callout { margin: 0 20px 20px; }
+
+.ha-example-dialog {
+  width: min(1120px, calc(100vw - 34px));
+  max-width: none;
+  max-height: calc(100vh - 34px);
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid #40534d;
+  border-radius: 25px;
+  color: #eaf7f2;
+  background: #101816;
+  box-shadow: 0 35px 100px #000a;
+}
+.ha-example-dialog::backdrop { background: #020806c9; backdrop-filter: blur(6px); }
+.ha-example-dialog-card { display: grid; max-height: calc(100vh - 36px); grid-template-rows: auto minmax(0, 1fr); }
+.ha-example-dialog header { display: flex; gap: 24px; align-items: flex-start; justify-content: space-between; padding: 22px 24px 18px; border-bottom: 1px solid #31433e; }
+.ha-example-dialog h2 { margin: 6px 0 0; color: #fff; font-size: clamp(1.15rem, 2.4vw, 1.75rem); }
+.ha-example-dialog .home-kicker { color: #35d9a7; }
+.ha-example-close { display: grid; flex: 0 0 auto; width: 42px; height: 42px; place-items: center; padding: 0; border: 1px solid #567169; border-radius: 50%; color: #d8e8e3; background: #17231f; font-size: 1.7rem; line-height: 1; cursor: pointer; }
+.ha-example-close:hover { color: #07130f; background: #35d9a7; }
+.ha-example-close:focus-visible { outline: 3px solid #35d9a7; outline-offset: 3px; }
+.ha-example-dialog figure { overflow: auto; margin: 0; padding: 22px; overscroll-behavior: contain; }
+.ha-example-dialog img { display: block; width: auto; max-width: 100%; max-height: calc(100vh - 190px); margin: 0 auto; border-radius: 13px; background: #f7f7f7; object-fit: contain; }
+.ha-example-dialog figcaption { max-width: 820px; margin: 16px auto 0; color: #afc1bb; font-size: .79rem; line-height: 1.55; text-align: center; }
 .api-integration-page p code,
 .api-integration-page dd code { padding: .13em .4em; border-radius: 5px; color: #08745e; background: #dceee9; font-size: .82em; }
 
@@ -4870,14 +5019,36 @@ body.site-page {
 .api-integration-page .ha-boundary-grid .site-button { margin-top: 8px; }
 
 :root[data-appearance="dark"] .api-integration-page .ha-example-grid article,
-:root[data-appearance="dark"] .api-integration-page .ha-guide-steps > li { border-color: #35413d; background: #1d2321; }
+:root[data-appearance="dark"] .api-integration-page .ha-guide-steps > li,
+:root[data-appearance="dark"] .api-integration-page .ha-prerequisites > div,
+:root[data-appearance="dark"] .api-integration-page .ha-troubleshooting-grid article { border-color: #35413d; background: #1d2321; }
 :root[data-appearance="dark"] .api-integration-page .ha-example-grid h3,
-:root[data-appearance="dark"] .api-integration-page .ha-step-copy h3 { color: #f1f6f4; }
+:root[data-appearance="dark"] .api-integration-page .ha-step-copy h3,
+:root[data-appearance="dark"] .api-integration-page .ha-prerequisites strong,
+:root[data-appearance="dark"] .api-integration-page .ha-blueprints h3,
+:root[data-appearance="dark"] .api-integration-page .ha-troubleshooting h2,
+:root[data-appearance="dark"] .api-integration-page .ha-troubleshooting-grid h3 { color: #f1f6f4; }
 :root[data-appearance="dark"] .api-integration-page .ha-example-grid p,
-:root[data-appearance="dark"] .api-integration-page .ha-step-copy p { color: #a5b5b0; }
+:root[data-appearance="dark"] .api-integration-page .ha-step-copy p,
+:root[data-appearance="dark"] .api-integration-page .ha-prerequisites p,
+:root[data-appearance="dark"] .api-integration-page .ha-blueprints p,
+:root[data-appearance="dark"] .api-integration-page .ha-troubleshooting-grid p,
+:root[data-appearance="dark"] .api-integration-page .ha-inline-help p,
+:root[data-appearance="dark"] .api-integration-page .ha-note p { color: #a5b5b0; }
 :root[data-appearance="dark"] .api-integration-page .ha-quick-start,
 :root[data-appearance="dark"] .api-integration-page .ha-boundary { background: #171c1a; }
 :root[data-appearance="dark"] .api-integration-page .ha-all-sensors { background: #101412; }
+:root[data-appearance="dark"] .api-integration-page .ha-migration,
+:root[data-appearance="dark"] .api-integration-page .ha-advanced,
+:root[data-appearance="dark"] .api-integration-page .ha-blueprints { border-color: #35413d; background: #1a211f; }
+:root[data-appearance="dark"] .api-integration-page .ha-migration summary,
+:root[data-appearance="dark"] .api-integration-page .ha-advanced > summary,
+:root[data-appearance="dark"] .api-integration-page .ha-note strong,
+:root[data-appearance="dark"] .api-integration-page .ha-inline-help summary,
+:root[data-appearance="dark"] .api-integration-page .ha-inline-help a { color: #70e1c2; }
+:root[data-appearance="dark"] .api-integration-page .ha-migration-body p { color: #a8b8b3; }
+:root[data-appearance="dark"] .api-integration-page .ha-note { background: #142b24; }
+:root[data-appearance="dark"] .api-integration-page .ha-troubleshooting { border-color: #35413d; }
 :root[data-appearance="dark"] .api-integration-page .ha-callout { border-color: #27594d; background: #122821; }
 :root[data-appearance="dark"] .api-integration-page .ha-callout strong { color: #70e1c2; }
 :root[data-appearance="dark"] .api-integration-page .ha-callout p,
@@ -4898,6 +5069,10 @@ body.site-page {
   .api-integration-page .ha-hero-mark { min-height: 300px; }
   .api-integration-page .ha-example-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .api-integration-page .ha-guide-steps > li { grid-template-columns: 1fr; }
+  .api-integration-page .ha-prerequisites,
+  .api-integration-page .ha-troubleshooting-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .api-integration-page .ha-blueprints { grid-template-columns: 1fr; }
+  .api-integration-page .ha-blueprints .site-actions { justify-content: flex-start; }
 }
 
 @media (max-width: 720px) {
@@ -4924,8 +5099,24 @@ body.site-page {
   }
   .api-integration-page .ha-example-grid,
   .api-integration-page .ha-reference-grid { grid-template-columns: 1fr; }
+  .api-integration-page .ha-prerequisites,
+  .api-integration-page .ha-troubleshooting-grid,
+  .api-integration-page .ha-recipe { grid-template-columns: 1fr; }
+  .api-integration-page .ha-step-actions { padding-left: 0; }
+  .api-integration-page .ha-note { margin-left: 0; }
+  .api-integration-page .ha-blueprints { padding: 21px; }
+  .api-integration-page .ha-blueprints .site-actions { display: grid; grid-template-columns: 1fr; }
+  .api-integration-page .ha-blueprints .site-button,
+  .api-integration-page .ha-step-actions .site-button,
+  .api-integration-page .ha-step-actions .ha-example-button { width: 100%; }
+  .api-integration-page .ha-first-automation { padding: 26px 21px; }
   .api-integration-page .ha-reference-card.wide { grid-row: auto; }
   .api-integration-page .ha-code-card-large pre { padding: 20px; font-size: .67rem; }
+  .ha-example-dialog { width: calc(100vw - 18px); max-height: calc(100vh - 18px); border-radius: 18px; }
+  .ha-example-dialog-card { max-height: calc(100vh - 20px); }
+  .ha-example-dialog header { padding: 17px; }
+  .ha-example-dialog figure { padding: 14px; }
+  .ha-example-dialog img { max-height: calc(100vh - 175px); }
 }
 
 @media (max-width: 560px) {
@@ -4948,6 +5139,9 @@ body.site-page {
   .api-integration-page .ha-step-copy > span { width: 38px; height: 38px; }
   .api-integration-page .ha-code-card pre,
   .api-integration-page .ha-code-card-large pre { padding: 15px; font-size: .6rem; }
+  .api-integration-page .ha-advanced > .ha-guide-steps,
+  .api-integration-page .ha-advanced > .ha-code-card { margin: 12px; }
+  .api-integration-page .ha-advanced > .ha-callout { margin: 0 12px 12px; }
 }
 
 /* Shared campaign signal strip below dark page headers. */
