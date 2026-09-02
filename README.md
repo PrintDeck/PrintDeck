@@ -12,7 +12,7 @@ away—without requiring a cloud account.
 [Case designs](https://printdeck.xyz/case-designs/) ·
 [User manual](https://printdeck.xyz/printdeck-user-manual.pdf)
 
-[![The Riverstone, The Scuttle and Snapmaker U1 Mini PrintDeck devices](docs/assets/marketing/cases/home-hero-v2.png)](https://printdeck.xyz/)
+[![The Riverstone, The Scuttle and Snapmaker U1 Mini PrintDeck devices](docs/assets/marketing/cases/home-hero-v2.webp)](https://printdeck.xyz/)
 
 ## Built for a glance
 

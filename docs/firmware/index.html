@@ -503,12 +503,13 @@
             <label class="firmware-version" for="firmware-version">
               <span class="firmware-version-label">Firmware version</span>
               <select id="firmware-version" aria-label="Firmware version">
-                <option value="1.0.0" selected>1.0.0 (latest)</option>
+                <option value="1.0.1" selected>1.0.1 (latest)</option>
+                <option value="1.0.0">1.0.0</option>
               </select>
             </label>
           </div>
           <div class="product-photo hardware-product-photo" id="product-visual" data-hardware="amoled_1_75" role="img" aria-label="PrintDeck round status display">
-            <img class="hardware-product-image" id="product-visual-image" src="../assets/marketing/home/riverstone-hero-green-cutout.png" alt="" aria-hidden="true" fetchpriority="high">
+            <img class="hardware-product-image" id="product-visual-image" src="../assets/marketing/home/riverstone-hero-green-cutout.webp" alt="" aria-hidden="true" fetchpriority="high">
             <div class="hardware-product-screen" id="product-visual-screen" aria-hidden="true">
               <img src="../assets/screens/reaction-printing.png" alt="">
             </div>
@@ -644,7 +645,7 @@
               <li data-hardware-instruction="knomi2" hidden><strong>Start the installer below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB…. Confirm the full erase when asked, then wait until installation reaches 100%.</li>
             </ol>
             <esp-web-install-button id="install-button" manifest="../manifest-install.json">
-              <button slot="activate" id="install-button-label">Install 1.0.0 or factory reset</button>
+              <button slot="activate" id="install-button-label">Install 1.0.1 or factory reset</button>
               <span slot="not-allowed">USB access requires this page to be opened over HTTPS.</span>
             </esp-web-install-button>
             <div class="tip" data-hardware-instruction="waveshare"><strong>If no device appears:</strong> unplug the cable. Hold the display's <strong>BOOT</strong> button, reconnect USB-C, release BOOT after two seconds and try again.</div>
@@ -672,7 +673,7 @@
               <li data-hardware-instruction="knomi2" hidden><strong>Start the USB update below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB… when prompted.</li>
               <li><strong>Wait for the screen to restart.</strong> Do not disconnect USB while the update progress is visible.</li>
             </ol>
-            <button class="usb-update-button" id="usb-update-button" type="button" disabled>Update to 1.0.0 over USB</button>
+            <button class="usb-update-button" id="usb-update-button" type="button" disabled>Update to 1.0.1 over USB</button>
             <div class="tip" data-hardware-instruction="knomi2" hidden><strong>If KNOMI2 is missing:</strong> follow the USB driver instructions in the red section above, reconnect it, then start the update again.</div>
             <p class="warning" id="full-install-required" role="status"></p>
             <div class="update-progress" id="update-progress" role="status" aria-live="polite" hidden>
@@ -905,7 +906,7 @@
 
       if (supported) {
         let activeInstallMode = 'install';
-        let activeVersion = '1.0.0';
+        let activeVersion = '1.0.1';
         let activeHardware = 'amoled_1_75';
         let activeInstallHardware = 'amoled_1_75';
         const versionSelect = document.getElementById('firmware-version');
@@ -934,22 +935,40 @@
         let setupNetworkName = '';
         const releaseBase = 'https://raw.githubusercontent.com/PrintDeck/PrintDeck';
         const versions = {
-          '1.0.0': {
-            releaseTag: 'amoled_1_75-v1.0.0',
+          '1.0.1': {
+            releaseTag: 'amoled_1_75-v1.0.1',
             installManifest: '../manifest-install.json',
             application: '../firmware/printdeck.bin',
             otaData: '../firmware/ota_data_initial.bin',
             lcd_1_54: {
-              releaseTag: 'lcd_1_54-v1.0.0',
+              releaseTag: 'lcd_1_54-v1.0.1',
               installManifest: '../manifest-install-lcd-1-54.json',
               application: '../firmware/lcd_1_54/printdeck.bin',
               otaData: '../firmware/lcd_1_54/ota_data_initial.bin'
             },
             knomi2: {
-              releaseTag: 'knomi2-v1.0.0',
+              releaseTag: 'knomi2-v1.0.1',
               installManifest: '../manifest-install-knomi2.json',
               application: '../firmware/knomi2/printdeck.bin',
               otaData: '../firmware/knomi2/ota_data_initial.bin'
+            }
+          },
+          '1.0.0': {
+            releaseTag: 'amoled_1_75-v1.0.0',
+            installManifest: '../manifests/manifest-install-amoled_1_75-1.0.0.json',
+            application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.0/docs/firmware/printdeck.bin',
+            otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.0/docs/firmware/ota_data_initial.bin',
+            lcd_1_54: {
+              releaseTag: 'lcd_1_54-v1.0.0',
+              installManifest: '../manifests/manifest-install-lcd_1_54-1.0.0.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_54-v1.0.0/docs/firmware/lcd_1_54/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_54-v1.0.0/docs/firmware/lcd_1_54/ota_data_initial.bin'
+            },
+            knomi2: {
+              releaseTag: 'knomi2-v1.0.0',
+              installManifest: '../manifests/manifest-install-knomi2-1.0.0.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.0/docs/firmware/knomi2/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.0/docs/firmware/knomi2/ota_data_initial.bin'
             }
           }
         };
@@ -1085,10 +1104,10 @@
           });
           productVisual.hidden = false;
           productVisualImage.src = knomi2Hardware
-            ? 'assets/knomi2-product.png'
+            ? 'assets/knomi2-product.webp'
             : squareHardware
-              ? '../assets/marketing/home/u1-mini-cutout.png'
-              : '../assets/marketing/home/riverstone-hero-green-cutout.png';
+              ? '../assets/marketing/home/u1-mini-cutout.webp'
+              : '../assets/marketing/home/riverstone-hero-green-cutout.webp';
           productVisualImage.classList.toggle('knomi2-product-image', knomi2Hardware);
           productVisualScreen.hidden = squareHardware || knomi2Hardware;
           productVisual.setAttribute('aria-label', knomi2Hardware

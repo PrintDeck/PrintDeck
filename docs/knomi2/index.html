@@ -9,10 +9,10 @@
     <meta property="og:title" content="PrintDeck for KNOMI2 · Give your display a second life">
     <meta property="og:description" content="A fully functional PrintDeck edition for KNOMI2, with custom animations and a modern local printer experience.">
     <meta property="og:url" content="https://printdeck.xyz/knomi2/">
-    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/home/status-screen-cutout.png">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/home/status-screen-cutout.webp">
     <meta name="twitter:card" content="summary_large_image">
     <title>PrintDeck for KNOMI2 · Give your display a second life</title>
-    <link rel="stylesheet" href="../assets/site.css?v=20260901-5">
+    <link rel="stylesheet" href="../assets/site.css?v=20260902-1">
     <script src="../assets/site.js?v=20260901-2"></script>
   </head>
   <body class="site-page knomi-page knomi-campaign-page" data-page-title="PrintDeck for KNOMI2 · Give your display a second life">
@@ -55,10 +55,10 @@
               <span class="knomi-campaign-card-label">REAL SCREEN SNAPSHOT</span>
               <div class="knomi-campaign-status-carousel" data-screen-carousel aria-hidden="true">
                 <div class="knomi-campaign-status-track" data-screen-carousel-track>
-                  <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/status-screen-cutout.png" alt=""></span>
-                  <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/status-screen-nozzles.png" alt=""></span>
+                  <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/status-screen-cutout.webp" alt=""></span>
+                  <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/status-screen-nozzles.webp" alt=""></span>
                   <span class="knomi-campaign-status-slide"><img src="../assets/screens/local-camera-round.png" alt=""></span>
-                  <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/status-screen-printing.png" alt=""></span>
+                  <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/status-screen-printing.webp" alt=""></span>
                   <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/filament-loading-green.gif" alt=""></span>
                   <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/printing-violet.gif" alt=""></span>
                   <span class="knomi-campaign-status-slide"><img src="../assets/marketing/home/filament-changing-cyan.gif" alt=""></span>
@@ -68,7 +68,7 @@
               <figcaption>Progress · ETA · temperatures</figcaption>
             </figure>
             <figure class="knomi-campaign-device-card">
-              <img src="../firmware/assets/knomi2-product.png" alt="KNOMI2 display">
+              <img src="../firmware/assets/knomi2-product.webp" alt="KNOMI2 display">
               <figcaption>The hardware you already own</figcaption>
             </figure>
           </div>
@@ -99,9 +99,9 @@
       <section class="knomi-section knomi-animation knomi-campaign-studio" id="animations">
         <div class="knomi-inner">
           <header class="knomi-section-head knomi-campaign-dark-head">
-            <span class="knomi-kicker">18 STATES. YOUR VISUAL LANGUAGE.</span>
+            <span class="knomi-kicker">18 REACTION SLOTS. YOUR VISUAL LANGUAGE.</span>
             <h2>Custom GIFs,<br><strong>without the firmware project.</strong></h2>
-            <p>PrintDeck moves reaction customization into Web Config. Keep the built-in animation for one state, replace another with your own GIF, and reset any override whenever you like.</p>
+            <p>PrintDeck moves reaction customization into Web Config. Customize the reaction slots you want, preview the result and reset any override whenever you like. Which reactions can appear depends on the status data your printer reports.</p>
           </header>
 
           <div class="knomi-campaign-studio-grid">
@@ -134,7 +134,7 @@
             <div class="knomi-campaign-studio-copy">
               <h3>From a GIF on your computer to a live KNOMI2 reaction.</h3>
               <ol class="knomi-campaign-mini-steps">
-                <li><strong>Choose a printer state.</strong><span>Printing, heating, homing, completed and more.</span></li>
+                <li><strong>Choose a reaction slot.</strong><span>Available reactions depend on the states your printer already reports.</span></li>
                 <li><strong>Select your GIF.</strong><span>PrintDeck checks and prepares it for the display.</span></li>
                 <li><strong>Preview before saving.</strong><span>See the optimized animation before it replaces anything.</span></li>
                 <li><strong>Use it or reset it.</strong><span>Apply the override or return that state to the built-in reaction.</span></li>
@@ -145,13 +145,14 @@
           <div class="knomi-campaign-state-cloud">
             <span>Standby</span><span>Preparing</span><span>Nozzle heating</span><span>Bed heating</span><span>Homing</span><span>Bed leveling</span><span>Nozzle cleaning</span><span>Calibrating</span><span>Filament changing</span><span>Filament unloading</span><span>Filament loading</span><span>Filament purging</span><span>Printing</span><span>Paused</span><span>Completed</span><span>Failed</span><span>Cancelled</span><span>Unavailable</span>
           </div>
+          <p class="knomi-campaign-state-note">PrintDeck provides 18 reaction slots. A reaction can appear only when PrintDeck can reliably identify that state from data your printer already reports. PrintDeck does not require printer.cfg changes or additional macros, so availability varies by printer and firmware.</p>
 
           <div class="knomi-campaign-gallery-head">
             <div>
               <span class="knomi-kicker">READY FROM THE FIRST BOOT</span>
               <h3>A built-in animated set to start.<br><strong>Your own set when you are ready.</strong></h3>
             </div>
-            <p>These are live examples from PrintDeck’s included reaction set. Every card keeps animating—and every state can be replaced independently.</p>
+            <p>These are live examples from PrintDeck’s included reaction set. Every card keeps animating, and each reaction slot can be customized independently.</p>
           </div>
           <div class="knomi-campaign-reaction-gallery">
             <figure><img src="../assets/marketing/knomi2/reactions/standby.gif" alt="PrintDeck printer animation"><figcaption>Standby</figcaption></figure>
@@ -169,17 +170,17 @@
           <header class="knomi-section-head">
             <span class="knomi-kicker">USEFUL, NOT ONLY BEAUTIFUL</span>
             <h2>The printing screen<br><strong>KNOMI2 owners kept asking for.</strong></h2>
-            <p>Let a reaction take the stage when the printer changes state. Then swipe to the live details you need for the rest of the print.</p>
+            <p>When PrintDeck can reliably identify a state your printer reports, the matching reaction can take the stage. Then swipe to the live details you need for the rest of the print.</p>
           </header>
           <div class="knomi-campaign-screen-grid">
             <article>
-              <div class="knomi-campaign-screen"><img src="../assets/marketing/home/status-screen-printing.png" alt="PrintDeck live printer status screen"></div>
+              <div class="knomi-campaign-screen"><img src="../assets/marketing/home/status-screen-printing.webp" alt="PrintDeck live printer status screen"></div>
               <span class="knomi-feature-index">01 · STATUS</span>
               <h3>Progress you can act on</h3>
               <p>Check progress, remaining time, layer information and live temperatures without opening another device.</p>
             </article>
             <article>
-              <div class="knomi-campaign-screen"><img src="../assets/marketing/home/status-screen-nozzles.png" alt="PrintDeck multi-tool screen"></div>
+              <div class="knomi-campaign-screen"><img src="../assets/marketing/home/status-screen-nozzles.webp" alt="PrintDeck multi-tool screen"></div>
               <span class="knomi-feature-index">02 · TOOLS</span>
               <h3>Nozzles at a glance</h3>
               <p>See active tools, target temperatures and available tool details on a dedicated view.</p>
@@ -308,6 +309,38 @@
         </div>
       </section>
 
+      <section class="knomi-section knomi-campaign-faq" aria-labelledby="knomi-faq-title">
+        <div class="knomi-inner">
+          <header class="knomi-section-head">
+            <span class="knomi-kicker">KNOMI2 QUESTIONS, ANSWERED</span>
+            <h2 id="knomi-faq-title">Know what changes.<br><strong>Keep your printer untouched.</strong></h2>
+            <p>Straight answers about installing PrintDeck, customizing reactions and using the printer data you already have.</p>
+          </header>
+          <div class="knomi-campaign-faq-list">
+            <details class="knomi-campaign-faq-item">
+              <summary>Do I need to edit printer.cfg or install KNOMI-specific macros?</summary>
+              <p>No. PrintDeck is designed to read the standard status data your printer already exposes through Moonraker. Live print status, progress, temperatures, layers and timing do not require PrintDeck-specific macros or changes to G28, bed-mesh or other printer macros. Highly specific reactions appear only when your printer reports enough reliable information to identify them.</p>
+            </details>
+            <details class="knomi-campaign-faq-item">
+              <summary>Can I add my own GIFs without PlatformIO or rebuilding the firmware?</summary>
+              <p>Yes. Open Web Config, choose an available reaction slot, upload your GIF and preview it before applying it. You can customize slots independently or restore the built-in animation at any time—no C arrays, VS Code project or firmware rebuild required.</p>
+            </details>
+            <details class="knomi-campaign-faq-item">
+              <summary>Does PrintDeck show useful print information, not just animations?</summary>
+              <p>Yes. Swipe from the reaction screen to see print progress, remaining time, layers, live and target temperatures, active tools and additional motion, fan or heater telemetry when the printer provides it. Moonraker installations can expose information for up to twelve extruders.</p>
+            </details>
+            <details class="knomi-campaign-faq-item">
+              <summary>Can I view my printer camera without using a cloud service?</summary>
+              <p>Yes, when the printer and its local camera source are supported. PrintDeck connects directly to the camera on your local network while the camera view is open. No PrintDeck cloud account or remote camera proxy is required.</p>
+            </details>
+            <details class="knomi-campaign-faq-item">
+              <summary>Will I need to flash KNOMI2 over USB after every update?</summary>
+              <p>Normally, no. The initial PrintDeck installation uses the guided browser installer. Later supported releases can be installed over the air, with a configuration-preserving USB update available as a recovery option.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
       <section class="knomi-final">
         <div class="knomi-inner">
           <span class="knomi-kicker">KEEP THE HARDWARE. UPGRADE THE EXPERIENCE.</span>
@@ -332,7 +365,7 @@
         </div>
       </div>
     </footer>
-    <script src="../localizations.js?v=20260901-5"></script>
+    <script src="../localizations.js?v=20260902-1"></script>
     <script>window.printDeckInstallerI18n.init();</script>
   </body>
 </html>

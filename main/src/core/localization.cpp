@@ -76,6 +76,8 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"No update for this hardware", "Brak aktualizacji dla tego sprzętu", "No hay actualización para este hardware", "Aucune mise à jour pour ce matériel", "Kein Update für diese Hardware", "此硬件暂无更新"},
       {"Installing update...", "Instalowanie aktualizacji...", "Instalando actualización...", "Installation de la mise à jour...", "Update wird installiert...", "正在安装更新..."},
       {"Restarting...", "Ponowne uruchamianie...", "Reiniciando...", "Redémarrage...", "Neustart...", "正在重启..."},
+      {"Backing up...", "Tworzenie kopii...", "Creando copia...", "Sauvegarde...", "Sicherung läuft...", "正在备份..."},
+      {"Restoring backup...", "Przywracanie kopii...", "Restaurando copia...", "Restauration...", "Sicherung wird wiederhergestellt...", "正在恢复备份..."},
       {"LOADING", "ŁADOWANIE", "CARGANDO", "CHARGEMENT", "LADEN", "加载中"},
       {"MUTED", "WYCISZONO", "SILENCIADO", "MUET", "STUMM", "已静音"},
       {"SOUND SET", "ZESTAW", "ESTILO", "STYLE SONORE", "KLANGSTIL", "声音风格"},

@@ -1,5 +1,6 @@
 set(PRINTDECK_SRCS
         "app_main.cpp"
+        "src/core/configuration_backup.cpp"
         "src/core/device_state.cpp"
         "src/core/firmware_channel.cpp"
         "src/core/job_state.cpp"
@@ -92,6 +93,7 @@ set(PRINTDECK_VOICE_EVENTS
     hms_alert
     filament_attention
     shutdown
+    restarting
 )
 foreach(language IN LISTS PRINTDECK_VOICE_LANGUAGES)
     foreach(event IN LISTS PRINTDECK_VOICE_EVENTS)

@@ -5987,6 +5987,98 @@ void DisplayShell::hide_update_overlay() {
   if (capture_overlay_name_.rfind("update-", 0) == 0) capture_overlay_name_.clear();
 }
 
+void DisplayShell::set_configuration_backup_activity(
+    core::ConfigurationBackupActivity activity) {
+  if (!display_ready_.load(std::memory_order_acquire)) return;
+  if (activity != core::ConfigurationBackupActivity::idle) {
+    reset_inactivity_and_wake();
+  }
+  if (board_display_lock(1000) != ESP_OK) {
+    ESP_LOGW(kLogTag, "Backup activity display update deferred because the LVGL lock is busy");
+    return;
+  }
+
+  if (activity == core::ConfigurationBackupActivity::idle) {
+    if (configuration_backup_overlay_ != nullptr &&
+        lv_obj_is_valid(configuration_backup_overlay_)) {
+      lv_obj_delete(configuration_backup_overlay_);
+    }
+    configuration_backup_overlay_ = nullptr;
+    configuration_backup_spinner_ = nullptr;
+    configuration_backup_label_ = nullptr;
+    if (capture_overlay_name_.rfind("backup-", 0) == 0) {
+      capture_overlay_name_.clear();
+    }
+    board_display_unlock();
+    return;
+  }
+
+  if (configuration_backup_overlay_ == nullptr ||
+      !lv_obj_is_valid(configuration_backup_overlay_)) {
+    configuration_backup_overlay_ = lv_obj_create(lv_layer_top());
+    if (configuration_backup_overlay_ == nullptr) {
+      configuration_backup_spinner_ = nullptr;
+      configuration_backup_label_ = nullptr;
+      board_display_unlock();
+      return;
+    }
+    lv_obj_set_size(configuration_backup_overlay_, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(configuration_backup_overlay_);
+    lv_obj_remove_flag(configuration_backup_overlay_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(configuration_backup_overlay_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollbar_mode(configuration_backup_overlay_, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_style_radius(configuration_backup_overlay_, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(configuration_backup_overlay_, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(configuration_backup_overlay_, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(configuration_backup_overlay_, LV_GRAD_DIR_NONE,
+                                 LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(configuration_backup_overlay_, LV_OPA_COVER, LV_PART_MAIN);
+
+    configuration_backup_spinner_ = lv_spinner_create(configuration_backup_overlay_);
+    const int spinner_size = kDisplayUsesLargeLayout ? 58 : 44;
+    const int spinner_width = kDisplayUsesLargeLayout ? 6 : 4;
+    lv_obj_set_size(configuration_backup_spinner_, spinner_size, spinner_size);
+    lv_obj_set_style_arc_width(configuration_backup_spinner_, spinner_width, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(configuration_backup_spinner_, spinner_width,
+                               LV_PART_INDICATOR);
+    lv_obj_align(configuration_backup_spinner_, LV_ALIGN_CENTER, 0,
+                 kDisplayUsesLargeLayout ? -18 : -15);
+
+    configuration_backup_label_ = lv_label_create(configuration_backup_overlay_);
+    lv_obj_set_width(configuration_backup_label_, kDisplayUsesLargeLayout ? 360 : 210);
+    lv_label_set_long_mode(configuration_backup_label_, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(configuration_backup_label_, LV_TEXT_ALIGN_CENTER,
+                                LV_PART_MAIN);
+    lv_obj_align(configuration_backup_label_, LV_ALIGN_CENTER, 0,
+                 kDisplayUsesLargeLayout ? 42 : 38);
+  }
+
+  lv_obj_set_style_bg_color(configuration_backup_overlay_,
+                            lv_color_hex(theme_style_.background), LV_PART_MAIN);
+  lv_obj_set_style_arc_color(configuration_backup_spinner_,
+                             lv_color_hex(theme_style_.track), LV_PART_MAIN);
+  lv_obj_set_style_arc_color(configuration_backup_spinner_,
+                             lv_color_hex(accent_color_), LV_PART_INDICATOR);
+  apply_text_style(configuration_backup_label_,
+                   lv_color_hex(theme_style_.text_primary),
+                   kDisplayUsesLargeLayout ? &lv_font_montserrat_24
+                                           : &lv_font_montserrat_16);
+
+  const char* label = "Backing up...";
+  const char* capture_name = "backup-backing-up";
+  if (activity == core::ConfigurationBackupActivity::restoring) {
+    label = "Restoring backup...";
+    capture_name = "backup-restoring";
+  } else if (activity == core::ConfigurationBackupActivity::restarting) {
+    label = "Restarting...";
+    capture_name = "backup-restarting";
+  }
+  lv_label_set_text(configuration_backup_label_, tr(label));
+  set_capture_overlay_name(capture_name);
+  lv_obj_move_foreground(configuration_backup_overlay_);
+  board_display_unlock();
+}
+
 void DisplayShell::ensure_update_overlay() {
   if constexpr (!kDisplayUsesLargeLayout) {
     square_ensure_update_overlay();

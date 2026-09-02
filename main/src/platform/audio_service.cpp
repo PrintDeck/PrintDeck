@@ -60,7 +60,8 @@ PRINTDECK_AUDIO_ASSET(clean_test);
   PRINTDECK_AUDIO_ASSET(voice_##language##_print_error);       \
   PRINTDECK_AUDIO_ASSET(voice_##language##_hms_alert);         \
   PRINTDECK_AUDIO_ASSET(voice_##language##_filament_attention); \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_shutdown)
+  PRINTDECK_AUDIO_ASSET(voice_##language##_shutdown);          \
+  PRINTDECK_AUDIO_ASSET(voice_##language##_restarting)
 PRINTDECK_VOICE_AUDIO_ASSETS(en);
 PRINTDECK_VOICE_AUDIO_ASSETS(pl);
 PRINTDECK_VOICE_AUDIO_ASSETS(es);
@@ -120,7 +121,7 @@ struct AdpcmSample {
 };
 
 #define PRINTDECK_ADPCM_SAMPLE(name) AdpcmSample{name##_start, name##_end}
-constexpr std::size_t kVoiceEventCount = 11;
+constexpr std::size_t kVoiceEventCount = 12;
 #define PRINTDECK_VOICE_SAMPLE_SET(language)                                    \
   {{PRINTDECK_ADPCM_SAMPLE(voice_##language##_startup),                         \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_started),                   \
@@ -132,7 +133,8 @@ constexpr std::size_t kVoiceEventCount = 11;
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_error),                     \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_hms_alert),                       \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_filament_attention),              \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_shutdown)}}
+    PRINTDECK_ADPCM_SAMPLE(voice_##language##_shutdown),                        \
+    PRINTDECK_ADPCM_SAMPLE(voice_##language##_restarting)}}
 const std::array<std::array<AdpcmSample, kVoiceEventCount>, 6> kVoiceSamples{{
     PRINTDECK_VOICE_SAMPLE_SET(en),
     PRINTDECK_VOICE_SAMPLE_SET(pl),
@@ -156,6 +158,7 @@ bool is_voice_event(AudioService::Event event) {
     case AudioService::Event::hms_alert:
     case AudioService::Event::filament_attention:
     case AudioService::Event::shutdown:
+    case AudioService::Event::restarting:
       return true;
     case AudioService::Event::navigation:
     case AudioService::Event::orientation:
@@ -179,6 +182,7 @@ std::size_t voice_event_index(AudioService::Event event) {
     case AudioService::Event::hms_alert: return 8;
     case AudioService::Event::filament_attention: return 9;
     case AudioService::Event::shutdown: return 10;
+    case AudioService::Event::restarting: return 11;
     case AudioService::Event::navigation:
     case AudioService::Event::orientation:
     case AudioService::Event::shutdown_countdown:
@@ -213,6 +217,7 @@ AdpcmSample modern_sample_for(AudioService::Event event) {
       return PRINTDECK_ADPCM_SAMPLE(modern_shutdown_countdown);
     case AudioService::Event::shutdown: return PRINTDECK_ADPCM_SAMPLE(modern_shutdown);
     case AudioService::Event::test: return PRINTDECK_ADPCM_SAMPLE(modern_test);
+    case AudioService::Event::restarting: return PRINTDECK_ADPCM_SAMPLE(modern_test);
   }
   return PRINTDECK_ADPCM_SAMPLE(modern_test);
 }
@@ -237,6 +242,7 @@ AdpcmSample arcade_sample_for(AudioService::Event event) {
     PRINTDECK_ADPCM_CASE(arcade, shutdown_countdown);
     PRINTDECK_ADPCM_CASE(arcade, shutdown);
     PRINTDECK_ADPCM_CASE(arcade, test);
+    case AudioService::Event::restarting: return PRINTDECK_ADPCM_SAMPLE(arcade_test);
   }
   return PRINTDECK_ADPCM_SAMPLE(arcade_test);
 }
@@ -258,6 +264,7 @@ AdpcmSample scifi_sample_for(AudioService::Event event) {
     PRINTDECK_ADPCM_CASE(scifi, shutdown_countdown);
     PRINTDECK_ADPCM_CASE(scifi, shutdown);
     PRINTDECK_ADPCM_CASE(scifi, test);
+    case AudioService::Event::restarting: return PRINTDECK_ADPCM_SAMPLE(scifi_test);
   }
   return PRINTDECK_ADPCM_SAMPLE(scifi_test);
 }
@@ -268,6 +275,7 @@ AdpcmSample clean_sample_for(AudioService::Event event) {
     PRINTDECK_ADPCM_CASE(clean, orientation);
     PRINTDECK_ADPCM_CASE(clean, shutdown_countdown);
     PRINTDECK_ADPCM_CASE(clean, test);
+    case AudioService::Event::restarting: return PRINTDECK_ADPCM_SAMPLE(clean_test);
     default: return PRINTDECK_ADPCM_SAMPLE(clean_test);
   }
 }
@@ -326,6 +334,7 @@ Melody melody_for(AudioService::Event event) {
     case AudioService::Event::shutdown_countdown: return melody(kShutdownCountdown, 30);
     case AudioService::Event::shutdown: return melody(kShutdown);
     case AudioService::Event::test: return melody(kTest);
+    case AudioService::Event::restarting: return melody(kTest);
   }
   return melody(kTest);
 }
@@ -537,7 +546,18 @@ bool AudioService::preset_from_id(std::string_view id, Preset& preset) {
 }
 
 bool AudioService::play(Event event) {
-  return play(event, preset_.load());
+  return play(event, nullptr, nullptr);
+}
+
+bool AudioService::play(Event event, CompletionCallback completion, void* context) {
+  const Preset preset = preset_.load();
+  if (!enabled_.load() || volume_.load() == 0 || queue_ == nullptr) return false;
+  const auto event_index = static_cast<std::uint8_t>(event);
+  if (event_index < 14U &&
+      (muted_events_.load() & (1U << event_index)) != 0) return false;
+  const Request request{event, preset, volume_.load(), false, language_.load(),
+                        completion, context};
+  return xQueueSend(queue_, &request, 0) == pdTRUE;
 }
 
 bool AudioService::play(Event event, Preset preset) {
@@ -545,14 +565,15 @@ bool AudioService::play(Event event, Preset preset) {
   const auto event_index = static_cast<std::uint8_t>(event);
   if (event_index < 14U &&
       (muted_events_.load() & (1U << event_index)) != 0) return false;
-  const Request request{event, preset, volume_.load(), false, language_.load()};
+  const Request request{event, preset, volume_.load(), false, language_.load(),
+                        nullptr, nullptr};
   return xQueueSend(queue_, &request, 0) == pdTRUE;
 }
 
 bool AudioService::preview(Event event, Preset preset, int volume_percent) {
   if (volume_percent <= 0 || queue_ == nullptr) return false;
   const Request request{event, preset, std::clamp(volume_percent, 1, 100), true,
-                        language_.load()};
+                        language_.load(), nullptr, nullptr};
   return xQueueSend(queue_, &request, 0) == pdTRUE;
 }
 
@@ -564,6 +585,9 @@ void AudioService::task_loop() {
     if (xQueueReceive(queue_, &request, portMAX_DELAY) == pdTRUE) {
       play_now(request.event, request.preset, request.volume, request.force,
                request.language);
+      if (request.completion != nullptr) {
+        request.completion(request.completion_context);
+      }
     }
   }
 }
@@ -572,11 +596,24 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
                             std::uint8_t language) {
   if (!force && !enabled_.load()) return;
   auto codec = static_cast<esp_codec_dev_handle_t>(codec_);
+  if (requested_volume <= 0) return;
+  write_silence(codec, 320);
+  // Restarting is a product lifecycle message, not a theme effect. Always use
+  // the localized voice while still respecting the global audio switch and
+  // volume selected by the user.
+  if (event == Event::restarting) {
+    if (write_adpcm_sample(codec, voice_sample_for(language, event),
+                           std::clamp(requested_volume, 1, 100))) {
+      write_silence(codec, 1024);
+      return;
+    }
+    ESP_LOGE(kLogTag, "Restarting voice ADPCM asset is invalid");
+    write_silence(codec, 1024);
+    return;
+  }
   const Melody selected = melody_for(event);
   const SoundStyle style = style_for(preset);
   const int sample_volume = std::min(requested_volume, style.maximum_volume);
-  if (sample_volume <= 0) return;
-  write_silence(codec, 320);
   if (preset == Preset::clean && is_voice_event(event)) {
     if (write_adpcm_sample(codec, voice_sample_for(language, event), sample_volume)) {
       write_silence(codec, 1024);

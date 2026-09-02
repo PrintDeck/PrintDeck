@@ -38,9 +38,11 @@ struct FirmwareUpdateSnapshot {
 class FirmwareUpdateService {
  public:
   using BackgroundActivityProbe = bool (*)(void* context);
+  using RestartRequestedCallback = bool (*)(void* context);
 
   esp_err_t start(const NetworkService& network);
   void set_background_activity_probe(BackgroundActivityProbe probe, void* context);
+  void set_restart_requested_callback(RestartRequestedCallback callback, void* context);
   bool request_check();
   bool request_install();
   bool request_url_install(std::string url);
@@ -76,6 +78,8 @@ class FirmwareUpdateService {
   std::atomic<std::uint64_t> last_check_started_ms_{0};
   BackgroundActivityProbe background_activity_probe_ = nullptr;
   void* background_activity_context_ = nullptr;
+  RestartRequestedCallback restart_requested_callback_ = nullptr;
+  void* restart_requested_context_ = nullptr;
   std::atomic<bool> automatic_check_requested_{false};
   TaskHandle_t scheduler_task_ = nullptr;
   TaskHandle_t task_ = nullptr;

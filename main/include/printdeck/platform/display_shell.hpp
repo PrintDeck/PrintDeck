@@ -11,6 +11,7 @@
 #include "esp_lcd_touch.h"
 #include "lvgl.h"
 #include "printdeck/core/device_state.hpp"
+#include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/core/theme.hpp"
 #include "printdeck/core/timezone.hpp"
@@ -96,6 +97,7 @@ class DisplayShell {
   void set_update_check_callback(UpdateCheckRequested callback, void* context);
   void set_update_install_callback(UpdateInstallRequested callback, void* context);
   void set_update_snapshot(const FirmwareUpdateSnapshot& update);
+  void set_configuration_backup_activity(core::ConfigurationBackupActivity activity);
   void finish_horizontal_transition(int rendered_page, bool rendered_printer_list,
                                     std::uint32_t rendered_profile_id);
   void update_power_save(bool on_battery, bool keep_awake, bool print_active);
@@ -328,6 +330,9 @@ class DisplayShell {
   lv_obj_t* shutdown_title_ = nullptr;
   lv_obj_t* shutdown_detail_ = nullptr;
   lv_obj_t* horizontal_transition_overlay_ = nullptr;
+  lv_obj_t* configuration_backup_overlay_ = nullptr;
+  lv_obj_t* configuration_backup_spinner_ = nullptr;
+  lv_obj_t* configuration_backup_label_ = nullptr;
   lv_obj_t* update_overlay_ = nullptr;
   lv_obj_t* update_overlay_title_ = nullptr;
   lv_obj_t* update_overlay_versions_ = nullptr;

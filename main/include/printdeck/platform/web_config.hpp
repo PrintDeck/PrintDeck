@@ -1,13 +1,17 @@
 #pragma once
 
+#include <array>
 #include <mutex>
 #include <optional>
+#include <span>
+#include <string>
 #include <string_view>
 
 #include "esp_err.h"
 #include "esp_http_server.h"
 #include "esp_timer.h"
 #include "printdeck/core/settings.hpp"
+#include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/platform/network_service.hpp"
 #include "printdeck/platform/settings_store.hpp"
 #include "printdeck/platform/moonraker_connection_probe.hpp"
@@ -25,6 +29,9 @@ class WebConfig {
       void (*)(void*, const core::DeviceSettings&, bool play_feedback);
   using AudioTestCallback =
       bool (*)(void*, std::string_view preset, std::string_view event, int volume_percent);
+  using ConfigurationBackupActivityCallback =
+      void (*)(void*, core::ConfigurationBackupActivity activity, bool play_feedback);
+  using RestartRequestedCallback = bool (*)(void* context);
 
   esp_err_t start(const core::DeviceSettings& settings, const SettingsStore& store,
                   NetworkService& network, MoonrakerConnectionProbe& moonraker_probe,
@@ -35,6 +42,9 @@ class WebConfig {
                   const InactivePrinterPoller& inactive_printer_poller);
   void set_settings_changed_callback(SettingsChangedCallback callback, void* context);
   void set_audio_test_callback(AudioTestCallback callback, void* context);
+  void set_configuration_backup_activity_callback(
+      ConfigurationBackupActivityCallback callback, void* context);
+  void set_restart_requested_callback(RestartRequestedCallback callback, void* context);
   void synchronize_settings(const core::DeviceSettings& settings);
   void update_selected_printer_status(std::uint32_t profile_id, core::LinkState link,
                                       core::JobPhase phase, float completion);
@@ -71,6 +81,12 @@ class WebConfig {
   static esp_err_t update_url_entry(httpd_req_t* request);
   static esp_err_t settings_get_entry(httpd_req_t* request);
   static esp_err_t settings_post_entry(httpd_req_t* request);
+  static esp_err_t configuration_backup_export_entry(httpd_req_t* request);
+  static esp_err_t configuration_backup_check_entry(httpd_req_t* request);
+  static esp_err_t configuration_backup_restore_entry(httpd_req_t* request);
+  static esp_err_t configuration_backup_activity_entry(httpd_req_t* request);
+  static esp_err_t configuration_backup_reaction_export_entry(httpd_req_t* request);
+  static esp_err_t configuration_backup_reaction_restore_entry(httpd_req_t* request);
   static esp_err_t audio_test_entry(httpd_req_t* request);
   static esp_err_t reactions_get_entry(httpd_req_t* request);
   static esp_err_t reactions_set_entry(httpd_req_t* request);
@@ -111,6 +127,12 @@ class WebConfig {
   esp_err_t install_update_url(httpd_req_t* request);
   esp_err_t serve_settings(httpd_req_t* request) const;
   esp_err_t save_settings(httpd_req_t* request);
+  esp_err_t export_configuration_backup(httpd_req_t* request) const;
+  esp_err_t check_configuration_backup(httpd_req_t* request) const;
+  esp_err_t restore_configuration_backup(httpd_req_t* request);
+  esp_err_t update_configuration_backup_activity(httpd_req_t* request);
+  esp_err_t export_configuration_backup_reaction(httpd_req_t* request) const;
+  esp_err_t restore_configuration_backup_reaction(httpd_req_t* request);
   esp_err_t test_audio(httpd_req_t* request);
   esp_err_t serve_reactions(httpd_req_t* request) const;
   esp_err_t select_reaction_set(httpd_req_t* request);
@@ -125,11 +147,18 @@ class WebConfig {
   esp_err_t serve_compatibility_report(httpd_req_t* request) const;
   esp_err_t cancel_compatibility_probe(httpd_req_t* request);
   esp_err_t serve_captive_request(httpd_req_t* request) const;
+  esp_err_t request_restart();
   esp_err_t schedule_restart();
+  bool derive_configuration_backup_key(std::span<const std::uint8_t> password,
+                                       std::span<const std::uint8_t, 16> salt,
+                                       std::array<std::uint8_t, 32>& key) const;
   const char* localized(std::string_view english) const;
   void notify_settings_changed(const core::DeviceSettings& settings, bool play_feedback);
+  bool notify_configuration_backup_activity(
+      core::ConfigurationBackupActivity activity, bool play_feedback) const;
 
   mutable std::mutex settings_write_mutex_;
+  mutable std::mutex backup_crypto_mutex_;
   mutable std::mutex mutex_;
   core::DeviceSettings settings_;
   const SettingsStore* store_ = nullptr;
@@ -150,6 +179,18 @@ class WebConfig {
   void* settings_changed_context_ = nullptr;
   AudioTestCallback audio_test_callback_ = nullptr;
   void* audio_test_context_ = nullptr;
+  ConfigurationBackupActivityCallback configuration_backup_activity_callback_ = nullptr;
+  void* configuration_backup_activity_context_ = nullptr;
+  RestartRequestedCallback restart_requested_callback_ = nullptr;
+  void* restart_requested_context_ = nullptr;
+  mutable std::array<std::uint8_t, 16> backup_crypto_salt_{};
+  mutable std::array<std::uint8_t, 32> backup_crypto_verifier_{};
+  mutable std::array<std::uint8_t, 32> backup_crypto_key_{};
+  mutable std::uint64_t backup_crypto_expires_at_ms_ = 0;
+  std::string configuration_backup_activity_token_;
+  core::ConfigurationBackupActivity configuration_backup_activity_ =
+      core::ConfigurationBackupActivity::idle;
+  std::uint64_t configuration_backup_activity_expires_at_ms_ = 0;
 };
 
 }  // namespace printdeck::platform

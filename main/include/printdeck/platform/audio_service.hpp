@@ -13,6 +13,8 @@ namespace printdeck::platform {
 
 class AudioService {
  public:
+  using CompletionCallback = void (*)(void* context);
+
   enum class Preset : std::uint8_t {
     modern,
     soft,
@@ -38,6 +40,7 @@ class AudioService {
     shutdown_countdown,
     shutdown,
     test,
+    restarting,
   };
 
   esp_err_t start(bool enabled, int volume_percent, std::string_view preset_id,
@@ -52,6 +55,7 @@ class AudioService {
   Preset preset() const { return preset_.load(); }
   std::uint16_t muted_events() const { return muted_events_.load(); }
   bool play(Event event);
+  bool play(Event event, CompletionCallback completion, void* context);
   bool play(Event event, Preset preset);
   bool preview(Event event, Preset preset, int volume_percent);
   static bool preset_from_id(std::string_view id, Preset& preset);
@@ -63,6 +67,8 @@ class AudioService {
     int volume;
     bool force;
     std::uint8_t language;
+    CompletionCallback completion;
+    void* completion_context;
   };
 
   static void task_entry(void* context);

@@ -6,6 +6,7 @@
 #include "esp_timer.h"
 #include "esp_ota_ops.h"
 #include "esp_heap_caps.h"
+#include "esp_system.h"
 #include "printdeck/platform/bambu_local_connection.hpp"
 #include "printdeck/platform/reset_diagnostics.hpp"
 #include "printdeck/core/printer_driver.hpp"
@@ -34,6 +35,8 @@ constexpr std::uint64_t kBambuCompletedReactionHoldMs = 45'000;
 // that short burst as one baseline so selecting an already-running printer
 // cannot announce its existing filament and progress states as new events.
 constexpr std::uint64_t kBambuAudioBaselineSettleMs = 5'000;
+constexpr std::uint64_t kConfigurationBackupActivityLeaseMs = 60'000;
+constexpr std::uint64_t kRestartAudioLeaseMs = 60'000;
 
 void verify_heap(const char* stage) {
   if (!heap_caps_check_integrity_all(true)) {
@@ -203,6 +206,7 @@ void Runtime::start() {
   }
   display_.set_reaction_asset_service(&reaction_assets_);
   firmware_update_.set_background_activity_probe(background_update_blocked_entry, this);
+  firmware_update_.set_restart_requested_callback(restart_requested_entry, this);
   const esp_err_t update_result = firmware_update_.start(network_);
   if (update_result != ESP_OK) {
     ESP_LOGW(kLogTag, "Firmware update service is unavailable: %s",
@@ -210,6 +214,9 @@ void Runtime::start() {
   }
   web_config_.set_settings_changed_callback(settings_changed_entry, this);
   web_config_.set_audio_test_callback(audio_test_entry, this);
+  web_config_.set_configuration_backup_activity_callback(
+      configuration_backup_activity_entry, this);
+  web_config_.set_restart_requested_callback(restart_requested_entry, this);
   const esp_err_t web_result =
       web_config_.start(settings_, settings_store_, network_, moonraker_probe_, printer_discovery_,
                         firmware_update_, reaction_assets_,
@@ -751,6 +758,51 @@ bool Runtime::audio_test_entry(void* context, std::string_view preset_id,
   return runtime->audio_.preview(event, preset, volume_percent);
 }
 
+void Runtime::configuration_backup_activity_entry(
+    void* context, core::ConfigurationBackupActivity activity, bool play_feedback) {
+  auto* runtime = static_cast<Runtime*>(context);
+  if (runtime == nullptr) return;
+  const std::uint64_t expires_at = activity == core::ConfigurationBackupActivity::idle
+      ? 0
+      : static_cast<std::uint64_t>(esp_timer_get_time() / 1000) +
+            kConfigurationBackupActivityLeaseMs;
+  runtime->configuration_backup_activity_expires_at_ms_.store(
+      expires_at, std::memory_order_release);
+  runtime->pending_configuration_backup_activity_.store(
+      static_cast<int>(activity), std::memory_order_release);
+  if (play_feedback) {
+    constexpr std::uint8_t kConfirmationFeedback = 1U;
+    runtime->pending_configuration_backup_feedback_.fetch_or(
+        kConfirmationFeedback,
+        std::memory_order_acq_rel);
+  }
+  if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
+}
+
+bool Runtime::restart_requested_entry(void* context) {
+  auto* runtime = static_cast<Runtime*>(context);
+  if (runtime == nullptr || runtime->monitor_task_ == nullptr) return false;
+  bool expected = false;
+  if (!runtime->restart_in_progress_.compare_exchange_strong(
+          expected, true, std::memory_order_acq_rel)) {
+    return true;
+  }
+  runtime->restart_expires_at_ms_.store(
+      static_cast<std::uint64_t>(esp_timer_get_time() / 1000) +
+          kRestartAudioLeaseMs,
+      std::memory_order_release);
+  runtime->pending_restart_audio_.store(true, std::memory_order_release);
+  xTaskNotifyGive(runtime->monitor_task_);
+  return true;
+}
+
+void Runtime::restart_audio_finished_entry(void* context) {
+  auto* runtime = static_cast<Runtime*>(context);
+  if (runtime == nullptr) return;
+  runtime->restart_ready_.store(true, std::memory_order_release);
+  if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
+}
+
 void Runtime::apply_pending_settings() {
   std::optional<core::DeviceSettings> pending;
   bool play_feedback = false;
@@ -1082,7 +1134,60 @@ void Runtime::monitor_loop() {
       continue;
     }
     apply_pending_settings();
+    if (restart_ready_.exchange(false, std::memory_order_acq_rel)) {
+      ESP_LOGI(kLogTag, "Restart audio finished; restarting PrintDeck");
+      esp_restart();
+    }
+    if (pending_restart_audio_.exchange(false, std::memory_order_acq_rel)) {
+      if (!audio_.play(AudioService::Event::restarting,
+                       restart_audio_finished_entry, this)) {
+        restart_audio_finished_entry(this);
+      }
+    }
+    const std::uint64_t restart_now_ms =
+        static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    const std::uint64_t restart_expires_at =
+        restart_expires_at_ms_.load(std::memory_order_acquire);
+    if (restart_in_progress_.load(std::memory_order_acquire) &&
+        restart_expires_at != 0 && restart_now_ms >= restart_expires_at) {
+      ESP_LOGE(kLogTag, "Restart audio timed out; forcing restart");
+      esp_restart();
+    }
     apply_pending_printer_selection();
+    const int pending_backup_activity =
+        pending_configuration_backup_activity_.exchange(-1, std::memory_order_acq_rel);
+    if (pending_backup_activity >= 0) {
+      configuration_backup_activity_.store(pending_backup_activity,
+                                           std::memory_order_release);
+    }
+    constexpr std::uint8_t kConfirmationFeedback = 1U;
+    const std::uint8_t backup_feedback =
+        pending_configuration_backup_feedback_.exchange(0, std::memory_order_acq_rel);
+    if ((backup_feedback & kConfirmationFeedback) != 0) {
+      audio_.play(AudioService::Event::test);
+    }
+    const std::uint64_t backup_activity_now_ms =
+        static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    const std::uint64_t backup_activity_expires_at =
+        configuration_backup_activity_expires_at_ms_.load(std::memory_order_acquire);
+    if (configuration_backup_activity_.load(std::memory_order_acquire) !=
+            static_cast<int>(core::ConfigurationBackupActivity::idle) &&
+        backup_activity_expires_at != 0 &&
+        backup_activity_now_ms >= backup_activity_expires_at) {
+      if (configuration_backup_activity_.load(std::memory_order_acquire) ==
+          static_cast<int>(core::ConfigurationBackupActivity::restarting)) {
+        ESP_LOGE(kLogTag,
+                 "Configuration restore audio timed out; forcing restart");
+        esp_restart();
+      }
+      configuration_backup_activity_.store(
+          static_cast<int>(core::ConfigurationBackupActivity::idle),
+          std::memory_order_release);
+      configuration_backup_activity_expires_at_ms_.store(0, std::memory_order_release);
+    }
+    display_.set_configuration_backup_activity(
+        static_cast<core::ConfigurationBackupActivity>(
+            configuration_backup_activity_.load(std::memory_order_acquire)));
     const NetworkStatus network = network_.status();
     const PowerSnapshot power = power_.sample();
     const FirmwareUpdateSnapshot update = firmware_update_.snapshot();
@@ -1414,7 +1519,11 @@ void Runtime::monitor_loop() {
     }
     update_installing_previous_ = update_installing;
     const bool provisioning = network.recovery_ap_active && !network.station_connected;
-    const bool keep_awake = provisioning || update_installing;
+    const bool configuration_backup_active =
+        configuration_backup_activity_.load(std::memory_order_acquire) !=
+        static_cast<int>(core::ConfigurationBackupActivity::idle);
+    const bool keep_awake = provisioning || update_installing ||
+                            configuration_backup_active;
     display_.update_power_save(power.available && !power.usb_present && !power.charging,
                                keep_awake, print_active);
     if (display_.screen_fully_off()) {

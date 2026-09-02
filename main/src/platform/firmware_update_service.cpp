@@ -130,6 +130,12 @@ void FirmwareUpdateService::set_background_activity_probe(
   background_activity_context_ = context;
 }
 
+void FirmwareUpdateService::set_restart_requested_callback(
+    RestartRequestedCallback callback, void* context) {
+  restart_requested_callback_ = callback;
+  restart_requested_context_ = context;
+}
+
 void FirmwareUpdateService::poll() {
   if (network_ == nullptr) return;
 
@@ -473,7 +479,13 @@ void FirmwareUpdateService::install_release() {
   ESP_LOGI(kTag, "OTA image validated; worker stack high-water=%u",
            static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
   { const std::lock_guard<std::mutex> lock(mutex_); snapshot_.state = FirmwareUpdateState::rebooting; snapshot_.progress_percent = 100; snapshot_.detail = "Update installed. Restarting PrintDeck..."; }
-  vTaskDelay(pdMS_TO_TICKS(1200)); esp_restart();
+  if (restart_requested_callback_ != nullptr &&
+      restart_requested_callback_(restart_requested_context_)) {
+    return;
+  }
+  ESP_LOGW(kTag, "Restart audio service is unavailable; using bounded fallback");
+  vTaskDelay(pdMS_TO_TICKS(1200));
+  esp_restart();
 }
 void FirmwareUpdateService::record_successful_check() {
   const std::time_t checked_at = valid_epoch_now();

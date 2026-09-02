@@ -5,9 +5,11 @@
 #include <cctype>
 #include <charconv>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "esp_log.h"
 #include "esp_chip_info.h"
@@ -17,7 +19,12 @@
 #include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
+#include "mbedtls/gcm.h"
+#include "mbedtls/md.h"
+#include "mbedtls/platform_util.h"
+#include "mbedtls/sha256.h"
 #include "sdkconfig.h"
+#include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/core/printer_driver.hpp"
 #include "printdeck/core/localization.hpp"
 #include "printdeck/core/timezone.hpp"
@@ -33,6 +40,19 @@ namespace {
 
 constexpr char kLogTag[] = "web_config";
 constexpr std::size_t kMaximumFormBytes = 1024;
+constexpr std::size_t kBackupKeyBytes = 32;
+constexpr std::size_t kBackupSaltBytes = 16;
+constexpr std::size_t kBackupNonceBytes = 12;
+constexpr std::size_t kBackupTagBytes = 16;
+constexpr std::size_t kBackupEnvelopeFixedBytes = 1 + 2 + kBackupSaltBytes + kBackupNonceBytes;
+constexpr std::size_t kMaximumBackupPasswordBytes = 256;
+constexpr std::uint32_t kBackupKdfIterations = 200'000;
+constexpr std::uint64_t kBackupKeyCacheLifetimeMs = 5 * 60 * 1000;
+constexpr std::uint64_t kBackupActivityLeaseMs = 60 * 1000;
+constexpr std::string_view kBackupConfigurationAad =
+    "PrintDeck configuration backup v1";
+constexpr std::string_view kBackupReactionAadPrefix =
+    "PrintDeck reaction backup v1|";
 constexpr std::int64_t kRestartDelayUs = 750'000;
 constexpr std::size_t kOtaReceiveBufferBytes = 4096;
 constexpr std::uint64_t kOtaReceiveDeadlineMs = 120'000;
@@ -217,6 +237,156 @@ bool receive_form(httpd_req_t* request, std::string& body) {
   return true;
 }
 
+struct SecureBuffer {
+  std::unique_ptr<std::uint8_t, decltype(&heap_caps_free)> bytes{nullptr, heap_caps_free};
+  std::size_t size = 0;
+
+  ~SecureBuffer() {
+    if (bytes) mbedtls_platform_zeroize(bytes.get(), size);
+  }
+};
+
+bool receive_secure_body(httpd_req_t* request, std::size_t maximum,
+                         SecureBuffer& body) {
+  if (request->content_len <= 0 ||
+      static_cast<std::size_t>(request->content_len) > maximum) return false;
+  body.size = static_cast<std::size_t>(request->content_len);
+  body.bytes.reset(static_cast<std::uint8_t*>(
+      heap_caps_malloc(body.size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+  if (!body.bytes) return false;
+  std::size_t received = 0;
+  while (received < body.size) {
+    const int count = httpd_req_recv(
+        request, reinterpret_cast<char*>(body.bytes.get() + received), body.size - received);
+    if (count == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (count <= 0) return false;
+    received += static_cast<std::size_t>(count);
+  }
+  return true;
+}
+
+std::size_t backup_file_size(std::string_view path) {
+  if (path.empty()) return 0;
+  FILE* file = std::fopen(std::string(path).c_str(), "rb");
+  if (!file) return 0;
+  const bool positioned = std::fseek(file, 0, SEEK_END) == 0;
+  const long length = positioned ? std::ftell(file) : -1;
+  std::fclose(file);
+  return length > 0 ? static_cast<std::size_t>(length) : 0;
+}
+
+struct BackupEnvelope {
+  std::span<const std::uint8_t> salt;
+  std::span<const std::uint8_t> nonce;
+  std::span<std::uint8_t> password;
+  std::span<std::uint8_t> payload;
+};
+
+bool parse_backup_envelope(SecureBuffer& body, BackupEnvelope& envelope) {
+  if (!body.bytes || body.size < kBackupEnvelopeFixedBytes) return false;
+  std::uint8_t* data = body.bytes.get();
+  if (data[0] != 1) return false;
+  const std::size_t password_bytes =
+      static_cast<std::size_t>(data[1]) |
+      (static_cast<std::size_t>(data[2]) << 8U);
+  if (password_bytes < 12 || password_bytes > kMaximumBackupPasswordBytes ||
+      kBackupEnvelopeFixedBytes + password_bytes > body.size) {
+    return false;
+  }
+  envelope.salt = std::span<const std::uint8_t>(data + 3, kBackupSaltBytes);
+  envelope.nonce = std::span<const std::uint8_t>(data + 3 + kBackupSaltBytes,
+                                                kBackupNonceBytes);
+  envelope.password = std::span<std::uint8_t>(
+      data + kBackupEnvelopeFixedBytes, password_bytes);
+  envelope.payload = std::span<std::uint8_t>(
+      data + kBackupEnvelopeFixedBytes + password_bytes,
+      body.size - kBackupEnvelopeFixedBytes - password_bytes);
+  return true;
+}
+
+bool backup_hmac_sha256(std::span<const std::uint8_t> password,
+                        std::span<const std::uint8_t> salt,
+                        std::array<std::uint8_t, kBackupKeyBytes>& output) {
+  const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (!info) return false;
+  mbedtls_md_context_t context;
+  mbedtls_md_init(&context);
+  int result = mbedtls_md_setup(&context, info, 1);
+  if (result == 0) {
+    result = mbedtls_md_hmac_starts(&context, password.data(), password.size());
+  }
+  const std::array<std::uint8_t, 4> block{{0, 0, 0, 1}};
+  std::array<std::uint8_t, 32> value{};
+  if (result == 0) result = mbedtls_md_hmac_update(&context, salt.data(), salt.size());
+  if (result == 0) result = mbedtls_md_hmac_update(&context, block.data(), block.size());
+  if (result == 0) result = mbedtls_md_hmac_finish(&context, value.data());
+  if (result == 0) output = value;
+  for (std::uint32_t iteration = 1; result == 0 && iteration < kBackupKdfIterations;
+       ++iteration) {
+    result = mbedtls_md_hmac_reset(&context);
+    if (result == 0) result = mbedtls_md_hmac_update(&context, value.data(), value.size());
+    if (result == 0) result = mbedtls_md_hmac_finish(&context, value.data());
+    if (result == 0) {
+      for (std::size_t index = 0; index < output.size(); ++index) {
+        output[index] ^= value[index];
+      }
+    }
+  }
+  mbedtls_md_free(&context);
+  mbedtls_platform_zeroize(value.data(), value.size());
+  return result == 0;
+}
+
+bool backup_sha256(std::span<const std::uint8_t> password,
+                   std::span<const std::uint8_t> salt,
+                   std::array<std::uint8_t, 32>& output) {
+  mbedtls_sha256_context context;
+  mbedtls_sha256_init(&context);
+  int result = mbedtls_sha256_starts(&context, 0);
+  if (result == 0) result = mbedtls_sha256_update(&context, salt.data(), salt.size());
+  if (result == 0) {
+    result = mbedtls_sha256_update(&context, password.data(), password.size());
+  }
+  if (result == 0) result = mbedtls_sha256_finish(&context, output.data());
+  mbedtls_sha256_free(&context);
+  return result == 0;
+}
+
+bool backup_gcm_encrypt(std::span<const std::uint8_t, kBackupKeyBytes> key,
+                        std::span<const std::uint8_t> nonce, std::string_view aad,
+                        std::uint8_t* data, std::size_t size, std::uint8_t* tag) {
+  mbedtls_gcm_context context;
+  mbedtls_gcm_init(&context);
+  int result = mbedtls_gcm_setkey(&context, MBEDTLS_CIPHER_ID_AES,
+                                  key.data(), key.size() * 8U);
+  if (result == 0) {
+    result = mbedtls_gcm_crypt_and_tag(
+        &context, MBEDTLS_GCM_ENCRYPT, size, nonce.data(), nonce.size(),
+        reinterpret_cast<const std::uint8_t*>(aad.data()), aad.size(), data, data,
+        kBackupTagBytes, tag);
+  }
+  mbedtls_gcm_free(&context);
+  return result == 0;
+}
+
+bool backup_gcm_decrypt(std::span<const std::uint8_t, kBackupKeyBytes> key,
+                        std::span<const std::uint8_t> nonce, std::string_view aad,
+                        std::uint8_t* data, std::size_t size,
+                        const std::uint8_t* tag) {
+  mbedtls_gcm_context context;
+  mbedtls_gcm_init(&context);
+  int result = mbedtls_gcm_setkey(&context, MBEDTLS_CIPHER_ID_AES,
+                                  key.data(), key.size() * 8U);
+  if (result == 0) {
+    result = mbedtls_gcm_auth_decrypt(
+        &context, size, nonce.data(), nonce.size(),
+        reinterpret_cast<const std::uint8_t*>(aad.data()), aad.size(), tag,
+        kBackupTagBytes, data, data);
+  }
+  mbedtls_gcm_free(&context);
+  return result == 0;
+}
+
 bool query_value(httpd_req_t* request, const char* key, std::string& value) {
   const std::size_t length = httpd_req_get_url_query_len(request);
   if (length == 0 || length > 255) return false;
@@ -273,7 +443,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
 
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.core_id = kServiceCore;
-  config.max_uri_handlers = 42;
+  config.max_uri_handlers = 50;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
   result = httpd_start(&server_, &config);
@@ -303,6 +473,12 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/update/url", .method = HTTP_POST, .handler = update_url_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_GET, .handler = settings_get_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_POST, .handler = settings_post_entry, .user_ctx = this},
+      {.uri = "/api/configuration-backup/export", .method = HTTP_POST, .handler = configuration_backup_export_entry, .user_ctx = this},
+      {.uri = "/api/configuration-backup/check", .method = HTTP_POST, .handler = configuration_backup_check_entry, .user_ctx = this},
+      {.uri = "/api/configuration-backup/restore", .method = HTTP_POST, .handler = configuration_backup_restore_entry, .user_ctx = this},
+      {.uri = "/api/configuration-backup/activity", .method = HTTP_POST, .handler = configuration_backup_activity_entry, .user_ctx = this},
+      {.uri = "/api/configuration-backup/reaction/export", .method = HTTP_POST, .handler = configuration_backup_reaction_export_entry, .user_ctx = this},
+      {.uri = "/api/configuration-backup/reaction/restore", .method = HTTP_POST, .handler = configuration_backup_reaction_restore_entry, .user_ctx = this},
       {.uri = "/api/audio/test", .method = HTTP_POST, .handler = audio_test_entry, .user_ctx = this},
       {.uri = "/api/reactions", .method = HTTP_GET, .handler = reactions_get_entry, .user_ctx = this},
       {.uri = "/api/reactions/set", .method = HTTP_POST, .handler = reactions_set_entry, .user_ctx = this},
@@ -349,6 +525,20 @@ void WebConfig::set_audio_test_callback(AudioTestCallback callback, void* contex
   audio_test_context_ = context;
 }
 
+void WebConfig::set_configuration_backup_activity_callback(
+    ConfigurationBackupActivityCallback callback, void* context) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  configuration_backup_activity_callback_ = callback;
+  configuration_backup_activity_context_ = context;
+}
+
+void WebConfig::set_restart_requested_callback(RestartRequestedCallback callback,
+                                               void* context) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  restart_requested_callback_ = callback;
+  restart_requested_context_ = context;
+}
+
 void WebConfig::synchronize_settings(const core::DeviceSettings& settings) {
   const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
   const std::lock_guard<std::mutex> lock(mutex_);
@@ -367,6 +557,20 @@ void WebConfig::notify_settings_changed(const core::DeviceSettings& settings,
   if (callback != nullptr) callback(callback_context, settings, play_feedback);
 }
 
+bool WebConfig::notify_configuration_backup_activity(
+    core::ConfigurationBackupActivity activity, bool play_feedback) const {
+  ConfigurationBackupActivityCallback callback = nullptr;
+  void* callback_context = nullptr;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    callback = configuration_backup_activity_callback_;
+    callback_context = configuration_backup_activity_context_;
+  }
+  if (callback == nullptr) return false;
+  callback(callback_context, activity, play_feedback);
+  return true;
+}
+
 const char* WebConfig::localized(std::string_view english) const {
   std::string language;
   {
@@ -374,6 +578,46 @@ const char* WebConfig::localized(std::string_view english) const {
     language = settings_.language;
   }
   return core::localized_text(language, english);
+}
+
+bool WebConfig::derive_configuration_backup_key(
+    std::span<const std::uint8_t> password,
+    std::span<const std::uint8_t, kBackupSaltBytes> salt,
+    std::array<std::uint8_t, kBackupKeyBytes>& key) const {
+  std::array<std::uint8_t, 32> verifier{};
+  if (!backup_sha256(password, salt, verifier)) return false;
+  const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  {
+    const std::lock_guard<std::mutex> lock(backup_crypto_mutex_);
+    std::uint8_t difference = 0;
+    for (std::size_t index = 0; index < verifier.size(); ++index) {
+      difference |= verifier[index] ^ backup_crypto_verifier_[index];
+    }
+    const bool same_salt = std::equal(salt.begin(), salt.end(), backup_crypto_salt_.begin());
+    if (difference == 0 && same_salt && now_ms < backup_crypto_expires_at_ms_) {
+      key = backup_crypto_key_;
+      backup_crypto_expires_at_ms_ = now_ms + kBackupKeyCacheLifetimeMs;
+      mbedtls_platform_zeroize(verifier.data(), verifier.size());
+      return true;
+    }
+  }
+
+  std::array<std::uint8_t, kBackupKeyBytes> derived{};
+  if (!backup_hmac_sha256(password, salt, derived)) {
+    mbedtls_platform_zeroize(verifier.data(), verifier.size());
+    return false;
+  }
+  {
+    const std::lock_guard<std::mutex> lock(backup_crypto_mutex_);
+    std::copy(salt.begin(), salt.end(), backup_crypto_salt_.begin());
+    backup_crypto_verifier_ = verifier;
+    backup_crypto_key_ = derived;
+    backup_crypto_expires_at_ms_ = now_ms + kBackupKeyCacheLifetimeMs;
+  }
+  key = derived;
+  mbedtls_platform_zeroize(verifier.data(), verifier.size());
+  mbedtls_platform_zeroize(derived.data(), derived.size());
+  return true;
 }
 
 esp_err_t WebConfig::save_brightness(int percent) {
@@ -606,6 +850,33 @@ esp_err_t WebConfig::settings_get_entry(httpd_req_t* request) {
 
 esp_err_t WebConfig::settings_post_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->save_settings(request);
+}
+
+esp_err_t WebConfig::configuration_backup_export_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->export_configuration_backup(request);
+}
+
+esp_err_t WebConfig::configuration_backup_check_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->check_configuration_backup(request);
+}
+
+esp_err_t WebConfig::configuration_backup_restore_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->restore_configuration_backup(request);
+}
+
+esp_err_t WebConfig::configuration_backup_activity_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->update_configuration_backup_activity(
+      request);
+}
+
+esp_err_t WebConfig::configuration_backup_reaction_export_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->export_configuration_backup_reaction(
+      request);
+}
+
+esp_err_t WebConfig::configuration_backup_reaction_restore_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->restore_configuration_backup_reaction(
+      request);
 }
 
 esp_err_t WebConfig::audio_test_entry(httpd_req_t* request) {
@@ -1347,12 +1618,460 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
     callback = settings_changed_callback_;
     callback_context = settings_changed_context_;
   }
-  if (callback != nullptr) callback(callback_context, candidate, true);
+  if (callback != nullptr) callback(callback_context, candidate, !restart_required);
   const esp_err_t response = send_json(
       request, "200 OK", restart_required ? "{\"saved\":true,\"restart_required\":true}"
                                            : "{\"saved\":true,\"restart_required\":false}");
-  if (restart_required) schedule_restart();
+  if (restart_required) {
+    const esp_err_t restart_result = request_restart();
+    if (restart_result != ESP_OK) {
+      ESP_LOGE(kLogTag, "Restart after changing the timezone could not be requested: %s",
+               esp_err_to_name(restart_result));
+    }
+  }
   return response;
+}
+
+esp_err_t WebConfig::export_configuration_backup(httpd_req_t* request) const {
+  SecureBuffer request_body;
+  BackupEnvelope envelope;
+  if (!receive_secure_body(request, kBackupEnvelopeFixedBytes + kMaximumBackupPasswordBytes,
+                           request_body) ||
+      !parse_backup_envelope(request_body, envelope) || !envelope.payload.empty()) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"PrintDeck could not prepare the encrypted backup.\"}");
+  }
+  std::array<std::uint8_t, kBackupKeyBytes> key{};
+  const auto salt = std::span<const std::uint8_t, kBackupSaltBytes>(
+      envelope.salt.data(), envelope.salt.size());
+  if (!derive_configuration_backup_key(envelope.password, salt, key)) {
+    return send_json(request, "500 Internal Server Error",
+                     "{\"error\":\"PrintDeck could not derive the backup key.\"}");
+  }
+  mbedtls_platform_zeroize(envelope.password.data(), envelope.password.size());
+
+  core::DeviceSettings current;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    current = settings_;
+  }
+  if (reaction_assets_ == nullptr) {
+    mbedtls_platform_zeroize(key.data(), key.size());
+    return send_json(request, "503 Service Unavailable",
+                     "{\"error\":\"Reaction storage is unavailable.\"}");
+  }
+  const ReactionAssetSnapshot reaction_state = reaction_assets_->snapshot();
+  if (!reaction_state.available || reaction_state.active_set_id.empty()) {
+    mbedtls_platform_zeroize(key.data(), key.size());
+    return send_json(request, "503 Service Unavailable",
+                     "{\"error\":\"Reaction storage is unavailable.\"}");
+  }
+  if (reaction_state.busy) {
+    mbedtls_platform_zeroize(key.data(), key.size());
+    return send_json(request, "409 Conflict",
+                     "{\"error\":\"Wait for the current reaction change to finish.\"}");
+  }
+  core::ConfigurationBackupReactions reactions;
+  reactions.active_set = reaction_state.active_set_id;
+  reactions.events.reserve(core::reaction_events().size());
+  for (const core::ReactionEventDefinition& event : core::reaction_events()) {
+    const bool custom = reaction_assets_->custom_override(event.id);
+    const std::size_t custom_bytes =
+        custom ? backup_file_size(reaction_assets_->preview_vfs_path(event.id)) : 0;
+    if (custom && custom_bytes == 0) {
+      mbedtls_platform_zeroize(key.data(), key.size());
+      return send_json(request, "409 Conflict",
+                       "{\"error\":\"Wait for the current reaction change to finish.\"}");
+    }
+    reactions.events.push_back({std::string(event.id),
+                                reaction_assets_->event_enabled(event.id),
+                                custom_bytes});
+  }
+  std::string configuration =
+      core::serialize_configuration_backup(current, kBoardVariant, reactions);
+  if (configuration.empty()) {
+    mbedtls_platform_zeroize(key.data(), key.size());
+    return send_json(request, "500 Internal Server Error",
+                     "{\"error\":\"PrintDeck could not prepare the encrypted backup.\"}");
+  }
+
+  SecureBuffer encrypted;
+  encrypted.size = configuration.size() + kBackupTagBytes;
+  encrypted.bytes.reset(static_cast<std::uint8_t*>(
+      heap_caps_malloc(encrypted.size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+  if (!encrypted.bytes) {
+    mbedtls_platform_zeroize(key.data(), key.size());
+    mbedtls_platform_zeroize(configuration.data(), configuration.size());
+    return send_json(request, "503 Service Unavailable",
+                     "{\"error\":\"There is not enough memory to create the backup.\"}");
+  }
+  std::memcpy(encrypted.bytes.get(), configuration.data(), configuration.size());
+  const bool encrypted_ok = backup_gcm_encrypt(
+      key, envelope.nonce, kBackupConfigurationAad, encrypted.bytes.get(),
+      configuration.size(), encrypted.bytes.get() + configuration.size());
+  mbedtls_platform_zeroize(key.data(), key.size());
+  mbedtls_platform_zeroize(configuration.data(), configuration.size());
+  if (!encrypted_ok) {
+    return send_json(request, "500 Internal Server Error",
+                     "{\"error\":\"PrintDeck could not encrypt the backup.\"}");
+  }
+
+  httpd_resp_set_type(request, "application/octet-stream");
+  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+  httpd_resp_set_hdr(request, "X-Content-Type-Options", "nosniff");
+  return httpd_resp_send(
+      request, reinterpret_cast<const char*>(encrypted.bytes.get()), encrypted.size);
+}
+
+esp_err_t WebConfig::update_configuration_backup_activity(httpd_req_t* request) {
+  std::string body;
+  std::string action;
+  std::string token;
+  std::string state;
+  if (!receive_form(request, body) || !form_value(body, "action", action) ||
+      !form_value(body, "token", token)) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"PrintDeck could not complete this request.\"}");
+  }
+  const bool valid_token = token.size() == 32 &&
+      std::all_of(token.begin(), token.end(), [](char character) {
+        return std::isxdigit(static_cast<unsigned char>(character)) != 0;
+      });
+  if (!valid_token) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"PrintDeck could not complete this request.\"}");
+  }
+
+  core::ConfigurationBackupActivity requested = core::ConfigurationBackupActivity::idle;
+  if (action == "start") {
+    if (!form_value(body, "state", state) ||
+        (state != "backing_up" && state != "restoring")) {
+      return send_json(request, "400 Bad Request",
+                       "{\"error\":\"PrintDeck could not complete this request.\"}");
+    }
+    requested = state == "backing_up"
+        ? core::ConfigurationBackupActivity::backing_up
+        : core::ConfigurationBackupActivity::restoring;
+  } else if (action != "heartbeat" && action != "finish") {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"PrintDeck could not complete this request.\"}");
+  }
+
+  const std::uint64_t now_ms =
+      static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  core::ConfigurationBackupActivity activity_to_notify =
+      core::ConfigurationBackupActivity::idle;
+  bool notify = false;
+  bool play_feedback = false;
+  bool active = false;
+  bool conflict = false;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    const bool expired = configuration_backup_activity_ !=
+                             core::ConfigurationBackupActivity::idle &&
+                         now_ms >= configuration_backup_activity_expires_at_ms_;
+    if (expired) {
+      configuration_backup_activity_token_.clear();
+      configuration_backup_activity_ = core::ConfigurationBackupActivity::idle;
+      configuration_backup_activity_expires_at_ms_ = 0;
+      notify = true;
+      activity_to_notify = core::ConfigurationBackupActivity::idle;
+    }
+
+    if (action == "start") {
+      if (configuration_backup_activity_ != core::ConfigurationBackupActivity::idle) {
+        conflict = true;
+      } else {
+        configuration_backup_activity_token_ = token;
+        configuration_backup_activity_ = requested;
+        configuration_backup_activity_expires_at_ms_ = now_ms + kBackupActivityLeaseMs;
+        activity_to_notify = requested;
+        notify = true;
+        play_feedback = true;
+        active = true;
+      }
+    } else if (action == "heartbeat") {
+      if (configuration_backup_activity_ != core::ConfigurationBackupActivity::idle &&
+          configuration_backup_activity_token_ == token) {
+        configuration_backup_activity_expires_at_ms_ = now_ms + kBackupActivityLeaseMs;
+        activity_to_notify = configuration_backup_activity_;
+        notify = true;
+        active = true;
+      }
+    } else if (configuration_backup_activity_ !=
+                   core::ConfigurationBackupActivity::idle &&
+               configuration_backup_activity_token_ == token) {
+      configuration_backup_activity_token_.clear();
+      configuration_backup_activity_ = core::ConfigurationBackupActivity::idle;
+      configuration_backup_activity_expires_at_ms_ = 0;
+      activity_to_notify = core::ConfigurationBackupActivity::idle;
+      notify = true;
+    }
+  }
+
+  if (conflict) {
+    return send_json(request, "409 Conflict",
+                     "{\"error\":\"PrintDeck could not complete this request.\"}");
+  }
+  if (notify) {
+    static_cast<void>(
+        notify_configuration_backup_activity(activity_to_notify, play_feedback));
+  }
+  return send_json(request, "200 OK",
+                   active ? "{\"active\":true}" : "{\"active\":false}");
+}
+
+esp_err_t WebConfig::check_configuration_backup(httpd_req_t* request) const {
+  SecureBuffer request_body;
+  BackupEnvelope envelope;
+  const std::size_t maximum = kBackupEnvelopeFixedBytes + kMaximumBackupPasswordBytes +
+                              core::kMaximumConfigurationBackupBytes + kBackupTagBytes;
+  if (!receive_secure_body(request, maximum, request_body) ||
+      !parse_backup_envelope(request_body, envelope) ||
+      envelope.payload.size() <= kBackupTagBytes ||
+      envelope.payload.size() > core::kMaximumConfigurationBackupBytes + kBackupTagBytes) {
+    return send_json(request, "413 Payload Too Large",
+                     "{\"error\":\"The backup configuration is too large or incomplete.\"}");
+  }
+  std::array<std::uint8_t, kBackupKeyBytes> key{};
+  const auto salt = std::span<const std::uint8_t, kBackupSaltBytes>(
+      envelope.salt.data(), envelope.salt.size());
+  const bool key_ok = derive_configuration_backup_key(envelope.password, salt, key);
+  mbedtls_platform_zeroize(envelope.password.data(), envelope.password.size());
+  const std::size_t plaintext_bytes = envelope.payload.size() - kBackupTagBytes;
+  const bool decrypted = key_ok && backup_gcm_decrypt(
+      key, envelope.nonce, kBackupConfigurationAad, envelope.payload.data(),
+      plaintext_bytes, envelope.payload.data() + plaintext_bytes);
+  mbedtls_platform_zeroize(key.data(), key.size());
+  if (!decrypted) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"The backup password is incorrect or the file is damaged.\"}");
+  }
+  const core::ConfigurationBackupResult parsed = core::parse_configuration_backup(
+      std::string_view(reinterpret_cast<const char*>(envelope.payload.data()),
+                       plaintext_bytes),
+      kBoardVariant);
+  if (!parsed) {
+    if (parsed.error == core::ConfigurationBackupError::incompatible_hardware) {
+      return send_json(request, "409 Conflict",
+                       "{\"error\":\"This backup was created for different PrintDeck hardware.\"}");
+    }
+    if (parsed.error == core::ConfigurationBackupError::unsupported_version) {
+      return send_json(request, "409 Conflict",
+                       "{\"error\":\"This backup needs a newer PrintDeck version.\"}");
+    }
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"The backup configuration did not pass validation.\"}");
+  }
+  std::string response = "{\"valid\":true,\"profile_count\":" +
+                         std::to_string(parsed.summary.profile_count) +
+                         ",\"wifi_configured\":" +
+                         (parsed.settings.wifi_name.empty() ? "false" : "true") +
+                         ",\"reactions\":{\"active_set\":";
+  append_json_string(response, parsed.reactions.active_set);
+  response += ",\"events\":[";
+  bool first_event = true;
+  for (const core::ConfigurationBackupReactionEvent& event : parsed.reactions.events) {
+    if (!first_event) response += ',';
+    first_event = false;
+    response += "{\"id\":";
+    append_json_string(response, event.id);
+    response += ",\"enabled\":";
+    response += event.enabled ? "true" : "false";
+    response += ",\"custom_bytes\":" + std::to_string(event.custom_bytes) + "}";
+  }
+  response += "]}}";
+  httpd_resp_set_type(request, "application/json");
+  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+  return httpd_resp_send(request, response.data(), response.size());
+}
+
+esp_err_t WebConfig::restore_configuration_backup(httpd_req_t* request) {
+  const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+  SecureBuffer request_body;
+  BackupEnvelope envelope;
+  const std::size_t maximum = kBackupEnvelopeFixedBytes + kMaximumBackupPasswordBytes +
+                              core::kMaximumConfigurationBackupBytes + kBackupTagBytes;
+  if (!receive_secure_body(request, maximum, request_body) ||
+      !parse_backup_envelope(request_body, envelope) ||
+      envelope.payload.size() <= kBackupTagBytes ||
+      envelope.payload.size() > core::kMaximumConfigurationBackupBytes + kBackupTagBytes) {
+    return send_json(request, "413 Payload Too Large",
+                     "{\"error\":\"The backup configuration is too large or incomplete.\"}");
+  }
+  std::array<std::uint8_t, kBackupKeyBytes> key{};
+  const auto salt = std::span<const std::uint8_t, kBackupSaltBytes>(
+      envelope.salt.data(), envelope.salt.size());
+  const bool key_ok = derive_configuration_backup_key(envelope.password, salt, key);
+  mbedtls_platform_zeroize(envelope.password.data(), envelope.password.size());
+  const std::size_t plaintext_bytes = envelope.payload.size() - kBackupTagBytes;
+  const bool decrypted = key_ok && backup_gcm_decrypt(
+      key, envelope.nonce, kBackupConfigurationAad, envelope.payload.data(),
+      plaintext_bytes, envelope.payload.data() + plaintext_bytes);
+  mbedtls_platform_zeroize(key.data(), key.size());
+  if (!decrypted) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"The backup password is incorrect or the file is damaged.\"}");
+  }
+  core::ConfigurationBackupResult parsed = core::parse_configuration_backup(
+      std::string_view(reinterpret_cast<const char*>(envelope.payload.data()),
+                       plaintext_bytes),
+      kBoardVariant);
+  if (!parsed) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"The backup configuration did not pass validation.\"}");
+  }
+
+  std::string keep_wifi_text;
+  const bool keep_wifi = query_value(request, "keep_wifi", keep_wifi_text) &&
+                         keep_wifi_text == "1";
+  if (keep_wifi) {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    parsed.settings.wifi_name = settings_.wifi_name;
+    parsed.settings.wifi_password = settings_.wifi_password;
+  }
+  if (!core::validate(parsed.settings).empty()) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"The restored settings did not pass validation.\"}");
+  }
+
+  const esp_err_t save_result = store_->save(parsed.settings);
+  if (save_result != ESP_OK) {
+    return send_json(request, "500 Internal Server Error",
+                     "{\"error\":\"PrintDeck could not save the restored settings.\"}");
+  }
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    settings_ = parsed.settings;
+  }
+  notify_settings_changed(parsed.settings, false);
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    configuration_backup_activity_ = core::ConfigurationBackupActivity::restarting;
+    configuration_backup_activity_expires_at_ms_ =
+        static_cast<std::uint64_t>(esp_timer_get_time() / 1000) +
+        kBackupActivityLeaseMs;
+  }
+  const esp_err_t response =
+      send_json(request, "200 OK", "{\"restored\":true,\"restarting\":true}");
+  static_cast<void>(notify_configuration_backup_activity(
+      core::ConfigurationBackupActivity::restarting, false));
+  const esp_err_t restart_result = request_restart();
+  if (restart_result != ESP_OK) {
+    ESP_LOGE(kLogTag, "Restart after restoring a backup could not be requested: %s",
+             esp_err_to_name(restart_result));
+  }
+  return response;
+}
+
+esp_err_t WebConfig::export_configuration_backup_reaction(httpd_req_t* request) const {
+  std::string event;
+  if (!query_value(request, "event", event) || reaction_assets_ == nullptr ||
+      core::reaction_event(event) == nullptr ||
+      !reaction_assets_->custom_override(event)) {
+    return send_json(request, "404 Not Found",
+                     "{\"error\":\"No custom animation is available for this reaction.\"}");
+  }
+  SecureBuffer request_body;
+  BackupEnvelope envelope;
+  if (!receive_secure_body(request, kBackupEnvelopeFixedBytes + kMaximumBackupPasswordBytes,
+                           request_body) ||
+      !parse_backup_envelope(request_body, envelope) || !envelope.payload.empty()) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"PrintDeck could not prepare this encrypted animation.\"}");
+  }
+  std::array<std::uint8_t, kBackupKeyBytes> key{};
+  const auto salt = std::span<const std::uint8_t, kBackupSaltBytes>(
+      envelope.salt.data(), envelope.salt.size());
+  if (!derive_configuration_backup_key(envelope.password, salt, key)) {
+    return send_json(request, "500 Internal Server Error",
+                     "{\"error\":\"PrintDeck could not derive the backup key.\"}");
+  }
+  mbedtls_platform_zeroize(envelope.password.data(), envelope.password.size());
+
+  const ReactionAssetSnapshot state = reaction_assets_->snapshot();
+  const std::string path = reaction_assets_->preview_vfs_path(event);
+  FILE* file = path.empty() ? nullptr : std::fopen(path.c_str(), "rb");
+  if (file == nullptr || std::fseek(file, 0, SEEK_END) != 0) {
+    if (file) std::fclose(file);
+    mbedtls_platform_zeroize(key.data(), key.size());
+    return send_json(request, "404 Not Found",
+                     "{\"error\":\"No custom animation is available for this reaction.\"}");
+  }
+  const long length = std::ftell(file);
+  std::rewind(file);
+  if (length <= 0 || static_cast<std::size_t>(length) > state.maximum_file_bytes) {
+    std::fclose(file);
+    mbedtls_platform_zeroize(key.data(), key.size());
+    return send_json(request, "413 Payload Too Large",
+                     "{\"error\":\"The custom animation exceeds the device limit.\"}");
+  }
+  const std::size_t gif_bytes = static_cast<std::size_t>(length);
+  SecureBuffer encrypted;
+  encrypted.size = gif_bytes + kBackupTagBytes;
+  encrypted.bytes.reset(static_cast<std::uint8_t*>(
+      heap_caps_malloc(encrypted.size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+  const bool read = encrypted.bytes &&
+                    std::fread(encrypted.bytes.get(), 1, gif_bytes, file) == gif_bytes;
+  std::fclose(file);
+  const std::string aad = std::string(kBackupReactionAadPrefix) + event;
+  const bool encrypted_ok = read && backup_gcm_encrypt(
+      key, envelope.nonce, aad, encrypted.bytes.get(), gif_bytes,
+      encrypted.bytes.get() + gif_bytes);
+  mbedtls_platform_zeroize(key.data(), key.size());
+  if (!encrypted_ok) {
+    return send_json(request, "500 Internal Server Error",
+                     "{\"error\":\"PrintDeck could not encrypt this animation.\"}");
+  }
+  httpd_resp_set_type(request, "application/octet-stream");
+  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+  httpd_resp_set_hdr(request, "X-Content-Type-Options", "nosniff");
+  return httpd_resp_send(request, reinterpret_cast<const char*>(encrypted.bytes.get()),
+                         encrypted.size);
+}
+
+esp_err_t WebConfig::restore_configuration_backup_reaction(httpd_req_t* request) {
+  std::string event;
+  if (!query_value(request, "event", event) || reaction_assets_ == nullptr ||
+      core::reaction_event(event) == nullptr) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"Choose a valid reaction.\"}");
+  }
+  const ReactionAssetSnapshot state = reaction_assets_->snapshot();
+  const std::size_t maximum = kBackupEnvelopeFixedBytes + kMaximumBackupPasswordBytes +
+                              state.maximum_file_bytes + kBackupTagBytes;
+  SecureBuffer request_body;
+  BackupEnvelope envelope;
+  if (!receive_secure_body(request, maximum, request_body) ||
+      !parse_backup_envelope(request_body, envelope) ||
+      envelope.payload.size() <= kBackupTagBytes ||
+      envelope.payload.size() > state.maximum_file_bytes + kBackupTagBytes) {
+    return send_json(request, "413 Payload Too Large",
+                     "{\"error\":\"The encrypted animation is too large or incomplete.\"}");
+  }
+  std::array<std::uint8_t, kBackupKeyBytes> key{};
+  const auto salt = std::span<const std::uint8_t, kBackupSaltBytes>(
+      envelope.salt.data(), envelope.salt.size());
+  const bool key_ok = derive_configuration_backup_key(envelope.password, salt, key);
+  mbedtls_platform_zeroize(envelope.password.data(), envelope.password.size());
+  const std::size_t gif_bytes = envelope.payload.size() - kBackupTagBytes;
+  const std::string aad = std::string(kBackupReactionAadPrefix) + event;
+  const bool decrypted = key_ok && backup_gcm_decrypt(
+      key, envelope.nonce, aad, envelope.payload.data(), gif_bytes,
+      envelope.payload.data() + gif_bytes);
+  mbedtls_platform_zeroize(key.data(), key.size());
+  if (!decrypted) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"The backup password is incorrect or the animation is damaged.\"}");
+  }
+  const esp_err_t result = reaction_assets_->install_custom(
+      event, std::span<const std::uint8_t>(envelope.payload.data(), gif_bytes));
+  if (result != ESP_OK) {
+    return send_json(request,
+                     result == ESP_ERR_NO_MEM ? "413 Payload Too Large" : "400 Bad Request",
+                     "{\"error\":\"The restored animation did not pass device validation.\"}");
+  }
+  return send_json(request, "200 OK", "{\"restored\":true}");
 }
 
 esp_err_t WebConfig::start_moonraker_check(httpd_req_t* request) {
@@ -1738,7 +2457,11 @@ esp_err_t WebConfig::upload_update(httpd_req_t* request) {
   }
   firmware_update_->finish_manual_install();
   const esp_err_t response = send_json(request, "200 OK", "{\"installed\":true,\"rebooting\":true}");
-  schedule_restart();
+  const esp_err_t restart_result = request_restart();
+  if (restart_result != ESP_OK) {
+    ESP_LOGE(kLogTag, "Restart after installing firmware could not be requested: %s",
+             esp_err_to_name(restart_result));
+  }
   return response;
 }
 
@@ -1811,12 +2534,12 @@ esp_err_t WebConfig::save_wifi(httpd_req_t* request) {
     const std::lock_guard<std::mutex> lock(mutex_);
     settings_ = candidate;
   }
-  notify_settings_changed(candidate, true);
+  notify_settings_changed(candidate, false);
   const esp_err_t response = send_json(
       request, "200 OK",
       verify_before_save ? "{\"saved\":true,\"verified\":true}"
                          : "{\"saved\":true,\"verified\":false}");
-  const esp_err_t restart_result = schedule_restart();
+  const esp_err_t restart_result = request_restart();
   if (restart_result != ESP_OK) {
     ESP_LOGE(kLogTag, "Restart after saving Wi-Fi could not be scheduled: %s",
              esp_err_to_name(restart_result));
@@ -2046,6 +2769,18 @@ esp_err_t WebConfig::serve_compatibility_report(httpd_req_t* request) const {
 esp_err_t WebConfig::cancel_compatibility_probe(httpd_req_t* request) {
   compatibility_probe_->cancel();
   return send_json(request, "200 OK", "{\"cancelled\":true}");
+}
+
+esp_err_t WebConfig::request_restart() {
+  RestartRequestedCallback callback = nullptr;
+  void* callback_context = nullptr;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    callback = restart_requested_callback_;
+    callback_context = restart_requested_context_;
+  }
+  if (callback != nullptr && callback(callback_context)) return ESP_OK;
+  return schedule_restart();
 }
 
 esp_err_t WebConfig::schedule_restart() {

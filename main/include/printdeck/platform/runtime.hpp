@@ -56,6 +56,10 @@ class Runtime {
                                      bool play_feedback);
   static bool audio_test_entry(void* context, std::string_view preset,
                                std::string_view event, int volume_percent);
+  static void configuration_backup_activity_entry(
+      void* context, core::ConfigurationBackupActivity activity, bool play_feedback);
+  static bool restart_requested_entry(void* context);
+  static void restart_audio_finished_entry(void* context);
   static void power_entry(void* context);
   static void ui_settings_entry(void* context);
   void monitor_loop();
@@ -113,6 +117,15 @@ class Runtime {
   std::atomic<std::uint32_t> pending_selected_profile_write_{0xffffffffU};
   std::atomic<int> pending_auto_rotation_{-1};
   std::atomic<int> pending_camera_mode_{-1};
+  std::atomic<int> pending_configuration_backup_activity_{-1};
+  std::atomic<std::uint8_t> pending_configuration_backup_feedback_{0};
+  std::atomic<int> configuration_backup_activity_{
+      static_cast<int>(core::ConfigurationBackupActivity::idle)};
+  std::atomic<std::uint64_t> configuration_backup_activity_expires_at_ms_{0};
+  std::atomic<bool> restart_in_progress_{false};
+  std::atomic<bool> pending_restart_audio_{false};
+  std::atomic<bool> restart_ready_{false};
+  std::atomic<std::uint64_t> restart_expires_at_ms_{0};
   std::atomic<int> selected_printer_protocol_{-1};
   std::mutex pending_settings_mutex_;
   std::optional<core::DeviceSettings> pending_settings_;
