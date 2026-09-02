@@ -16,6 +16,7 @@
 #include "lwip/inet.h"
 #include "lwip/sockets.h"
 #include "printdeck/platform/bambu_trust.hpp"
+#include "printdeck/platform/bambu_model.hpp"
 #include "printdeck/platform/printer_discovery_timing.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "sdkconfig.h"
@@ -412,7 +413,10 @@ void PrinterDiscoveryService::run() {
         const std::string serial = trim(header_value(packet, "USN"));
         if (!valid_bambu_serial(serial)) continue;
         std::string model = trim(header_value(packet, "DevModel.bambu.com"));
-        if (lower(model) == "n2s") model = "A1";
+        const BambuPrinterModel detected_model = bambu_model_from_identity(model);
+        if (detected_model != BambuPrinterModel::unknown) {
+          model = bambu_model_name(detected_model);
+        }
         std::string name = trim(header_value(packet, "DevName.bambu.com"));
         if (name.size() > 48) name.resize(48);
         add_result({.protocol = core::PrinterProtocol::bambu_lan,

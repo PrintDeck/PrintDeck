@@ -22,19 +22,15 @@ namespace printdeck::platform {
 namespace {
 
 constexpr char kLogTag[] = "bambu_lan";
-constexpr std::size_t kMaximumReportBytes = 64 * 1024;
-constexpr char kRequestVersion[] = "{\"info\":{\"sequence_id\":\"0\",\"command\":\"get_version\"}}";
-constexpr char kStartReports[] = "{\"pushing\":{\"sequence_id\":\"0\",\"command\":\"start\"}}";
-constexpr char kRequestAll[] = "{\"pushing\":{\"sequence_id\":\"0\",\"command\":\"pushall\"}}";
-constexpr char kChamberLightOn[] =
-    "{\"system\":{\"sequence_id\":\"0\",\"command\":\"ledctrl\","
-    "\"led_node\":\"chamber_light\",\"led_mode\":\"on\",\"led_on_time\":500,"
-    "\"led_off_time\":500,\"loop_times\":0,\"interval_time\":0}}";
-constexpr char kChamberLightOff[] =
-    "{\"system\":{\"sequence_id\":\"0\",\"command\":\"ledctrl\","
-    "\"led_node\":\"chamber_light\",\"led_mode\":\"off\",\"led_on_time\":500,"
-    "\"led_off_time\":500,\"loop_times\":0,\"interval_time\":0}}";
+constexpr std::size_t kMaximumReportBytes = 96 * 1024;
 constexpr std::uint64_t kChamberLightTimeoutMs = 10000ULL;
+constexpr std::uint64_t kInitialStatusTimeoutMs = 30000ULL;
+constexpr std::uint64_t kStatusSilenceBeforeRecoveryMs = 75000ULL;
+constexpr std::uint64_t kRecoveryResponseTimeoutMs = 25000ULL;
+
+std::uint64_t monotonic_ms() {
+  return static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+}
 
 }  // namespace
 
@@ -87,6 +83,10 @@ void BambuLanAdapter::configure(const core::PrinterProfile* selected_profile) {
 }
 
 core::PrinterSnapshot BambuLanAdapter::snapshot() const { return snapshots_.read(); }
+
+BambuModelCapabilities BambuLanAdapter::capabilities() const {
+  return bambu_capabilities_for(model_.load());
+}
 
 bool BambuLanAdapter::request_chamber_light(bool enabled) {
   TaskHandle_t task = nullptr;
@@ -142,6 +142,10 @@ void BambuLanAdapter::task_loop() {
       report_topic_.clear();
       request_topic_.clear();
       client_id_.clear();
+      model_.store(bambu_model_from_identity({}, profile_.model));
+      restricted_commands_.store(false);
+      sequence_id_.store(1);
+      reset_session_health();
       pending_chamber_light_.store(-1);
       chamber_light_deadline_ms_.store(0);
       {
@@ -184,10 +188,11 @@ void BambuLanAdapter::task_loop() {
     }
     const int light_request = pending_chamber_light_.exchange(-1);
     if (light_request >= 0) {
-      if (!publish(light_request != 0 ? kChamberLightOn : kChamberLightOff)) {
+      if (!publish_chamber_light(light_request != 0)) {
         pending_chamber_light_.store(light_request);
       }
     }
+    maintain_session(monotonic_ms());
     ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
   }
   connected_.store(false);
@@ -199,6 +204,9 @@ void BambuLanAdapter::task_loop() {
   report_topic_.clear();
   request_topic_.clear();
   client_id_.clear();
+  model_.store(BambuPrinterModel::unknown);
+  restricted_commands_.store(false);
+  reset_session_health();
   pending_chamber_light_.store(-1);
   chamber_light_deadline_ms_.store(0);
   {
@@ -281,11 +289,90 @@ bool BambuLanAdapter::publish(const char* payload) {
          esp_mqtt_client_publish(client_, request_topic_.c_str(), payload, 0, 0, 0) >= 0;
 }
 
+bool BambuLanAdapter::publish_command(const char* section, const char* command) {
+  if (section == nullptr || command == nullptr) return false;
+  const std::uint32_t sequence = sequence_id_.fetch_add(1);
+  char payload[160]{};
+  const int length = std::snprintf(payload, sizeof(payload),
+      "{\"%s\":{\"sequence_id\":\"%lu\",\"command\":\"%s\"}}",
+      section, static_cast<unsigned long>(sequence), command);
+  return length > 0 && static_cast<std::size_t>(length) < sizeof(payload) && publish(payload);
+}
+
+bool BambuLanAdapter::publish_chamber_light(bool enabled) {
+  const std::uint32_t sequence = sequence_id_.fetch_add(1);
+  char payload[320]{};
+  const int length = std::snprintf(
+      payload, sizeof(payload),
+      "{\"system\":{\"sequence_id\":\"%lu\",\"command\":\"ledctrl\","
+      "\"led_node\":\"chamber_light\",\"led_mode\":\"%s\","
+      "\"led_on_time\":500,\"led_off_time\":500,\"loop_times\":0,"
+      "\"interval_time\":0}}",
+      static_cast<unsigned long>(sequence), enabled ? "on" : "off");
+  return length > 0 && static_cast<std::size_t>(length) < sizeof(payload) && publish(payload);
+}
+
+void BambuLanAdapter::reset_session_health() {
+  status_ready_.store(false);
+  connected_at_ms_.store(0);
+  last_report_ms_.store(0);
+  last_status_report_ms_.store(0);
+  last_full_request_ms_.store(0);
+  recovery_request_ms_.store(0);
+  oversized_reports_.store(0);
+}
+
+void BambuLanAdapter::maintain_session(std::uint64_t now_ms) {
+  if (!connected_.load() || client_ == nullptr) return;
+  const bool ready = status_ready_.load();
+  const std::uint64_t last_status = last_status_report_ms_.load();
+  const std::uint64_t connected_at = connected_at_ms_.load();
+
+  if (ready) {
+    const std::uint64_t last_full = last_full_request_ms_.load();
+    const std::uint64_t interval = capabilities().full_report_refresh_ms;
+    if (last_full != 0 && now_ms >= last_full && now_ms - last_full >= interval &&
+        publish_command("pushing", "pushall")) {
+      last_full_request_ms_.store(now_ms);
+    }
+  }
+
+  const std::uint64_t reference = ready ? last_status : connected_at;
+  const std::uint64_t timeout = ready ? kStatusSilenceBeforeRecoveryMs
+                                      : kInitialStatusTimeoutMs;
+  if (reference == 0 || now_ms < reference || now_ms - reference < timeout) {
+    if (ready) recovery_request_ms_.store(0);
+    return;
+  }
+
+  const std::uint64_t recovery = recovery_request_ms_.load();
+  if (recovery == 0) {
+    ESP_LOGW(kLogTag, "Printer status is stale; requesting one bounded refresh");
+    publish_command("pushing", "start");
+    if (publish_command("pushing", "pushall")) last_full_request_ms_.store(now_ms);
+    recovery_request_ms_.store(now_ms);
+    return;
+  }
+  if (now_ms >= recovery && now_ms - recovery >= kRecoveryResponseTimeoutMs) {
+    ESP_LOGW(kLogTag, "Printer status did not recover; reconnecting local MQTT/TLS");
+    status_ready_.store(false);
+    recovery_request_ms_.store(now_ms);
+    publish_state(core::LinkState::connecting, "Reconnecting through local MQTT/TLS");
+    esp_mqtt_client_reconnect(client_);
+  }
+}
+
 void BambuLanAdapter::handle_mqtt(esp_mqtt_event_handle_t event) {
   if (event == nullptr) return;
   switch (static_cast<esp_mqtt_event_id_t>(event->event_id)) {
     case MQTT_EVENT_CONNECTED:
       connected_.store(true);
+      status_ready_.store(false);
+      connected_at_ms_.store(monotonic_ms());
+      last_report_ms_.store(0);
+      last_status_report_ms_.store(0);
+      last_full_request_ms_.store(0);
+      recovery_request_ms_.store(0);
       esp_mqtt_client_subscribe(client_, report_topic_.c_str(), 0);
       // The transport is ready, but the dashboard does not have a trustworthy
       // printer state until the first complete report is parsed. Keeping this
@@ -294,21 +381,44 @@ void BambuLanAdapter::handle_mqtt(esp_mqtt_event_handle_t event) {
       publish_state(core::LinkState::connecting, "Connected; waiting for printer status");
       break;
     case MQTT_EVENT_SUBSCRIBED:
-      publish(kRequestVersion);
-      publish(kStartReports);
-      publish(kRequestAll);
+      publish_command("info", "get_version");
+      publish_command("pushing", "start");
+      if (publish_command("pushing", "pushall")) last_full_request_ms_.store(monotonic_ms());
       break;
     case MQTT_EVENT_DISCONNECTED:
       connected_.store(false);
+      status_ready_.store(false);
+      connected_at_ms_.store(0);
+      recovery_request_ms_.store(0);
       publish_state(core::LinkState::connecting, "Reconnecting through local MQTT/TLS");
       break;
     case MQTT_EVENT_ERROR:
       connected_.store(false);
+      status_ready_.store(false);
+      if (event->error_handle != nullptr) {
+        ESP_LOGW(kLogTag,
+                 "Local MQTT/TLS error type=%d esp=%d tls=%d verify=0x%x socket=%d",
+                 static_cast<int>(event->error_handle->error_type),
+                 static_cast<int>(event->error_handle->esp_tls_last_esp_err),
+                 event->error_handle->esp_tls_stack_err,
+                 event->error_handle->esp_tls_cert_verify_flags,
+                 event->error_handle->esp_transport_sock_errno);
+      }
       publish_state(core::LinkState::failed, "Check address, serial, LAN code and LAN mode");
       break;
     case MQTT_EVENT_DATA: {
-      if (event->total_data_len <= 0 ||
-          static_cast<std::size_t>(event->total_data_len) > kMaximumReportBytes) return;
+      if (event->total_data_len <= 0) return;
+      if (static_cast<std::size_t>(event->total_data_len) > kMaximumReportBytes) {
+        if (event->current_data_offset == 0) {
+          const std::uint32_t count = oversized_reports_.fetch_add(1) + 1;
+          ESP_LOGW(kLogTag, "Ignored oversized Bambu report (%d bytes, occurrence %lu)",
+                   event->total_data_len, static_cast<unsigned long>(count));
+          const std::lock_guard<std::mutex> lock(incoming_mutex_);
+          incoming_payload_.clear();
+          incoming_topic_.clear();
+        }
+        return;
+      }
       std::string topic;
       std::vector<char> complete;
       {
@@ -341,12 +451,25 @@ void BambuLanAdapter::handle_mqtt(esp_mqtt_event_handle_t event) {
 }
 
 void BambuLanAdapter::handle_report(const char* payload, std::size_t length) {
+  const std::uint64_t received_at = monotonic_ms();
   BambuReportParseResult parsed = parse_bambu_report(
       payload, length, snapshots_.read(), profile_.id,
-      static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+      received_at);
   if (!parsed.parsed) return;
+  last_report_ms_.store(received_at);
+  if (parsed.identity_report) {
+    const BambuPrinterModel detected = bambu_model_from_identity(parsed.product_name,
+                                                                  profile_.model);
+    if (detected != BambuPrinterModel::unknown) model_.store(detected);
+  }
+  if (parsed.restricted_commands) restricted_commands_.store(true);
   if (parsed.chamber_light_confirmed) chamber_light_deadline_ms_.store(0);
-  snapshots_.replace(std::move(parsed.snapshot));
+  if (parsed.status_report) {
+    status_ready_.store(true);
+    last_status_report_ms_.store(received_at);
+    recovery_request_ms_.store(0);
+    snapshots_.replace(std::move(parsed.snapshot));
+  }
 }
 
 }  // namespace printdeck::platform

@@ -85,6 +85,10 @@ class BambuCompatibilityProbe {
   std::vector<ModuleIdentity> modules_{};
   std::string detected_model_{};
   size_t maximum_payload_bytes_ = 0;
+  size_t maximum_live_extruders_ = 0;
+  size_t maximum_ams_units_ = 0;
+  size_t maximum_virtual_slots_ = 0;
+  bool restricted_commands_observed_ = false;
   esp_mqtt_client_handle_t mqtt_client_ = nullptr;
   std::string report_topic_{};
   std::string request_topic_{};

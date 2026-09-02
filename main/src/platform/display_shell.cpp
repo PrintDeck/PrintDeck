@@ -4955,8 +4955,16 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
                                           : tr("Live local snapshot"));
   } else {
     lv_image_set_src(media_image_, nullptr);
+    const bool rtsps_unsupported =
+        snapshot.job.camera_detail == "This display does not support RTSPS cameras";
     const bool detection_failed = snapshot.job.camera_detail == "No camera detected";
-    if (detection_failed) {
+    if (rtsps_unsupported) {
+      lv_obj_add_flag(camera_spinner_, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_remove_flag(camera_empty_label_, LV_OBJ_FLAG_HIDDEN);
+      lv_label_set_text(camera_empty_label_,
+                        tr("This display does not support RTSPS cameras"));
+      lv_label_set_text(detail_label_, tr("Camera unavailable"));
+    } else if (detection_failed) {
       lv_obj_add_flag(camera_spinner_, LV_OBJ_FLAG_HIDDEN);
       lv_obj_remove_flag(camera_empty_label_, LV_OBJ_FLAG_HIDDEN);
       lv_label_set_text(camera_empty_label_,

@@ -57,6 +57,15 @@ constexpr std::int64_t kRestartDelayUs = 750'000;
 constexpr std::size_t kOtaReceiveBufferBytes = 4096;
 constexpr std::uint64_t kOtaReceiveDeadlineMs = 120'000;
 
+esp_err_t send_gzip_asset(httpd_req_t* request,
+                          std::string_view asset,
+                          const char* content_type) {
+  httpd_resp_set_type(request, content_type);
+  httpd_resp_set_hdr(request, "Content-Encoding", "gzip");
+  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+  return httpd_resp_send(request, asset.data(), asset.size());
+}
+
 const char* job_phase_id(core::JobPhase phase) {
   switch (phase) {
     case core::JobPhase::idle: return "idle";
@@ -938,10 +947,7 @@ esp_err_t WebConfig::captive_entry(httpd_req_t* request) {
 void WebConfig::restart_entry(void*) { esp_restart(); }
 
 esp_err_t WebConfig::serve_root(httpd_req_t* request) const {
-  const std::string_view page = web_config_page();
-  httpd_resp_set_type(request, "text/html; charset=utf-8");
-  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-  return httpd_resp_send(request, page.data(), page.size());
+  return send_gzip_asset(request, web_config_page(), "text/html; charset=utf-8");
 }
 
 esp_err_t WebConfig::serve_captive_request(httpd_req_t* request) const {
@@ -952,24 +958,16 @@ esp_err_t WebConfig::serve_captive_request(httpd_req_t* request) const {
 }
 
 esp_err_t WebConfig::serve_world_map(httpd_req_t* request) const {
-  const std::string_view map = world_map_svg();
-  httpd_resp_set_type(request, "image/svg+xml");
-  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-  return httpd_resp_send(request, map.data(), map.size());
+  return send_gzip_asset(request, world_map_svg(), "image/svg+xml");
 }
 
 esp_err_t WebConfig::serve_localizations(httpd_req_t* request) const {
-  const std::string_view script = web_localizations_script();
-  httpd_resp_set_type(request, "application/javascript; charset=utf-8");
-  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-  return httpd_resp_send(request, script.data(), script.size());
+  return send_gzip_asset(
+      request, web_localizations_script(), "application/javascript; charset=utf-8");
 }
 
 esp_err_t WebConfig::serve_reactions_script(httpd_req_t* request) const {
-  const std::string_view script = reactions_script();
-  httpd_resp_set_type(request, "application/javascript; charset=utf-8");
-  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-  return httpd_resp_send(request, script.data(), script.size());
+  return send_gzip_asset(request, reactions_script(), "application/javascript; charset=utf-8");
 }
 
 esp_err_t WebConfig::serve_reaction_set_preview(httpd_req_t* request) const {

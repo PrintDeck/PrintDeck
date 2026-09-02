@@ -3,9 +3,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <utility>
 
@@ -17,6 +19,7 @@
 #include "esp_tls.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "printdeck/platform/bambu_model.hpp"
 #include "printdeck/platform/bambu_trust.hpp"
 
 #ifndef PRINTDECK_VERSION
@@ -28,7 +31,7 @@ namespace printdeck::platform {
 namespace {
 
 constexpr char kTag[] = "printdeck.bambu_compat";
-constexpr size_t kMaximumReportPayloadBytes = 64U * 1024U;
+constexpr size_t kMaximumReportPayloadBytes = 96U * 1024U;
 constexpr size_t kMaximumSchemaFields = 700U;
 constexpr size_t kMaximumModules = 24U;
 constexpr size_t kMaximumNumericFields = 240U;
@@ -36,11 +39,11 @@ constexpr size_t kMaximumArraySamples = 8U;
 constexpr uint64_t kConnectDeadlineMs = 16000U;
 constexpr uint64_t kCollectionAfterFirstReportMs = 9000U;
 constexpr char kGetVersion[] =
-    "{\"info\":{\"sequence_id\":\"0\",\"command\":\"get_version\"}}";
+    "{\"info\":{\"sequence_id\":\"1\",\"command\":\"get_version\"}}";
 constexpr char kStartPush[] =
-    "{\"pushing\":{\"sequence_id\":\"0\",\"command\":\"start\"}}";
+    "{\"pushing\":{\"sequence_id\":\"2\",\"command\":\"start\"}}";
 constexpr char kPushAll[] =
-    "{\"pushing\":{\"sequence_id\":\"0\",\"command\":\"pushall\"}}";
+    "{\"pushing\":{\"sequence_id\":\"3\",\"command\":\"pushall\"}}";
 
 uint64_t monotonic_ms() {
   return static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
@@ -115,8 +118,11 @@ void collect_schema(const cJSON* item, const std::string& path,
       collect_schema(member, nested, fields, depth + 1);
     }
   } else if (cJSON_IsArray(item)) {
-    const cJSON* first = cJSON_GetArrayItem(item, 0);
-    if (first != nullptr) collect_schema(first, path + "[]", fields, depth + 1);
+    const int count = std::min<int>(cJSON_GetArraySize(item),
+                                    static_cast<int>(kMaximumArraySamples));
+    for (int index = 0; index < count; ++index) {
+      collect_schema(cJSON_GetArrayItem(item, index), path + "[]", fields, depth + 1);
+    }
   }
 }
 
@@ -201,31 +207,47 @@ bool schema_has(const std::set<std::string>& fields, const std::string& prefix) 
   return iterator != fields.end() && iterator->compare(0, prefix.size(), prefix) == 0;
 }
 
+bool unsigned_json_value(const cJSON* value, std::uint64_t* result,
+                         bool prefer_hex_for_long_text = false) {
+  if (result == nullptr) return false;
+  if (cJSON_IsNumber(value) && std::isfinite(value->valuedouble) &&
+      value->valuedouble >= 0.0 && std::floor(value->valuedouble) == value->valuedouble) {
+    *result = static_cast<std::uint64_t>(value->valuedouble);
+    return true;
+  }
+  if (!cJSON_IsString(value) || value->valuestring == nullptr) return false;
+  const char* text = value->valuestring;
+  const bool explicit_hex = text[0] == '0' && (text[1] == 'x' || text[1] == 'X');
+  bool hex_like = true;
+  bool contains_hex_alpha = false;
+  std::size_t digits = 0;
+  for (const char* cursor = text + (explicit_hex ? 2 : 0); *cursor != '\0'; ++cursor) {
+    if (std::isxdigit(static_cast<unsigned char>(*cursor)) == 0) {
+      hex_like = false;
+      break;
+    }
+    contains_hex_alpha = contains_hex_alpha ||
+                         std::isalpha(static_cast<unsigned char>(*cursor)) != 0;
+    ++digits;
+  }
+  errno = 0;
+  char* end = nullptr;
+  const unsigned long long parsed = std::strtoull(
+      text, &end,
+      explicit_hex || contains_hex_alpha ||
+              (prefer_hex_for_long_text && hex_like && digits >= 8)
+          ? 16
+          : 10);
+  if (end == text || end == nullptr || *end != '\0' || errno == ERANGE) return false;
+  *result = static_cast<std::uint64_t>(parsed);
+  return true;
+}
+
 std::string infer_model(const std::vector<BambuCompatibilityProbe::ModuleIdentity>& modules) {
   for (const auto& module : modules) {
-    std::string text = module.product_name + " " + module.project_name;
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
-      return static_cast<char>(std::tolower(ch));
-    });
-    if (text.find("a1 mini") != std::string::npos || text.find("n1") != std::string::npos) {
-      return "A1 mini";
-    }
-    if (text.find("a1") != std::string::npos || text.find("n2s") != std::string::npos) {
-      return "A1";
-    }
-    if (text.find("p1s") != std::string::npos || text.find("c12") != std::string::npos) {
-      return "P1S";
-    }
-    if (text.find("p1p") != std::string::npos || text.find("c11") != std::string::npos) {
-      return "P1P";
-    }
-    if (text.find("x1e") != std::string::npos) return "X1E";
-    if (text.find("x1c") != std::string::npos || text.find("x1 carbon") != std::string::npos) {
-      return "X1 Carbon";
-    }
-    if (text.find("h2d") != std::string::npos) return "H2D";
-    if (text.find("h2c") != std::string::npos) return "H2C";
-    if (text.find("p2s") != std::string::npos) return "P2S";
+    const BambuPrinterModel model = bambu_model_from_identity(
+        module.product_name, module.project_name);
+    if (model != BambuPrinterModel::unknown) return bambu_model_name(model);
   }
   return {};
 }
@@ -299,6 +321,10 @@ esp_err_t BambuCompatibilityProbe::start(BambuLocalConnection connection) {
     modules_.clear();
     detected_model_.clear();
     maximum_payload_bytes_ = 0;
+    maximum_live_extruders_ = 0;
+    maximum_ams_units_ = 0;
+    maximum_virtual_slots_ = 0;
+    restricted_commands_observed_ = false;
     incoming_topic_.clear();
     incoming_payload_.clear();
   }
@@ -547,6 +573,41 @@ void BambuCompatibilityProbe::consume_report(const char* payload, size_t length)
                    value == "PREPARE" || value == "SLICING" || value == "INIT";
   }
 
+  size_t live_extruders = 0;
+  size_t ams_units = 0;
+  size_t virtual_slots = 0;
+  bool restricted_commands = false;
+  const cJSON* device = child(print, "device");
+  const cJSON* extruder = child(device, "extruder");
+  std::uint64_t extruder_state = 0;
+  if (unsigned_json_value(child(extruder, "state"), &extruder_state)) {
+    live_extruders = std::min<size_t>(extruder_state & 0x0FU, 12U);
+  }
+  const cJSON* extruder_info = child(extruder, "info");
+  if (cJSON_IsArray(extruder_info)) {
+    const int count = cJSON_GetArraySize(extruder_info);
+    for (int index = 0; index < count; ++index) {
+      const cJSON* item = cJSON_GetArrayItem(extruder_info, index);
+      std::uint64_t id = static_cast<std::uint64_t>(index);
+      unsigned_json_value(child(item, "id"), &id);
+      if (id < 12U) live_extruders = std::max(live_extruders, static_cast<size_t>(id + 1U));
+    }
+  }
+  const cJSON* units = child(child(print, "ams"), "ams");
+  if (cJSON_IsArray(units)) ams_units = static_cast<size_t>(cJSON_GetArraySize(units));
+  const cJSON* virtual_array = child(print, "vir_slot");
+  if (!cJSON_IsArray(virtual_array)) virtual_array = child(device, "vir_slot");
+  if (!cJSON_IsArray(virtual_array)) {
+    virtual_array = child(child(device, "ams"), "vir_slot");
+  }
+  if (cJSON_IsArray(virtual_array)) {
+    virtual_slots = static_cast<size_t>(cJSON_GetArraySize(virtual_array));
+  }
+  std::uint64_t feature_flags = 0;
+  if (unsigned_json_value(child(print, "fun"), &feature_flags, true)) {
+    restricted_commands = (feature_flags & 0x20000000ULL) != 0;
+  }
+
   {
     std::lock_guard<std::mutex> lock(mutex_);
     for (const std::string& field : fields) {
@@ -576,6 +637,10 @@ void BambuCompatibilityProbe::consume_report(const char* payload, size_t length)
       }
     }
     detected_model_ = infer_model(modules_);
+    maximum_live_extruders_ = std::max(maximum_live_extruders_, live_extruders);
+    maximum_ams_units_ = std::max(maximum_ams_units_, ams_units);
+    maximum_virtual_slots_ = std::max(maximum_virtual_slots_, virtual_slots);
+    restricted_commands_observed_ = restricted_commands_observed_ || restricted_commands;
     snapshot_.model = detected_model_;
     ++snapshot_.mqtt_messages;
     snapshot_.active_print_observed = snapshot_.active_print_observed || print_active;
@@ -612,13 +677,16 @@ void BambuCompatibilityProbe::finish_report(const BambuLocalConnection& connecti
                                             const std::string& terminal_detail) {
   std::lock_guard<std::mutex> lock(mutex_);
   const bool has_ams = schema_has(schema_fields_, "print.ams") ||
-                       schema_has(schema_fields_, "print.vt_tray");
+                       schema_has(schema_fields_, "print.vt_tray") ||
+                       schema_has(schema_fields_, "print.vir_slot") ||
+                       schema_has(schema_fields_, "print.device.ams") ||
+                       schema_has(schema_fields_, "print.device.vir_slot");
   const bool has_chamber = schema_has(schema_fields_, "print.chamber_temper") ||
-                           schema_has(schema_fields_, "print.device.chamber");
+                           schema_has(schema_fields_, "print.device.chamber") ||
+                           schema_has(schema_fields_, "print.device.ctc");
   const bool has_v2_shape = schema_has(schema_fields_, "print.device") ||
                             schema_has(schema_fields_, "print.vir_slot");
-  const bool has_multi_tool = schema_has(schema_fields_, "print.nozzle_temper[]") ||
-                              schema_has(schema_fields_, "print.device.extruder");
+  const bool has_multi_tool = maximum_live_extruders_ > 1;
   const bool has_speed_multiplier = schema_has_any(
       schema_fields_, {"print.spd_mag", "print.speed_multiplier", "print.speed_factor"});
   const bool has_fan_speed = schema_has_any(
@@ -636,11 +704,23 @@ void BambuCompatibilityProbe::finish_report(const BambuLocalConnection& connecti
       schema_fields_, {"print.layer_num", "print.total_layer_num"});
   const bool has_remaining_time = schema_has(schema_fields_, "print.mc_remaining_time");
   const bool has_light_status = schema_has(schema_fields_, "print.lights_report");
+  const BambuPrinterModel model = bambu_model_from_identity(detected_model_);
+  const BambuModelCapabilities model_capabilities = bambu_capabilities_for(model);
+  const char* expected_camera = model_capabilities.camera == BambuCameraProtocol::jpeg_tls
+                                    ? "jpeg_tls_6000"
+                                    : model_capabilities.camera == BambuCameraProtocol::rtsps
+                                          ? "rtsps_322"
+                                          : "unknown";
+  const char* observed_camera = service_6000 && !service_322
+                                    ? "jpeg_tls_6000"
+                                    : service_322 && !service_6000
+                                          ? "rtsps_322"
+                                          : service_6000 && service_322 ? "both" : "none";
   const std::string report_id = make_report_id();
 
   std::string body;
   body.reserve(6144U + schema_fields_.size() * 48U + numeric_fields_.size() * 80U);
-  body += "{\n  \"report_schema\":\"printdeck.bambu.compatibility.v2\",";
+  body += "{\n  \"report_schema\":\"printdeck.bambu.compatibility.v3\",";
   body += "\n  \"report_id\":\"" + report_id + "\",";
   body += "\n  \"monitor_firmware\":\"" PRINTDECK_VERSION "\",";
   body += "\n  \"privacy\":{\"raw_payloads_included\":false,\"host_included\":false,";
@@ -665,17 +745,26 @@ void BambuCompatibilityProbe::finish_report(const BambuLocalConnection& connecti
   body += mqtt_available ? "true" : "false";
   body += ",\"camera_tls_6000\":" + std::string(service_6000 ? "true" : "false");
   body += ",\"video_tls_322\":" + std::string(service_322 ? "true" : "false");
-  body += ",\"ftps_tls_990\":" + std::string(service_990 ? "true" : "false") + "},";
+  body += ",\"ftps_tls_990\":" + std::string(service_990 ? "true" : "false");
+  body += ",\"expected_camera_protocol\":\"" + std::string(expected_camera) + "\"";
+  body += ",\"observed_camera_protocol\":\"" + std::string(observed_camera) + "\"},";
   body += "\n  \"observations\":{\"mqtt_messages\":" +
           std::to_string(snapshot_.mqtt_messages);
   body += ",\"maximum_payload_bytes\":" + std::to_string(maximum_payload_bytes_);
+  body += ",\"maximum_live_extruders\":" + std::to_string(maximum_live_extruders_);
+  body += ",\"maximum_ams_units\":" + std::to_string(maximum_ams_units_);
+  body += ",\"maximum_virtual_slots\":" + std::to_string(maximum_virtual_slots_);
   body += ",\"active_print_observed\":" +
-          std::string(snapshot_.active_print_observed ? "true" : "false") + "},";
+          std::string(snapshot_.active_print_observed ? "true" : "false");
+  body += ",\"signed_critical_commands_required\":" +
+          std::string(restricted_commands_observed_ ? "true" : "false") + "},";
   body += "\n  \"capability_hints\":{\"mqtt_v2_shape\":" +
           std::string(has_v2_shape ? "true" : "false");
   body += ",\"ams_status\":" + std::string(has_ams ? "true" : "false");
   body += ",\"chamber_temperature\":" + std::string(has_chamber ? "true" : "false");
   body += ",\"multiple_toolheads\":" + std::string(has_multi_tool ? "true" : "false");
+  body += ",\"vortek_storage_metadata\":" +
+          std::string(model == BambuPrinterModel::h2c ? "true" : "false");
   body += ",\"speed_multiplier\":" + std::string(has_speed_multiplier ? "true" : "false");
   body += ",\"fan_speed\":" + std::string(has_fan_speed ? "true" : "false");
   body += ",\"motion_velocity\":" + std::string(has_velocity ? "true" : "false");

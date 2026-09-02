@@ -1033,9 +1033,14 @@ core::PrinterSnapshot Runtime::update_bambu_snapshot() {
     snapshot.job.preview.reset();
   }
   const BambuA1CameraSnapshot camera = bambu_a1_camera_.snapshot();
-  snapshot.job.camera_supported = camera.supported;
-  snapshot.job.camera_detail = camera.detail;
-  if (camera.frame && !camera.frame->empty()) {
+  const bool rtsps_camera =
+      bambu_lan_.capabilities().camera == BambuCameraProtocol::rtsps;
+  snapshot.job.camera_supported = !rtsps_camera && camera.supported;
+  snapshot.job.camera_live_supported = false;
+  snapshot.job.camera_detail = rtsps_camera
+                                   ? "This display does not support RTSPS cameras"
+                                   : camera.detail;
+  if (!rtsps_camera && camera.frame && !camera.frame->empty()) {
     snapshot.job.camera_frame = camera.frame;
     snapshot.job.camera_width = camera.width;
     snapshot.job.camera_height = camera.height;
@@ -1049,6 +1054,9 @@ core::PrinterSnapshot Runtime::update_bambu_snapshot() {
 
 void Runtime::prime_audio_state(const core::PrinterSnapshot& snapshot) {
   bool material_feeding = snapshot.job.materials.external_spool.feeding;
+  for (const auto& slot : snapshot.job.materials.external_spools) {
+    material_feeding = material_feeding || slot.feeding;
+  }
   for (const auto& slot : snapshot.job.materials.slots) {
     material_feeding = material_feeding || slot.feeding;
   }
@@ -1062,6 +1070,9 @@ void Runtime::prime_audio_state(const core::PrinterSnapshot& snapshot) {
 void Runtime::update_audio_state(const core::PrinterSnapshot& snapshot) {
   const core::JobPhase phase = snapshot.job.phase;
   bool material_feeding = snapshot.job.materials.external_spool.feeding;
+  for (const auto& slot : snapshot.job.materials.external_spools) {
+    material_feeding = material_feeding || slot.feeding;
+  }
   for (const auto& slot : snapshot.job.materials.slots) {
     material_feeding = material_feeding || slot.feeding;
   }
@@ -1213,7 +1224,10 @@ void Runtime::monitor_loop() {
         active_phase(bambu_lan_.snapshot().job.phase);
     const bool want_bambu_preview =
         want_bambu_connection && screen_visible && bambu_print_active;
-    const bool want_bambu_camera = want_bambu_connection && camera_page_visible;
+    const bool bambu_uses_rtsps =
+        bambu_lan_.capabilities().camera == BambuCameraProtocol::rtsps;
+    const bool want_bambu_camera =
+        want_bambu_connection && camera_page_visible && !bambu_uses_rtsps;
     const bool want_moonraker_camera = want_moonraker_connection && camera_page_visible;
 
     // Disable camera network/decode work immediately off-page, but keep the

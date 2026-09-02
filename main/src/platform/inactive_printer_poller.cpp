@@ -28,13 +28,13 @@ namespace {
 constexpr char kTag[] = "inactive_printers";
 constexpr std::size_t kMaximumResponseBytes = 16 * 1024;
 constexpr int kRequestTimeoutMs = 3000;
-constexpr std::size_t kMaximumBambuReportBytes = 64 * 1024;
+constexpr std::size_t kMaximumBambuReportBytes = 96 * 1024;
 constexpr char kBambuRequestVersion[] =
-    "{\"info\":{\"sequence_id\":\"0\",\"command\":\"get_version\"}}";
+    "{\"info\":{\"sequence_id\":\"1\",\"command\":\"get_version\"}}";
 constexpr char kBambuStartReports[] =
-    "{\"pushing\":{\"sequence_id\":\"0\",\"command\":\"start\"}}";
+    "{\"pushing\":{\"sequence_id\":\"2\",\"command\":\"start\"}}";
 constexpr char kBambuRequestAll[] =
-    "{\"pushing\":{\"sequence_id\":\"0\",\"command\":\"pushall\"}}";
+    "{\"pushing\":{\"sequence_id\":\"3\",\"command\":\"pushall\"}}";
 
 struct JsonDeleter {
   void operator()(cJSON* value) const { cJSON_Delete(value); }

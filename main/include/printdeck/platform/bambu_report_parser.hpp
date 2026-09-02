@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "printdeck/core/device_state.hpp"
 
@@ -9,7 +10,11 @@ namespace printdeck::platform {
 
 struct BambuReportParseResult {
   bool parsed = false;
+  bool status_report = false;
+  bool identity_report = false;
+  bool restricted_commands = false;
   bool chamber_light_confirmed = false;
+  std::string product_name;
   core::PrinterSnapshot snapshot;
 };
 

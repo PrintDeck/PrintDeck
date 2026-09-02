@@ -122,7 +122,10 @@ std::string basename(std::string value) {
   while (!value.empty() && (value.back() == '/' || value.back() == '\\')) value.pop_back();
   const size_t slash = value.find_last_of("/\\");
   if (slash != std::string::npos) value.erase(0, slash + 1);
-  if (value.find_first_of("\r\n") != std::string::npos) return {};
+  if (value.empty() || value.size() > 192U || value == "." || value == "..") return {};
+  if (std::any_of(value.begin(), value.end(), [](unsigned char character) {
+        return character < 0x20U || character == 0x7FU;
+      })) return {};
   return value;
 }
 
@@ -455,19 +458,17 @@ bool BambuA1PreviewClient::fetch(const BambuLocalConnection& connection, const J
   const std::vector<std::string> paths = archive_paths(job.file_hint, job.job_name);
   const std::string target_name = plate_png_name(job.plate_hint);
   if (paths.empty() || image == nullptr) return false;
-  ESP_LOGI(kTag, "Fetching A1 print preview entry=%s",
-           target_name.empty() ? "active plate from archive" : target_name.c_str());
+  ESP_LOGI(kTag, "Fetching a bounded local Bambu print preview");
   for (const std::string& path : paths) {
     if (stop_requested_.load(std::memory_order_acquire) || !network_ready_.load() ||
         job_request().key != job.key) break;
     if (fetch_archive_png(connection, path, target_name, image)) {
-      ESP_LOGI(kTag, "Loaded A1 print preview from %s entry=%s (%u bytes)", path.c_str(),
-               target_name.empty() ? "active plate from archive" : target_name.c_str(),
+      ESP_LOGI(kTag, "Loaded local Bambu print preview (%u bytes)",
                static_cast<unsigned>((*image)->size()));
       return true;
     }
   }
-  ESP_LOGW(kTag, "A1 print preview was not found for the active local job");
+  ESP_LOGW(kTag, "Bambu print preview was not found for the active local job");
   return false;
 }
 

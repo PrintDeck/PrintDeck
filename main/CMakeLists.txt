@@ -29,6 +29,7 @@ set(PRINTDECK_SRCS
         "src/platform/printer_discovery_service.cpp"
         "src/platform/firmware_update_service.cpp"
         "src/platform/bambu_lan_adapter.cpp"
+        "src/platform/bambu_model.cpp"
         "src/platform/bambu_report_parser.cpp"
         "src/platform/bambu_trust.cpp"
         "src/platform/bambu_a1_preview_client.cpp"
@@ -102,6 +103,27 @@ foreach(language IN LISTS PRINTDECK_VOICE_LANGUAGES)
     endforeach()
 endforeach()
 
+set(PRINTDECK_COMPRESSED_WEB_ROOT "${CMAKE_CURRENT_LIST_DIR}/web/compressed")
+include("${PRINTDECK_COMPRESSED_WEB_ROOT}/manifest.cmake")
+set(PRINTDECK_COMPRESSED_WEB_FILES)
+foreach(asset_name IN LISTS PRINTDECK_COMPRESSED_WEB_ASSET_NAMES)
+    set(source_variable "PRINTDECK_COMPRESSED_WEB_ASSET_${asset_name}_SOURCE")
+    set(source_hash_variable "PRINTDECK_COMPRESSED_WEB_ASSET_${asset_name}_SOURCE_SHA256")
+    set(gzip_variable "PRINTDECK_COMPRESSED_WEB_ASSET_${asset_name}_GZIP")
+    set(gzip_hash_variable "PRINTDECK_COMPRESSED_WEB_ASSET_${asset_name}_GZIP_SHA256")
+    set(source_name "${${source_variable}}")
+    set(gzip_name "${${gzip_variable}}")
+    file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/web/${source_name}" source_hash)
+    file(SHA256 "${PRINTDECK_COMPRESSED_WEB_ROOT}/${gzip_name}" gzip_hash)
+    if(NOT source_hash STREQUAL "${${source_hash_variable}}" OR
+       NOT gzip_hash STREQUAL "${${gzip_hash_variable}}")
+        message(FATAL_ERROR
+            "Compressed Web Config asset ${gzip_name} is stale. "
+            "Regenerate it with the compressed Web Config asset workflow.")
+    endif()
+    list(APPEND PRINTDECK_COMPRESSED_WEB_FILES "web/compressed/${gzip_name}")
+endforeach()
+
 idf_component_register(
     SRCS ${PRINTDECK_SRCS}
     INCLUDE_DIRS "include"
@@ -156,7 +178,7 @@ idf_component_register(
         "audio/kenney/clean/clean_shutdown_countdown.adpcm"
         "audio/kenney/clean/clean_test.adpcm"
         ${PRINTDECK_VOICE_AUDIO_FILES}
-        "web/reactions.bundle.js"
+        ${PRINTDECK_COMPRESSED_WEB_FILES}
         "web/reaction-previews/alloy_iris_green.webp"
         "web/reaction-previews/alloy_iris_blue.webp"
         "web/reaction-previews/alloy_iris_brown.webp"
@@ -166,7 +188,6 @@ idf_component_register(
         "web/reaction-previews/alloy_iris_red.webp"
         "web/reaction-previews/alloy_iris_violet.webp"
         "web/reaction-previews/alloy_iris_cyan.webp"
-    EMBED_TXTFILES "web/index.html" "web/localizations.js" "web/world-map.svg"
     REQUIRES
         app_update
         esp_event

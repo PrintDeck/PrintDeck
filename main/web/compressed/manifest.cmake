@@ -1,0 +1,27 @@
+# Generated compressed Web Config metadata. Do not edit.
+set(PRINTDECK_COMPRESSED_WEB_ASSET_NAMES
+    index_html
+    localizations_js
+    world_map_svg
+    reactions_bundle_js
+)
+
+set(PRINTDECK_COMPRESSED_WEB_ASSET_index_html_SOURCE "index.html")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_index_html_SOURCE_SHA256 "189a086317d472ff2a7c7022e8302a1396da01320a6f0728e8f1b878d7fcae4c")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_index_html_GZIP "index.html.gz")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_index_html_GZIP_SHA256 "7328dbce7483d701a54d7ad9824d4c2406d479a2e78616ff2f970d37ccc7a897")
+
+set(PRINTDECK_COMPRESSED_WEB_ASSET_localizations_js_SOURCE "localizations.js")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_localizations_js_SOURCE_SHA256 "ee9c730fe1acd23b47d6ef54eebaa6e5a0ed6d224a0ef85692fac2e5295f84ca")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_localizations_js_GZIP "localizations.js.gz")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_localizations_js_GZIP_SHA256 "07f31a3dfabe3352f53a52b6a91bcc86871c4a88f4c31113766e06eabb6038bf")
+
+set(PRINTDECK_COMPRESSED_WEB_ASSET_world_map_svg_SOURCE "world-map.svg")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_world_map_svg_SOURCE_SHA256 "0256bb1725b24d5b3d8b2e73239cf793fa49b6390c7c33ba6c02d395bc21d5b9")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_world_map_svg_GZIP "world-map.svg.gz")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_world_map_svg_GZIP_SHA256 "3e547973623d896dbbd0e11e837a0b1470ab2be42deeeaa72d1179eb07aea0b4")
+
+set(PRINTDECK_COMPRESSED_WEB_ASSET_reactions_bundle_js_SOURCE "reactions.bundle.js")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_reactions_bundle_js_SOURCE_SHA256 "02cdeafb3fdbed453fd6d1113bba8b978e996c5307ba377af5adfeff6d9b2a96")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_reactions_bundle_js_GZIP "reactions.bundle.js.gz")
+set(PRINTDECK_COMPRESSED_WEB_ASSET_reactions_bundle_js_GZIP_SHA256 "eb2ec2ca4253ca7852862edffa436525d68ad0603cfc4ee93b5c3dc0e91af17a")

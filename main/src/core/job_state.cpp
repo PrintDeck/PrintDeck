@@ -70,6 +70,9 @@ void JobState::normalize() {
   for (auto& slot : materials.slots) {
     slot.remaining_percent = std::clamp(slot.remaining_percent, -1, 100);
   }
+  for (auto& slot : materials.external_spools) {
+    slot.remaining_percent = std::clamp(slot.remaining_percent, -1, 100);
+  }
   materials.external_spool.remaining_percent =
       std::clamp(materials.external_spool.remaining_percent, -1, 100);
 

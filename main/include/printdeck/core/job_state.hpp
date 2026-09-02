@@ -74,6 +74,8 @@ struct MotionMetrics {
 struct MaterialSlot {
   bool installed = false;
   bool feeding = false;
+  int source_unit = -1;
+  int source_slot = -1;
   std::string material;
   std::uint32_t rgba = 0;
   int remaining_percent = -1;
@@ -81,6 +83,9 @@ struct MaterialSlot {
 
 struct MaterialSystem {
   std::vector<MaterialSlot> slots;
+  std::vector<MaterialSlot> external_spools;
+  // Compatibility view used by the current material screen. It mirrors the
+  // feeding external slot, or the first installed external slot.
   MaterialSlot external_spool;
 };
 

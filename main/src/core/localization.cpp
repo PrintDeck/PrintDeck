@@ -168,6 +168,7 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"Connecting to the local camera…", "Łączenie z lokalną kamerą…", "Conectando a la cámara local…", "Connexion à la caméra locale…", "Verbindung zur lokalen Kamera…", "正在连接本地摄像头…"},
       {"Detecting camera…", "Wykrywanie kamery…", "Detectando cámara…", "Détection de la caméra…", "Kamera wird erkannt…", "正在检测摄像头…"},
       {"Camera unavailable", "Kamera niedostępna", "Cámara no disponible", "Caméra indisponible", "Kamera nicht verfügbar", "摄像头不可用"},
+      {"This display does not support RTSPS cameras", "Ten ekran nie obsługuje kamer RTSPS", "Esta pantalla no admite cámaras RTSPS", "Cet écran ne prend pas en charge les caméras RTSPS", "Dieses Display unterstützt keine RTSPS-Kameras", "此显示设备不支持 RTSPS 摄像头"},
       {"No camera detected\nHave a camera? Contact support.", "Nie wykryto kamery\nMasz kamerę? Skontaktuj się ze wsparciem.", "No se detectó ninguna cámara\n¿Tienes una cámara? Contacta con soporte.", "Aucune caméra détectée\nVous avez une caméra ? Contactez l’assistance.", "Keine Kamera erkannt\nKamera vorhanden? Support kontaktieren.", "未检测到摄像头\n有摄像头？请联系支持。"},
       {"Waiting…", "Oczekiwanie…", "Esperando…", "En attente…", "Warten…", "等待中…"},
       {"Refreshing…", "Odświeżanie…", "Actualizando…", "Actualisation…", "Aktualisieren…", "刷新中…"},
