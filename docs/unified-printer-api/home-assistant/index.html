@@ -140,9 +140,9 @@
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-assign">See example</button></div>
             </li>
             <li>
-              <div class="ha-step-copy"><span>06</span><div><h3>Confirm the entities</h3><p>Open the PrintDeck integration. You should see one hub and a device for every printer. Each printer exposes progress, phase, activity, temperatures, layers, time and connection data when available.</p></div></div>
+              <div class="ha-step-copy"><span>06</span><div><h3>Confirm the entities</h3><p>Open the PrintDeck integration. You should see one hub and a device for every printer. Each printer exposes progress, phase, activity, temperatures, layers, time, connection data, network address and network port when available.</p></div></div>
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-entities">See example</button></div>
-              <div class="ha-note"><strong>New printers appear automatically</strong><p>Add a printer in PrintDeck and Home Assistant creates its device and entities after the next polling cycle. If you remove a printer, its old entities become unavailable so Home Assistant can preserve history; delete that device manually if you no longer want it.</p></div>
+              <div class="ha-note"><strong>Printers stay synchronized automatically</strong><p>Add a printer in PrintDeck and Home Assistant creates its device and entities after the next polling cycle. Remove a printer and integration version 0.1.2 or newer removes its Home Assistant device and entities after the next complete refresh. A temporary connection problem never triggers cleanup. Deleting a printer intentionally breaks automations that reference its entities; edit the saved printer instead if only its address changed.</p></div>
             </li>
           </ol>
 

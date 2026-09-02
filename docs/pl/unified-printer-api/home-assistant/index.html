@@ -140,9 +140,9 @@
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-assign">Zobacz przykład</button></div>
             </li>
             <li>
-              <div class="ha-step-copy"><span>06</span><div><h3>Sprawdź encje</h3><p>Otwórz integrację PrintDeck. Powinien być widoczny jeden hub oraz urządzenie dla każdej drukarki. Każda drukarka udostępnia postęp, etap, aktywność, temperatury, warstwy, czas i dane połączenia, gdy są dostępne.</p></div></div>
+              <div class="ha-step-copy"><span>06</span><div><h3>Sprawdź encje</h3><p>Otwórz integrację PrintDeck. Powinien być widoczny jeden hub oraz urządzenie dla każdej drukarki. Każda drukarka udostępnia postęp, etap, aktywność, temperatury, warstwy, czas, dane połączenia, adres sieciowy i port sieciowy, gdy są dostępne.</p></div></div>
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-entities">Zobacz przykład</button></div>
-              <div class="ha-note"><strong>Nowe drukarki pojawiają się automatycznie</strong><p>Dodaj drukarkę w PrintDeck, a Home Assistant utworzy jej urządzenie i encje po następnym cyklu odpytywania. Po usunięciu drukarki stare encje stają się niedostępne, aby Home Assistant mógł zachować historię; usuń urządzenie ręcznie, jeśli nie jest już potrzebne.</p></div>
+              <div class="ha-note"><strong>Drukarki synchronizują się automatycznie</strong><p>Dodaj drukarkę w PrintDeck, a Home Assistant utworzy jej urządzenie i encje po następnym cyklu odpytywania. Usuń drukarkę, a integracja w wersji 0.1.2 lub nowszej usunie jej urządzenie i encje z Home Assistant po następnym pełnym odświeżeniu. Chwilowy problem z połączeniem nigdy nie uruchamia czyszczenia. Usunięcie drukarki celowo zrywa automatyzacje odwołujące się do jej encji; jeśli zmienił się tylko adres, edytuj zapisany profil.</p></div>
             </li>
           </ol>
 

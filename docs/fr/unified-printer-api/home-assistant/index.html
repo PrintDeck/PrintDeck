@@ -140,9 +140,9 @@
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-assign">Voir l’exemple</button></div>
             </li>
             <li>
-              <div class="ha-step-copy"><span>06</span><div><h3>Vérifiez les entités</h3><p>Ouvrez l’intégration PrintDeck. Vous devez voir un hub et un appareil pour chaque imprimante. Chaque imprimante expose la progression, la phase, l’activité, les températures, les couches, le temps et les données de connexion lorsqu’ils sont disponibles.</p></div></div>
+              <div class="ha-step-copy"><span>06</span><div><h3>Vérifiez les entités</h3><p>Ouvrez l’intégration PrintDeck. Vous devez voir un hub et un appareil pour chaque imprimante. Chaque imprimante expose la progression, la phase, l’activité, les températures, les couches, le temps, les données de connexion, l’adresse réseau et le port réseau lorsqu’ils sont disponibles.</p></div></div>
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-entities">Voir l’exemple</button></div>
-              <div class="ha-note"><strong>Les nouvelles imprimantes apparaissent automatiquement</strong><p>Ajoutez une imprimante dans PrintDeck et Home Assistant créera son appareil et ses entités lors du prochain cycle d’interrogation. Si vous supprimez une imprimante, ses anciennes entités deviennent indisponibles afin que Home Assistant conserve l’historique ; supprimez manuellement cet appareil si vous n’en avez plus besoin.</p></div>
+              <div class="ha-note"><strong>Les imprimantes restent synchronisées automatiquement</strong><p>Ajoutez une imprimante dans PrintDeck et Home Assistant créera son appareil et ses entités lors du prochain cycle d’interrogation. Supprimez une imprimante et la version 0.1.2 ou ultérieure de l’intégration supprimera son appareil et ses entités de Home Assistant après la prochaine actualisation complète. Un problème de connexion temporaire ne déclenche jamais ce nettoyage. La suppression d’une imprimante rompt volontairement les automatisations qui référencent ses entités ; si seule son adresse a changé, modifiez l’imprimante enregistrée.</p></div>
             </li>
           </ol>
 

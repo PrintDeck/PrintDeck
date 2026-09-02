@@ -140,9 +140,9 @@
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-assign">查看示例</button></div>
             </li>
             <li>
-              <div class="ha-step-copy"><span>06</span><div><h3>确认实体</h3><p>打开 PrintDeck 集成。你应看到一个集线器以及每台打印机对应的设备。每台打印机会在数据可用时提供进度、阶段、活动、温度、层数、时间和连接信息。</p></div></div>
+              <div class="ha-step-copy"><span>06</span><div><h3>确认实体</h3><p>打开 PrintDeck 集成。你应看到一个集线器以及每台打印机对应的设备。每台打印机会在数据可用时提供进度、阶段、活动、温度、层数、时间、连接信息、网络地址和网络端口。</p></div></div>
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-entities">查看示例</button></div>
-              <div class="ha-note"><strong>新打印机会自动出现</strong><p>在 PrintDeck 中添加打印机后，Home Assistant 会在下一次轮询时创建设备和实体。如果删除打印机，其旧实体会变为不可用，以便 Home Assistant 保留历史记录；若不再需要，请手动删除该设备。</p></div>
+              <div class="ha-note"><strong>打印机自动保持同步</strong><p>在 PrintDeck 中添加打印机后，Home Assistant 会在下一次轮询时创建设备和实体。删除打印机后，0.1.2 或更高版本的集成会在下一次完整刷新时从 Home Assistant 中删除对应设备和实体。临时连接问题绝不会触发清理。删除打印机会有意中断引用其实体的自动化；如果只是地址发生变化，请改为编辑已保存的打印机。</p></div>
             </li>
           </ol>
 

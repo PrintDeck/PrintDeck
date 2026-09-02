@@ -140,9 +140,9 @@
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-assign">Beispiel ansehen</button></div>
             </li>
             <li>
-              <div class="ha-step-copy"><span>06</span><div><h3>Entitäten prüfen</h3><p>Öffne die PrintDeck-Integration. Du solltest einen Hub und ein Gerät für jeden Drucker sehen. Jeder Drucker stellt, sofern verfügbar, Fortschritt, Phase, Aktivität, Temperaturen, Schichten, Zeit- und Verbindungsdaten bereit.</p></div></div>
+              <div class="ha-step-copy"><span>06</span><div><h3>Entitäten prüfen</h3><p>Öffne die PrintDeck-Integration. Du solltest einen Hub und ein Gerät für jeden Drucker sehen. Jeder Drucker stellt, sofern verfügbar, Fortschritt, Phase, Aktivität, Temperaturen, Schichten, Zeit- und Verbindungsdaten, Netzwerkadresse und Netzwerkport bereit.</p></div></div>
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-entities">Beispiel ansehen</button></div>
-              <div class="ha-note"><strong>Neue Drucker erscheinen automatisch</strong><p>Füge in PrintDeck einen Drucker hinzu. Home Assistant erstellt dessen Gerät und Entitäten nach dem nächsten Abfragezyklus. Wenn du einen Drucker entfernst, werden seine alten Entitäten nicht verfügbar, damit Home Assistant den Verlauf erhalten kann; lösche das Gerät manuell, wenn du es nicht mehr benötigst.</p></div>
+              <div class="ha-note"><strong>Drucker bleiben automatisch synchronisiert</strong><p>Füge in PrintDeck einen Drucker hinzu. Home Assistant erstellt dessen Gerät und Entitäten nach dem nächsten Abfragezyklus. Entferne einen Drucker, dann entfernt die Integration ab Version 0.1.2 dessen Gerät und Entitäten nach der nächsten vollständigen Aktualisierung aus Home Assistant. Ein vorübergehendes Verbindungsproblem löst diese Bereinigung niemals aus. Das Löschen eines Druckers unterbricht bewusst Automatisierungen, die auf dessen Entitäten verweisen; hat sich nur die Adresse geändert, bearbeite stattdessen den gespeicherten Drucker.</p></div>
             </li>
           </ol>
 

@@ -140,9 +140,9 @@
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-assign">Ver ejemplo</button></div>
             </li>
             <li>
-              <div class="ha-step-copy"><span>06</span><div><h3>Comprueba las entidades</h3><p>Abre la integración PrintDeck. Deberías ver un concentrador y un dispositivo por impresora. Cada impresora expone el progreso, la fase, la actividad, las temperaturas, las capas, el tiempo y los datos de conexión cuando están disponibles.</p></div></div>
+              <div class="ha-step-copy"><span>06</span><div><h3>Comprueba las entidades</h3><p>Abre la integración PrintDeck. Deberías ver un concentrador y un dispositivo por impresora. Cada impresora expone el progreso, la fase, la actividad, las temperaturas, las capas, el tiempo, los datos de conexión, la dirección de red y el puerto de red cuando están disponibles.</p></div></div>
               <div class="ha-step-actions"><button class="ha-example-button" type="button" data-example-dialog="ha-example-entities">Ver ejemplo</button></div>
-              <div class="ha-note"><strong>Las impresoras nuevas aparecen automáticamente</strong><p>Añade una impresora en PrintDeck y Home Assistant creará su dispositivo y sus entidades tras el siguiente ciclo de consulta. Si eliminas una impresora, sus entidades antiguas pasarán a no estar disponibles para que Home Assistant conserve el historial; elimina ese dispositivo manualmente si ya no lo necesitas.</p></div>
+              <div class="ha-note"><strong>Las impresoras se mantienen sincronizadas automáticamente</strong><p>Añade una impresora en PrintDeck y Home Assistant creará su dispositivo y sus entidades tras el siguiente ciclo de consulta. Elimina una impresora y la versión 0.1.2 o posterior de la integración eliminará su dispositivo y sus entidades de Home Assistant tras la siguiente actualización completa. Un problema temporal de conexión nunca activa la limpieza. Eliminar una impresora rompe intencionadamente las automatizaciones que hacen referencia a sus entidades; si solo cambió la dirección, edita la impresora guardada.</p></div>
             </li>
           </ol>
 
