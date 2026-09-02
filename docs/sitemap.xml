@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://printdeck.xyz/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/firmware/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/firmware/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/firmware/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/firmware/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/firmware/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/firmware/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/firmware/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/firmware/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/firmware/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/firmware/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/firmware/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/firmware/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/firmware/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/case-designs/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/case-designs/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/case-designs/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/case-designs/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/case-designs/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/case-designs/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/case-designs/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/case-designs/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/case-designs/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/case-designs/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/case-designs/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/case-designs/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/case-designs/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/knomi2/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/knomi2/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/knomi2/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/knomi2/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/knomi2/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/knomi2/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/knomi2/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/knomi2/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/knomi2/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/knomi2/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/knomi2/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/knomi2/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/knomi2/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/support/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/support/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/support/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/support/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/support/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/support/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/support/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/support/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/support/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/support/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/support/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/support/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/support/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/support/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/support/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/support/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/support/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/support/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/support/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/support/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/support/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/support/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/support/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/support/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/support/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/support/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/support/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/support/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/support/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/support/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/support/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/support/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/support/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/support/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/support/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/support/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/support/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/support/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/support/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/support/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/support/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/support/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/unified-printer-api/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/unified-printer-api/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/unified-printer-api/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/unified-printer-api/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/unified-printer-api/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/unified-printer-api/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/"/>
+  </url>
+</urlset>

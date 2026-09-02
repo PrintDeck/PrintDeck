@@ -1,0 +1,199 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#071018">
+
+
+
+
+
+    <title>统一打印机 API · PrintDeck</title>
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-20">
+    <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-2"></script>
+
+    <meta name="description" content="PrintDeck 将受支持的打印机协议转换为统一、版本化的只读 JSON 约定。软件只需开发一次，即可从 Klipper 和受支持的 Bambu Lab 打印机读取相同结构。">
+    <link rel="canonical" href="https://printdeck.xyz/zh-cn/unified-printer-api/">
+    <link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/">
+    <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/">
+    <link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/">
+    <link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/">
+    <link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/">
+    <link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/">
+    <link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PrintDeck">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="pl_PL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:title" content="统一打印机 API · PrintDeck">
+    <meta property="og:description" content="PrintDeck 将受支持的打印机协议转换为统一、版本化的只读 JSON 约定。软件只需开发一次，即可从 Klipper 和受支持的 Bambu Lab 打印机读取相同结构。">
+    <meta property="og:url" content="https://printdeck.xyz/zh-cn/unified-printer-api/">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="统一打印机 API · PrintDeck">
+    <meta name="twitter:description" content="PrintDeck 将受支持的打印机协议转换为统一、版本化的只读 JSON 约定。软件只需开发一次，即可从 Klipper 和受支持的 Bambu Lab 打印机读取相同结构。">
+    <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"统一打印机 API · PrintDeck","description":"PrintDeck 将受支持的打印机协议转换为统一、版本化的只读 JSON 约定。软件只需开发一次，即可从 Klipper 和受支持的 Bambu Lab 打印机读取相同结构。","url":"https://printdeck.xyz/zh-cn/unified-printer-api/","inLanguage":"zh-CN","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
+  </head>
+  <body class="site-page api-page" data-page-title="统一打印机 API · PrintDeck">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="/zh-cn/" aria-label="首页">
+          <img class="site-logo site-logo-white" src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="/assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        </a>
+        <nav class="site-tabs" aria-label="PrintDeck 网站">
+          <a class="site-tab" href="/zh-cn/">首页</a>
+          <a class="site-tab" href="/zh-cn/firmware/">固件</a>
+          <a class="site-tab" href="/zh-cn/case-designs/">外壳设计</a>
+          <a class="site-tab" href="/zh-cn/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/zh-cn/support/">支持</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="api-content">
+      <section class="api-hero">
+        <div class="api-inner api-hero-grid">
+          <div class="api-hero-copy">
+            <span class="api-eyebrow">本地开发者 API</span>
+            <h1>一个打印机 API。<br><strong>多种打印机格式。</strong></h1>
+            <p class="api-lead">PrintDeck 将受支持的打印机协议转换为统一、版本化的只读 JSON 约定。软件只需开发一次，即可从 Klipper 和受支持的 Bambu Lab 打印机读取相同结构。</p>
+            <div class="site-actions">
+              <a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">下载 API 指南</a>
+              <a class="site-button secondary" href="#contract">查看端点</a>
+            </div>
+          </div>
+          <div class="api-flow" aria-label="PrintDeck 将打印机格式统一为一个 JSON API">
+            <div class="api-flow-sources">
+              <div><span>01</span><strong>Moonraker</strong><small>Klipper 遥测数据</small></div>
+              <div><span>02</span><strong>Bambu LAN</strong><small>本地状态报告</small></div>
+            </div>
+            <i aria-hidden="true">→</i>
+            <div class="api-flow-core"><span>PRINTDECK</span><strong>统一转换</strong><small>缓存的协议无关状态</small></div>
+            <i aria-hidden="true">→</i>
+            <div class="api-flow-output"><span>GET /v1/...</span><strong>统一 JSON</strong><small>你的应用</small></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="campaign-signal api-signal" aria-label="统一打印机 API 亮点">
+        <span>仅限本地网络</span>
+        <span>设计为只读</span>
+        <span>Bearer 令牌访问</span>
+        <span>版本化 JSON</span>
+      </div>
+
+      <section class="api-section api-use-cases">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">基于打印机数据构建</span>
+            <h2>你的创意， <strong>无需逐一适配厂商协议。</strong></h2>
+            <p>让 PrintDeck 处理打印机特定连接，你的应用只需使用小巧、可预测的数据模型。</p>
+          </header>
+          <div class="api-card-grid">
+            <article><span>01</span><h3>本地仪表板</h3><p>在墙面显示屏或工作间面板上显示进度、时间、温度和连接状态。</p></article>
+            <article><span>02</span><h3>Home Assistant 桥接</h3><p>将统一后的打印机状态接入现有本地自动化，无需分别实现 MQTT 和 Moonraker。</p></article>
+            <article><span>03</span><h3>Node-RED 流程</h3><p>轮询一种 JSON 结构，并将打印机事件路由到通知、灯光或内部流程。</p></article>
+            <article><span>04</span><h3>监控工具</h3><p>构建能够识别在线、离线、过期和部分可用打印机数据的脚本与服务面板。</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section api-contract" id="contract">
+        <div class="api-inner api-contract-grid">
+          <div class="api-contract-copy">
+            <span class="home-kicker">小巧的只读约定</span>
+            <h2>实用数据。<br><strong>不提供控制接口。</strong></h2>
+            <p>API 提供设备信息、打印机标识、状态、喷嘴和材料槽位。它无法开始、暂停或取消打印。</p>
+            <div class="api-endpoints" data-api-explorer="" aria-label="统一打印机 API 端点">
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/info" aria-pressed="false"><code>GET /v1/info</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers" aria-pressed="false"><code>GET /v1/printers</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/status" aria-pressed="true"><code>GET /v1/printers/status</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}" aria-pressed="false"><code>GET /v1/printers/{id}</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}/status" aria-pressed="false"><code>GET /v1/printers/{id}/status</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}/nozzles" aria-pressed="false"><code>GET /v1/printers/{id}/nozzles</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}/materials" aria-pressed="false"><code>GET /v1/printers/{id}/materials</code><span aria-hidden="true">→</span></button>
+            </div>
+          </div>
+          <div class="api-code-card" data-api-example="">
+            <div class="api-code-title"><span></span><span></span><span></span><strong>首次请求</strong><code data-api-example-path="" aria-live="polite">GET /v1/printers/status</code></div>
+            <pre data-api-request=""><code>curl http://PRINTDECK-IP/v1/printers/status \
+  -H 'Authorization: Bearer pd_your_token_here'</code></pre>
+            <pre class="api-json" data-api-response=""><code>{
+  "api_version": "v1",
+  "statuses": [{
+    "printer_id": 1,
+    "connection": {
+      "state": "online",
+      "reachability": "online",
+      "detail_level": "full",
+      "stale": false,
+      "updated_at_ms": 418520
+    },
+    "job": {
+      "phase": "printing",
+      "kind": "print",
+      "activity": "printing",
+      "name": "Bracket",
+      "progress_percent": 42.5,
+      "elapsed_seconds": 1260,
+      "remaining_seconds": 1740,
+      "current_layer": 48,
+      "total_layers": 112
+    }
+  }]
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section api-start">
+        <div class="api-inner">
+          <header class="api-section-head compact">
+            <span class="home-kicker">在局域网中开始</span>
+            <h2>从 Web Config<br><strong>到首次请求。</strong></h2>
+          </header>
+          <ol class="api-steps">
+            <li><span>01</span><div><h3>打开 Unified Printer API</h3><p>在 Web Config 中打开设备设置，并在备份与恢复上方选择 Unified Printer API。</p></div></li>
+            <li><span>02</span><div><h3>启用并复制令牌</h3><p>PrintDeck 会生成随机访问令牌，并将其本地保存在设备上。</p></div></li>
+            <li><span>03</span><div><h3>发送 Bearer 身份验证</h3><p>在发送到 PrintDeck IP 地址的每个请求中，将令牌放入 Authorization 请求头。</p></div></li>
+            <li><span>04</span><div><h3>获取统一数据</h3><p>读取打印机列表或状态，并对所有支持的打印机类型使用相同的 JSON 结构。</p></div></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="api-section api-boundary">
+        <div class="api-inner api-boundary-grid">
+          <div>
+            <span class="home-kicker">可信局域网边界</span>
+            <h2>你的打印机机密<br><strong>始终留在 PrintDeck 后方。</strong></h2>
+          </div>
+          <div>
+            <p>统一打印机 API 绝不会返回打印机密码、LAN 访问码、序列号、Wi-Fi 密码、摄像头画面或厂商原始数据。请将 PrintDeck 保持在可信本地网络中，不要把其端口转发到互联网。</p>
+            <p class="api-boundary-note">无 Webhook。无云端中继。无打印机控制端点。</p>
+            <a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">阅读完整 API 指南</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span class="footer-copy">PrintDeck · <span>先进的无线 3D 打印监视器</span> · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">GitHub 仓库</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">许可证</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">法律声明</a></span>
+      <div class="footer-controls">
+        <label hidden="" for="api-language">语言</label>
+        <select class="installer-language" id="api-language" aria-label="语言" data-site-language=""><option value="/unified-printer-api/">English</option><option value="/pl/unified-printer-api/">Polski</option><option value="/es/unified-printer-api/">Español</option><option value="/fr/unified-printer-api/">Français</option><option value="/de/unified-printer-api/">Deutsch</option><option value="/zh-cn/unified-printer-api/" selected="">简体中文</option></select>
+        <div class="appearance-switch" data-site-appearance="" role="switch" tabindex="0" aria-label="页面外观">
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="浅色外观"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="深色外观"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+        </div>
+      </div>
+    </footer>
+
+
+
+
+<script>(()=>{const language="zh-CN";try{localStorage.setItem('printdeck-installer-language',language)}catch(_){}document.querySelectorAll('[data-site-language]').forEach((selector)=>selector.addEventListener('change',()=>location.assign(selector.value)));})();</script></body></html>

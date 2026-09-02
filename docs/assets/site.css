@@ -1513,6 +1513,23 @@ body.site-page {
 
 .firmware-page .shell {
   margin-top: 0;
+  background: linear-gradient(145deg, #ffffff 0%, #f4f5f5 48%, #e8eaea 100%);
+}
+
+.firmware-page {
+  --page-glow-a: #e4e7e6;
+  --page-glow-b: #dfe2e1;
+}
+
+:root[data-appearance="dark"] .firmware-page {
+  --page-glow-a: #252827;
+  --page-glow-b: #181a19;
+}
+
+:root[data-appearance="dark"] .firmware-page .shell {
+  border-color: #3a3d3c;
+  background: linear-gradient(145deg, #202221 0%, #181a19 52%, #111312 100%);
+  box-shadow: 0 32px 90px #000a, inset 0 1px rgba(255, 255, 255, .025);
 }
 
 .site-content h1,
@@ -2098,7 +2115,7 @@ body.site-page {
   min-height: 1130px;
   padding: 72px 0 64px;
   box-sizing: border-box;
-  background: #f0fbf8;
+  background: linear-gradient(145deg, #f6f7f7 0%, #eceeee 100%);
 }
 
 .home-page .home-engineering-top {
@@ -2130,10 +2147,10 @@ body.site-page {
   align-items: center;
   gap: 18px;
   padding: 34px 42px;
-  border: 0;
+  border: 1px solid #d4d7d7;
   border-radius: 58px;
-  background: var(--home-card, #fff);
-  box-shadow: none;
+  background: linear-gradient(145deg, #ffffff 0%, #f6f7f7 58%, #ebeded 100%);
+  box-shadow: 0 18px 46px #111c1914;
 }
 
 .home-page .home-metric-icon {
@@ -2321,7 +2338,14 @@ body.site-page {
 :root[data-appearance="dark"] .home-page .home-u1 { background: linear-gradient(90deg, #202322, #292c2b 54%, #242726); }
 :root[data-appearance="dark"] .home-page .home-u1-point-icon { filter: invert(1); }
 :root[data-appearance="dark"] .home-page .home-metric-icon { filter: invert(1); }
-:root[data-appearance="dark"] .home-page .home-engineering { background: #10231e; }
+:root[data-appearance="dark"] .home-page .home-engineering {
+  background: linear-gradient(145deg, #202121 0%, #181919 54%, #111212 100%);
+}
+:root[data-appearance="dark"] .home-page .home-metrics article {
+  border-color: #3a3d3c;
+  background: linear-gradient(145deg, #272828 0%, #1d1e1e 58%, #151616 100%);
+  box-shadow: 0 20px 48px #0007;
+}
 :root[data-appearance="dark"] .home-page .home-community { background: #1b191d; }
 :root[data-appearance="dark"] .home-page .home-community-art > .community-collage-light { display: none; }
 :root[data-appearance="dark"] .home-page .home-community-art > .community-collage-dark { display: block; }
@@ -4617,4 +4641,205 @@ body.site-page {
     padding-left: 20px;
     font-size: .87rem;
   }
+}
+
+/* Neutral subpage surface contract.
+   Mint remains an interaction and typography accent; page, section and card
+   surfaces use white/grey in light mode and black/graphite in dark mode. */
+.firmware-page,
+.case-page,
+.knomi-page,
+.support-page,
+.api-page {
+  --page: #f5f5f6;
+  --page-glow-a: #e6e8e8;
+  --page-glow-b: #dfe1e1;
+  --panel: #ffffff;
+  --panel-glass: #ffffff;
+  --surface: #f1f2f2;
+  --surface-raised: #fafafa;
+  --surface-deep: #e8eaea;
+  --line: #d7dada;
+  --line-strong: #c8cccc;
+  --shadow: #111c191d;
+  --selected: #e5e7e7;
+}
+
+.firmware-page .shell,
+.case-page .case-content,
+.knomi-page .knomi-content,
+.support-page .support-content,
+.api-page .api-content {
+  border-color: #d7dada;
+  background: linear-gradient(145deg, #ffffff 0%, #f5f6f6 54%, #eaebeb 100%);
+  box-shadow: 0 28px 76px #111c191d;
+}
+
+.case-page .case-campaign-hero,
+.knomi-page .knomi-hero,
+.support-page .support-hero,
+.api-page .api-hero {
+  background:
+    radial-gradient(circle at 82% 20%, #ffffff12 0, transparent 31%),
+    radial-gradient(circle at 92% 96%, #ffffff09 0, transparent 35%),
+    linear-gradient(128deg, #1c1e1d 0%, #111212 52%, #090a0a 100%);
+}
+
+.case-page .case-campaign-hero::after,
+.knomi-page .knomi-hero::after,
+.support-page .support-hero::after,
+.api-page .api-hero::after {
+  background: #ffffff18;
+}
+
+.case-page .case-showcase,
+.support-page .page-card,
+.support-page .support-compatibility,
+.support-page .faq-item,
+.knomi-page .knomi-feature-grid article,
+.knomi-page .knomi-install-steps > li,
+.knomi-campaign-page .knomi-campaign-screen-grid article,
+.knomi-campaign-page .knomi-campaign-faq-item,
+.api-page .api-card-grid article {
+  border-color: #d4d7d7;
+  background: linear-gradient(145deg, #ffffff 0%, #f6f7f7 58%, #ebeded 100%);
+  box-shadow: 0 18px 46px #111c1914;
+}
+
+.knomi-page .knomi-story,
+.knomi-page .knomi-navigation,
+.knomi-campaign-page .knomi-campaign-data,
+.api-page .api-boundary {
+  background: #ffffff;
+}
+
+.knomi-page .knomi-experience,
+.knomi-page .knomi-installation,
+.knomi-page .knomi-final,
+.knomi-campaign-page .knomi-campaign-faq,
+.api-page .api-start {
+  background: linear-gradient(145deg, #f5f6f6 0%, #eceeee 100%);
+}
+
+.knomi-page .knomi-navigation-map,
+.knomi-page .knomi-navigation-note {
+  border-color: #d5d8d8;
+  background: linear-gradient(145deg, #f7f8f8 0%, #eceeee 100%);
+  box-shadow: 0 20px 48px #111c1912;
+}
+
+.knomi-page .knomi-privacy,
+.knomi-page .knomi-audio-note,
+.knomi-campaign-page .knomi-campaign-studio,
+.api-page .api-contract {
+  background:
+    radial-gradient(circle at 82% 18%, #ffffff0d 0, transparent 30%),
+    linear-gradient(135deg, #1b1c1c 0%, #101111 58%, #090a0a 100%);
+}
+
+.knomi-page .knomi-muted-visual {
+  background: radial-gradient(circle, #343535 0%, #232424 48%, #171818 76%);
+}
+
+.knomi-campaign-page .knomi-campaign-eye-card,
+.knomi-campaign-page .knomi-campaign-status-card,
+.knomi-campaign-page .knomi-campaign-device-card,
+.knomi-campaign-page .knomi-campaign-upload-demo,
+.knomi-campaign-page .knomi-campaign-reaction-gallery figure,
+.api-page .api-flow,
+.api-page .api-flow-sources > div,
+.api-page .api-flow-core,
+.api-page .api-flow-output {
+  border-color: #3b3e3d;
+  background: linear-gradient(145deg, #262727 0%, #1b1c1c 58%, #111212 100%);
+  box-shadow: 0 24px 58px #0008;
+}
+
+.support-page .support-hero-resource {
+  background: linear-gradient(145deg, #ffffff0e 0%, #ffffff04 100%);
+}
+
+.support-page .support-hero-resource:hover,
+.support-page .support-hero-resource:focus-visible {
+  background: linear-gradient(145deg, #2a2c2b 0%, #171818 100%);
+}
+
+.api-page .api-endpoint {
+  border-color: #3a3d3c;
+  background: #181a19;
+}
+
+.api-page .api-endpoint:hover,
+.api-page .api-endpoint[aria-pressed="true"] {
+  background: #252726;
+}
+
+.api-page .api-code-card {
+  border-color: #383b3b;
+  background: #0b0c0c;
+}
+
+:root[data-appearance="dark"] .firmware-page,
+:root[data-appearance="dark"] .case-page,
+:root[data-appearance="dark"] .knomi-page,
+:root[data-appearance="dark"] .support-page,
+:root[data-appearance="dark"] .api-page {
+  --page: #101010;
+  --page-glow-a: #252727;
+  --page-glow-b: #181919;
+  --panel: #191a1a;
+  --panel-glass: #191a1a;
+  --surface: #252626;
+  --surface-raised: #2a2b2b;
+  --surface-deep: #141515;
+  --line: #393c3b;
+  --line-strong: #464948;
+  --shadow: #0009;
+  --selected: #292b2a;
+}
+
+:root[data-appearance="dark"] .firmware-page .shell,
+:root[data-appearance="dark"] .case-page .case-content,
+:root[data-appearance="dark"] .knomi-page .knomi-content,
+:root[data-appearance="dark"] .support-page .support-content,
+:root[data-appearance="dark"] .api-page .api-content {
+  border-color: #393c3b;
+  background: linear-gradient(145deg, #202121 0%, #181919 54%, #111212 100%);
+  box-shadow: 0 32px 90px #000a, inset 0 1px #ffffff06;
+}
+
+:root[data-appearance="dark"] .case-page .case-showcase,
+:root[data-appearance="dark"] .support-page .page-card,
+:root[data-appearance="dark"] .support-page .support-compatibility,
+:root[data-appearance="dark"] .support-page .faq-item,
+:root[data-appearance="dark"] .knomi-page .knomi-feature-grid article,
+:root[data-appearance="dark"] .knomi-page .knomi-install-steps > li,
+:root[data-appearance="dark"] .knomi-campaign-page .knomi-campaign-screen-grid article,
+:root[data-appearance="dark"] .knomi-campaign-page .knomi-campaign-faq-item,
+:root[data-appearance="dark"] .api-page .api-card-grid article {
+  border-color: #3a3d3c;
+  background: linear-gradient(145deg, #272828 0%, #1d1e1e 58%, #151616 100%);
+  box-shadow: 0 20px 48px #0007;
+}
+
+:root[data-appearance="dark"] .knomi-page .knomi-story,
+:root[data-appearance="dark"] .knomi-page .knomi-navigation,
+:root[data-appearance="dark"] .knomi-campaign-page .knomi-campaign-data,
+:root[data-appearance="dark"] .api-page .api-boundary {
+  background: #111212;
+}
+
+:root[data-appearance="dark"] .knomi-page .knomi-experience,
+:root[data-appearance="dark"] .knomi-page .knomi-installation,
+:root[data-appearance="dark"] .knomi-page .knomi-final,
+:root[data-appearance="dark"] .knomi-campaign-page .knomi-campaign-faq,
+:root[data-appearance="dark"] .api-page .api-start {
+  background: linear-gradient(145deg, #1c1d1d 0%, #141515 100%);
+}
+
+:root[data-appearance="dark"] .knomi-page .knomi-navigation-map,
+:root[data-appearance="dark"] .knomi-page .knomi-navigation-note {
+  border-color: #3a3d3c;
+  background: linear-gradient(145deg, #262727 0%, #191a1a 100%);
+  box-shadow: 0 20px 48px #0006;
 }

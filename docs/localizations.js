@@ -766,6 +766,14 @@
   const dictionaries = Object.fromEntries(codes.map((code, column) => [code,
     Object.fromEntries(rows.map((row) => [row[0], row[column]]))]));
   const languageNames = { en: 'English', pl: 'Polski', es: 'Español', fr: 'Français', de: 'Deutsch', 'zh-CN': '简体中文' };
+  const firmwareRoutes = {
+    en: '/firmware/',
+    pl: '/pl/firmware/',
+    es: '/es/firmware/',
+    fr: '/fr/firmware/',
+    de: '/de/firmware/',
+    'zh-CN': '/zh-cn/firmware/'
+  };
   const storageKey = 'printdeck-installer-language';
   const originalText = new WeakMap();
   const originalAttributes = new WeakMap();
@@ -810,6 +818,7 @@
       Object.entries(originalAttributes.get(element)).forEach(([name, source]) => element.setAttribute(name, t(source)));
     });
     document.querySelectorAll('[data-installer-language]').forEach((selector) => { selector.value = language; });
+    document.querySelectorAll('[data-site-language]').forEach((selector) => { selector.value = firmwareRoutes[language]; });
     translateVersionLabels();
     window.printDeckInstallerAppearance?.bind();
   };
@@ -822,10 +831,15 @@
   const init = () => {
     let stored = '';
     try { stored = localStorage.getItem(storageKey) || ''; } catch (_) {}
-    language = normalize(stored || navigator.languages?.[0] || navigator.language);
+    language = normalize(document.documentElement.lang || stored || navigator.languages?.[0] || navigator.language);
+    try { localStorage.setItem(storageKey, language); } catch (_) {}
     document.querySelectorAll('[data-installer-language]').forEach((selector) => {
       selector.replaceChildren(...codes.map((code) => new Option(languageNames[code], code)));
       selector.addEventListener('change', () => setLanguage(selector.value));
+    });
+    document.querySelectorAll('[data-site-language]').forEach((selector) => {
+      selector.value = firmwareRoutes[language];
+      selector.addEventListener('change', () => location.assign(selector.value));
     });
     apply();
   };

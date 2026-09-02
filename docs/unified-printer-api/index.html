@@ -1,31 +1,56 @@
-<!doctype html>
-<html lang="en">
-  <head>
+<!DOCTYPE html><html lang="en"><head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#071018">
-    <meta name="description" content="Build dashboards, automations and local tools against one read-only JSON API for supported Klipper and Bambu Lab printers.">
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Unified Printer API · PrintDeck">
-    <meta property="og:description" content="One local, read-only JSON format for printer status, tools and materials.">
-    <meta property="og:url" content="https://printdeck.xyz/unified-printer-api/">
+
+
+
+
+
     <title>Unified Printer API · PrintDeck</title>
-    <link rel="stylesheet" href="../assets/site.css?v=20260902-16">
-    <script src="../assets/site.js?v=20260902-2"></script>
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-20">
+    <script>window.printDeckInstallerI18n={language:"en",t:(source,values={})=>{let result=({"Play":"Play","Pause":"Pause","Seek":"Seek","{currentTime} of {duration}":"{currentTime} of {duration}","Played":"Played","Buffered":"Buffered","Current time":"Current time","Volume":"Volume","Mute":"Mute","Unmute":"Unmute","Enter fullscreen":"Enter fullscreen","Exit fullscreen":"Exit fullscreen"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-2"></script>
+
+    <meta name="description" content="PrintDeck translates supported printer protocols into one versioned, read-only JSON contract. Build your software once and read the same shape from Klipper and supported Bambu Lab printers.">
+    <link rel="canonical" href="https://printdeck.xyz/unified-printer-api/">
+    <link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/">
+    <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/">
+    <link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/">
+    <link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/">
+    <link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/">
+    <link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/">
+    <link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PrintDeck">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="pl_PL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:title" content="Unified Printer API · PrintDeck">
+    <meta property="og:description" content="PrintDeck translates supported printer protocols into one versioned, read-only JSON contract. Build your software once and read the same shape from Klipper and supported Bambu Lab printers.">
+    <meta property="og:url" content="https://printdeck.xyz/unified-printer-api/">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Unified Printer API · PrintDeck">
+    <meta name="twitter:description" content="PrintDeck translates supported printer protocols into one versioned, read-only JSON contract. Build your software once and read the same shape from Klipper and supported Bambu Lab printers.">
+    <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Unified Printer API · PrintDeck","description":"PrintDeck translates supported printer protocols into one versioned, read-only JSON contract. Build your software once and read the same shape from Klipper and supported Bambu Lab printers.","url":"https://printdeck.xyz/unified-printer-api/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
   <body class="site-page api-page" data-page-title="Unified Printer API · PrintDeck">
     <header class="site-header">
       <div class="site-header-inner">
-        <a class="site-brand" href="../" aria-label="Home">
-          <img class="site-logo site-logo-white" src="../assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
-          <img class="site-logo site-logo-black" src="../assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        <a class="site-brand" href="/" aria-label="Home">
+          <img class="site-logo site-logo-white" src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="/assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
         </a>
         <nav class="site-tabs" aria-label="PrintDeck website">
-          <a class="site-tab" href="../">Home</a>
-          <a class="site-tab" href="../firmware/">Firmware</a>
-          <a class="site-tab" href="../case-designs/">Case Designs</a>
-          <a class="site-tab" href="../knomi2/">KNOMI2</a>
-          <a class="site-tab" href="../support/">Support</a>
+          <a class="site-tab" href="/">Home</a>
+          <a class="site-tab" href="/firmware/">Firmware</a>
+          <a class="site-tab" href="/case-designs/">Case Designs</a>
+          <a class="site-tab" href="/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/support/">Support</a>
         </nav>
       </div>
     </header>
@@ -38,7 +63,7 @@
             <h1>One printer API.<br><strong>Many printer formats.</strong></h1>
             <p class="api-lead">PrintDeck translates supported printer protocols into one versioned, read-only JSON contract. Build your software once and read the same shape from Klipper and supported Bambu Lab printers.</p>
             <div class="site-actions">
-              <a class="site-button" href="../printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Download API guide</a>
+              <a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Download API guide</a>
               <a class="site-button secondary" href="#contract">Explore endpoints</a>
             </div>
           </div>
@@ -84,7 +109,7 @@
             <span class="home-kicker">A SMALL READ-ONLY CONTRACT</span>
             <h2>Useful data.<br><strong>No control surface.</strong></h2>
             <p>The API exposes device information, printer identity, status, nozzles and material slots. It cannot start, pause or cancel a print.</p>
-            <div class="api-endpoints" data-api-explorer aria-label="Unified Printer API endpoints">
+            <div class="api-endpoints" data-api-explorer="" aria-label="Unified Printer API endpoints">
               <button class="api-endpoint" type="button" data-api-endpoint="/v1/info" aria-pressed="false"><code>GET /v1/info</code><span aria-hidden="true">→</span></button>
               <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers" aria-pressed="false"><code>GET /v1/printers</code><span aria-hidden="true">→</span></button>
               <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/status" aria-pressed="true"><code>GET /v1/printers/status</code><span aria-hidden="true">→</span></button>
@@ -94,11 +119,11 @@
               <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}/materials" aria-pressed="false"><code>GET /v1/printers/{id}/materials</code><span aria-hidden="true">→</span></button>
             </div>
           </div>
-          <div class="api-code-card" data-api-example>
-            <div class="api-code-title"><span></span><span></span><span></span><strong>First request</strong><code data-api-example-path aria-live="polite">GET /v1/printers/status</code></div>
-            <pre data-api-request><code>curl http://PRINTDECK-IP/v1/printers/status \
+          <div class="api-code-card" data-api-example="">
+            <div class="api-code-title"><span></span><span></span><span></span><strong>First request</strong><code data-api-example-path="" aria-live="polite">GET /v1/printers/status</code></div>
+            <pre data-api-request=""><code>curl http://PRINTDECK-IP/v1/printers/status \
   -H 'Authorization: Bearer pd_your_token_here'</code></pre>
-            <pre class="api-json" data-api-response><code>{
+            <pre class="api-json" data-api-response=""><code>{
   "api_version": "v1",
   "statuses": [{
     "printer_id": 1,
@@ -150,24 +175,25 @@
           <div>
             <p>The Unified Printer API never returns printer passwords, LAN access codes, serial numbers, Wi-Fi passwords, camera frames or raw vendor payloads. Keep PrintDeck on a trusted local network and do not forward its port to the internet.</p>
             <p class="api-boundary-note">No webhooks. No cloud relay. No printer-control endpoints.</p>
-            <a class="site-button" href="../printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Read the complete API guide</a>
+            <a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Read the complete API guide</a>
           </div>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <span class="footer-copy">PrintDeck · ADVANCED WIRELESS 3D PRINT MONITOR · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">GitHub repository</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">License</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">Notice</a></span>
+      <span class="footer-copy">PrintDeck · <span>ADVANCED WIRELESS 3D PRINT MONITOR</span> · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">GitHub repository</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">License</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">Notice</a></span>
       <div class="footer-controls">
-        <label hidden for="api-language">Language</label>
-        <select class="installer-language" id="api-language" data-installer-language aria-label="Language"></select>
-        <div class="appearance-switch" data-site-appearance role="switch" tabindex="0" aria-label="Page appearance">
+        <label hidden="" for="api-language">Language</label>
+        <select class="installer-language" id="api-language" aria-label="Language" data-site-language=""><option value="/unified-printer-api/" selected="">English</option><option value="/pl/unified-printer-api/">Polski</option><option value="/es/unified-printer-api/">Español</option><option value="/fr/unified-printer-api/">Français</option><option value="/de/unified-printer-api/">Deutsch</option><option value="/zh-cn/unified-printer-api/">简体中文</option></select>
+        <div class="appearance-switch" data-site-appearance="" role="switch" tabindex="0" aria-label="Page appearance">
           <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="Light appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
           <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="Dark appearance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
         </div>
       </div>
     </footer>
-    <script src="../localizations.js?v=20260902-3"></script>
-    <script>window.printDeckInstallerI18n.init();</script>
-  </body>
-</html>
+
+
+
+
+<script>(()=>{const language="en";try{localStorage.setItem('printdeck-installer-language',language)}catch(_){}document.querySelectorAll('[data-site-language]').forEach((selector)=>selector.addEventListener('change',()=>location.assign(selector.value)));})();</script></body></html>

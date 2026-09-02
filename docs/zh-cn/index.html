@@ -1,0 +1,306 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101010">
+
+
+
+
+
+
+
+    <title>PrintDeck · 3D 打印机显示屏固件</title>
+    <link rel="stylesheet" href="/assets/vendor/plyr/plyr.css?v=3.8.4">
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-20">
+    <script src="/assets/vendor/plyr/plyr.min.js?v=3.8.4" defer=""></script>
+    <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-1"></script>
+
+    <meta name="description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。">
+    <link rel="canonical" href="https://printdeck.xyz/zh-cn/">
+    <link rel="alternate" hreflang="en" href="https://printdeck.xyz/">
+    <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/">
+    <link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/">
+    <link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/">
+    <link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/">
+    <link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/">
+    <link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PrintDeck">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="pl_PL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:title" content="PrintDeck · 3D 打印机显示屏固件">
+    <meta property="og:description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。">
+    <meta property="og:url" content="https://printdeck.xyz/zh-cn/">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PrintDeck · 3D 打印机显示屏固件">
+    <meta name="twitter:description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。">
+    <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PrintDeck · 3D 打印机显示屏固件","description":"PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。","url":"https://printdeck.xyz/zh-cn/","inLanguage":"zh-CN"}</script>
+  </head>
+  <body class="site-page home-page" data-page-title="PrintDeck · 3D 打印机显示屏固件">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="/zh-cn/" aria-label="首页">
+          <img class="site-logo site-logo-white" src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="/assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        </a>
+        <nav class="site-tabs" aria-label="PrintDeck 网站">
+          <a class="site-tab" href="/zh-cn/" aria-current="page">首页</a>
+          <a class="site-tab" href="/zh-cn/firmware/">固件</a>
+          <a class="site-tab" href="/zh-cn/case-designs/">外壳设计</a>
+          <a class="site-tab" href="/zh-cn/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/zh-cn/support/">支持</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="home-content">
+      <section class="home-hero home-dark-band">
+        <div class="home-inner home-hero-grid">
+          <div class="home-hero-copy">
+            <span class="home-eyebrow">适用于 3D 打印机显示屏的独立固件</span>
+            <h1><strong>你的打印机，</strong><br>状态始终可见。</h1>
+            <p class="site-lead">PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。</p>
+            <p class="home-origin-line">独立固件。由 3D 打印爱好者打造，为整个社区而生。</p>
+            <div class="site-actions">
+              <a class="site-button secondary" href="#at-a-glance">了解工作原理</a>
+              <a class="site-button" href="/zh-cn/firmware/">安装固件</a>
+            </div>
+          </div>
+          <figure class="home-hero-product" aria-label="The Riverstone" data-hero-product="">
+            <div class="home-hero-floor-shadow" aria-hidden="true"></div>
+            <div class="home-hero-device" data-hero-device="">
+              <img class="home-hero-device-photo" src="/assets/marketing/home/riverstone-hero-green-cutout.webp" alt="" fetchpriority="high">
+              <div class="home-hero-screen" aria-hidden="true">
+                <img class="is-active" src="/assets/marketing/home/status-screen-cutout.webp" alt="" data-hero-screen="0">
+                <img src="/assets/marketing/home/status-screen-nozzles.webp" alt="" data-hero-screen="1">
+                <img src="/assets/screens/local-camera-round.png" alt="" data-hero-screen="2">
+                <img src="/assets/marketing/home/status-screen-printing.webp" alt="" data-hero-screen="3">
+                <img src="/assets/marketing/home/filament-loading-green.gif" alt="" data-hero-screen="4">
+                <img src="/assets/marketing/home/printing-violet.gif" alt="" data-hero-screen="5">
+                <img src="/assets/marketing/home/filament-changing-cyan.gif" alt="" data-hero-screen="6">
+                <img src="/assets/marketing/home/calibrating-red.gif" alt="" data-hero-screen="7">
+              </div>
+            </div>
+          </figure>
+        </div>
+      </section>
+
+      <div class="home-compatibility" aria-label="PrintDeck 支持的平台">
+        <span>Klipper · Moonraker</span>
+        <span>Bambu Lab · 本地网络</span>
+        <span>多工具就绪</span>
+        <span>无需云账户</span>
+      </div>
+
+      <section class="home-section home-glance" id="at-a-glance">
+        <div class="home-inner">
+          <header class="home-section-head">
+            <span class="home-kicker">所有信息一目了然</span>
+            <h2>关键信息。<br><strong>始终在眼前。</strong></h2>
+            <p>无需拿起手机，即可查看进度、温度、活动工具和摄像头画面。</p>
+          </header>
+          <div class="home-feature-grid">
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/status-screen-cutout.webp" alt="PrintDeck 实时打印机状态屏幕"></div>
+              <span class="home-card-index">01</span>
+              <h3>实时打印状态</h3>
+              <p>一眼查看当前阶段、层数、温度和剩余时间。</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/status-screen-nozzles.webp" alt="PrintDeck 多工具屏幕"></div>
+              <span class="home-card-index">02</span>
+              <h3>最多 12 个工具</h3>
+              <p>对于使用 Moonraker 的打印机，PrintDeck 可发现多达十二个挤出机，并清晰显示温度、材料和颜色。</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/status-screen-printing.webp" alt="PrintDeck 打印机动画"></div>
+              <span class="home-card-index">03</span>
+              <h3>打印机状态一眼可见</h3>
+              <p>动画让加热、打印、暂停和完成状态一目了然。</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/filament-loading-green.gif" alt="装载耗材"></div>
+              <span class="home-card-index">04</span>
+              <h3>耗材更换清晰可见</h3>
+              <p>专用动画会显示耗材正在装载或更换。</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/printing-violet.gif" alt="PrintDeck 打印机动画"></div>
+              <span class="home-card-index">05</span>
+              <h3>打造你的风格</h3>
+              <p>选择与打印机、工作空间或偏爱色彩相配的动画主题。</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/screens/local-camera-round.png" alt="PrintDeck 本地摄像头画面"></div>
+              <span class="home-card-index">06</span>
+              <h3>实时查看打印过程</h3>
+              <p>无需拿起手机，即可直接在 PrintDeck 上查看打印机的本地摄像头画面。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-section home-u1" id="snapmaker-u1">
+        <div class="home-inner home-u1-grid">
+          <figure class="home-u1-media" aria-label="Snapmaker U1 Mini PrintDeck 外壳">
+            <img src="/assets/marketing/home/u1-mini-cutout.webp" alt="">
+          </figure>
+          <div class="home-u1-copy">
+            <span class="home-kicker">专为 SNAPMAKER U1</span>
+            <h2>专为 <strong>U1 打造。</strong></h2>
+            <p>PrintDeck 在专用屏幕上显示 U1 的打印任务、工具和温度数据。配套外壳呼应打印机设计，摄像头画面无需改装 U1 即可使用。</p>
+            <div class="site-actions">
+              <a class="site-button secondary" href="/zh-cn/case-designs/#snapmaker-u1-mini">U1 Mini 外壳</a>
+              <a class="site-button" href="/zh-cn/firmware/">安装固件</a>
+            </div>
+          </div>
+          <div class="home-u1-points">
+            <article>
+              <img class="home-u1-point-icon" src="/assets/marketing/home/icons/ico1-u1.svg" alt="" aria-hidden="true">
+              <h3>兼容原厂配置</h3>
+              <p>通过本地网络读取 U1 的标准配置。</p>
+            </article>
+            <article>
+              <img class="home-u1-point-icon" src="/assets/marketing/home/icons/ico2-u1.svg" alt="" aria-hidden="true">
+              <h3>工具一目了然</h3>
+              <p>无需打开其他应用，即可查看活动工具及其温度。</p>
+            </article>
+            <article>
+              <img class="home-u1-point-icon" src="/assets/marketing/home/icons/ico3-u1.svg" alt="" aria-hidden="true">
+              <h3>U1 摄像头画面</h3>
+              <p>直接在 PrintDeck 上查看 U1 摄像头画面，无需改装打印机。</p>
+            </article>
+          </div>
+          <figure class="home-section-video">
+            <video data-home-video="u1" data-video-label="PrintDeck 在 Snapmaker U1 旁启动" controls="" playsinline="" preload="metadata" controlslist="nodownload" aria-label="PrintDeck 在 Snapmaker U1 旁启动">
+              <source src="/assets/marketing/home/u1-printdeck-powering.mp4" type="video/mp4">
+            </video>
+          </figure>
+        </div>
+      </section>
+
+      <section class="home-section home-workflow" id="workflow">
+        <div class="home-inner">
+          <header class="home-section-head compact">
+            <span class="home-kicker">从屏幕到仪表板</span>
+            <h2>只需三步。<br><strong>即可开始。</strong></h2>
+          </header>
+          <ol class="home-steps">
+            <li><span>01</span><div><h3>选择你的屏幕</h3><p>选择 1.75 英寸圆形 AMOLED 或紧凑的 1.54 英寸方形 LCD。</p></div></li>
+            <li><span>02</span><div><h3>从浏览器安装</h3><p>通过 USB-C 连接屏幕并按照安装程序的引导操作，无需编程工具。</p></div></li>
+            <li><span>03</span><div><h3>添加你的打印机</h3><p>在 Web Config 中添加打印机。登录凭据会保存在 PrintDeck 上。</p></div></li>
+          </ol>
+          <div class="site-actions centered">
+            <a class="site-button secondary" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">阅读用户手册</a>
+            <a class="site-button" href="/zh-cn/firmware/">安装固件</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-section home-engineering" id="daily-use">
+        <div class="home-inner">
+          <div class="home-engineering-top">
+            <div class="home-engineering-copy">
+              <span class="home-kicker">为日常使用而设计</span>
+              <h2><strong>首次使用</strong> 即可轻松上手。</h2>
+              <p>引导式 USB 安装程序可帮助你快速开始。之后，PrintDeck 会记住设置、直接连接打印机，并提供应急 Wi-Fi 网络和无线更新。</p>
+              <div class="site-actions">
+                <a class="site-button" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">阅读用户手册</a>
+              </div>
+            </div>
+            <figure class="home-engineering-product" aria-label="The Riverstone"><img src="/assets/marketing/home/riverstone-off-cutout.webp" alt=""></figure>
+          </div>
+          <div class="home-metrics" aria-label="PrintDeck 实用亮点">
+            <article>
+              <img class="home-metric-icon" src="/assets/marketing/home/icons/ico_ekrany.svg" alt="" aria-hidden="true">
+              <div><strong>2</strong><h3>屏幕形态</h3><p>圆形或方形，选择适合你使用环境的屏幕。</p></div>
+            </article>
+            <article>
+              <img class="home-metric-icon" src="/assets/marketing/home/icons/ico_narzedzia.svg" alt="" aria-hidden="true">
+              <div><strong>12</strong><h3>个 Moonraker 工具</h3><p>在一个屏幕上查看温度、材料和颜色。</p></div>
+            </article>
+            <article>
+              <img class="home-metric-icon" src="/assets/marketing/home/icons/ico_USB.svg" alt="" aria-hidden="true">
+              <div><strong>USB+OTA</strong><h3>安装与更新</h3><p>通过 USB 安装，并无线更新。</p></div>
+            </article>
+            <article>
+              <img class="home-metric-icon" src="/assets/marketing/home/icons/ico_Lokalnie.svg" alt="" aria-hidden="true">
+              <div><strong>本地</strong><h3>直接打印机连接</h3><p>在本地网络中直接连接。</p></div>
+            </article>
+          </div>
+          <figure class="home-section-video home-engineering-video">
+            <video data-home-video="riverstone" data-video-label="The Riverstone 启动" controls="" playsinline="" preload="metadata" controlslist="nodownload" aria-label="The Riverstone 启动">
+              <source src="/assets/marketing/home/riverstone-powering.mp4" type="video/mp4">
+            </video>
+          </figure>
+        </div>
+      </section>
+
+      <section class="home-section home-cases" id="cases">
+        <div class="home-inner">
+          <header class="home-section-head compact">
+            <span class="home-kicker">外壳设计</span>
+            <h2><strong>你的外壳。</strong><br>你的风格。</h2>
+          </header>
+          <div class="home-cases-grid">
+            <div class="home-cases-copy">
+              <p>将 PrintDeck 放在桌面、带进工作间，或把 The Riverstone 吸附在金属表面。每款外壳都以不同形态呈现相同的 PrintDeck 功能。</p>
+              <a class="site-button" href="/zh-cn/case-designs/">查看外壳设计</a>
+            </div>
+            <figure><img src="/assets/marketing/home/case-collection-front-cutout.webp" alt="The Riverstone、The Scuttle 和 Snapmaker U1 Mini PrintDeck 外壳"></figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-section home-community" id="community">
+        <div class="home-inner home-community-grid">
+          <div class="home-community-art" aria-hidden="true">
+            <img class="community-collage community-collage-light" src="/assets/marketing/home/open-design-collage-light.webp" alt="">
+            <img class="community-collage community-collage-dark" src="/assets/marketing/home/open-design-collage-dark.webp" alt="">
+          </div>
+          <div class="home-community-copy">
+            <span class="home-kicker">GITHUB 上的源代码</span>
+            <h2>开放<br><strong>接受新想法。</strong></h2>
+            <p>PrintDeck 的源代码已在 GitHub 上公开。你可以了解其工作原理、关注新版本，或帮助改进项目。</p>
+          </div>
+          <div class="site-actions centered home-community-actions">
+            <a class="site-button" href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener noreferrer">在 GitHub 查看代码</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-final-cta home-dark-band" id="install">
+        <div class="home-inner">
+          <div class="home-final-logo"><img src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck"></div>
+          <h2>你的打印机。<br><strong>始终在眼前。</strong></h2>
+          <p>在兼容屏幕上安装 PrintDeck，选择一款外壳，让所需信息始终触手可及。</p>
+          <div class="site-actions centered">
+            <a class="site-button" href="/zh-cn/firmware/">安装 PrintDeck</a>
+            <a class="site-button secondary" href="/zh-cn/support/">需要组装方面的帮助吗？</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer home-footer">
+      <span class="footer-copy">PrintDeck · <span>3D 打印机本地显示屏</span> · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">GitHub 仓库</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">许可证</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">法律声明</a></span>
+      <div class="footer-controls">
+        <label hidden="" for="site-language">语言</label>
+        <select class="installer-language" id="site-language" aria-label="语言" data-site-language=""><option value="/">English</option><option value="/pl/">Polski</option><option value="/es/">Español</option><option value="/fr/">Français</option><option value="/de/">Deutsch</option><option value="/zh-cn/" selected="">简体中文</option></select>
+        <div class="appearance-switch" data-site-appearance="" role="switch" tabindex="0" aria-label="页面外观">
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="浅色外观"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="深色外观"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+        </div>
+      </div>
+    </footer>
+
+
+
+
+<script>(()=>{const language="zh-CN";try{localStorage.setItem('printdeck-installer-language',language)}catch(_){}document.querySelectorAll('[data-site-language]').forEach((selector)=>selector.addEventListener('change',()=>location.assign(selector.value)));})();</script></body></html>

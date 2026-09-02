@@ -1,0 +1,306 @@
+<!DOCTYPE html><html lang="de"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101010">
+
+
+
+
+
+
+
+    <title>PrintDeck · Firmware für dein 3D-Drucker-Display</title>
+    <link rel="stylesheet" href="/assets/vendor/plyr/plyr.css?v=3.8.4">
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-20">
+    <script src="/assets/vendor/plyr/plyr.min.js?v=3.8.4" defer=""></script>
+    <script>window.printDeckInstallerI18n={language:"de",t:(source,values={})=>{let result=({"Play":"Abspielen","Pause":"Pause","Seek":"Spulen","{currentTime} of {duration}":"{currentTime} von {duration}","Played":"Abgespielt","Buffered":"Gepuffert","Current time":"Aktuelle Zeit","Volume":"Lautstärke","Mute":"Stummschalten","Unmute":"Ton einschalten","Enter fullscreen":"Vollbild aktivieren","Exit fullscreen":"Vollbild beenden"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-1"></script>
+
+    <meta name="description" content="Die PrintDeck-Firmware macht ein kompatibles ESP32-Display zu einem eigenen lokalen Begleiter für deinen 3D-Drucker. Sie verbindet sich direkt mit Klipper und unterstützten Bambu-Lab-Druckern – ganz ohne Cloud-Konto.">
+    <link rel="canonical" href="https://printdeck.xyz/de/">
+    <link rel="alternate" hreflang="en" href="https://printdeck.xyz/">
+    <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/">
+    <link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/">
+    <link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/">
+    <link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/">
+    <link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/">
+    <link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PrintDeck">
+    <meta property="og:locale" content="de_DE">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="pl_PL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:title" content="PrintDeck · Firmware für dein 3D-Drucker-Display">
+    <meta property="og:description" content="Die PrintDeck-Firmware macht ein kompatibles ESP32-Display zu einem eigenen lokalen Begleiter für deinen 3D-Drucker. Sie verbindet sich direkt mit Klipper und unterstützten Bambu-Lab-Druckern – ganz ohne Cloud-Konto.">
+    <meta property="og:url" content="https://printdeck.xyz/de/">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PrintDeck · Firmware für dein 3D-Drucker-Display">
+    <meta name="twitter:description" content="Die PrintDeck-Firmware macht ein kompatibles ESP32-Display zu einem eigenen lokalen Begleiter für deinen 3D-Drucker. Sie verbindet sich direkt mit Klipper und unterstützten Bambu-Lab-Druckern – ganz ohne Cloud-Konto.">
+    <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PrintDeck · Firmware für dein 3D-Drucker-Display","description":"Die PrintDeck-Firmware macht ein kompatibles ESP32-Display zu einem eigenen lokalen Begleiter für deinen 3D-Drucker. Sie verbindet sich direkt mit Klipper und unterstützten Bambu-Lab-Druckern – ganz ohne Cloud-Konto.","url":"https://printdeck.xyz/de/","inLanguage":"de"}</script>
+  </head>
+  <body class="site-page home-page" data-page-title="PrintDeck · Firmware für dein 3D-Drucker-Display">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="/de/" aria-label="Startseite">
+          <img class="site-logo site-logo-white" src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="/assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        </a>
+        <nav class="site-tabs" aria-label="PrintDeck-Website">
+          <a class="site-tab" href="/de/" aria-current="page">Startseite</a>
+          <a class="site-tab" href="/de/firmware/">Firmware</a>
+          <a class="site-tab" href="/de/case-designs/">Gehäusedesigns</a>
+          <a class="site-tab" href="/de/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/de/support/">Support</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="home-content">
+      <section class="home-hero home-dark-band">
+        <div class="home-inner home-hero-grid">
+          <div class="home-hero-copy">
+            <span class="home-eyebrow">UNABHÄNGIGE FIRMWARE FÜR 3D-DRUCKER-DISPLAYS</span>
+            <h1><strong>Dein Drucker,</strong><br>immer im Blick.</h1>
+            <p class="site-lead">Die PrintDeck-Firmware macht ein kompatibles ESP32-Display zu einem eigenen lokalen Begleiter für deinen 3D-Drucker. Sie verbindet sich direkt mit Klipper und unterstützten Bambu-Lab-Druckern – ganz ohne Cloud-Konto.</p>
+            <p class="home-origin-line">Unabhängige Firmware. Von 3D-Druck-Enthusiasten für die Community entwickelt.</p>
+            <div class="site-actions">
+              <a class="site-button secondary" href="#at-a-glance">So funktioniert es</a>
+              <a class="site-button" href="/de/firmware/">Firmware installieren</a>
+            </div>
+          </div>
+          <figure class="home-hero-product" aria-label="The Riverstone" data-hero-product="">
+            <div class="home-hero-floor-shadow" aria-hidden="true"></div>
+            <div class="home-hero-device" data-hero-device="">
+              <img class="home-hero-device-photo" src="/assets/marketing/home/riverstone-hero-green-cutout.webp" alt="" fetchpriority="high">
+              <div class="home-hero-screen" aria-hidden="true">
+                <img class="is-active" src="/assets/marketing/home/status-screen-cutout.webp" alt="" data-hero-screen="0">
+                <img src="/assets/marketing/home/status-screen-nozzles.webp" alt="" data-hero-screen="1">
+                <img src="/assets/screens/local-camera-round.png" alt="" data-hero-screen="2">
+                <img src="/assets/marketing/home/status-screen-printing.webp" alt="" data-hero-screen="3">
+                <img src="/assets/marketing/home/filament-loading-green.gif" alt="" data-hero-screen="4">
+                <img src="/assets/marketing/home/printing-violet.gif" alt="" data-hero-screen="5">
+                <img src="/assets/marketing/home/filament-changing-cyan.gif" alt="" data-hero-screen="6">
+                <img src="/assets/marketing/home/calibrating-red.gif" alt="" data-hero-screen="7">
+              </div>
+            </div>
+          </figure>
+        </div>
+      </section>
+
+      <div class="home-compatibility" aria-label="Unterstützte PrintDeck-Plattformen">
+        <span>Klipper · Moonraker</span>
+        <span>Bambu Lab · Lokales Netzwerk</span>
+        <span>Für mehrere Werkzeuge bereit</span>
+        <span>Kein Cloud-Konto</span>
+      </div>
+
+      <section class="home-section home-glance" id="at-a-glance">
+        <div class="home-inner">
+          <header class="home-section-head">
+            <span class="home-kicker">ALLES AUF EINEN BLICK</span>
+            <h2>Das Wichtigste.<br><strong>Immer im Blick.</strong></h2>
+            <p>Prüfe Fortschritt, Temperaturen, aktive Werkzeuge und Kamerabild, ohne zum Smartphone zu greifen.</p>
+          </header>
+          <div class="home-feature-grid">
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/status-screen-cutout.webp" alt="PrintDeck-Anzeige für den Live-Druckerstatus"></div>
+              <span class="home-card-index">01</span>
+              <h3>Live-Druckstatus</h3>
+              <p>Sieh Druckphase, Schicht, Temperaturen und Restzeit auf einen Blick.</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/status-screen-nozzles.webp" alt="PrintDeck-Mehrwerkzeuganzeige"></div>
+              <span class="home-card-index">02</span>
+              <h3>Bis zu 12 Werkzeuge</h3>
+              <p>Bei Moonraker-Druckern erkennt PrintDeck bis zu zwölf Extruder und zeigt Temperaturen, Materialien und Farben übersichtlich an.</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/status-screen-printing.webp" alt="PrintDeck-Druckeranimation"></div>
+              <span class="home-card-index">03</span>
+              <h3>Druckerstatus sofort erkennbar</h3>
+              <p>Animationen machen Aufheizen, Drucken, Pausieren und Abschluss sofort erkennbar.</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/filament-loading-green.gif" alt="Filament laden"></div>
+              <span class="home-card-index">04</span>
+              <h3>Filamentwechsel klar erkennbar</h3>
+              <p>Eine eigene Animation zeigt, wenn Filament geladen oder gewechselt wird.</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/marketing/home/printing-violet.gif" alt="PrintDeck-Druckeranimation"></div>
+              <span class="home-card-index">05</span>
+              <h3>Mach es zu deinem</h3>
+              <p>Wähle ein Animationsdesign passend zu deinem Drucker, Arbeitsplatz oder deinen Lieblingsfarben.</p>
+            </article>
+            <article class="home-feature-card">
+              <div class="home-screen-frame"><img src="/assets/screens/local-camera-round.png" alt="Lokale Kameraansicht auf PrintDeck"></div>
+              <span class="home-card-index">06</span>
+              <h3>Beobachte deinen Druck live</h3>
+              <p>Sieh die lokale Kameraansicht des Druckers direkt auf PrintDeck, ohne zum Smartphone zu greifen.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-section home-u1" id="snapmaker-u1">
+        <div class="home-inner home-u1-grid">
+          <figure class="home-u1-media" aria-label="Snapmaker-U1-Mini-Gehäuse für PrintDeck">
+            <img src="/assets/marketing/home/u1-mini-cutout.webp" alt="">
+          </figure>
+          <div class="home-u1-copy">
+            <span class="home-kicker">FÜR SNAPMAKER U1</span>
+            <h2>Entwickelt <strong>für den U1.</strong></h2>
+            <p>PrintDeck zeigt Druck-, Werkzeug- und Temperaturdaten des U1 auf einem eigenen Display. Das passende Gehäuse greift das Design des Druckers auf, und die Kameraansicht funktioniert ohne Umbau des U1.</p>
+            <div class="site-actions">
+              <a class="site-button secondary" href="/de/case-designs/#snapmaker-u1-mini">U1-Mini-Gehäuse</a>
+              <a class="site-button" href="/de/firmware/">Firmware installieren</a>
+            </div>
+          </div>
+          <div class="home-u1-points">
+            <article>
+              <img class="home-u1-point-icon" src="/assets/marketing/home/icons/ico1-u1.svg" alt="" aria-hidden="true">
+              <h3>Funktioniert mit der Werkskonfiguration</h3>
+              <p>Liest die Standardkonfiguration des U1 über dein lokales Netzwerk.</p>
+            </article>
+            <article>
+              <img class="home-u1-point-icon" src="/assets/marketing/home/icons/ico2-u1.svg" alt="" aria-hidden="true">
+              <h3>Werkzeuge auf einen Blick</h3>
+              <p>Sieh das aktive Werkzeug und seine Temperatur, ohne eine weitere App zu öffnen.</p>
+            </article>
+            <article>
+              <img class="home-u1-point-icon" src="/assets/marketing/home/icons/ico3-u1.svg" alt="" aria-hidden="true">
+              <h3>U1-Kameraansicht</h3>
+              <p>Sieh die U1-Kamera direkt auf PrintDeck – ohne Umbau des Druckers.</p>
+            </article>
+          </div>
+          <figure class="home-section-video">
+            <video data-home-video="u1" data-video-label="PrintDeck startet neben dem Snapmaker U1" controls="" playsinline="" preload="metadata" controlslist="nodownload" aria-label="PrintDeck startet neben dem Snapmaker U1">
+              <source src="/assets/marketing/home/u1-printdeck-powering.mp4" type="video/mp4">
+            </video>
+          </figure>
+        </div>
+      </section>
+
+      <section class="home-section home-workflow" id="workflow">
+        <div class="home-inner">
+          <header class="home-section-head compact">
+            <span class="home-kicker">VOM DISPLAY ZUM DASHBOARD</span>
+            <h2>Drei Schritte.<br><strong>Schon startklar.</strong></h2>
+          </header>
+          <ol class="home-steps">
+            <li><span>01</span><div><h3>Wähle dein Display</h3><p>Nutze das runde 1,75-Zoll-AMOLED oder das kompakte quadratische 1,54-Zoll-LCD.</p></div></li>
+            <li><span>02</span><div><h3>Im Browser installieren</h3><p>Schließe das Display per USB-C an und folge dem Installer – ganz ohne Programmierwerkzeuge.</p></div></li>
+            <li><span>03</span><div><h3>Füge deinen Drucker hinzu</h3><p>Füge den Drucker in Web Config hinzu. Seine Zugangsdaten bleiben auf PrintDeck.</p></div></li>
+          </ol>
+          <div class="site-actions centered">
+            <a class="site-button secondary" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">Benutzerhandbuch lesen</a>
+            <a class="site-button" href="/de/firmware/">Firmware installieren</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-section home-engineering" id="daily-use">
+        <div class="home-inner">
+          <div class="home-engineering-top">
+            <div class="home-engineering-copy">
+              <span class="home-kicker">FÜR DEN ALLTAG GEMACHT</span>
+              <h2><strong>Bereit</strong> vom ersten Tag an.</h2>
+              <p>Der geführte USB-Installer erleichtert den Start. Danach merkt sich PrintDeck deine Einstellungen, verbindet sich direkt mit dem Drucker, stellt bei Bedarf ein Recovery-WLAN bereit und erhält Updates drahtlos.</p>
+              <div class="site-actions">
+                <a class="site-button" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">Benutzerhandbuch lesen</a>
+              </div>
+            </div>
+            <figure class="home-engineering-product" aria-label="The Riverstone"><img src="/assets/marketing/home/riverstone-off-cutout.webp" alt=""></figure>
+          </div>
+          <div class="home-metrics" aria-label="Praktische PrintDeck-Highlights">
+            <article>
+              <img class="home-metric-icon" src="/assets/marketing/home/icons/ico_ekrany.svg" alt="" aria-hidden="true">
+              <div><strong>2</strong><h3>Displayformate</h3><p>Rund oder quadratisch – wähle das Display, das zu deinem Setup passt.</p></div>
+            </article>
+            <article>
+              <img class="home-metric-icon" src="/assets/marketing/home/icons/ico_narzedzia.svg" alt="" aria-hidden="true">
+              <div><strong>12</strong><h3>Werkzeuge mit Moonraker</h3><p>Sieh Temperaturen, Materialien und Farben gemeinsam auf einem Display.</p></div>
+            </article>
+            <article>
+              <img class="home-metric-icon" src="/assets/marketing/home/icons/ico_USB.svg" alt="" aria-hidden="true">
+              <div><strong>USB+OTA</strong><h3>Installation und Updates</h3><p>Per USB installieren und drahtlos aktualisieren.</p></div>
+            </article>
+            <article>
+              <img class="home-metric-icon" src="/assets/marketing/home/icons/ico_Lokalnie.svg" alt="" aria-hidden="true">
+              <div><strong>LOKAL</strong><h3>direkte Druckerverbindungen</h3><p>Direkte Verbindungen in deinem lokalen Netzwerk.</p></div>
+            </article>
+          </div>
+          <figure class="home-section-video home-engineering-video">
+            <video data-home-video="riverstone" data-video-label="The Riverstone startet" controls="" playsinline="" preload="metadata" controlslist="nodownload" aria-label="The Riverstone startet">
+              <source src="/assets/marketing/home/riverstone-powering.mp4" type="video/mp4">
+            </video>
+          </figure>
+        </div>
+      </section>
+
+      <section class="home-section home-cases" id="cases">
+        <div class="home-inner">
+          <header class="home-section-head compact">
+            <span class="home-kicker">GEHÄUSEDESIGNS</span>
+            <h2><strong>Dein Gehäuse.</strong><br>Dein Stil.</h2>
+          </header>
+          <div class="home-cases-grid">
+            <div class="home-cases-copy">
+              <p>Stell PrintDeck auf den Schreibtisch, nimm es mit in die Werkstatt oder befestige The Riverstone an einer Metallfläche. Jedes Gehäuse bringt dieselben PrintDeck-Funktionen in eine andere Form.</p>
+              <a class="site-button" href="/de/case-designs/">Gehäusedesigns ansehen</a>
+            </div>
+            <figure><img src="/assets/marketing/home/case-collection-front-cutout.webp" alt="PrintDeck-Gehäuse The Riverstone, The Scuttle und Snapmaker U1 Mini"></figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-section home-community" id="community">
+        <div class="home-inner home-community-grid">
+          <div class="home-community-art" aria-hidden="true">
+            <img class="community-collage community-collage-light" src="/assets/marketing/home/open-design-collage-light.webp" alt="">
+            <img class="community-collage community-collage-dark" src="/assets/marketing/home/open-design-collage-dark.webp" alt="">
+          </div>
+          <div class="home-community-copy">
+            <span class="home-kicker">QUELLCODE AUF GITHUB</span>
+            <h2>Offen<br><strong>für neue Ideen.</strong></h2>
+            <p>Der Quellcode von PrintDeck ist auf GitHub verfügbar. Sieh dir an, wie er funktioniert, verfolge neue Versionen oder hilf, das Projekt zu verbessern.</p>
+          </div>
+          <div class="site-actions centered home-community-actions">
+            <a class="site-button" href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener noreferrer">Code auf GitHub ansehen</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-final-cta home-dark-band" id="install">
+        <div class="home-inner">
+          <div class="home-final-logo"><img src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck"></div>
+          <h2>Dein Drucker.<br><strong>Immer im Blick.</strong></h2>
+          <p>Installiere PrintDeck auf einem kompatiblen Display, wähle ein Gehäuse und behalte alle wichtigen Informationen griffbereit.</p>
+          <div class="site-actions centered">
+            <a class="site-button" href="/de/firmware/">PrintDeck installieren</a>
+            <a class="site-button secondary" href="/de/support/">Brauchst du Hilfe beim Zusammenbau?</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer home-footer">
+      <span class="footer-copy">PrintDeck · <span>LOKALES DISPLAY FÜR 3D-DRUCKER</span> · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">GitHub-Repository</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">Lizenz</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">Hinweise</a></span>
+      <div class="footer-controls">
+        <label hidden="" for="site-language">Sprache</label>
+        <select class="installer-language" id="site-language" aria-label="Sprache" data-site-language=""><option value="/">English</option><option value="/pl/">Polski</option><option value="/es/">Español</option><option value="/fr/">Français</option><option value="/de/" selected="">Deutsch</option><option value="/zh-cn/">简体中文</option></select>
+        <div class="appearance-switch" data-site-appearance="" role="switch" tabindex="0" aria-label="Seitendarstellung">
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="Helle Darstellung"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="Dunkle Darstellung"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+        </div>
+      </div>
+    </footer>
+
+
+
+
+<script>(()=>{const language="de";try{localStorage.setItem('printdeck-installer-language',language)}catch(_){}document.querySelectorAll('[data-site-language]').forEach((selector)=>selector.addEventListener('change',()=>location.assign(selector.value)));})();</script></body></html>

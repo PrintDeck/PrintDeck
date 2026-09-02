@@ -1,0 +1,199 @@
+<!DOCTYPE html><html lang="fr"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#071018">
+
+
+
+
+
+    <title>API unifiée pour imprimantes · PrintDeck</title>
+    <link rel="stylesheet" href="/assets/site.css?v=20260902-20">
+    <script>window.printDeckInstallerI18n={language:"fr",t:(source,values={})=>{let result=({"Play":"Lire","Pause":"Pause","Seek":"Rechercher","{currentTime} of {duration}":"{currentTime} sur {duration}","Played":"Lu","Buffered":"Mis en mémoire tampon","Current time":"Temps actuel","Volume":"Volume","Mute":"Couper le son","Unmute":"Rétablir le son","Enter fullscreen":"Passer en plein écran","Exit fullscreen":"Quitter le plein écran"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-2"></script>
+
+    <meta name="description" content="PrintDeck traduit les protocoles d’imprimante pris en charge en un contrat JSON unique, versionné et en lecture seule. Développez votre logiciel une fois et utilisez la même structure avec Klipper et les imprimantes Bambu Lab prises en charge.">
+    <link rel="canonical" href="https://printdeck.xyz/fr/unified-printer-api/">
+    <link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/">
+    <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/">
+    <link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/unified-printer-api/">
+    <link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/unified-printer-api/">
+    <link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/unified-printer-api/">
+    <link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/unified-printer-api/">
+    <link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/unified-printer-api/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PrintDeck">
+    <meta property="og:locale" content="fr_FR">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="pl_PL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:title" content="API unifiée pour imprimantes · PrintDeck">
+    <meta property="og:description" content="PrintDeck traduit les protocoles d’imprimante pris en charge en un contrat JSON unique, versionné et en lecture seule. Développez votre logiciel une fois et utilisez la même structure avec Klipper et les imprimantes Bambu Lab prises en charge.">
+    <meta property="og:url" content="https://printdeck.xyz/fr/unified-printer-api/">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="API unifiée pour imprimantes · PrintDeck">
+    <meta name="twitter:description" content="PrintDeck traduit les protocoles d’imprimante pris en charge en un contrat JSON unique, versionné et en lecture seule. Développez votre logiciel une fois et utilisez la même structure avec Klipper et les imprimantes Bambu Lab prises en charge.">
+    <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"API unifiée pour imprimantes · PrintDeck","description":"PrintDeck traduit les protocoles d’imprimante pris en charge en un contrat JSON unique, versionné et en lecture seule. Développez votre logiciel une fois et utilisez la même structure avec Klipper et les imprimantes Bambu Lab prises en charge.","url":"https://printdeck.xyz/fr/unified-printer-api/","inLanguage":"fr","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
+  </head>
+  <body class="site-page api-page" data-page-title="API unifiée pour imprimantes · PrintDeck">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="/fr/" aria-label="Accueil">
+          <img class="site-logo site-logo-white" src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="/assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        </a>
+        <nav class="site-tabs" aria-label="Site PrintDeck">
+          <a class="site-tab" href="/fr/">Accueil</a>
+          <a class="site-tab" href="/fr/firmware/">Micrologiciel</a>
+          <a class="site-tab" href="/fr/case-designs/">Modèles de boîtiers</a>
+          <a class="site-tab" href="/fr/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/fr/support/">Assistance</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="api-content">
+      <section class="api-hero">
+        <div class="api-inner api-hero-grid">
+          <div class="api-hero-copy">
+            <span class="api-eyebrow">API LOCALE POUR DÉVELOPPEURS</span>
+            <h1>Une API pour imprimantes.<br><strong>De nombreux formats d’imprimante.</strong></h1>
+            <p class="api-lead">PrintDeck traduit les protocoles d’imprimante pris en charge en un contrat JSON unique, versionné et en lecture seule. Développez votre logiciel une fois et utilisez la même structure avec Klipper et les imprimantes Bambu Lab prises en charge.</p>
+            <div class="site-actions">
+              <a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Télécharger le guide API</a>
+              <a class="site-button secondary" href="#contract">Découvrir les endpoints</a>
+            </div>
+          </div>
+          <div class="api-flow" aria-label="Formats d’imprimante normalisés par PrintDeck dans une seule API JSON">
+            <div class="api-flow-sources">
+              <div><span>01</span><strong>Moonraker</strong><small>Télémétrie Klipper</small></div>
+              <div><span>02</span><strong>Bambu LAN</strong><small>Rapports d’état locaux</small></div>
+            </div>
+            <i aria-hidden="true">→</i>
+            <div class="api-flow-core"><span>PRINTDECK</span><strong>Normaliser</strong><small>État en cache indépendant du protocole</small></div>
+            <i aria-hidden="true">→</i>
+            <div class="api-flow-output"><span>GET /v1/...</span><strong>Un JSON</strong><small>Votre application</small></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="campaign-signal api-signal" aria-label="Points forts de l’API unifiée pour imprimantes">
+        <span>Réseau local uniquement</span>
+        <span>Lecture seule par conception</span>
+        <span>Accès par jeton Bearer</span>
+        <span>JSON versionné</span>
+      </div>
+
+      <section class="api-section api-use-cases">
+        <div class="api-inner">
+          <header class="api-section-head">
+            <span class="home-kicker">CRÉEZ À PARTIR DES DONNÉES D’IMPRIMANTE</span>
+            <h2>Votre idée, <strong>sans chaque protocole constructeur.</strong></h2>
+            <p>Laissez PrintDeck gérer la connexion propre à chaque imprimante pendant que votre application utilise un modèle de données réduit et prévisible.</p>
+          </header>
+          <div class="api-card-grid">
+            <article><span>01</span><h3>Tableaux de bord locaux</h3><p>Affichez la progression, les temps, les températures et l’état de la connexion sur des écrans muraux ou des panneaux d’atelier.</p></article>
+            <article><span>02</span><h3>Passerelles Home Assistant</h3><p>Injectez l’état normalisé de l’imprimante dans vos automatisations locales sans implémenter séparément MQTT et Moonraker.</p></article>
+            <article><span>03</span><h3>Flux Node-RED</h3><p>Interrogez une seule structure JSON et acheminez les événements d’imprimante vers des notifications, des éclairages ou des processus internes.</p></article>
+            <article><span>04</span><h3>Outils de suivi</h3><p>Créez des scripts et panneaux de service qui comprennent les données d’imprimante en ligne, hors ligne, périmées ou partiellement disponibles.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section api-contract" id="contract">
+        <div class="api-inner api-contract-grid">
+          <div class="api-contract-copy">
+            <span class="home-kicker">UN PETIT CONTRAT EN LECTURE SEULE</span>
+            <h2>Des données utiles.<br><strong>Aucune interface de commande.</strong></h2>
+            <p>L’API expose les informations de l’appareil, l’identité de l’imprimante, l’état, les buses et les emplacements de matériau. Elle ne peut ni démarrer, ni mettre en pause, ni annuler une impression.</p>
+            <div class="api-endpoints" data-api-explorer="" aria-label="Endpoints de l’API unifiée pour imprimantes">
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/info" aria-pressed="false"><code>GET /v1/info</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers" aria-pressed="false"><code>GET /v1/printers</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/status" aria-pressed="true"><code>GET /v1/printers/status</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}" aria-pressed="false"><code>GET /v1/printers/{id}</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}/status" aria-pressed="false"><code>GET /v1/printers/{id}/status</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}/nozzles" aria-pressed="false"><code>GET /v1/printers/{id}/nozzles</code><span aria-hidden="true">→</span></button>
+              <button class="api-endpoint" type="button" data-api-endpoint="/v1/printers/{id}/materials" aria-pressed="false"><code>GET /v1/printers/{id}/materials</code><span aria-hidden="true">→</span></button>
+            </div>
+          </div>
+          <div class="api-code-card" data-api-example="">
+            <div class="api-code-title"><span></span><span></span><span></span><strong>Première requête</strong><code data-api-example-path="" aria-live="polite">GET /v1/printers/status</code></div>
+            <pre data-api-request=""><code>curl http://PRINTDECK-IP/v1/printers/status \
+  -H 'Authorization: Bearer pd_your_token_here'</code></pre>
+            <pre class="api-json" data-api-response=""><code>{
+  "api_version": "v1",
+  "statuses": [{
+    "printer_id": 1,
+    "connection": {
+      "state": "online",
+      "reachability": "online",
+      "detail_level": "full",
+      "stale": false,
+      "updated_at_ms": 418520
+    },
+    "job": {
+      "phase": "printing",
+      "kind": "print",
+      "activity": "printing",
+      "name": "Bracket",
+      "progress_percent": 42.5,
+      "elapsed_seconds": 1260,
+      "remaining_seconds": 1740,
+      "current_layer": 48,
+      "total_layers": 112
+    }
+  }]
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section api-start">
+        <div class="api-inner">
+          <header class="api-section-head compact">
+            <span class="home-kicker">COMMENCEZ SUR VOTRE RÉSEAU LOCAL</span>
+            <h2>Depuis Web Config<br><strong>jusqu’à votre première requête.</strong></h2>
+          </header>
+          <ol class="api-steps">
+            <li><span>01</span><div><h3>Ouvrez Unified Printer API</h3><p>Dans Web Config, ouvrez Paramètres de l’appareil et choisissez Unified Printer API au-dessus de Sauvegarde et restauration.</p></div></li>
+            <li><span>02</span><div><h3>Activez et copiez le jeton</h3><p>PrintDeck génère un jeton d’accès aléatoire et le stocke localement sur l’appareil.</p></div></li>
+            <li><span>03</span><div><h3>Envoyez l’authentification Bearer</h3><p>Utilisez le jeton dans l’en-tête Authorization de chaque requête adressée à l’adresse IP de PrintDeck.</p></div></li>
+            <li><span>04</span><div><h3>Récupérez des données unifiées</h3><p>Lisez les listes d’imprimantes ou leur état et utilisez la même structure JSON pour les types d’imprimantes pris en charge.</p></div></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="api-section api-boundary">
+        <div class="api-inner api-boundary-grid">
+          <div>
+            <span class="home-kicker">PÉRIMÈTRE DU RÉSEAU LOCAL DE CONFIANCE</span>
+            <h2>Les secrets de votre imprimante<br><strong>restent derrière PrintDeck.</strong></h2>
+          </div>
+          <div>
+            <p>L’API unifiée pour imprimantes ne renvoie jamais les mots de passe d’imprimante, codes d’accès LAN, numéros de série, mots de passe Wi-Fi, images de caméra ni données brutes du constructeur. Gardez PrintDeck sur un réseau local de confiance et ne redirigez pas son port vers Internet.</p>
+            <p class="api-boundary-note">Aucun webhook. Aucun relais cloud. Aucun endpoint de commande d’imprimante.</p>
+            <a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Lire le guide API complet</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span class="footer-copy">PrintDeck · <span>MONITEUR SANS FIL AVANCÉ D’IMPRESSION 3D</span> · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">Dépôt GitHub</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">Mentions</a></span>
+      <div class="footer-controls">
+        <label hidden="" for="api-language">Langue</label>
+        <select class="installer-language" id="api-language" aria-label="Langue" data-site-language=""><option value="/unified-printer-api/">English</option><option value="/pl/unified-printer-api/">Polski</option><option value="/es/unified-printer-api/">Español</option><option value="/fr/unified-printer-api/" selected="">Français</option><option value="/de/unified-printer-api/">Deutsch</option><option value="/zh-cn/unified-printer-api/">简体中文</option></select>
+        <div class="appearance-switch" data-site-appearance="" role="switch" tabindex="0" aria-label="Apparence de la page">
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="Apparence claire"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="Apparence sombre"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+        </div>
+      </div>
+    </footer>
+
+
+
+
+<script>(()=>{const language="fr";try{localStorage.setItem('printdeck-installer-language',language)}catch(_){}document.querySelectorAll('[data-site-language]').forEach((selector)=>selector.addEventListener('change',()=>location.assign(selector.value)));})();</script></body></html>
