@@ -586,7 +586,8 @@
             <label class="firmware-version" for="firmware-version">
               <span class="firmware-version-label">Firmware version</span>
               <select id="firmware-version" aria-label="Firmware version">
-                <option value="1.0.4" selected="">1.0.4 (latest)</option>
+                <option value="1.0.5" selected="">1.0.5 (latest)</option>
+                <option value="1.0.4">1.0.4</option>
                 <option value="1.0.3">1.0.3</option>
                 <option value="1.0.2">1.0.2</option>
                 <option value="1.0.1">1.0.1</option>
@@ -734,7 +735,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>Start the installer below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB…. Confirm the full erase when asked, then wait until installation reaches 100%.</li>
             </ol>
             <esp-web-install-button id="install-button" manifest="../manifest-install.json">
-              <button slot="activate" id="install-button-label">Install 1.0.4 or factory reset</button>
+              <button slot="activate" id="install-button-label">Install 1.0.5 or factory reset</button>
               <span slot="not-allowed">USB access requires this page to be opened over HTTPS.</span>
             </esp-web-install-button>
             <div class="tip" data-hardware-instruction="waveshare"><strong>If no device appears:</strong> unplug the cable. Hold the display's <strong>BOOT</strong> button, reconnect USB-C, release BOOT after two seconds and try again.</div>
@@ -762,7 +763,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>Start the USB update below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB… when prompted.</li>
               <li><strong>Wait for the screen to restart.</strong> Do not disconnect USB while the update progress is visible.</li>
             </ol>
-            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Update to 1.0.4 over USB</button>
+            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Update to 1.0.5 over USB</button>
             <div class="tip" data-hardware-instruction="knomi2" hidden=""><strong>If KNOMI2 is missing:</strong> follow the USB driver instructions in the red section above, reconnect it, then start the update again.</div>
             <p class="warning" id="full-install-required" role="status"></p>
             <div class="update-progress" id="update-progress" role="status" aria-live="polite" hidden="">
@@ -995,7 +996,7 @@
 
       if (supported) {
         let activeInstallMode = 'install';
-        let activeVersion = '1.0.4';
+        let activeVersion = '1.0.5';
         let activeHardware = 'amoled_1_75';
         let activeInstallHardware = 'amoled_1_75';
         const versionSelect = document.getElementById('firmware-version');
@@ -1025,11 +1026,17 @@
         let setupNetworkName = '';
         const releaseBase = 'https://raw.githubusercontent.com/PrintDeck/PrintDeck';
         const versions = {
-          '1.0.4': {
-            releaseTag: 'amoled_1_75-v1.0.4',
+          '1.0.5': {
+            releaseTag: 'amoled_1_75-v1.0.5',
             installManifest: '../manifest-install.json',
             application: '../firmware/printdeck.bin',
-            otaData: '../firmware/ota_data_initial.bin',
+            otaData: '../firmware/ota_data_initial.bin'
+          },
+          '1.0.4': {
+            releaseTag: 'amoled_1_75-v1.0.4',
+            installManifest: '../manifests/manifest-install-amoled_1_75-1.0.4.json',
+            application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.4/docs/firmware/printdeck.bin',
+            otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.4/docs/firmware/ota_data_initial.bin',
             lcd_1_54: {
               releaseTag: 'lcd_1_54-v1.0.4',
               installManifest: '../manifest-install-lcd-1-54.json',
