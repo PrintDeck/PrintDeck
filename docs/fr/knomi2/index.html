@@ -10,7 +10,7 @@
 
 
     <title>PrintDeck pour KNOMI2 · Offrez une seconde vie à votre écran</title>
-  <link rel="stylesheet" href="/assets/site.css?v=20260902-25">
+  <link rel="stylesheet" href="/assets/site.css?v=20260903-1">
     <script>window.printDeckInstallerI18n={language:"fr",t:(source,values={})=>{let result=({"Play":"Lire","Pause":"Pause","Seek":"Rechercher","{currentTime} of {duration}":"{currentTime} sur {duration}","Played":"Lu","Buffered":"Mis en mémoire tampon","Current time":"Temps actuel","Volume":"Volume","Mute":"Couper le son","Unmute":"Rétablir le son","Enter fullscreen":"Passer en plein écran","Exit fullscreen":"Quitter le plein écran"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260901-2"></script>
 
     <meta name="description" content="Vous l’avez demandé, nous vous avons écoutés. Face au vif intérêt des propriétaires de KNOMI2, nous avons créé une édition PrintDeck entièrement fonctionnelle pour l’écran que vous possédez déjà, avec une interface plus actuelle, davantage d’informations sur l’imprimante et un avenir activement développé.">
@@ -50,6 +50,7 @@
         <nav class="site-tabs" aria-label="Site PrintDeck">
           <a class="site-tab" href="/fr/">Accueil</a>
           <a class="site-tab" href="/fr/firmware/">Micrologiciel</a>
+          <a class="site-tab" href="/fr/gifs/">GIFs</a>
           <a class="site-tab" href="/fr/case-designs/">Modèles de boîtiers</a>
           <a class="site-tab" href="/fr/knomi2/" aria-current="page">KNOMI2</a>
           <a class="site-tab" href="/fr/unified-printer-api/">Unified API</a>
@@ -165,6 +166,7 @@
                 <li><strong>Prévisualisez avant d’enregistrer.</strong><span>Voyez l’animation optimisée avant qu’elle ne remplace quoi que ce soit.</span></li>
                 <li><strong>Utilisez-la ou réinitialisez-la.</strong><span>Appliquez le remplacement ou rétablissez la réaction intégrée pour cet état.</span></li>
               </ol>
+              <a class="site-button knomi-campaign-gifs-link" href="/fr/gifs/">Découvrir les GIF personnalisés</a>
             </div>
           </div>
 
@@ -381,7 +383,7 @@
     </main>
 
     <footer class="site-footer knomi-footer">
-      <span class="footer-copy">PrintDeck · <span>MONITEUR SANS FIL AVANCÉ D’IMPRESSION 3D</span> · <a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">Dépôt GitHub</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a> · <a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">Mentions</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/fr/support/">Contacter l’assistance</a> · <a href="/fr/license/">Licence</a> · <a href="/fr/notice/">Mentions</a></span>
       <div class="footer-controls">
         <label hidden="" for="knomi-language">Langue</label>
         <select class="installer-language" id="knomi-language" aria-label="Langue" data-site-language=""><option value="/knomi2/">English</option><option value="/pl/knomi2/">Polski</option><option value="/es/knomi2/">Español</option><option value="/fr/knomi2/" selected="">Français</option><option value="/de/knomi2/">Deutsch</option><option value="/zh-cn/knomi2/">简体中文</option></select>
