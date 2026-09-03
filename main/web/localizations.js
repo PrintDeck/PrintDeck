@@ -10,6 +10,7 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "ACTIVE":["AKTYWNA","ACTIVA","ACTIVE","AKTIV","当前"],
   "Online":["Połączona","En línea","En ligne","Online","在线"],
   "Connecting…":["Łączenie…","Conectando…","Connexion…","Verbindung wird hergestellt…","正在连接…"],
   "Updating…":["Aktualizowanie…","Actualizando…","Mise à jour…","Wird aktualisiert…","正在更新…"],
