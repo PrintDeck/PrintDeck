@@ -587,7 +587,8 @@
             <label class="firmware-version" for="firmware-version">
               <span class="firmware-version-label">Versión del firmware</span>
               <select id="firmware-version" aria-label="Versión del firmware">
-                <option value="1.0.5" selected="">1.0.5 (más reciente)</option>
+                <option value="1.0.6" selected="">1.0.6 (más reciente)</option>
+                <option value="1.0.5">1.0.5</option>
                 <option value="1.0.4">1.0.4</option>
                 <option value="1.0.3">1.0.3</option>
                 <option value="1.0.2">1.0.2</option>
@@ -736,7 +737,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>Inicia el instalador de abajo.</strong> Elige WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) o /dev/ttyUSB…. Confirma el borrado completo cuando se solicite y espera hasta que la instalación llegue al 100 %.</li>
             </ol>
             <esp-web-install-button id="install-button" manifest="../manifest-install.json">
-              <button slot="activate" id="install-button-label">Instalar 1.0.5 o restablecer de fábrica</button>
+              <button slot="activate" id="install-button-label">Instalar 1.0.6 o restablecer de fábrica</button>
               <span slot="not-allowed">El acceso USB requiere abrir esta página mediante HTTPS.</span>
             </esp-web-install-button>
             <div class="tip" data-hardware-instruction="waveshare"><strong>Si no aparece ningún dispositivo:</strong> desconecta el cable. Mantén pulsado el botón <strong>BOOT</strong> de la pantalla, vuelve a conectar USB-C, suelta BOOT tras dos segundos e inténtalo de nuevo.</div>
@@ -764,7 +765,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>Inicia abajo la actualización por USB.</strong> Cuando se solicite, elige WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) o /dev/ttyUSB….</li>
               <li><strong>Espera a que la pantalla se reinicie.</strong> No desconectes el USB mientras se muestre el progreso de la actualización.</li>
             </ol>
-            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Actualizar a 1.0.5 por USB</button>
+            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Actualizar a 1.0.6 por USB</button>
             <div class="tip" data-hardware-instruction="knomi2" hidden=""><strong>Si KNOMI2 no aparece:</strong> sigue las instrucciones del controlador USB de la sección roja de arriba, vuelve a conectarlo e inicia de nuevo la actualización.</div>
             <p class="warning" id="full-install-required" role="status"></p>
             <div class="update-progress" id="update-progress" role="status" aria-live="polite" hidden="">
@@ -997,7 +998,7 @@
 
       if (supported) {
         let activeInstallMode = 'install';
-        let activeVersion = '1.0.5';
+        let activeVersion = '1.0.6';
         let activeHardware = 'amoled_1_75';
         let activeInstallHardware = 'amoled_1_75';
         const versionSelect = document.getElementById('firmware-version');
@@ -1027,11 +1028,17 @@
         let setupNetworkName = '';
         const releaseBase = 'https://raw.githubusercontent.com/PrintDeck/PrintDeck';
         const versions = {
-          '1.0.5': {
-            releaseTag: 'amoled_1_75-v1.0.5',
+          '1.0.6': {
+            releaseTag: 'amoled_1_75-v1.0.6',
             installManifest: '../manifest-install.json',
             application: '../firmware/printdeck.bin',
             otaData: '../firmware/ota_data_initial.bin'
+          },
+          '1.0.5': {
+            releaseTag: 'amoled_1_75-v1.0.5',
+            installManifest: '../manifests/manifest-install-amoled_1_75-1.0.5.json',
+            application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.5/docs/firmware/printdeck.bin',
+            otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.5/docs/firmware/ota_data_initial.bin'
           },
           '1.0.4': {
             releaseTag: 'amoled_1_75-v1.0.4',
