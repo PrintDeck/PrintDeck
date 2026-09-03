@@ -383,10 +383,11 @@
       .driver-panel li + li { margin-top: 8px; }
       .driver-panel a { color: var(--driver-link); font-weight: 800; text-underline-offset: 3px; }
       .driver-panel code { color: var(--driver-link); }
-      .driver-check { margin-top: 18px; padding-top: 50px; padding-bottom:50px; width: 30%;margin-left:auto;margin-right:auto;}
-      .driver-check p { margin: 0 0 12px; color: var(--driver-card-text); line-height: 1.55; }
-      .driver-check-button { width: 100%; padding: 14px 18px; border: 0; border-radius: 12px; background: var(--accent-button); color: var(--accent-button-text); font: inherit; font-weight: 900; cursor: pointer; }
-      .driver-check-button:disabled { opacity: .6; cursor: wait; }
+      .driver-check { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; margin: 18px auto 0; padding: 50px 0; text-align: center; }
+      .driver-check-prefix, .driver-check-or { color: var(--driver-card-strong); font-weight: 850; }
+      .driver-check-or { margin: 0 12px; font-weight: 900; }
+      .driver-check-button { min-width: 270px; padding: 14px 18px; border: 0; border-radius: 12px; background: var(--accent-button); color: var(--accent-button-text); font: inherit; font-weight: 900; cursor: pointer; }
+      .driver-check-button:disabled { opacity: .6; cursor: not-allowed; }
       .workflow { margin-top: clamp(36px, 7vw, 72px); }
       .step-label { margin-bottom: 12px; color: var(--accent); font-weight: 800; font-size: .82rem; letter-spacing: .1em; }
       .mode-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 16px; align-items: stretch; }
@@ -491,6 +492,9 @@
         .hardware-options { grid-template-columns: 1fr; }
         .hardware-option { min-height: 118px; }
         .driver-card { margin-top: 24px; }
+        .driver-check { flex-direction: column; }
+        .driver-check-or { margin: 7px 0; }
+        .driver-check-button { width: min(100%, 440px); }
       }
       @media (max-width: 420px) {
         body { padding: 10px; }
@@ -663,7 +667,10 @@
           <h2>USB driver may be required</h2>
           <p class="driver-card-intro">KNOMI2 uses a WCH USB-to-serial bridge. Unlike the Waveshare screens, it does not use a standard native USB connection, so a WCH driver may be required before Chrome can see it. This comes from the KNOMI2 hardware design, not PrintDeck. Click below to start installation and open Chrome's protected device list. Look for WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB…. If you do not see one, close the list, choose your system and follow the driver instructions below.</p>
           <div class="driver-check">
-            <button class="driver-check-button" id="knomi-install-start" type="button">Start KNOMI2 installation</button>
+            <span class="driver-check-prefix">Try</span>
+            <button class="driver-check-button" id="knomi-install-start" type="button">First installation/Factory reset</button>
+            <span class="driver-check-or">OR</span>
+            <button class="driver-check-button" id="knomi-update-start" type="button">Firmware Update</button>
           </div>
           <p class="driver-instructions-title">Install Driver Instructions:</p>
           <div class="driver-os-tabs" role="tablist" aria-label="Operating system">
@@ -1011,6 +1018,7 @@
         const wifiUpdateDescription = document.getElementById('wifi-update-description');
         const driverCard = document.getElementById('knomi-driver-card');
         const knomiInstallStart = document.getElementById('knomi-install-start');
+        const knomiUpdateStart = document.getElementById('knomi-update-start');
         const driverOsTabs = [...document.querySelectorAll('[data-driver-os]')];
         const driverPanels = [...document.querySelectorAll('[data-driver-panel]')];
         const hardwareInstructions = [...document.querySelectorAll('[data-hardware-instruction]')];
@@ -1193,6 +1201,8 @@
           installButton.setAttribute('manifest', configuration.installManifest);
           installButtonLabel.textContent = window.printDeckInstallerI18n.t('Install {version} or factory reset', { version });
           usbUpdateButton.disabled = Boolean(configuration.fullOnly);
+          knomiUpdateStart.disabled = factoryOnly;
+          knomiUpdateStart.setAttribute('aria-disabled', String(factoryOnly));
           usbUpdateHeading.textContent = window.printDeckInstallerI18n.t(
             configuration.fullOnly ? 'Use full installation for {version}' : 'Update without losing your settings',
             { version }
@@ -1293,6 +1303,11 @@
           installButtonLabel.click();
         });
 
+        knomiUpdateStart.addEventListener('click', () => {
+          selectMode('update');
+          usbUpdateButton.click();
+        });
+
         installButton.addEventListener('click', () => {
           activeInstallMode = 'install';
           activeVersion = versionSelect.value;
@@ -1362,6 +1377,7 @@
           const configuration = selectedConfiguration(activeVersion);
           if (!configuration || configuration.fullOnly) return;
           usbUpdateButton.disabled = true;
+          knomiUpdateStart.disabled = true;
           updateProgress.hidden = false;
           updateProgressText.classList.remove('error');
           updateProgressFill.style.width = '0%';
@@ -1385,7 +1401,9 @@
               updateProgressText.textContent = error?.message || window.printDeckInstallerI18n.t('The USB update failed. Reconnect the screen and try again.');
             }
           } finally {
-            usbUpdateButton.disabled = Boolean(selectedConfiguration()?.fullOnly);
+            const factoryOnly = Boolean(selectedConfiguration()?.fullOnly);
+            usbUpdateButton.disabled = factoryOnly;
+            knomiUpdateStart.disabled = factoryOnly;
           }
         });
 
