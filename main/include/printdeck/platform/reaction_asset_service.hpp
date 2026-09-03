@@ -41,6 +41,8 @@ struct ReactionAssetSnapshot {
   std::size_t maximum_file_bytes = 0;
   std::size_t maximum_set_bytes = 0;
   std::size_t maximum_custom_bytes = 0;
+  std::size_t storage_available_for_upload = 0;
+  std::array<std::size_t, core::kReactionEventCount> effective_bytes{};
   std::uint32_t generation = 0;
 };
 

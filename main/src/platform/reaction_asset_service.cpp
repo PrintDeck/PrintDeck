@@ -414,10 +414,13 @@ void ReactionAssetService::refresh_active_bytes_locked() {
   snapshot_.active_bytes = 0;
   for (std::size_t index = 0; index < core::kReactionEventCount; ++index) {
     if (custom_present_[index]) {
-      snapshot_.active_bytes += custom_sizes_[index];
+      snapshot_.effective_bytes[index] = custom_sizes_[index];
     } else if (current_present_[index]) {
-      snapshot_.active_bytes += current_sizes_[index];
+      snapshot_.effective_bytes[index] = current_sizes_[index];
+    } else {
+      snapshot_.effective_bytes[index] = 0;
     }
+    snapshot_.active_bytes += snapshot_.effective_bytes[index];
   }
 }
 
@@ -436,6 +439,8 @@ void ReactionAssetService::refresh_storage_locked() {
   snapshot_.maximum_file_bytes = std::min(kMaximumGifBytes, usable);
   snapshot_.maximum_set_bytes = std::min(kMaximumActiveReactionBytes, usable);
   snapshot_.maximum_custom_bytes = std::min(kMaximumActiveReactionBytes, usable);
+  snapshot_.storage_available_for_upload =
+      usable > used ? usable - used : 0;
 }
 
 bool ReactionAssetService::request_set(std::string_view id) {

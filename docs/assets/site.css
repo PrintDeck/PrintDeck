@@ -1669,9 +1669,14 @@ body.site-page {
   min-height: 650px;
   padding: 70px 0 70px;
   box-sizing: border-box;
+  background:
+    radial-gradient(circle at 82% 20%, #ffffff12 0, transparent 31%),
+    radial-gradient(circle at 92% 96%, #ffffff09 0, transparent 35%),
+    linear-gradient(128deg, #1c1e1d 0%, #111212 52%, #090a0a 100%);
 }
 
 .home-page .home-hero::before { display: none; }
+.home-page .home-hero.home-dark-band::after { display: none; }
 
 .home-page .home-hero-grid {
   display: grid;

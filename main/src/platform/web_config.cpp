@@ -1630,7 +1630,9 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
           std::to_string(state.maximum_custom_bytes) +
           ",\"active_bytes\":" + std::to_string(state.active_bytes) +
           ",\"storage_total\":" + std::to_string(state.storage_total) +
-          ",\"storage_used\":" + std::to_string(state.storage_used) + "}";
+          ",\"storage_used\":" + std::to_string(state.storage_used) +
+          ",\"storage_available_for_upload\":" +
+          std::to_string(state.storage_available_for_upload) + "}";
   body += ",\"sets\":[";
   bool first = true;
   for (const auto& set : ReactionAssetService::sets()) {
@@ -1650,6 +1652,7 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
   }
   body += "],\"events\":[";
   first = true;
+  std::size_t event_index = 0;
   for (const auto& event : core::reaction_events()) {
     if (!first) body.push_back(',');
     first = false;
@@ -1661,6 +1664,19 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
     body += reaction_assets_->event_enabled(event.id) ? "true" : "false";
     body += ",\"custom\":";
     body += reaction_assets_->custom_override(event.id) ? "true" : "false";
+    const std::size_t current_bytes = state.effective_bytes[event_index++];
+    const std::size_t active_without_event =
+        state.active_bytes >= current_bytes ? state.active_bytes - current_bytes : 0;
+    const std::size_t active_capacity =
+        state.maximum_custom_bytes > active_without_event
+            ? state.maximum_custom_bytes - active_without_event
+            : 0;
+    const std::size_t maximum_upload_bytes =
+        std::min({state.maximum_file_bytes, active_capacity,
+                  state.storage_available_for_upload});
+    body += ",\"bytes\":" + std::to_string(current_bytes);
+    body += ",\"maximum_upload_bytes\":" +
+            std::to_string(maximum_upload_bytes);
     body += "}";
   }
   body += "],\"generation\":" + std::to_string(state.generation) + "}";
@@ -1772,9 +1788,19 @@ esp_err_t WebConfig::upload_reaction_gif(httpd_req_t* request) {
       return send_json(request, "409 Conflict",
                        "{\"error\":\"Another reaction change is already in progress.\"}");
     }
-    return send_json(request, result == ESP_ERR_NO_MEM ? "413 Payload Too Large"
-                                                       : "400 Bad Request",
-                     "{\"error\":\"The GIF did not pass device validation.\"}");
+    if (result == ESP_ERR_NO_MEM) {
+      return send_json(
+          request, "413 Payload Too Large",
+          "{\"error\":\"This GIF does not fit in the remaining animation space. Reset another custom GIF or choose a shorter animation.\"}");
+    }
+    if (result == ESP_ERR_INVALID_ARG || result == ESP_ERR_INVALID_SIZE) {
+      return send_json(
+          request, "400 Bad Request",
+          "{\"error\":\"The processed GIF is not compatible with this device. Try another GIF.\"}");
+    }
+    return send_json(
+        request, "500 Internal Server Error",
+        "{\"error\":\"PrintDeck could not save this GIF. Try again.\"}");
   }
   return send_json(request, "200 OK", "{\"saved\":true}");
 }
