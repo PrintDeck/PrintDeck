@@ -15,6 +15,7 @@
 #include "lwip/ip4_addr.h"
 #include "lwip/sockets.h"
 #include "mdns.h"
+#include "sdkconfig.h"
 
 namespace printdeck::platform {
 namespace {
@@ -24,6 +25,8 @@ constexpr char kSetupNetworkPrefix[] = "PrintDeck";
 constexpr char kMdnsHostname[] = "printdeck";
 constexpr char kMdnsInstanceName[] = "PrintDeck";
 constexpr char kMdnsApiService[] = "_printdeck";
+static_assert(CONFIG_MDNS_MAX_SERVICES >= 2,
+              "PrintDeck requires separate HTTP and Unified API mDNS services");
 constexpr std::int64_t kStationConnectTimeoutUs = 20'000'000;
 constexpr std::int64_t kFailureMessageDurationUs = 4'000'000;
 constexpr std::int64_t kRecoveryRetryIntervalUs = 30'000'000;
@@ -239,16 +242,6 @@ esp_err_t NetworkService::start_mdns() {
   if (result == ESP_OK) {
     result = mdns_service_add(nullptr, "_http", "_tcp", 80, nullptr, 0);
   }
-  mdns_txt_item_t api_txt[] = {
-      {.key = "id", .value = device_id_.c_str()},
-      {.key = "api", .value = "v1"},
-      {.key = "path", .value = "/v1"},
-      {.key = "auth", .value = "bearer"},
-  };
-  if (result == ESP_OK) {
-    result = mdns_service_add(kMdnsInstanceName, kMdnsApiService, "_tcp", 80,
-                              api_txt, std::size(api_txt));
-  }
   if (result != ESP_OK) {
     mdns_free();
     return result;
@@ -259,7 +252,25 @@ esp_err_t NetworkService::start_mdns() {
     status_.local_hostname = std::string(kMdnsHostname) + ".local";
   }
   mdns_started_.store(true, std::memory_order_release);
-  ESP_LOGI(kLogTag, "Web Config advertised at http://%s.local/", kMdnsHostname);
+
+  mdns_txt_item_t api_txt[] = {
+      {.key = "id", .value = device_id_.c_str()},
+      {.key = "api", .value = "v1"},
+      {.key = "path", .value = "/v1"},
+      {.key = "auth", .value = "bearer"},
+  };
+  const esp_err_t api_result = mdns_service_add(
+      kMdnsInstanceName, kMdnsApiService, "_tcp", 80, api_txt, std::size(api_txt));
+  if (api_result != ESP_OK) {
+    ESP_LOGW(kLogTag,
+             "Home Assistant mDNS discovery unavailable; Web Config remains at "
+             "http://%s.local/: %s",
+             kMdnsHostname, esp_err_to_name(api_result));
+    return ESP_OK;
+  }
+
+  ESP_LOGI(kLogTag, "Web Config and Unified API advertised at http://%s.local/",
+           kMdnsHostname);
   return ESP_OK;
 }
 
