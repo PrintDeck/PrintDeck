@@ -1,0 +1,17 @@
+{
+  "name": "PrintDeck",
+  "version": "1.0.3",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.3/docs/firmware/bootloader.bin", "offset": 0 },
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.3/docs/firmware/partition-table.bin", "offset": 32768 },
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.3/docs/firmware/ota_data_initial.bin", "offset": 61440 },
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.3/docs/firmware/printdeck.bin", "offset": 131072 },
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.3/docs/firmware/assets.bin", "offset": 10616832 }
+      ]
+    }
+  ]
+}
