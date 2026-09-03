@@ -10,6 +10,18 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "Online":["Połączona","En línea","En ligne","Online","在线"],
+  "Connecting…":["Łączenie…","Conectando…","Connexion…","Verbindung wird hergestellt…","正在连接…"],
+  "Updating…":["Aktualizowanie…","Actualizando…","Mise à jour…","Wird aktualisiert…","正在更新…"],
+  "Printer light":["Lampka drukarki","Luz de la impresora","Éclairage de l’imprimante","Druckerbeleuchtung","打印机照明"],
+  "Connection settings":["Ustawienia połączenia","Ajustes de conexión","Paramètres de connexion","Verbindungseinstellungen","连接设置"],
+  "See the print more clearly.":["Lepiej zobacz swój wydruk.","Ve la impresión con más claridad.","Voyez plus clairement votre impression.","Behalte deinen Druck besser im Blick.","更清楚地查看打印情况。"],
+  "Waiting for the printer to connect.":["Oczekiwanie na połączenie z drukarką.","Esperando la conexión de la impresora.","En attente de la connexion de l’imprimante.","Warten auf die Verbindung zum Drucker.","正在等待打印机连接。"],
+  "Light control is not available for this printer.":["Ta drukarka nie udostępnia sterowania lampką.","Esta impresora no permite controlar la luz.","Le contrôle de l’éclairage n’est pas disponible pour cette imprimante.","Für diesen Drucker ist keine Lichtsteuerung verfügbar.","此打印机不支持照明控制。"],
+  "Choose a printer to view its controls.":["Wybierz drukarkę, aby zobaczyć jej panel.","Elige una impresora para ver sus controles.","Choisissez une imprimante pour afficher ses commandes.","Wähle einen Drucker, um seine Steuerung anzuzeigen.","选择打印机以查看其控制选项。"],
+  "Add your first printer to get started.":["Dodaj pierwszą drukarkę, aby rozpocząć.","Añade tu primera impresora para empezar.","Ajoutez votre première imprimante pour commencer.","Füge deinen ersten Drucker hinzu, um loszulegen.","添加第一台打印机以开始使用。"],
+  "The printer did not confirm the light change. Try again.":["Drukarka nie potwierdziła zmiany lampki. Spróbuj ponownie.","La impresora no confirmó el cambio de luz. Inténtalo de nuevo.","L’imprimante n’a pas confirmé le changement d’éclairage. Réessayez.","Der Drucker hat die Lichtänderung nicht bestätigt. Versuche es erneut.","打印机未确认照明状态变化。请重试。"],
+  "Printer light is unavailable. Wait for the printer to connect and try again.":["Lampka jest niedostępna. Poczekaj na połączenie z drukarką i spróbuj ponownie.","La luz no está disponible. Espera a que la impresora se conecte e inténtalo de nuevo.","L’éclairage n’est pas disponible. Attendez que l’imprimante se connecte et réessayez.","Die Beleuchtung ist nicht verfügbar. Warte auf die Verbindung zum Drucker und versuche es erneut.","照明不可用。请等待打印机连接后重试。"],
   "PrintDeck · ADVANCED WIRELESS 3D PRINT MONITOR ·":["PrintDeck · ZAAWANSOWANY BEZPRZEWODOWY MONITOR DRUKU 3D ·","PrintDeck · MONITOR INALÁMBRICO AVANZADO DE IMPRESIÓN 3D ·","PrintDeck · MONITEUR SANS FIL AVANCÉ D’IMPRESSION 3D ·","PrintDeck · FORTSCHRITTLICHER KABELLOSER 3D-DRUCKMONITOR ·","PrintDeck · 先进的无线 3D 打印监视器 ·"],
   "License":["Licencja","Licencia","Licence","Lizenz","许可证"],
   "Notice":["Informacje prawne","Avis","Mentions","Hinweise","法律声明"],

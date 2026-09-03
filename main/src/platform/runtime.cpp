@@ -221,6 +221,8 @@ void Runtime::start() {
   web_config_.set_selected_printer_snapshot_callback(
       selected_printer_snapshot_entry, this);
   web_config_.set_unified_api_activity_callback(unified_api_activity_entry, this);
+  web_config_.set_printer_controls_callbacks(
+      printer_controls_activity_entry, printer_light_entry, this);
   const esp_err_t web_result =
       web_config_.start(settings_, settings_store_, network_, moonraker_probe_, printer_discovery_,
                         firmware_update_, reaction_assets_,
@@ -499,6 +501,24 @@ void Runtime::unified_api_activity_entry(void* context) {
   runtime->unified_api_active_until_ms_.store(
       now_ms + kUnifiedApiConnectionLeaseMs, std::memory_order_release);
   if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
+}
+
+void Runtime::printer_controls_activity_entry(void* context) {
+  auto* runtime = static_cast<Runtime*>(context);
+  if (runtime == nullptr) return;
+  const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  runtime->printer_controls_active_until_ms_.store(now_ms + 15000, std::memory_order_release);
+  if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
+}
+
+bool Runtime::printer_light_entry(void* context, std::uint32_t profile_id, bool enabled) {
+  auto* runtime = static_cast<Runtime*>(context);
+  if (runtime == nullptr || profile_id == 0) return false;
+  std::uint64_t empty = 0;
+  const std::uint64_t command = (static_cast<std::uint64_t>(profile_id) << 1U) | enabled;
+  if (!runtime->pending_web_printer_light_.compare_exchange_strong(empty, command)) return false;
+  printer_controls_activity_entry(context);
+  return true;
 }
 
 bool Runtime::background_update_blocked_entry(void* context) {
@@ -1252,7 +1272,8 @@ void Runtime::monitor_loop() {
         connection_now_ms <
             unified_api_active_until_ms_.load(std::memory_order_acquire);
     const bool full_connection_active = network.station_connected && selected != nullptr &&
-        (printer_detail_active || unified_api_connection_active);
+        (printer_detail_active || unified_api_connection_active ||
+         connection_now_ms < printer_controls_active_until_ms_.load(std::memory_order_acquire));
     const bool want_bambu_connection = full_connection_active && selected_is_bambu;
     const bool want_moonraker_connection = full_connection_active && selected_is_moonraker;
     const bool camera_page_visible = display_.camera_page_active() && screen_visible;
@@ -1410,6 +1431,39 @@ void Runtime::monitor_loop() {
         if (display_activity_primed_ &&
             selected_snapshot.job.activity == core::PrinterActivity::unknown) {
           selected_snapshot.job.activity = last_display_activity_;
+        }
+      }
+      // Dispatch remote controls on the same core-0 owner as profile changes.
+      // A queued command is never allowed to follow a selection to another printer.
+      const auto light_command = pending_web_printer_light_.exchange(0);
+      const auto light_profile = static_cast<std::uint32_t>(light_command >> 1U);
+      const auto light_now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+      if (light_command != 0 && selected != nullptr && selected->id == light_profile &&
+          selected_snapshot_ready && full_connection_active &&
+          selected_snapshot.link == core::LinkState::online &&
+          selected_snapshot.job.chamber_light_supported) {
+        const bool enabled = (light_command & 1U) != 0;
+        const bool accepted = selected_is_bambu ? bambu_lan_.request_chamber_light(enabled)
+                                               : moonraker_.request_chamber_light(enabled);
+        if (accepted) {
+          web_printer_light_profile_ = light_profile;
+          web_printer_light_target_ = enabled;
+          web_printer_light_deadline_ms_ = light_now_ms + 10000;
+          selected_snapshot.job.chamber_light_pending = true;
+          selected_snapshot.job.chamber_light_target_on = enabled;
+        }
+      }
+      if (web_printer_light_profile_ != 0) {
+        if (selected == nullptr || selected->id != web_printer_light_profile_ ||
+            light_now_ms >= web_printer_light_deadline_ms_) {
+          web_printer_light_profile_ = 0;
+        } else if (selected_snapshot_ready && selected_snapshot.link == core::LinkState::online &&
+                   !selected_snapshot.job.chamber_light_pending &&
+                   selected_snapshot.job.chamber_light_on == web_printer_light_target_) {
+          web_printer_light_profile_ = 0;
+          display_.reset_inactivity_and_wake();
+          if (settings_.audio_enabled && settings_.audio_volume_percent > 0)
+            audio_.play(AudioService::Event::test);
         }
       }
       web_config_.update_selected_printer_status(

@@ -512,6 +512,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/printers", .method = HTTP_POST, .handler = printer_entry, .user_ctx = this},
       {.uri = "/api/printers", .method = HTTP_GET, .handler = printers_get_entry, .user_ctx = this},
       {.uri = "/api/printers/manage", .method = HTTP_POST, .handler = printers_manage_entry, .user_ctx = this},
+      {.uri = "/api/printers/light", .method = HTTP_POST, .handler = printer_light_entry, .user_ctx = this},
       {.uri = "/api/printers/discover", .method = HTTP_POST, .handler = printer_discovery_start_entry, .user_ctx = this},
       {.uri = "/api/printers/discover", .method = HTTP_GET, .handler = printer_discovery_status_entry, .user_ctx = this},
       {.uri = "/api/printers/discover/cancel", .method = HTTP_POST, .handler = printer_discovery_cancel_entry, .user_ctx = this},
@@ -564,6 +565,8 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
   selected_link_ = snapshot.link;
   selected_phase_ = snapshot.job.phase;
   selected_completion_ = std::clamp(snapshot.job.completion, 0.0F, 100.0F);
+  selected_light_ = {snapshot.job.chamber_light_supported, snapshot.job.chamber_light_on,
+                     snapshot.job.chamber_light_pending, snapshot.job.chamber_light_target_on};
 }
 
 void WebConfig::set_settings_changed_callback(SettingsChangedCallback callback, void* context) {
@@ -604,6 +607,14 @@ void WebConfig::set_unified_api_activity_callback(
   const std::lock_guard<std::mutex> lock(mutex_);
   unified_api_activity_callback_ = callback;
   unified_api_activity_context_ = context;
+}
+
+void WebConfig::set_printer_controls_callbacks(
+    UnifiedApiActivityCallback activity, PrinterLightCallback light, void* context) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  printer_controls_activity_callback_ = activity;
+  printer_light_callback_ = light;
+  printer_controls_context_ = context;
 }
 
 void WebConfig::synchronize_settings(const core::DeviceSettings& settings) {
@@ -892,6 +903,10 @@ esp_err_t WebConfig::printers_get_entry(httpd_req_t* request) {
 
 esp_err_t WebConfig::printers_manage_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->manage_printer(request);
+}
+
+esp_err_t WebConfig::printer_light_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->set_printer_light(request);
 }
 
 esp_err_t WebConfig::printer_discovery_start_entry(httpd_req_t* request) {
@@ -2582,12 +2597,23 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
   core::DeviceSettings current;
   std::uint32_t selected_status_profile = 0;
   core::LinkState selected_link = core::LinkState::stopped;
+  PrinterLightState light;
+  UnifiedApiActivityCallback activity = nullptr;
+  void* context = nullptr;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     current = settings_;
     selected_status_profile = selected_status_profile_;
     selected_link = selected_link_;
+    light = selected_light_;
+    activity = printer_controls_activity_callback_;
+    context = printer_controls_context_;
   }
+  char query[32]{};
+  char controls[4]{};
+  if (activity != nullptr && httpd_req_get_url_query_str(request, query, sizeof(query)) == ESP_OK &&
+      httpd_query_key_value(query, "controls", controls, sizeof(controls)) == ESP_OK &&
+      std::strcmp(controls, "1") == 0) activity(context);
   const InactivePrinterSnapshot inactive = inactive_printer_poller_ != nullptr
       ? inactive_printer_poller_->snapshot() : InactivePrinterSnapshot{};
   std::string body = "{\"printers\":[";
@@ -2633,6 +2659,16 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
     append_json_string(body, profile.model);
     body += ",\"brand\":";
     append_json_string(body, profile.brand);
+    if (profile.id == current.selected_profile && profile.id == selected_status_profile) {
+      body += ",\"light\":{\"supported\":";
+      body += light.supported ? "true" : "false";
+      body += ",\"on\":";
+      body += light.on ? "true" : "false";
+      body += ",\"pending\":";
+      body += light.pending ? "true" : "false";
+      body += ",\"target_on\":";
+      body += light.target_on ? "true}" : "false}";
+    }
     body.push_back('}');
   }
   body += "]}";
@@ -3042,6 +3078,29 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
   notify_settings_changed(candidate, true);
   const esp_err_t response = send_json(request, "200 OK", "{\"saved\":true}");
   return response;
+}
+
+esp_err_t WebConfig::set_printer_light(httpd_req_t* request) {
+  const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+  std::string body, id_text, enabled_text;
+  std::uint32_t id = 0;
+  if (request->content_len > 64 || !receive_form(request, body) ||
+      !form_value(body, "id", id_text) || !parse_id(id_text, id) || id == 0 ||
+      !form_value(body, "enabled", enabled_text) || (enabled_text != "0" && enabled_text != "1")) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  }
+  const std::lock_guard<std::mutex> lock(mutex_);
+  if (id != settings_.selected_profile || id != selected_status_profile_ ||
+      selected_link_ != core::LinkState::online || !selected_light_.supported ||
+      selected_light_.pending || printer_light_callback_ == nullptr ||
+      !printer_light_callback_(printer_controls_context_, id, enabled_text == "1")) {
+    return send_json(request, "409 Conflict",
+                     "{\"error\":\"Printer light is unavailable. Wait for the printer to connect and try again.\"}");
+  }
+  selected_light_.pending = true;
+  selected_light_.target_on = enabled_text == "1";
+  return send_json(request, "202 Accepted", "{\"accepted\":true}");
 }
 
 esp_err_t WebConfig::manage_printer(httpd_req_t* request) {

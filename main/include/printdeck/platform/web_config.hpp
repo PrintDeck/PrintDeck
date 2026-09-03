@@ -38,6 +38,7 @@ class WebConfig {
   using SelectedPrinterSnapshotCallback =
       bool (*)(void* context, core::PrinterSnapshot& destination);
   using UnifiedApiActivityCallback = void (*)(void* context);
+  using PrinterLightCallback = bool (*)(void* context, std::uint32_t profile_id, bool enabled);
 
   esp_err_t start(const core::DeviceSettings& settings, const SettingsStore& store,
                   NetworkService& network, MoonrakerConnectionProbe& moonraker_probe,
@@ -54,6 +55,8 @@ class WebConfig {
   void set_selected_printer_snapshot_callback(
       SelectedPrinterSnapshotCallback callback, void* context);
   void set_unified_api_activity_callback(UnifiedApiActivityCallback callback, void* context);
+  void set_printer_controls_callbacks(UnifiedApiActivityCallback activity,
+                                     PrinterLightCallback light, void* context);
   void synchronize_settings(const core::DeviceSettings& settings);
   void update_selected_printer_status(const core::PrinterSnapshot& snapshot);
   esp_err_t save_brightness(int percent);
@@ -79,6 +82,7 @@ class WebConfig {
   static esp_err_t printer_entry(httpd_req_t* request);
   static esp_err_t printers_get_entry(httpd_req_t* request);
   static esp_err_t printers_manage_entry(httpd_req_t* request);
+  static esp_err_t printer_light_entry(httpd_req_t* request);
   static esp_err_t printer_discovery_start_entry(httpd_req_t* request);
   static esp_err_t printer_discovery_status_entry(httpd_req_t* request);
   static esp_err_t printer_discovery_cancel_entry(httpd_req_t* request);
@@ -131,6 +135,7 @@ class WebConfig {
   esp_err_t save_printer(httpd_req_t* request);
   esp_err_t serve_printers(httpd_req_t* request) const;
   esp_err_t manage_printer(httpd_req_t* request);
+  esp_err_t set_printer_light(httpd_req_t* request);
   esp_err_t start_printer_discovery(httpd_req_t* request);
   esp_err_t serve_printer_discovery(httpd_req_t* request,
                                     std::optional<bool> started = std::nullopt) const;
@@ -197,6 +202,15 @@ class WebConfig {
   core::LinkState selected_link_ = core::LinkState::stopped;
   core::JobPhase selected_phase_ = core::JobPhase::unknown;
   float selected_completion_ = 0.0F;
+  struct PrinterLightState {
+    bool supported = false;
+    bool on = false;
+    bool pending = false;
+    bool target_on = false;
+  } selected_light_;
+  UnifiedApiActivityCallback printer_controls_activity_callback_ = nullptr;
+  PrinterLightCallback printer_light_callback_ = nullptr;
+  void* printer_controls_context_ = nullptr;
   httpd_handle_t server_ = nullptr;
   esp_timer_handle_t restart_timer_ = nullptr;
   SettingsChangedCallback settings_changed_callback_ = nullptr;

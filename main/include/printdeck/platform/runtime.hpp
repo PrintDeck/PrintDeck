@@ -54,6 +54,8 @@ class Runtime {
   static bool selected_printer_snapshot_entry(
       void* context, core::PrinterSnapshot& destination);
   static void unified_api_activity_entry(void* context);
+  static void printer_controls_activity_entry(void* context);
+  static bool printer_light_entry(void* context, std::uint32_t profile_id, bool enabled);
   static bool background_update_blocked_entry(void* context);
   static void settings_changed_entry(void* context, const core::DeviceSettings& settings,
                                      bool play_feedback);
@@ -131,6 +133,11 @@ class Runtime {
   std::atomic<std::uint64_t> restart_expires_at_ms_{0};
   std::atomic<int> selected_printer_protocol_{-1};
   std::atomic<std::uint64_t> unified_api_active_until_ms_{0};
+  std::atomic<std::uint64_t> printer_controls_active_until_ms_{0};
+  std::atomic<std::uint64_t> pending_web_printer_light_{0};
+  std::uint32_t web_printer_light_profile_ = 0;
+  bool web_printer_light_target_ = false;
+  std::uint64_t web_printer_light_deadline_ms_ = 0;
   std::mutex pending_settings_mutex_;
   std::optional<core::DeviceSettings> pending_settings_;
   bool pending_settings_feedback_ = false;
