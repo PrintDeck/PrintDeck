@@ -41,7 +41,7 @@ endif()
 
 # Each hardware target has an independent release stream. Never align one
 # target to the other target's version merely because both share this source.
-set(PRINTDECK_AMOLED_1_75_VERSION "1.0.4")
+set(PRINTDECK_AMOLED_1_75_VERSION "1.0.5")
 set(PRINTDECK_LCD_1_54_VERSION "1.0.4")
 set(PRINTDECK_KNOMI2_VERSION "1.0.4")
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")

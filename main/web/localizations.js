@@ -652,6 +652,19 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"The printer answered, but it did not accept these connection details.":["Drukarka odpowiedziała, ale nie zaakceptowała tych danych połączenia.","La impresora respondió, pero no aceptó estos datos de conexión.","L’imprimante a répondu, mais n’a pas accepté ces informations de connexion.","Der Drucker hat geantwortet, diese Verbindungsdaten jedoch nicht akzeptiert.","打印机已响应，但未接受这些连接信息。"]
   ,"PrintDeck could not reach this Bambu Lab printer. Check the address, LAN access code and Wi-Fi network.":["PrintDeck nie mógł połączyć się z tą drukarką Bambu Lab. Sprawdź adres, kod dostępu LAN i sieć Wi‑Fi.","PrintDeck no pudo acceder a esta impresora Bambu Lab. Comprueba la dirección, el código de acceso LAN y la red Wi‑Fi.","PrintDeck n’a pas pu joindre cette imprimante Bambu Lab. Vérifiez l’adresse, le code d’accès LAN et le réseau Wi-Fi.","PrintDeck konnte diesen Bambu-Lab-Drucker nicht erreichen. Adresse, LAN-Zugangscode und WLAN prüfen.","PrintDeck 无法连接此 Bambu Lab 打印机。请检查地址、LAN 访问码和 Wi-Fi 网络。"]
   ,"Unknown":["Nieznane","Desconocido","Inconnu","Unbekannt","未知"]
+  ,"Display options":["Opcje wyświetlania","Opciones de visualización","Options d’affichage","Anzeigeoptionen","显示选项"]
+  ,"Reaction set":["Zestaw reakcji","Conjunto de reacciones","Ensemble de réactions","Reaktionsset","反应集"]
+  ,"Preview":["Podgląd","Vista previa","Aperçu","Vorschau","预览"]
+  ,"Choose a color":["Wybierz kolor","Elige un color","Choisissez une couleur","Farbe wählen","选择颜色"]
+  ,"Select a color to preview the set.":["Wybierz kolor, aby zobaczyć podgląd zestawu.","Selecciona un color para ver el conjunto.","Sélectionnez une couleur pour prévisualiser l’ensemble.","Wähle eine Farbe, um das Set anzusehen.","选择颜色以预览反应集。"]
+  ,"Installed on PrintDeck:":["Zainstalowany na PrintDeck:","Instalado en PrintDeck:","Installé sur PrintDeck :","Auf PrintDeck installiert:","PrintDeck 上已安装："]
+  ,"Installed set:":["Zainstalowany zestaw:","Conjunto instalado:","Ensemble installé :","Installiertes Set:","已安装的反应集："]
+  ,"Install {set}":["Zainstaluj: {set}","Instalar {set}","Installer {set}","{set} installieren","安装{set}"]
+  ,"This set is installed on PrintDeck.":["Ten zestaw jest zainstalowany na PrintDeck.","Este conjunto está instalado en PrintDeck.","Cet ensemble est installé sur PrintDeck.","Dieses Set ist auf PrintDeck installiert.","此反应集已安装在 PrintDeck 上。"]
+  ,"Installing replaces the set defaults. Custom images are kept.":["Instalacja zmienia domyślne animacje. Własne obrazy zostają.","La instalación cambia las animaciones predeterminadas. Conserva tus imágenes.","L’installation remplace les animations par défaut et conserve vos images.","Die Installation ersetzt die Standardanimationen. Eigene Bilder bleiben erhalten.","安装会替换默认动画，并保留自定义图像。"]
+  ,"Customize individual events in your installed set.":["Dostosuj poszczególne zdarzenia w zainstalowanym zestawie.","Personaliza cada evento del conjunto instalado.","Personnalisez les événements de l’ensemble installé.","Passe einzelne Ereignisse im installierten Set an.","自定义已安装反应集中的各个事件。"]
+  ,"No reaction sets are available.":["Brak dostępnych zestawów reakcji.","No hay conjuntos de reacciones disponibles.","Aucun ensemble de réactions n’est disponible.","Keine Reaktionssets verfügbar.","暂无可用的反应集。"]
+  ,"Reaction set installation progress":["Postęp instalacji zestawu reakcji","Progreso de instalación del conjunto","Progression de l’installation de l’ensemble","Fortschritt der Reaktionsset-Installation","反应集安装进度"]
 };
 for(const [source,values] of Object.entries(PRINTDECK_EXTRA_TRANSLATIONS)){
   PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]);
