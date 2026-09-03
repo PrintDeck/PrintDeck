@@ -107,8 +107,12 @@ class DisplayShell {
   void cancel_shutdown_countdown();
   void show_shutdown_screen();
   // Capture the composed LVGL display, including Quick Menu and system
-  // overlays, for the physical-USB developer channel.
+  // overlays, for USB developer capture and Web Config Live View.
   esp_err_t capture_png(std::vector<std::uint8_t>& png, std::string& screen_name) const;
+  // Queue one bounded pointer gesture for the normal LVGL input path. Coordinates
+  // use the current framebuffer space; only one remote gesture may run at once.
+  esp_err_t queue_remote_input(int start_x, int start_y, int end_x, int end_y,
+                               std::uint32_t duration_ms);
   // Select a stable documentable view without synthesizing touch input. This
   // is intentionally exposed only to the short-lived physical-USB developer
   // session; normal product navigation continues to use touch gestures.
@@ -434,6 +438,15 @@ class DisplayShell {
   bool update_overlay_manually_opened_ = false;
   std::atomic<int> current_rotation_{0};
   std::atomic<int> touch_rotation_applied_{-1};
+  lv_indev_t* touch_input_ = nullptr;
+  std::atomic<int> remote_input_state_{0};
+  std::int64_t remote_input_started_us_ = 0;
+  std::atomic<std::int64_t> remote_activity_suppressed_until_us_{0};
+  int remote_input_start_x_ = 0;
+  int remote_input_start_y_ = 0;
+  int remote_input_end_x_ = 0;
+  int remote_input_end_y_ = 0;
+  std::uint32_t remote_input_duration_ms_ = 0;
   bool horizontal_transition_active_ = false;
   bool horizontal_transition_target_applied_ = false;
   bool horizontal_transition_reveal_started_ = false;

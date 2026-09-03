@@ -63,6 +63,11 @@ constexpr std::uint32_t kHorizontalRevealDurationMs = 180;
 constexpr std::uint32_t kHorizontalLoadingTimeoutMs = 5000;
 constexpr std::uint32_t kTouchBackgroundRenderQuietMs = 40;
 constexpr std::uint32_t kTransitionBackgroundRenderQuietMs = 20;
+constexpr int kRemoteInputIdle = 0;
+constexpr int kRemoteInputPreparing = -1;
+constexpr int kRemoteInputActive = 1;
+constexpr std::uint32_t kRemoteInputMinimumDurationMs = 80;
+constexpr std::uint32_t kRemoteInputMaximumDurationMs = 2000;
 constexpr std::size_t kMaximumPreviewDimension = 512;
 constexpr std::size_t kMaximumDecodedPreviewBytes =
     kMaximumPreviewDimension * kMaximumPreviewDimension * 4U;
@@ -548,6 +553,7 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
     ESP_LOGE(kLogTag, "Touch orientation callback could not be installed");
     return ESP_FAIL;
   }
+  touch_input_ = touch_input;
   if (board_display_lock(2000) != ESP_OK) {
     ESP_LOGE(kLogTag, "Display lock timed out during initialization");
     return ESP_ERR_TIMEOUT;
@@ -705,8 +711,8 @@ void DisplayShell::screen_event(lv_event_t* event) {
   lv_indev_get_point(input, &point);
 
   if (code == LV_EVENT_PRESSED) {
-    // A USB-only animation preview must never leak into normal device use.
-    // The first physical interaction returns the page to live printer state.
+    // A developer-only animation preview must never leak into normal device use.
+    // The first physical or Live View interaction returns to live printer state.
     shell->capture_animation_override_active_ = false;
     shell->capture_animation_screen_name_.clear();
     if (shell->horizontal_transition_active_) {
@@ -5533,12 +5539,82 @@ bool DisplayShell::set_rotation(int degrees) {
   }
 }
 
+esp_err_t DisplayShell::queue_remote_input(int start_x, int start_y,
+                                           int end_x, int end_y,
+                                           std::uint32_t duration_ms) {
+  if (!display_ready_.load(std::memory_order_acquire) || touch_input_ == nullptr) {
+    return ESP_ERR_INVALID_STATE;
+  }
+  if (start_x < 0 || start_x >= kDisplayWidth || end_x < 0 || end_x >= kDisplayWidth ||
+      start_y < 0 || start_y >= kDisplayHeight || end_y < 0 || end_y >= kDisplayHeight ||
+      duration_ms < kRemoteInputMinimumDurationMs ||
+      duration_ms > kRemoteInputMaximumDurationMs) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  int expected = kRemoteInputIdle;
+  if (!remote_input_state_.compare_exchange_strong(
+          expected, kRemoteInputPreparing, std::memory_order_acq_rel)) {
+    return ESP_ERR_INVALID_STATE;
+  }
+  remote_input_start_x_ = start_x;
+  remote_input_start_y_ = start_y;
+  remote_input_end_x_ = end_x;
+  remote_input_end_y_ = end_y;
+  remote_input_duration_ms_ = duration_ms;
+  remote_input_started_us_ = esp_timer_get_time();
+  // Live View controls operate the LVGL scene but are not physical presence.
+  // Keep battery dim/off policy anchored to the last local interaction so a
+  // device in another room does not light up merely because its remote view is
+  // being controlled. The short grace covers LVGL's release/click dispatch.
+  remote_activity_suppressed_until_us_.store(
+      remote_input_started_us_ +
+          static_cast<std::int64_t>(duration_ms + 250U) * 1000,
+      std::memory_order_release);
+  remote_input_state_.store(kRemoteInputActive, std::memory_order_release);
+  if (!esp_lv_adapter_touch_notify_interrupt(touch_input_)) {
+    remote_input_state_.store(kRemoteInputIdle, std::memory_order_release);
+    remote_activity_suppressed_until_us_.store(0, std::memory_order_release);
+    return ESP_ERR_INVALID_STATE;
+  }
+  return ESP_OK;
+}
+
 esp_err_t DisplayShell::touch_read(esp_lcd_touch_handle_t touch,
                                    esp_lcd_touch_point_data_t* points, uint8_t* count,
                                    uint8_t maximum_count, void* context) {
   auto* shell = static_cast<DisplayShell*>(context);
   if (touch == nullptr || points == nullptr || count == nullptr || shell == nullptr) {
     return ESP_ERR_INVALID_ARG;
+  }
+  if (maximum_count > 0 &&
+      shell->remote_input_state_.load(std::memory_order_acquire) == kRemoteInputActive) {
+    const std::int64_t elapsed_us =
+        std::max<std::int64_t>(0, esp_timer_get_time() - shell->remote_input_started_us_);
+    const std::int64_t duration_us =
+        static_cast<std::int64_t>(shell->remote_input_duration_ms_) * 1000;
+    if (elapsed_us <= duration_us) {
+      const std::int64_t clamped_us = std::min(elapsed_us, duration_us);
+      points[0].track_id = 0;
+      points[0].x = static_cast<std::uint16_t>(
+          shell->remote_input_start_x_ +
+          (shell->remote_input_end_x_ - shell->remote_input_start_x_) * clamped_us /
+              duration_us);
+      points[0].y = static_cast<std::uint16_t>(
+          shell->remote_input_start_y_ +
+          (shell->remote_input_end_y_ - shell->remote_input_start_y_) * clamped_us /
+              duration_us);
+      points[0].strength = 1;
+      *count = 1;
+      shell->defer_background_render(kTouchBackgroundRenderQuietMs);
+      // IRQ-mode touch readers consume one notification per sample. Keep the
+      // normal LVGL input path awake until it observes the synthetic release.
+      esp_lv_adapter_touch_notify_interrupt(shell->touch_input_);
+    } else {
+      *count = 0;
+      shell->remote_input_state_.store(kRemoteInputIdle, std::memory_order_release);
+    }
+    return ESP_OK;
   }
   const int rotation = shell->current_rotation_.load();
   if (shell->touch_rotation_applied_.load() != rotation) {
@@ -6334,6 +6410,10 @@ void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
 }
 
 void DisplayShell::note_activity(bool wake) {
+  if (esp_timer_get_time() <=
+      remote_activity_suppressed_until_us_.load(std::memory_order_acquire)) {
+    return;
+  }
   last_activity_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
   if (wake) request_wake();
 }
@@ -6458,26 +6538,35 @@ esp_err_t DisplayShell::capture_png(std::vector<std::uint8_t>& png,
   image.width = static_cast<png_uint_32>(width);
   image.height = static_cast<png_uint_32>(height);
   image.format = PNG_FORMAT_BGRA;
-  png_alloc_size_t encoded_size = 0;
+  constexpr png_alloc_size_t kInitialPngCapacity = 256U * 1024U;
+  const png_alloc_size_t maximum_size = PNG_IMAGE_PNG_SIZE_MAX(image);
+  png_alloc_size_t encoded_size = std::min(kInitialPngCapacity, maximum_size);
   const png_int_32 stride = static_cast<png_int_32>(screen->header.stride);
-  if (!png_image_write_to_memory(&image, nullptr, &encoded_size, 0,
-                                 screen->data, stride, nullptr) || encoded_size == 0) {
-    png_image_free(&image);
-    lv_draw_buf_destroy(screen);
-    return ESP_FAIL;
-  }
   png.resize(encoded_size);
-  image = {};
-  image.version = PNG_IMAGE_VERSION;
-  image.width = static_cast<png_uint_32>(width);
-  image.height = static_cast<png_uint_32>(height);
-  image.format = PNG_FORMAT_BGRA;
   if (!png_image_write_to_memory(&image, png.data(), &encoded_size, 0,
                                  screen->data, stride, nullptr)) {
-    png.clear();
+    const png_alloc_size_t required_size = encoded_size;
     png_image_free(&image);
-    lv_draw_buf_destroy(screen);
-    return ESP_FAIL;
+    if (required_size == 0 || required_size <= png.size() ||
+        required_size > maximum_size) {
+      png.clear();
+      lv_draw_buf_destroy(screen);
+      return ESP_FAIL;
+    }
+    png.resize(required_size);
+    image = {};
+    image.version = PNG_IMAGE_VERSION;
+    image.width = static_cast<png_uint_32>(width);
+    image.height = static_cast<png_uint_32>(height);
+    image.format = PNG_FORMAT_BGRA;
+    encoded_size = required_size;
+    if (!png_image_write_to_memory(&image, png.data(), &encoded_size, 0,
+                                   screen->data, stride, nullptr)) {
+      png.clear();
+      png_image_free(&image);
+      lv_draw_buf_destroy(screen);
+      return ESP_FAIL;
+    }
   }
   png.resize(encoded_size);
   png_image_free(&image);

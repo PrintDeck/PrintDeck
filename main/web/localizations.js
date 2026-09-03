@@ -23,7 +23,8 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   "Add your first printer to get started.":["Dodaj pierwszą drukarkę, aby rozpocząć.","Añade tu primera impresora para empezar.","Ajoutez votre première imprimante pour commencer.","Füge deinen ersten Drucker hinzu, um loszulegen.","添加第一台打印机以开始使用。"],
   "The printer did not confirm the light change. Try again.":["Drukarka nie potwierdziła zmiany lampki. Spróbuj ponownie.","La impresora no confirmó el cambio de luz. Inténtalo de nuevo.","L’imprimante n’a pas confirmé le changement d’éclairage. Réessayez.","Der Drucker hat die Lichtänderung nicht bestätigt. Versuche es erneut.","打印机未确认照明状态变化。请重试。"],
   "Printer light is unavailable. Wait for the printer to connect and try again.":["Lampka jest niedostępna. Poczekaj na połączenie z drukarką i spróbuj ponownie.","La luz no está disponible. Espera a que la impresora se conecte e inténtalo de nuevo.","L’éclairage n’est pas disponible. Attendez que l’imprimante se connecte et réessayez.","Die Beleuchtung ist nicht verfügbar. Warte auf die Verbindung zum Drucker und versuche es erneut.","照明不可用。请等待打印机连接后重试。"],
-  "PrintDeck · ADVANCED WIRELESS 3D PRINT MONITOR ·":["PrintDeck · ZAAWANSOWANY BEZPRZEWODOWY MONITOR DRUKU 3D ·","PrintDeck · MONITOR INALÁMBRICO AVANZADO DE IMPRESIÓN 3D ·","PrintDeck · MONITEUR SANS FIL AVANCÉ D’IMPRESSION 3D ·","PrintDeck · FORTSCHRITTLICHER KABELLOSER 3D-DRUCKMONITOR ·","PrintDeck · 先进的无线 3D 打印监视器 ·"],
+  "Copyright 2026 © PrintDeck ·":["Copyright 2026 © PrintDeck ·","Copyright 2026 © PrintDeck ·","Copyright 2026 © PrintDeck ·","Copyright 2026 © PrintDeck ·","Copyright 2026 © PrintDeck ·"],
+  "Contact Support":["Skontaktuj się z pomocą","Contactar con soporte","Contacter l’assistance","Support kontaktieren","联系支持"],
   "License":["Licencja","Licencia","Licence","Lizenz","许可证"],
   "Notice":["Informacje prawne","Avis","Mentions","Hinweise","法律声明"],
   "Reactions":["Reakcje","Reacciones","Réactions","Reaktionen","反应"],
@@ -678,6 +679,55 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"Customize individual events in your installed set.":["Dostosuj poszczególne zdarzenia w zainstalowanym zestawie.","Personaliza cada evento del conjunto instalado.","Personnalisez les événements de l’ensemble installé.","Passe einzelne Ereignisse im installierten Set an.","自定义已安装反应集中的各个事件。"]
   ,"No reaction sets are available.":["Brak dostępnych zestawów reakcji.","No hay conjuntos de reacciones disponibles.","Aucun ensemble de réactions n’est disponible.","Keine Reaktionssets verfügbar.","暂无可用的反应集。"]
   ,"Reaction set installation progress":["Postęp instalacji zestawu reakcji","Progreso de instalación del conjunto","Progression de l’installation de l’ensemble","Fortschritt der Reaktionsset-Installation","反应集安装进度"]
+  ,"Live View":["Podgląd na żywo","Vista en directo","Vue en direct","Live-Ansicht","实时画面"]
+  ,"See and control the PrintDeck screen from this browser.":["Wyświetlaj i obsługuj ekran PrintDeck w tej przeglądarce.","Consulta y controla la pantalla de PrintDeck desde este navegador.","Affichez et contrôlez l’écran PrintDeck depuis ce navigateur.","PrintDeck-Display in diesem Browser anzeigen und bedienen.","在此浏览器中查看并控制 PrintDeck 屏幕。"]
+  ,"Refresh rate":["Częstotliwość odświeżania","Frecuencia de actualización","Fréquence d’actualisation","Aktualisierungsrate","刷新频率"]
+  ,"Every 1 second":["Co 1 sekundę","Cada segundo","Toutes les secondes","Jede Sekunde","每 1 秒"]
+  ,"Every 2 seconds":["Co 2 sekundy","Cada 2 segundos","Toutes les 2 secondes","Alle 2 Sekunden","每 2 秒"]
+  ,"Every 3 seconds":["Co 3 sekundy","Cada 3 segundos","Toutes les 3 secondes","Alle 3 Sekunden","每 3 秒"]
+  ,"Every 4 seconds":["Co 4 sekundy","Cada 4 segundos","Toutes les 4 secondes","Alle 4 Sekunden","每 4 秒"]
+  ,"Every 5 seconds":["Co 5 sekund","Cada 5 segundos","Toutes les 5 secondes","Alle 5 Sekunden","每 5 秒"]
+  ,"Live View navigation controls":["Przyciski nawigacji podglądu na żywo","Controles de navegación de la vista en directo","Commandes de navigation de la vue en direct","Navigation der Live-Ansicht","实时画面导航控件"]
+  ,"Navigate up":["Przejdź w górę","Ir arriba","Aller vers le haut","Nach oben","向上导航"]
+  ,"Navigate left":["Przejdź w lewo","Ir a la izquierda","Aller à gauche","Nach links","向左导航"]
+  ,"Navigate right":["Przejdź w prawo","Ir a la derecha","Aller à droite","Nach rechts","向右导航"]
+  ,"Navigate down":["Przejdź w dół","Ir abajo","Aller vers le bas","Nach unten","向下导航"]
+  ,"Interactive PrintDeck screen":["Interaktywny ekran PrintDeck","Pantalla interactiva de PrintDeck","Écran PrintDeck interactif","Interaktives PrintDeck-Display","PrintDeck 交互屏幕"]
+  ,"Waiting for the first screen image…":["Oczekiwanie na pierwszy obraz ekranu…","Esperando la primera imagen de la pantalla…","En attente de la première image de l’écran…","Warten auf das erste Bildschirmbild…","正在等待首个屏幕画面…"]
+  ,"Use it like the display":["Obsługuj jak ekran urządzenia","Úsala como la pantalla","Utilisez-la comme l’écran","Wie das Display bedienen","像设备屏幕一样操作"]
+  ,"Tap controls directly, hold to open the Quick Menu, or swipe across the screen. The four arrows move to the neighboring view.":["Dotykaj elementów bezpośrednio, przytrzymaj, aby otworzyć Szybkie menu, albo przeciągnij po ekranie. Cztery strzałki przechodzą do sąsiedniego widoku.","Toca los controles directamente, mantén pulsado para abrir el Menú rápido o desliza sobre la pantalla. Las cuatro flechas llevan a la vista contigua.","Touchez directement les commandes, maintenez pour ouvrir le Menu rapide ou balayez l’écran. Les quatre flèches ouvrent la vue voisine.","Bediene Elemente direkt, halte zum Öffnen des Schnellmenüs gedrückt oder wische über das Display. Die vier Pfeile wechseln zur benachbarten Ansicht.","直接点按控件，长按可打开快捷菜单，也可在屏幕上滑动。四个箭头用于切换到相邻画面。"]
+  ,"Tap":["Dotknięcie","Toque","Appui","Tippen","点按"]
+  ,"Choose a control on the screen.":["Wybierz element sterujący na ekranie.","Selecciona un control en la pantalla.","Choisissez une commande à l’écran.","Ein Bedienelement auf dem Display auswählen.","选择屏幕上的控件。"]
+  ,"Long press":["Przytrzymanie","Pulsación larga","Appui long","Gedrückt halten","长按"]
+  ,"Click":["Kliknięcie","Clic","Clic","Klick","点击"]
+  ,"Swipe left":["Przeciągnięcie w lewo","Deslizamiento a la izquierda","Balayage vers la gauche","Nach links wischen","向左滑动"]
+  ,"Swipe right":["Przeciągnięcie w prawo","Deslizamiento a la derecha","Balayage vers la droite","Nach rechts wischen","向右滑动"]
+  ,"Swipe up":["Przeciągnięcie w górę","Deslizamiento hacia arriba","Balayage vers le haut","Nach oben wischen","向上滑动"]
+  ,"Swipe down":["Przeciągnięcie w dół","Deslizamiento hacia abajo","Balayage vers le bas","Nach unten wischen","向下滑动"]
+  ,"Hold for a moment without moving.":["Przytrzymaj chwilę bez poruszania.","Mantén pulsado un momento sin mover.","Maintenez un instant sans bouger.","Kurz gedrückt halten, ohne zu bewegen.","按住片刻且不要移动。"]
+  ,"Swipe":["Przeciągnięcie","Deslizamiento","Balayage","Wischen","滑动"]
+  ,"Drag in any direction to navigate.":["Przeciągnij w dowolnym kierunku, aby nawigować.","Arrastra en cualquier dirección para navegar.","Faites glisser dans une direction pour naviguer.","Zum Navigieren in eine beliebige Richtung wischen.","向任意方向拖动以导航。"]
+  ,"Connecting to Live View…":["Łączenie z podglądem na żywo…","Conectando con la vista en directo…","Connexion à la vue en direct…","Live-Ansicht wird verbunden…","正在连接实时画面…"]
+  ,"Refreshing Live View…":["Odświeżanie podglądu na żywo…","Actualizando la vista en directo…","Actualisation de la vue en direct…","Live-Ansicht wird aktualisiert…","正在刷新实时画面…"]
+  ,"Live View updated":["Podgląd na żywo odświeżony","Vista en directo actualizada","Vue en direct actualisée","Live-Ansicht aktualisiert","实时画面已更新"]
+  ,"Sending input…":["Wysyłanie sterowania…","Enviando control…","Envoi de la commande…","Eingabe wird gesendet…","正在发送操作…"]
+  ,"Input sent.":["Sterowanie wysłane.","Control enviado.","Commande envoyée.","Eingabe gesendet.","操作已发送。"]
+  ,"Live View is temporarily unavailable.":["Podgląd na żywo jest chwilowo niedostępny.","La vista en directo no está disponible temporalmente.","La vue en direct est temporairement indisponible.","Die Live-Ansicht ist vorübergehend nicht verfügbar.","实时画面暂时不可用。"]
+  ,"The previous Live View frame is still being prepared.":["Poprzedni obraz podglądu na żywo jest nadal przygotowywany.","La imagen anterior de la vista en directo aún se está preparando.","L’image précédente de la vue en direct est toujours en préparation.","Das vorherige Bild der Live-Ansicht wird noch vorbereitet.","上一帧实时画面仍在生成中。"]
+  ,"Wait a moment before refreshing Live View again.":["Odczekaj chwilę przed ponownym odświeżeniem podglądu na żywo.","Espera un momento antes de volver a actualizar la vista en directo.","Patientez un instant avant d’actualiser à nouveau la vue en direct.","Bitte kurz warten, bevor die Live-Ansicht erneut aktualisiert wird.","请稍候再刷新实时画面。"]
+  ,"The PrintDeck screen could not be captured.":["Nie udało się pobrać obrazu ekranu PrintDeck.","No se pudo capturar la pantalla de PrintDeck.","La capture de l’écran PrintDeck a échoué.","Das PrintDeck-Display konnte nicht erfasst werden.","无法捕获 PrintDeck 屏幕。"]
+  ,"Live View controls are temporarily unavailable.":["Sterowanie podglądem na żywo jest chwilowo niedostępne.","Los controles de la vista en directo no están disponibles temporalmente.","Les commandes de la vue en direct sont temporairement indisponibles.","Die Bedienung der Live-Ansicht ist vorübergehend nicht verfügbar.","实时画面控制暂时不可用。"]
+  ,"Live View input is invalid.":["Dane sterowania podglądem na żywo są nieprawidłowe.","El control de la vista en directo no es válido.","La commande de la vue en direct n’est pas valide.","Die Eingabe für die Live-Ansicht ist ungültig.","实时画面操作无效。"]
+  ,"Live View swipe coordinates are invalid.":["Współrzędne przeciągnięcia w podglądzie na żywo są nieprawidłowe.","Las coordenadas del deslizamiento no son válidas.","Les coordonnées du balayage ne sont pas valides.","Die Wischkoordinaten sind ungültig.","实时画面滑动坐标无效。"]
+  ,"Live View input action is invalid.":["Rodzaj sterowania podglądem na żywo jest nieprawidłowy.","La acción de control de la vista en directo no es válida.","L’action de commande de la vue en direct n’est pas valide.","Die Eingabeaktion für die Live-Ansicht ist ungültig.","实时画面操作类型无效。"]
+  ,"Live View coordinates are outside the display.":["Współrzędne podglądu na żywo znajdują się poza ekranem.","Las coordenadas están fuera de la pantalla.","Les coordonnées se trouvent hors de l’écran.","Die Koordinaten liegen außerhalb des Displays.","实时画面坐标超出屏幕范围。"]
+  ,"Wait for the current Live View gesture to finish.":["Poczekaj na zakończenie bieżącego gestu podglądu na żywo.","Espera a que termine el gesto actual de la vista en directo.","Attendez la fin du geste en cours dans la vue en direct.","Warte, bis die aktuelle Geste in der Live-Ansicht beendet ist.","请等待当前实时画面手势完成。"]
+  ,"Live View input could not be sent.":["Nie udało się wysłać sterowania podglądem na żywo.","No se pudo enviar el control a la vista en directo.","La commande n’a pas pu être envoyée à la vue en direct.","Die Eingabe für die Live-Ansicht konnte nicht gesendet werden.","无法发送实时画面操作。"]
+  ,"The Live View frame is invalid.":["Obraz podglądu na żywo jest nieprawidłowy.","La imagen de la vista en directo no es válida.","L’image de la vue en direct n’est pas valide.","Das Bild der Live-Ansicht ist ungültig.","实时画面帧无效。"]
+  ,"Useful GIF resources":["Przydatne źródła GIF-ów","Recursos útiles de GIF","Ressources GIF utiles","Nützliche GIF-Quellen","实用 GIF 资源"]
+  ,"Open GIPHY":["Otwórz GIPHY","Abrir GIPHY","Ouvrir GIPHY","GIPHY öffnen","打开 GIPHY"]
+  ,"Open Tenor":["Otwórz Tenor","Abrir Tenor","Ouvrir Tenor","Tenor öffnen","打开 Tenor"]
+  ,"Check reuse rights for each GIF.":["Sprawdź prawa do użycia każdego GIF-a.","Comprueba los derechos de uso de cada GIF.","Vérifiez les droits de réutilisation de chaque GIF.","Nutzungsrechte für jedes GIF prüfen.","请核实每个 GIF 的再使用权。"]
 };
 for(const [source,values] of Object.entries(PRINTDECK_EXTRA_TRANSLATIONS)){
   PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]);

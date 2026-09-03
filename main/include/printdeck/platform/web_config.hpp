@@ -26,6 +26,8 @@
 
 namespace printdeck::platform {
 
+class DisplayShell;
+
 class WebConfig {
  public:
   using SettingsChangedCallback =
@@ -46,7 +48,8 @@ class WebConfig {
                   FirmwareUpdateService& firmware_update,
                   ReactionAssetService& reaction_assets,
                   BambuCompatibilityProbe& compatibility_probe,
-                  const InactivePrinterPoller& inactive_printer_poller);
+                  const InactivePrinterPoller& inactive_printer_poller,
+                  DisplayShell& display);
   void set_settings_changed_callback(SettingsChangedCallback callback, void* context);
   void set_audio_test_callback(AudioTestCallback callback, void* context);
   void set_configuration_backup_activity_callback(
@@ -75,6 +78,8 @@ class WebConfig {
   static esp_err_t reactions_script_entry(httpd_req_t* request);
   static esp_err_t reaction_set_preview_entry(httpd_req_t* request);
   static esp_err_t health_entry(httpd_req_t* request);
+  static esp_err_t live_view_frame_entry(httpd_req_t* request);
+  static esp_err_t live_view_input_entry(httpd_req_t* request);
   static esp_err_t device_info_entry(httpd_req_t* request);
   static esp_err_t brand_logos_entry(httpd_req_t* request);
   static esp_err_t wifi_entry(httpd_req_t* request);
@@ -128,6 +133,8 @@ class WebConfig {
   esp_err_t serve_reactions_script(httpd_req_t* request) const;
   esp_err_t serve_reaction_set_preview(httpd_req_t* request) const;
   esp_err_t serve_health(httpd_req_t* request) const;
+  esp_err_t serve_live_view_frame(httpd_req_t* request);
+  esp_err_t send_live_view_input(httpd_req_t* request);
   esp_err_t serve_device_info(httpd_req_t* request) const;
   esp_err_t serve_brand_logos(httpd_req_t* request) const;
   esp_err_t save_wifi(httpd_req_t* request);
@@ -188,6 +195,8 @@ class WebConfig {
 
   mutable std::mutex settings_write_mutex_;
   mutable std::mutex backup_crypto_mutex_;
+  mutable std::mutex live_view_capture_mutex_;
+  std::atomic<std::uint64_t> live_view_next_input_ms_{0};
   mutable std::mutex mutex_;
   core::DeviceSettings settings_;
   const SettingsStore* store_ = nullptr;
@@ -198,6 +207,7 @@ class WebConfig {
   ReactionAssetService* reaction_assets_ = nullptr;
   BambuCompatibilityProbe* compatibility_probe_ = nullptr;
   const InactivePrinterPoller* inactive_printer_poller_ = nullptr;
+  DisplayShell* display_ = nullptr;
   std::uint32_t selected_status_profile_ = 0;
   core::LinkState selected_link_ = core::LinkState::stopped;
   core::JobPhase selected_phase_ = core::JobPhase::unknown;
@@ -226,6 +236,7 @@ class WebConfig {
   UnifiedApiActivityCallback unified_api_activity_callback_ = nullptr;
   void* unified_api_activity_context_ = nullptr;
   mutable std::atomic<std::uint64_t> unified_api_next_request_ms_{0};
+  mutable std::atomic<std::uint64_t> live_view_next_capture_ms_{0};
   mutable std::array<std::uint8_t, 16> backup_crypto_salt_{};
   mutable std::array<std::uint8_t, 32> backup_crypto_verifier_{};
   mutable std::array<std::uint8_t, 32> backup_crypto_key_{};

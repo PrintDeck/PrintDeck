@@ -31,6 +31,7 @@
 #include "printdeck/core/localization.hpp"
 #include "printdeck/core/timezone.hpp"
 #include "printdeck/platform/board.hpp"
+#include "printdeck/platform/display_shell.hpp"
 #include "printdeck/platform/reset_diagnostics.hpp"
 #include "printdeck/platform/web_assets.hpp"
 #include "printdeck/platform/task_affinity.hpp"
@@ -60,6 +61,11 @@ constexpr std::size_t kOtaReceiveBufferBytes = 4096;
 constexpr std::uint64_t kOtaReceiveDeadlineMs = 120'000;
 constexpr std::uint64_t kUnifiedApiSelectedStaleMs = 15'000;
 constexpr std::uint64_t kUnifiedApiMinimumRequestIntervalMs = 1'000;
+constexpr std::uint64_t kLiveViewMinimumCaptureIntervalMs = 750;
+constexpr std::uint32_t kLiveViewTapDurationMs = 110;
+constexpr std::uint32_t kLiveViewLongPressDurationMs = 1100;
+constexpr std::uint32_t kLiveViewSwipeDurationMs = 260;
+constexpr std::uint64_t kLiveViewInputCooldownMs = 150;
 
 esp_err_t send_gzip_asset(httpd_req_t* request,
                           std::string_view asset,
@@ -465,7 +471,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
                            FirmwareUpdateService& firmware_update,
                            ReactionAssetService& reaction_assets,
                            BambuCompatibilityProbe& compatibility_probe,
-                           const InactivePrinterPoller& inactive_printer_poller) {
+                           const InactivePrinterPoller& inactive_printer_poller,
+                           DisplayShell& display) {
   if (server_ != nullptr) return ESP_ERR_INVALID_STATE;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
@@ -479,6 +486,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   reaction_assets_ = &reaction_assets;
   compatibility_probe_ = &compatibility_probe;
   inactive_printer_poller_ = &inactive_printer_poller;
+  display_ = &display;
 
   const esp_timer_create_args_t timer_args = {
       .callback = restart_entry,
@@ -492,6 +500,11 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
 
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.core_id = kServiceCore;
+  // Live View encodes the same LVGL snapshot as the USB developer service.
+  // libpng and a simultaneous remote-input response exceeded 6 KiB on the
+  // physical AMOLED target, so reserve a measured safety margin for the one
+  // HTTP worker that serves both frames and controls.
+  config.stack_size = 12288;
   config.max_uri_handlers = 64;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
@@ -505,6 +518,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/reactions.js", .method = HTTP_GET, .handler = reactions_script_entry, .user_ctx = this},
       {.uri = "/api/reactions/set-preview", .method = HTTP_GET, .handler = reaction_set_preview_entry, .user_ctx = this},
       {.uri = "/api/health", .method = HTTP_GET, .handler = health_entry, .user_ctx = this},
+      {.uri = "/api/live-view/frame", .method = HTTP_GET, .handler = live_view_frame_entry, .user_ctx = this},
+      {.uri = "/api/live-view/input", .method = HTTP_POST, .handler = live_view_input_entry, .user_ctx = this},
       {.uri = "/api/device", .method = HTTP_GET, .handler = device_info_entry, .user_ctx = this},
       {.uri = "/api/brand-logos", .method = HTTP_GET, .handler = brand_logos_entry, .user_ctx = this},
       {.uri = "/api/wifi/scan", .method = HTTP_GET, .handler = wifi_scan_entry, .user_ctx = this},
@@ -877,6 +892,14 @@ esp_err_t WebConfig::health_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_health(request);
 }
 
+esp_err_t WebConfig::live_view_frame_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_live_view_frame(request);
+}
+
+esp_err_t WebConfig::live_view_input_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->send_live_view_input(request);
+}
+
 esp_err_t WebConfig::device_info_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_device_info(request);
 }
@@ -1101,6 +1124,7 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
       "\",\"display_width\":" + std::to_string(kDisplayWidth) +
       ",\"display_height\":" + std::to_string(kDisplayHeight) +
       ",\"display_round\":" + (kDisplayIsRound ? std::string("true") : std::string("false")) +
+      ",\"live_view_available\":true" +
       ",\"audio_available\":" +
           (kBoardHasAudio ? std::string("true") : std::string("false")) +
       ",\"wifi_connected\":";
@@ -1139,6 +1163,125 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   append_json_string(body, usb_developer_status());
   body.push_back('}');
   return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::serve_live_view_frame(httpd_req_t* request) {
+  if (display_ == nullptr) {
+    return send_json(request, "503 Service Unavailable",
+                     "{\"error\":\"Live View is temporarily unavailable.\"}");
+  }
+  std::unique_lock<std::mutex> capture_lock(live_view_capture_mutex_, std::try_to_lock);
+  if (!capture_lock.owns_lock()) {
+    return send_json(request, "429 Too Many Requests",
+                     "{\"error\":\"The previous Live View frame is still being prepared.\"}");
+  }
+  const std::uint64_t now_ms =
+      static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  if (now_ms < live_view_next_capture_ms_.load(std::memory_order_acquire)) {
+    httpd_resp_set_hdr(request, "Retry-After", "1");
+    return send_json(request, "429 Too Many Requests",
+                     "{\"error\":\"Wait a moment before refreshing Live View again.\"}");
+  }
+
+  std::vector<std::uint8_t> png;
+  std::string screen_name;
+  const esp_err_t result = display_->capture_png(png, screen_name);
+  live_view_next_capture_ms_.store(
+      static_cast<std::uint64_t>(esp_timer_get_time() / 1000) +
+          kLiveViewMinimumCaptureIntervalMs,
+      std::memory_order_release);
+  if (result != ESP_OK || png.empty()) {
+    return send_json(request, "503 Service Unavailable",
+                     "{\"error\":\"The PrintDeck screen could not be captured.\"}");
+  }
+
+  httpd_resp_set_type(request, "image/png");
+  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+  httpd_resp_set_hdr(request, "X-Content-Type-Options", "nosniff");
+  httpd_resp_set_hdr(request, "X-PrintDeck-Screen", screen_name.c_str());
+  return httpd_resp_send(request, reinterpret_cast<const char*>(png.data()),
+                         static_cast<ssize_t>(png.size()));
+}
+
+esp_err_t WebConfig::send_live_view_input(httpd_req_t* request) {
+  if (display_ == nullptr) {
+    return send_json(request, "503 Service Unavailable",
+                     "{\"error\":\"Live View controls are temporarily unavailable.\"}");
+  }
+
+  std::string body;
+  std::string action;
+  std::string x_text;
+  std::string y_text;
+  int start_x = 0;
+  int start_y = 0;
+  if (!receive_form(request, body) ||
+      !form_value(body, "action", action) ||
+      !form_value(body, "x", x_text) || !parse_int(x_text, start_x) ||
+      !form_value(body, "y", y_text) || !parse_int(y_text, start_y)) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"Live View input is invalid.\"}");
+  }
+
+  int end_x = start_x;
+  int end_y = start_y;
+  std::uint32_t duration_ms = kLiveViewTapDurationMs;
+  if (action == "long_press") {
+    duration_ms = kLiveViewLongPressDurationMs;
+  } else if (action == "swipe") {
+    std::string end_x_text;
+    std::string end_y_text;
+    if (!form_value(body, "end_x", end_x_text) || !parse_int(end_x_text, end_x) ||
+        !form_value(body, "end_y", end_y_text) || !parse_int(end_y_text, end_y)) {
+      return send_json(request, "400 Bad Request",
+                       "{\"error\":\"Live View swipe coordinates are invalid.\"}");
+    }
+    duration_ms = kLiveViewSwipeDurationMs;
+  } else if (action != "tap") {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"Live View input action is invalid.\"}");
+  }
+
+  const std::uint64_t now_ms =
+      static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  const std::uint64_t reserved_until_ms =
+      now_ms + duration_ms + kLiveViewInputCooldownMs;
+  std::uint64_t expected_available_ms =
+      live_view_next_input_ms_.load(std::memory_order_acquire);
+  while (true) {
+    if (now_ms < expected_available_ms) {
+      httpd_resp_set_hdr(request, "Retry-After", "1");
+      return send_json(request, "429 Too Many Requests",
+                       "{\"error\":\"Wait for the current Live View gesture to finish.\"}");
+    }
+    if (live_view_next_input_ms_.compare_exchange_weak(
+            expected_available_ms, reserved_until_ms,
+            std::memory_order_acq_rel, std::memory_order_acquire)) {
+      break;
+    }
+  }
+
+  const esp_err_t result =
+      display_->queue_remote_input(start_x, start_y, end_x, end_y, duration_ms);
+  if (result != ESP_OK) {
+    std::uint64_t expected_reservation = reserved_until_ms;
+    live_view_next_input_ms_.compare_exchange_strong(
+        expected_reservation, 0, std::memory_order_acq_rel,
+        std::memory_order_acquire);
+  }
+  if (result == ESP_ERR_INVALID_ARG) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"Live View coordinates are outside the display.\"}");
+  }
+  if (result == ESP_ERR_INVALID_STATE) {
+    return send_json(request, "409 Conflict",
+                     "{\"error\":\"Wait for the current Live View gesture to finish.\"}");
+  }
+  if (result != ESP_OK) {
+    return send_json(request, "503 Service Unavailable",
+                     "{\"error\":\"Live View input could not be sent.\"}");
+  }
+  return send_json(request, "202 Accepted", "{\"accepted\":true}");
 }
 
 esp_err_t WebConfig::serve_device_info(httpd_req_t* request) const {

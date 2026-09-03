@@ -226,7 +226,7 @@ void Runtime::start() {
   const esp_err_t web_result =
       web_config_.start(settings_, settings_store_, network_, moonraker_probe_, printer_discovery_,
                         firmware_update_, reaction_assets_,
-                        bambu_compatibility_, inactive_printer_poller_);
+                        bambu_compatibility_, inactive_printer_poller_, display_);
   if (web_result != ESP_OK) {
     ESP_LOGE(kLogTag, "Web Config could not be started: %s", esp_err_to_name(web_result));
     display_.show_boot_status("Web Config startup failed");
