@@ -518,6 +518,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/reactions.js", .method = HTTP_GET, .handler = reactions_script_entry, .user_ctx = this},
       {.uri = "/api/reactions/set-preview", .method = HTTP_GET, .handler = reaction_set_preview_entry, .user_ctx = this},
       {.uri = "/api/health", .method = HTTP_GET, .handler = health_entry, .user_ctx = this},
+      {.uri = "/api/devices/discover", .method = HTTP_POST, .handler = device_discovery_entry, .user_ctx = this},
+      {.uri = "/api/devices/discover", .method = HTTP_GET, .handler = device_discovery_entry, .user_ctx = this},
       {.uri = "/api/live-view/frame", .method = HTTP_GET, .handler = live_view_frame_entry, .user_ctx = this},
       {.uri = "/api/live-view/input", .method = HTTP_POST, .handler = live_view_input_entry, .user_ctx = this},
       {.uri = "/api/device", .method = HTTP_GET, .handler = device_info_entry, .user_ctx = this},
@@ -892,6 +894,10 @@ esp_err_t WebConfig::health_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_health(request);
 }
 
+esp_err_t WebConfig::device_discovery_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_device_discovery(request);
+}
+
 esp_err_t WebConfig::live_view_frame_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_live_view_frame(request);
 }
@@ -1071,6 +1077,23 @@ esp_err_t WebConfig::captive_entry(httpd_req_t* request) {
 void WebConfig::restart_entry(void*) { esp_restart(); }
 
 esp_err_t WebConfig::serve_root(httpd_req_t* request) const {
+  if (network_ != nullptr) {
+    const NetworkStatus network = network_->status();
+    std::array<char, 32> host{};
+    if (network.station_connected && !network.recovery_ap_active &&
+        !network.local_hostname.empty() &&
+        httpd_req_get_hdr_value_str(request, "Host", host.data(), host.size()) == ESP_OK &&
+        is_printdeck_entry_host(host.data())) {
+      // Keep configuration on one device even if the entry name changes owner.
+      // Temporary and uncached: a future visit must resolve its current owner.
+      // With no fragment in Location, browsers retain the original #section.
+      const std::string location = "http://" + network.local_hostname + "/";
+      httpd_resp_set_status(request, "302 Found");
+      httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+      httpd_resp_set_hdr(request, "Location", location.c_str());
+      return httpd_resp_send(request, nullptr, 0);
+    }
+  }
   return send_gzip_asset(request, web_config_page(), "text/html; charset=utf-8");
 }
 
@@ -1129,6 +1152,10 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
           (kBoardHasAudio ? std::string("true") : std::string("false")) +
       ",\"wifi_connected\":";
   body += network.station_connected ? "true" : "false";
+  body += ",\"hostname\":";
+  append_json_string(body, network.local_hostname);
+  body += ",\"device_id\":";
+  append_json_string(body, network.device_id);
   body += ",\"wifi_name\":";
   append_json_string(body, network.station_name);
   body += ",\"setup_access_point\":";
@@ -1163,6 +1190,47 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   append_json_string(body, usb_developer_status());
   body.push_back('}');
   return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::serve_device_discovery(httpd_req_t* request) {
+  const NetworkStatus network = network_->status();
+  if (request->content_len != 0) {
+    httpd_sess_trigger_close(server_, httpd_req_to_sockfd(request));
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  }
+  if (request->method == HTTP_POST && !network.station_connected) {
+    return send_json(request, "409 Conflict",
+                     "{\"error\":\"Connect PrintDeck to Wi-Fi before finding other devices.\"}");
+  }
+  const bool started = request->method == HTTP_POST && network_->discover_devices();
+  const auto snapshot = network_->device_discovery();
+  const auto& policy = snapshot.policy;
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  const char* state = policy.running ? "scanning" : policy.failed ? "failed" :
+                      policy.complete ? "complete" : "idle";
+  std::string body = "{\"state\":\"" + std::string(state) + "\",\"started\":" +
+      (started ? "true" : "false") + ",\"scan_id\":" + std::to_string(policy.scan_id) +
+      ",\"cache_remaining_ms\":" + std::to_string(policy.expires_ms > now ? policy.expires_ms - now : 0) +
+      ",\"limited\":" + (snapshot.limited ? "true" : "false") + ",\"devices\":[";
+  const auto append_device = [&body](const DevicePeer& device, bool self) {
+    body += "{\"id\":";
+    append_json_string(body, device.id);
+    body += ",\"hostname\":";
+    append_json_string(body, device.hostname);
+    body += ",\"ipv4\":";
+    append_json_string(body, device.ipv4);
+    body += ",\"hardware\":";
+    append_json_string(body, device.hardware);
+    body += self ? ",\"self\":true}" : ",\"self\":false}";
+  };
+  append_device({network.device_id, network.local_hostname, network.ipv4, kBoardVariant}, true);
+  for (const auto& device : snapshot.devices) {
+    body.push_back(',');
+    append_device(device, false);
+  }
+  body += "]}";
+  return send_json(request, policy.running ? "202 Accepted" : "200 OK", body.c_str());
 }
 
 esp_err_t WebConfig::serve_live_view_frame(httpd_req_t* request) {

@@ -12,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "printdeck/core/settings.hpp"
+#include "printdeck/platform/device_discovery_policy.hpp"
 
 namespace printdeck::platform {
 
@@ -28,10 +29,25 @@ struct NetworkStatus {
   std::string setup_network_name;
 };
 
+struct DevicePeer {
+  std::string id;
+  std::string hostname;
+  std::string ipv4;
+  std::string hardware;
+};
+
+struct DeviceDiscoverySnapshot {
+  DeviceDiscoveryPolicy policy;
+  bool limited = false;
+  std::vector<DevicePeer> devices;
+};
+
 class NetworkService {
  public:
   esp_err_t start(const core::DeviceSettings& settings);
   NetworkStatus status() const;
+  bool discover_devices();
+  DeviceDiscoverySnapshot device_discovery() const;
   std::vector<std::string> scan_visible_networks();
   esp_err_t test_station_connection(const std::string& network_name,
                                     const std::string& password);
@@ -49,6 +65,8 @@ class NetworkService {
   void ensure_station_timeout();
   esp_err_t restore_saved_station();
   esp_err_t start_mdns();
+  static void device_discovery_entry(void* context);
+  void run_device_discovery();
   esp_err_t enable_captive_portal();
   void disable_captive_portal();
   esp_err_t start_captive_dns(std::uint32_t access_point_ipv4);
@@ -65,6 +83,10 @@ class NetworkService {
   std::string saved_station_password_;
   std::string setup_network_name_;
   std::string device_id_;
+  std::string mdns_hostname_;
+  mutable std::mutex device_discovery_mutex_;
+  DeviceDiscoverySnapshot device_discovery_;
+  std::atomic<std::uint32_t> network_epoch_{0};
   std::string captive_portal_uri_;
   esp_netif_t* access_point_netif_ = nullptr;
   std::uint8_t setup_client_count_ = 0;

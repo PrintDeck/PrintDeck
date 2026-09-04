@@ -93,6 +93,9 @@
     .live-view-action-wait{position:absolute;z-index:6;inset:0;background:#ffffffa8;backdrop-filter:blur(1px);cursor:default;pointer-events:auto}.live-view-action-wait[hidden]{display:none}.live-view-action-wait::after{content:"";position:absolute;left:calc(50% - 13.5px);top:calc(62% - 13.5px);width:27px;height:27px;border:3px solid #10191826;border-top-color:#101918a8;border-radius:50%;animation:spin .72s linear infinite}.live-view-feedback-point,.live-view-feedback{position:absolute;z-index:7;left:var(--feedback-x,50%);top:var(--feedback-y,50%);opacity:0;pointer-events:none}.live-view-feedback-point{width:9px;height:9px;border:2px solid color-mix(in srgb,var(--accent) 75%,#fff);border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 24%,transparent)}.live-view-feedback{padding:5px 9px;border:1px solid color-mix(in srgb,var(--accent) 75%,#fff);border-radius:999px;background:#07110ee6;color:#f7fff9;font-size:11px;font-weight:850;line-height:1;white-space:nowrap;box-shadow:0 5px 16px #0008}.live-view-feedback-point.is-visible{animation:live-feedback-point 1s ease-out forwards}.live-view-feedback.is-visible{animation:live-feedback 1s ease-out forwards}@keyframes live-feedback-point{0%{opacity:0;transform:translate(-50%,-50%) scale(.55)}15%,68%{opacity:1;transform:translate(-50%,-50%) scale(1)}to{opacity:0;transform:translate(-50%,-50%) scale(.75)}}@keyframes live-feedback{0%{opacity:0;transform:translate(-50%,calc(-50% + 21px)) scale(.78)}15%,68%{opacity:1;transform:translate(-50%,calc(-50% + 25px)) scale(1)}to{opacity:0;transform:translate(-50%,calc(-50% + 16px)) scale(.96)}}
     @media(max-width:900px){.live-view-layout{grid-template-columns:1fr;gap:24px}.live-view-aside{grid-template-columns:1fr 1fr}}
     @media(max-width:620px){.live-view-head{display:grid;grid-template-columns:1fr;align-items:stretch}.live-view-rate,.live-view-rate select{width:100%;min-width:0}.live-view-layout{margin-top:18px}.live-view-stage{grid-template-columns:40px minmax(158px,1fr) 40px;grid-template-rows:44px auto 44px auto;gap:6px}.live-view-nav{width:40px;height:40px;font-size:20px}.live-view-screen{border-width:5px}.live-view-device.is-square .live-view-screen{border-radius:14px}.live-view-aside{grid-template-columns:1fr}}
+
+    .device-switcher{position:relative;z-index:2;margin-left:8px;min-width:0}.top .device-toggle{display:flex;align-items:center;gap:6px;padding:7px 10px;min-height:36px;border:1px solid var(--header-line);border-radius:9px;background:transparent;color:var(--header-muted);font-size:12px;white-space:nowrap}.device-toggle strong{font-weight:600}.device-popover{position:absolute;left:0;top:calc(100% + 9px);width:min(370px,calc(100vw - 32px));padding:16px;border:1px solid var(--line);border-radius:15px;background:var(--bg);box-shadow:var(--shadow);color:var(--ink)}.device-popover h2{margin:0;font-size:15px}.device-popover .micro{font-size:12px;margin:10px 0}.device-peer-list{display:grid;gap:6px;max-height:280px;overflow:auto;margin-top:12px}.device-peer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--line);border-radius:9px;color:var(--ink);text-decoration:none;font-size:13px}.device-peer span{min-width:0}.device-peer strong{display:block;overflow-wrap:anywhere}.device-peer small{display:block;color:var(--muted);font-size:11px}.device-peer[aria-current=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}a.device-peer:hover{background:var(--panel-2)}.device-popover .device-refresh{width:100%;font-size:12px;min-height:36px}.device-toggle:focus-visible,.device-peer:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+    @media(max-width:900px){.top .brand{flex-wrap:wrap}.device-switcher{margin-left:0}}@media(max-width:680px){.device-switcher{flex-basis:100%;margin-top:4px}.device-popover{left:0}.device-toggle{max-width:100%}}
   </style>
 </head>
 <body>
@@ -103,7 +106,7 @@
 
   <main class="shell" id="app-shell" hidden>
     <header class="top">
-      <div class="topline"><div class="brand"><span class="brand-wordmark" role="img" aria-label="PrintDeck"></span><span class="version" id="version"></span></div><div class="badges"><a class="badge" id="wifi-badge" href="#wifi" title="Wi-Fi">Wi-Fi · checking</a><span class="badge" id="printer-badge">Printers · —</span></div></div>
+      <div class="topline"><div class="brand"><span class="brand-wordmark" role="img" aria-label="PrintDeck"></span><span class="version" id="version"></span><div class="device-switcher" id="device-switcher"><button class="device-toggle" id="device-toggle" type="button" aria-expanded="false" aria-controls="device-popover" disabled><span data-i18n="Device:">Device:</span><strong id="device-hostname">—</strong><span aria-hidden="true">▾</span></button><div class="device-popover" id="device-popover" role="dialog" aria-label="PrintDeck devices" hidden><h2 data-i18n="PrintDeck devices">PrintDeck devices</h2><div class="device-peer-list" id="device-peer-list"></div><p class="micro" id="device-discovery-status" role="status" aria-live="polite"></p><p class="micro" data-i18n="Other devices open in a new tab.">Other devices open in a new tab.</p><button class="secondary device-refresh" id="device-refresh" type="button" data-i18n="Refresh device list">Refresh device list</button></div></div></div><div class="badges"><a class="badge" id="wifi-badge" href="#wifi" title="Wi-Fi">Wi-Fi · checking</a><span class="badge" id="printer-badge">Printers · —</span></div></div>
       <nav class="tabs" aria-label="PrintDeck settings"><button class="tab" data-tab="printers" aria-selected="true">My Printers</button><button class="tab" data-tab="reactions">Reactions</button><button class="tab" data-tab="themes">Display &amp; Brightness</button><button class="tab" data-tab="sounds">Sounds</button><button class="tab" data-tab="power">Screen Saver</button><button class="tab advanced-tab" data-tab="device" aria-label="Device Settings" title="Device Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.09A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.1 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2.3V9.6h.09A1.7 1.7 0 0 0 4.1 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8.5 4.1a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2.3h4v.09A1.7 1.7 0 0 0 15 4.1a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8.5a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.09v4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path></svg><span class="update-indicator" data-update-indicator role="status" aria-label="Update available" hidden></span></button></nav>
     </header>
 
@@ -758,7 +761,86 @@
 
     function paintConnectedNetwork(){const row=$('#connected-network'),name=$('#connected-network-name'),connected=Boolean(health.wifi_connected&&health.wifi_name);row.hidden=!connected;name.textContent=connected?health.wifi_name:''}
     async function loadDeviceInfo(){clearTimeout(deviceInfoTimer);const pane=$('[data-settings-pane=device]');if(!pane||pane.hidden)return;try{Object.assign(health,await jsonFetch('/api/device'));paintDeviceHealth()}finally{if(!pane.hidden)deviceInfoTimer=setTimeout(()=>loadDeviceInfo().catch(()=>{}),5000)}}
-    async function loadHealth(){clearTimeout(healthTimer);try{Object.assign(health,await jsonFetch('/api/health'));applyHardwareSettings();paintScreenSaverSettings();paintDeviceHealth();paintLiveViewDevice();const hardwareLabel=health.hardware==='lcd_1_54'?' · LCD 1.54':health.hardware==='knomi2'?' · KNOMI2':'';$('#version').textContent=health.version+hardwareLabel;$('#wifi-badge').textContent=translated(health.wifi_connected?'Wi-Fi · connected':health.setup_access_point?'Wi-Fi · setup mode':'Wi-Fi · offline');$('#wifi-badge').classList.toggle('ok',health.wifi_connected);paintConnectedNetwork();$('#printer-badge').textContent=translated('Printers · ')+health.configured_printers;$('#printer-badge').classList.toggle('ok',health.configured_printers>0);if(settingsWrites===0&&health.theme!==undefined&&settings.theme!==health.theme){settings.theme=health.theme;paintActiveTheme()}if(settingsWrites===0&&!settingsDirty&&!document.activeElement?.matches('input,select')){let changed=false;for(const k of ['brightness','printer_animations_enabled','reaction_progress_bar_enabled','reaction_progress_percent_enabled','audio_enabled','audio_volume','audio_preset','audio_muted_events','rotation'])if(health[k]!==undefined&&settings[k]!==health[k]){settings[k]=health[k];changed=true}if(changed)fillSettings(settings)}}finally{healthTimer=setTimeout(()=>loadHealth().catch(()=>{}),2000)}}
+    async function loadHealth(){clearTimeout(healthTimer);try{Object.assign(health,await jsonFetch('/api/health'));paintDeviceIdentity();applyHardwareSettings();paintScreenSaverSettings();paintDeviceHealth();paintLiveViewDevice();const hardwareLabel=health.hardware==='lcd_1_54'?' · LCD 1.54':health.hardware==='knomi2'?' · KNOMI2':'';$('#version').textContent=health.version+hardwareLabel;$('#wifi-badge').textContent=translated(health.wifi_connected?'Wi-Fi · connected':health.setup_access_point?'Wi-Fi · setup mode':'Wi-Fi · offline');$('#wifi-badge').classList.toggle('ok',health.wifi_connected);paintConnectedNetwork();$('#printer-badge').textContent=translated('Printers · ')+health.configured_printers;$('#printer-badge').classList.toggle('ok',health.configured_printers>0);if(settingsWrites===0&&health.theme!==undefined&&settings.theme!==health.theme){settings.theme=health.theme;paintActiveTheme()}if(settingsWrites===0&&!settingsDirty&&!document.activeElement?.matches('input,select')){let changed=false;for(const k of ['brightness','printer_animations_enabled','reaction_progress_bar_enabled','reaction_progress_percent_enabled','audio_enabled','audio_volume','audio_preset','audio_muted_events','rotation'])if(health[k]!==undefined&&settings[k]!==health[k]){settings[k]=health[k];changed=true}if(changed)fillSettings(settings)}}finally{healthTimer=setTimeout(()=>loadHealth().catch(()=>{}),2000)}}
+
+
+    // Device discovery is only entered by an explicit click. GET polls read the
+    // shared server result; closing the picker never starts or restarts a scan.
+    let deviceDiscoveryTimer=0,deviceDiscoveryAbort=null,deviceDiscoveryGeneration=0;
+    function paintDeviceIdentity(){
+      const hostname=String(health.hostname||'').replace(/\.local$/,'');
+      $('#device-hostname').textContent=hostname||'—';
+      $('#device-toggle').disabled=!hostname;
+    }
+    function closeDevicePicker(){
+      $('#device-popover').hidden=true;$('#device-toggle').setAttribute('aria-expanded','false');
+      ++deviceDiscoveryGeneration;clearTimeout(deviceDiscoveryTimer);
+      deviceDiscoveryAbort?.abort();deviceDiscoveryAbort=null;
+    }
+    function devicePeerLink(device){
+      if(!/^printdeck-[0-9a-f]{12}$/.test(device.id||'')||!/^printdeck(?:-[a-z0-9-]+)?\.local$/.test(device.hostname||'')||device.hostname.length>69)return null;
+      const parts=String(device.ipv4||'').split('.');
+      if(parts.length!==4||parts.some(part=>!/^\d{1,3}$/.test(part)||Number(part)>255))return null;
+      const [a,b]=parts.map(Number);
+      if(!(a===10||a===172&&b>=16&&b<=31||a===192&&b===168||a===169&&b===254))return null;
+      return 'http://'+device.ipv4+'/';
+    }
+    function paintDevicePeers(devices){
+      const list=$('#device-peer-list');list.replaceChildren();
+      for(const device of devices){
+        const href=devicePeerLink(device);if(!device.self&&!href)continue;
+        const row=document.createElement(device.self?'div':'a');row.className='device-peer';
+        if(device.self)row.setAttribute('aria-current','true');
+        else{row.href=href;row.target='_blank';row.rel='noopener noreferrer'}
+        const text=document.createElement('span'),name=document.createElement('strong'),detail=document.createElement('small');
+        name.textContent=String(device.hostname||'PrintDeck').replace(/\.local$/,'');
+        const hardware={amoled_1_75:'AMOLED 1.75',lcd_1_54:'LCD 1.54',knomi2:'KNOMI2'}[device.hardware]||'PrintDeck';
+        detail.textContent=hardware+(device.self?' · '+translated('This device'):'');text.append(name,detail);row.append(text);
+        const mark=document.createElement('span');mark.textContent=device.self?'✓':'↗';mark.setAttribute('aria-hidden','true');row.append(mark);list.append(row);
+      }
+    }
+    async function requestDeviceDiscovery(method,generation,deadline){
+      if(generation!==deviceDiscoveryGeneration||$('#device-popover').hidden)return;
+      const controller=new AbortController;deviceDiscoveryAbort=controller;
+      const timeout=setTimeout(()=>controller.abort(),4500);
+      try{
+        const result=await jsonFetch('/api/devices/discover',{method,signal:controller.signal});
+        if(generation!==deviceDiscoveryGeneration)return;
+        paintDevicePeers(Array.isArray(result.devices)?result.devices.slice(0,25):[]);
+        const status=$('#device-discovery-status'),refresh=$('#device-refresh');
+        status.classList.remove('error');
+        if(result.state==='scanning'){
+          if(Date.now()>=deadline)throw new Error('Device search timed out. Please try again.');
+          status.textContent=translated('Finding PrintDeck devices…');refresh.disabled=true;
+          deviceDiscoveryTimer=setTimeout(()=>requestDeviceDiscovery('GET',generation,deadline),600);
+        }else{
+          const remaining=Math.min(60000,Math.max(0,Number(result.cache_remaining_ms)||0));
+          status.textContent=translated(result.state==='failed'?'Device search is unavailable. Please try again shortly.':result.limited?'The device list reached its limit. You can still open another device by its address.':result.devices?.length>1?'Recent results are kept for up to one minute.':'No other PrintDeck devices were found. Recent results are kept for up to one minute.');
+          refresh.disabled=remaining>0;
+          if(remaining)deviceDiscoveryTimer=setTimeout(()=>{if(generation===deviceDiscoveryGeneration)refresh.disabled=false},remaining);
+        }
+      }catch(error){
+        if(generation!==deviceDiscoveryGeneration)return;
+        $('#device-discovery-status').textContent=translated(error.name==='AbortError'?'Device search timed out. Please try again.':error.message);
+        $('#device-discovery-status').classList.add('error');$('#device-refresh').disabled=false;
+      }finally{clearTimeout(timeout);if(deviceDiscoveryAbort===controller)deviceDiscoveryAbort=null}
+    }
+    function findDevicesOnRequest(){
+      clearTimeout(deviceDiscoveryTimer);deviceDiscoveryAbort?.abort();
+      const generation=++deviceDiscoveryGeneration;
+      $('#device-refresh').disabled=true;$('#device-discovery-status').classList.remove('error');
+      $('#device-discovery-status').textContent=translated('Finding PrintDeck devices…');
+      requestDeviceDiscovery('POST',generation,Date.now()+10000);
+    }
+    $('#device-toggle').addEventListener('click',()=>{
+      if(!$('#device-popover').hidden){closeDevicePicker();return}
+      $('#device-popover').hidden=false;$('#device-toggle').setAttribute('aria-expanded','true');
+      paintDevicePeers([{id:health.device_id,hostname:health.hostname,hardware:health.hardware,self:true}]);findDevicesOnRequest();
+    });
+    $('#device-refresh').addEventListener('click',findDevicesOnRequest);
+    document.addEventListener('click',event=>{if(!$('#device-switcher').contains(event.target))closeDevicePicker()});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('#device-popover').hidden){closeDevicePicker();$('#device-toggle').focus()}});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)closeDevicePicker()});
 
     function showWifiSetupSuccess(host,network){const success=$('#wifi-success-template').content.firstElementChild.cloneNode(true);$('.wifi-success-network',success).textContent=network;host.replaceChildren(success);applyLanguage();success.scrollIntoView({behavior:'smooth',block:'center'})}
     function createWifiForm(host,setup,verify){

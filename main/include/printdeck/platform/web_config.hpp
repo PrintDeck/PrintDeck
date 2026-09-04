@@ -78,6 +78,7 @@ class WebConfig {
   static esp_err_t reactions_script_entry(httpd_req_t* request);
   static esp_err_t reaction_set_preview_entry(httpd_req_t* request);
   static esp_err_t health_entry(httpd_req_t* request);
+  static esp_err_t device_discovery_entry(httpd_req_t* request);
   static esp_err_t live_view_frame_entry(httpd_req_t* request);
   static esp_err_t live_view_input_entry(httpd_req_t* request);
   static esp_err_t device_info_entry(httpd_req_t* request);
@@ -133,6 +134,7 @@ class WebConfig {
   esp_err_t serve_reactions_script(httpd_req_t* request) const;
   esp_err_t serve_reaction_set_preview(httpd_req_t* request) const;
   esp_err_t serve_health(httpd_req_t* request) const;
+  esp_err_t serve_device_discovery(httpd_req_t* request);
   esp_err_t serve_live_view_frame(httpd_req_t* request);
   esp_err_t send_live_view_input(httpd_req_t* request);
   esp_err_t serve_device_info(httpd_req_t* request) const;

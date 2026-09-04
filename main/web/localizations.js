@@ -10,6 +10,19 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "Device:":["Urządzenie:", "Dispositivo:", "Appareil :", "Gerät:", "设备："],
+  "PrintDeck devices":["Urządzenia PrintDeck", "Dispositivos PrintDeck", "Appareils PrintDeck", "PrintDeck-Geräte", "PrintDeck 设备"],
+  "This device":["To urządzenie", "Este dispositivo", "Cet appareil", "Dieses Gerät", "此设备"],
+  "Other devices open in a new tab.":["Inne urządzenia otwierają się w nowej karcie.", "Los otros dispositivos se abren en una pestaña nueva.", "Les autres appareils s’ouvrent dans un nouvel onglet.", "Andere Geräte werden in einem neuen Tab geöffnet.", "其他设备将在新标签页中打开。"],
+  "Refresh device list":["Odśwież listę urządzeń", "Actualizar lista de dispositivos", "Actualiser la liste des appareils", "Geräteliste aktualisieren", "刷新设备列表"],
+  "Finding PrintDeck devices…":["Wyszukiwanie urządzeń PrintDeck…", "Buscando dispositivos PrintDeck…", "Recherche d’appareils PrintDeck…", "PrintDeck-Geräte werden gesucht…", "正在查找 PrintDeck 设备…"],
+  "Recent results are kept for up to one minute.":["Ostatnie wyniki są przechowywane przez maksymalnie minutę.", "Los resultados recientes se conservan hasta un minuto.", "Les résultats récents sont conservés pendant une minute au maximum.", "Die letzten Ergebnisse werden bis zu einer Minute gespeichert.", "最近的结果最多保留一分钟。"],
+  "No other PrintDeck devices were found. Recent results are kept for up to one minute.":["Nie znaleziono innych urządzeń PrintDeck. Ostatnie wyniki są przechowywane przez maksymalnie minutę.", "No se encontraron otros dispositivos PrintDeck. Los resultados se conservan hasta un minuto.", "Aucun autre appareil PrintDeck trouvé. Les résultats sont conservés pendant une minute au maximum.", "Keine weiteren PrintDeck-Geräte gefunden. Ergebnisse werden bis zu einer Minute gespeichert.", "未找到其他 PrintDeck 设备。结果最多保留一分钟。"],
+  "Device search timed out. Please try again.":["Upłynął czas wyszukiwania urządzeń. Spróbuj ponownie.", "La búsqueda de dispositivos agotó el tiempo de espera. Inténtalo de nuevo.", "Le délai de recherche des appareils est dépassé. Réessayez.", "Die Gerätesuche hat zu lange gedauert. Bitte erneut versuchen.", "设备搜索超时。请重试。"],
+  "Device search is unavailable. Please try again shortly.":["Wyszukiwanie urządzeń jest niedostępne. Spróbuj ponownie za chwilę.", "La búsqueda de dispositivos no está disponible. Inténtalo de nuevo en unos instantes.", "La recherche d’appareils est indisponible. Réessayez dans un instant.", "Die Gerätesuche ist nicht verfügbar. Bitte in Kürze erneut versuchen.", "设备搜索暂不可用。请稍后重试。"],
+  "The device list reached its limit. You can still open another device by its address.":["Lista urządzeń osiągnęła limit. Inne urządzenie nadal możesz otworzyć przez jego adres.", "La lista de dispositivos alcanzó su límite. Puedes abrir otro dispositivo mediante su dirección.", "La liste des appareils a atteint sa limite. Vous pouvez ouvrir un autre appareil avec son adresse.", "Die Geräteliste hat ihr Limit erreicht. Weitere Geräte lassen sich über ihre Adresse öffnen.", "设备列表已达到上限。您仍可通过地址打开其他设备。"],
+  "Connect PrintDeck to Wi-Fi before finding other devices.":["Połącz PrintDeck z Wi-Fi przed wyszukiwaniem innych urządzeń.", "Conecta PrintDeck a la red Wi-Fi antes de buscar otros dispositivos.", "Connectez PrintDeck au Wi-Fi avant de rechercher d’autres appareils.", "Verbinde PrintDeck vor der Gerätesuche mit dem WLAN.", "查找其他设备前，请将 PrintDeck 连接到 Wi-Fi。"],
+
   "ACTIVE":["AKTYWNA","ACTIVA","ACTIVE","AKTIV","当前"],
   "Online":["Połączona","En línea","En ligne","Online","在线"],
   "Connecting…":["Łączenie…","Conectando…","Connexion…","Verbindung wird hergestellt…","正在连接…"],
