@@ -11,8 +11,10 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 9;
+constexpr std::uint8_t kSettingsSchemaVersion = 10;
 constexpr std::size_t kUnifiedApiTokenLength = 67;
+constexpr std::size_t kMaximumDeviceNameCharacters = 16;
+constexpr std::size_t kMaximumDeviceNameBytes = kMaximumDeviceNameCharacters * 4;
 constexpr std::uint16_t kAudioEventMuteMask = (1U << 14U) - 1U;
 
 struct DisplayPowerPolicy {
@@ -28,6 +30,7 @@ struct DisplayPowerPolicy {
 };
 
 struct DeviceSettings {
+  std::string device_name;
   std::string wifi_name;
   std::string wifi_password;
   std::vector<PrinterProfile> profiles;
@@ -64,6 +67,8 @@ DeviceSettings redact_secrets(DeviceSettings settings);
 bool is_local_printer_endpoint(std::string_view endpoint, PrinterProtocol protocol);
 bool supported_audio_preset(std::string_view id);
 bool valid_unified_api_token(std::string_view token);
+bool valid_device_name(std::string_view name);
+std::string device_name_slug(std::string_view name);
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings);
 
 }  // namespace printdeck::core

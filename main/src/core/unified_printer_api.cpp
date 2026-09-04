@@ -265,8 +265,23 @@ std::string unified_api_statuses_json(std::span<const UnifiedPrinterView> printe
   return output;
 }
 
-std::string unified_api_snapshot_json(std::span<const UnifiedPrinterView> printers) {
-  std::string output = "{\"api_version\":\"v1\",\"printers\":[";
+std::string unified_api_snapshot_json(std::span<const UnifiedPrinterView> printers,
+                                      const UnifiedDevicePower& power) {
+  std::string output = "{\"api_version\":\"v1\",\"device\":{\"power\":{\"available\":";
+  output += power.available ? "true" : "false";
+  output += ",\"battery_present\":";
+  output += power.battery_present ? "true" : "false";
+  output += ",\"battery_percent\":";
+  if (power.available && power.battery_present) {
+    output += std::to_string(std::min<std::uint8_t>(power.battery_percent, 100));
+  } else {
+    output += "null";
+  }
+  output += ",\"charging\":";
+  output += power.charging ? "true" : "false";
+  output += ",\"external_power\":";
+  output += power.external_power ? "true" : "false";
+  output += "}},\"printers\":[";
   bool first = true;
   for (const UnifiedPrinterView& printer : printers) {
     if (!first) output.push_back(',');

@@ -278,6 +278,8 @@ bool read_reactions(const cJSON* root, ConfigurationBackupReactions& reactions) 
 
 bool add_settings(cJSON* root, const DeviceSettings& settings) {
   cJSON* object = cJSON_AddObjectToObject(root, "settings");
+  // A device name belongs to the physical PrintDeck, so restoring a backup on
+  // another unit must not copy it or its local-network alias.
   return object && add_string(object, "wifi_name", settings.wifi_name) &&
          add_string(object, "wifi_password", settings.wifi_password) &&
          add_profiles(object, settings.profiles) &&

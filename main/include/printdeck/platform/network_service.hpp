@@ -3,6 +3,7 @@
 #include <atomic>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "esp_err.h"
@@ -24,14 +25,18 @@ struct NetworkStatus {
   std::string station_name;
   std::string ipv4;
   std::string netmask;
+  std::string device_name;
   std::string local_hostname;
+  std::string friendly_hostname;
   std::string device_id;
   std::string setup_network_name;
 };
 
 struct DevicePeer {
   std::string id;
+  std::string name;
   std::string hostname;
+  std::string friendly_hostname;
   std::string ipv4;
   std::string hardware;
 };
@@ -45,6 +50,7 @@ struct DeviceDiscoverySnapshot {
 class NetworkService {
  public:
   esp_err_t start(const core::DeviceSettings& settings);
+  esp_err_t set_device_name(std::string_view name);
   NetworkStatus status() const;
   bool discover_devices();
   DeviceDiscoverySnapshot device_discovery() const;
@@ -83,7 +89,10 @@ class NetworkService {
   std::string saved_station_password_;
   std::string setup_network_name_;
   std::string device_id_;
+  std::string device_name_;
   std::string mdns_hostname_;
+  std::string friendly_mdns_hostname_;
+  std::mutex mdns_mutex_;
   mutable std::mutex device_discovery_mutex_;
   DeviceDiscoverySnapshot device_discovery_;
   std::atomic<std::uint32_t> network_epoch_{0};

@@ -27,9 +27,18 @@ struct UnifiedPrinterView {
   bool stale = true;
 };
 
+struct UnifiedDevicePower {
+  bool available = false;
+  bool battery_present = false;
+  std::uint8_t battery_percent = 0;
+  bool charging = false;
+  bool external_power = false;
+};
+
 std::string unified_api_printers_json(std::span<const UnifiedPrinterView> printers);
 std::string unified_api_statuses_json(std::span<const UnifiedPrinterView> printers);
-std::string unified_api_snapshot_json(std::span<const UnifiedPrinterView> printers);
+std::string unified_api_snapshot_json(std::span<const UnifiedPrinterView> printers,
+                                      const UnifiedDevicePower& power = {});
 std::string unified_api_printer_json(const UnifiedPrinterView& printer);
 std::string unified_api_status_json(const UnifiedPrinterView& printer);
 std::string unified_api_nozzles_json(const UnifiedPrinterView& printer);

@@ -81,6 +81,7 @@ class AudioService {
   std::atomic<Preset> preset_{Preset::modern};
   std::atomic<std::uint16_t> muted_events_{0};
   std::atomic<std::uint8_t> language_{0};
+  std::atomic<bool> preview_busy_{false};
   QueueHandle_t queue_ = nullptr;
   TaskHandle_t task_ = nullptr;
   void* codec_ = nullptr;

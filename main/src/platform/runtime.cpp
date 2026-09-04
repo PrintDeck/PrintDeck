@@ -872,6 +872,7 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   const bool rotation_changed = settings_.rotation != settings.rotation;
   const bool brightness_changed =
       settings_.brightness_percent != settings.brightness_percent;
+  const bool device_name_changed = settings_.device_name != settings.device_name;
   AudioService::Preset requested_preset = AudioService::Preset::modern;
   AudioService::preset_from_id(settings.audio_preset, requested_preset);
   const bool audio_changed = audio_.enabled() != settings.audio_enabled ||
@@ -879,6 +880,13 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
                              audio_.preset() != requested_preset ||
                              audio_.muted_events() != settings.audio_muted_events;
   settings_ = settings;
+  if (device_name_changed) {
+    const esp_err_t name_result = network_.set_device_name(settings.device_name);
+    if (name_result != ESP_OK) {
+      ESP_LOGW(kLogTag, "Device name could not be applied to mDNS: %s",
+               esp_err_to_name(name_result));
+    }
+  }
   const core::PrinterProfile* selected = selected_profile(settings_);
   selected_printer_protocol_.store(protocol_id(selected), std::memory_order_release);
   display_.set_language(settings.language);
@@ -1251,6 +1259,7 @@ void Runtime::monitor_loop() {
             configuration_backup_activity_.load(std::memory_order_acquire)));
     const NetworkStatus network = network_.status();
     const PowerSnapshot power = power_.sample();
+    web_config_.update_power_status(power);
     const FirmwareUpdateSnapshot update = firmware_update_.snapshot();
     display_.set_update_snapshot(update);
     const core::PrinterProfile* selected = selected_profile(settings_);

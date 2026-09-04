@@ -81,6 +81,7 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   if (result == ESP_ERR_NVS_NOT_FOUND) result = ESP_OK;
   if (result == ESP_OK && schema > core::kSettingsSchemaVersion) result = ESP_ERR_INVALID_VERSION;
   if (result == ESP_OK) result = read_text(handle, "wifi_name", loaded.wifi_name);
+  if (result == ESP_OK && schema >= 10) result = read_text(handle, "device_name", loaded.device_name);
   if (result == ESP_OK) result = read_text(handle, "wifi_pass", loaded.wifi_password);
   if (result == ESP_OK) result = read_text(handle, "theme", loaded.theme);
   if (result == ESP_OK) result = read_text(handle, "timezone", loaded.timezone);
@@ -250,6 +251,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
     if (result == ESP_OK && !optional_erase_result(operation)) result = operation;
   };
   write(nvs_set_u8(handle, "schema", core::kSettingsSchemaVersion));
+  write(write_text(handle, "device_name", settings.device_name));
   write(write_text(handle, "wifi_name", settings.wifi_name));
   write(write_text(handle, "wifi_pass", settings.wifi_password));
   write(write_text(handle, "theme", settings.theme));

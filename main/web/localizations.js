@@ -13,7 +13,6 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   "Device:":["Urządzenie:", "Dispositivo:", "Appareil :", "Gerät:", "设备："],
   "PrintDeck devices":["Urządzenia PrintDeck", "Dispositivos PrintDeck", "Appareils PrintDeck", "PrintDeck-Geräte", "PrintDeck 设备"],
   "This device":["To urządzenie", "Este dispositivo", "Cet appareil", "Dieses Gerät", "此设备"],
-  "Other devices open in a new tab.":["Inne urządzenia otwierają się w nowej karcie.", "Los otros dispositivos se abren en una pestaña nueva.", "Les autres appareils s’ouvrent dans un nouvel onglet.", "Andere Geräte werden in einem neuen Tab geöffnet.", "其他设备将在新标签页中打开。"],
   "Refresh device list":["Odśwież listę urządzeń", "Actualizar lista de dispositivos", "Actualiser la liste des appareils", "Geräteliste aktualisieren", "刷新设备列表"],
   "Finding PrintDeck devices…":["Wyszukiwanie urządzeń PrintDeck…", "Buscando dispositivos PrintDeck…", "Recherche d’appareils PrintDeck…", "PrintDeck-Geräte werden gesucht…", "正在查找 PrintDeck 设备…"],
   "Recent results are kept for up to one minute.":["Ostatnie wyniki są przechowywane przez maksymalnie minutę.", "Los resultados recientes se conservan hasta un minuto.", "Les résultats récents sont conservés pendant une minute au maximum.", "Die letzten Ergebnisse werden bis zu einer Minute gespeichert.", "最近的结果最多保留一分钟。"],
@@ -333,6 +332,15 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"Wi-Fi · connected":["Wi‑Fi · połączono","Wi‑Fi · conectado","Wi‑Fi · connecté","WLAN · verbunden","Wi-Fi · 已连接"]
   ,"Wi-Fi · offline":["Wi‑Fi · offline","Wi‑Fi · sin conexión","Wi‑Fi · hors ligne","WLAN · offline","Wi-Fi · 离线"]
   ,"Wi-Fi · setup mode":["Wi‑Fi · tryb konfiguracji","Wi‑Fi · modo de configuración","Wi‑Fi · mode configuration","WLAN · Einrichtungsmodus","Wi-Fi · 设置模式"]
+  ,"Wi-Fi status: checking":["Sprawdzanie stanu Wi‑Fi","Comprobando el estado de Wi‑Fi","Vérification de l’état du Wi‑Fi","WLAN-Status wird geprüft","正在检查 Wi-Fi 状态"]
+  ,"Wi-Fi connected":["Wi‑Fi połączone","Wi‑Fi conectado","Wi‑Fi connecté","WLAN verbunden","Wi-Fi 已连接"]
+  ,"Wi-Fi offline":["Wi‑Fi offline","Wi‑Fi sin conexión","Wi‑Fi hors ligne","WLAN offline","Wi-Fi 离线"]
+  ,"Wi-Fi setup mode":["Tryb konfiguracji Wi‑Fi","Modo de configuración Wi‑Fi","Mode de configuration Wi‑Fi","WLAN-Einrichtungsmodus","Wi-Fi 设置模式"]
+  ,"Sound on":["Dźwięk włączony","Sonido activado","Son activé","Ton eingeschaltet","声音已开启"]
+  ,"Sound muted":["Dźwięk wyciszony","Sonido silenciado","Son coupé","Ton stummgeschaltet","声音已静音"]
+  ,"Battery status":["Stan baterii","Estado de la batería","État de la batterie","Batteriestatus","电池状态"]
+  ,"Battery: {percent}%":["Bateria: {percent}%","Batería: {percent}%","Batterie : {percent}%","Batterie: {percent}%","电池：{percent}%"]
+  ,"Battery charging: {percent}%":["Ładowanie baterii: {percent}%","Batería cargando: {percent}%","Batterie en charge : {percent}%","Batterie wird geladen: {percent}%","电池充电中：{percent}%"]
   ,"Setup mode":["Tryb konfiguracji","Modo de configuración","Mode configuration","Einrichtungsmodus","设置模式"]
   ,"Printers · ":["Drukarki · ","Impresoras · ","Imprimantes · ","Drucker · ","打印机 · "]
   ,"Saving your changes…":["Zapisywanie zmian…","Guardando cambios…","Enregistrement des modifications…","Änderungen werden gespeichert…","正在保存更改…"]
@@ -464,6 +472,7 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"Test sound":["Odtwórz dźwięk","Probar sonido","Tester le son","Ton testen","测试声音"]
   ,"Turn up the sound volume and try again.":["Zwiększ głośność dźwięku i spróbuj ponownie.","Sube el volumen del sonido e inténtalo de nuevo.","Augmentez le volume sonore et réessayez.","Erhöhe die Lautstärke und versuche es erneut.","请调高音量后重试。"]
   ,"Playing sound…":["Odtwarzanie dźwięku…","Reproduciendo sonido…","Lecture du son…","Ton wird abgespielt…","正在播放声音…"]
+  ,"Wait for the current sound to finish and try again.":["Poczekaj, aż bieżący dźwięk się zakończy, i spróbuj ponownie.","Espera a que termine el sonido actual y vuelve a intentarlo.","Attendez la fin du son en cours, puis réessayez.","Warte, bis der aktuelle Ton beendet ist, und versuche es erneut.","请等待当前声音播放完毕，然后重试。"]
   ,"The sound test request is too long.":["Żądanie testu dźwięku jest zbyt długie.","La solicitud de prueba de sonido es demasiado larga.","La demande de test sonore est trop longue.","Die Anfrage zum Tontest ist zu lang.","声音测试请求过长。"]
   ,"Choose a valid sound preset and event.":["Wybierz prawidłowy preset dźwięków i zdarzenie.","Elige un preajuste de sonido y un evento válidos.","Choisissez un préréglage sonore et un événement valides.","Wähle ein gültiges Klangprofil und Ereignis.","请选择有效的声音预设和事件。"]
   ,"Sound testing is unavailable.":["Testowanie dźwięków jest niedostępne.","La prueba de sonido no está disponible.","Le test sonore est indisponible.","Der Tontest ist nicht verfügbar.","声音测试不可用。"]
@@ -741,6 +750,17 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"Open GIPHY":["Otwórz GIPHY","Abrir GIPHY","Ouvrir GIPHY","GIPHY öffnen","打开 GIPHY"]
   ,"Open Tenor":["Otwórz Tenor","Abrir Tenor","Ouvrir Tenor","Tenor öffnen","打开 Tenor"]
   ,"Check reuse rights for each GIF.":["Sprawdź prawa do użycia każdego GIF-a.","Comprueba los derechos de uso de cada GIF.","Vérifiez les droits de réutilisation de chaque GIF.","Nutzungsrechte für jedes GIF prüfen.","请核实每个 GIF 的再使用权。"]
+  ,"Device name":["Nazwa urządzenia","Nombre del dispositivo","Nom de l’appareil","Gerätename","设备名称"]
+  ,"Give this PrintDeck a name you will recognize. Its permanent address stays available.":["Nadaj temu PrintDeckowi łatwą do rozpoznania nazwę. Jego stały adres pozostanie dostępny.","Da a este PrintDeck un nombre fácil de reconocer. Su dirección permanente seguirá disponible.","Donnez à ce PrintDeck un nom facile à reconnaître. Son adresse permanente reste disponible.","Gib diesem PrintDeck einen leicht erkennbaren Namen. Seine dauerhafte Adresse bleibt verfügbar.","为这台 PrintDeck 设置一个便于识别的名称。其永久地址仍可使用。"]
+  ,"Name":["Nazwa","Nombre","Nom","Name","名称"]
+  ,"e.g. Workshop":["np. Warsztat","p. ej., Taller","par ex. Atelier","z. B. Werkstatt","例如：工作室"]
+  ,"Save name":["Zapisz nazwę","Guardar nombre","Enregistrer le nom","Namen speichern","保存名称"]
+  ,"Local address:":["Adres lokalny:","Dirección local:","Adresse locale :","Lokale Adresse:","本地地址："]
+  ,"IP address:":["Adres IP:","Dirección IP:","Adresse IP :","IP-Adresse:","IP 地址："]
+  ,"Saving device name…":["Zapisywanie nazwy urządzenia…","Guardando el nombre del dispositivo…","Enregistrement du nom de l’appareil…","Gerätename wird gespeichert…","正在保存设备名称…"]
+  ,"Device name saved.":["Nazwa urządzenia została zapisana.","Nombre del dispositivo guardado.","Nom de l’appareil enregistré.","Gerätename gespeichert.","设备名称已保存。"]
+  ,"The device name is too long.":["Nazwa urządzenia jest za długa.","El nombre del dispositivo es demasiado largo.","Le nom de l’appareil est trop long.","Der Gerätename ist zu lang.","设备名称过长。"]
+  ,"Device name saved. Use the local address shown above when it becomes available.":["Nazwa urządzenia została zapisana. Gdy nowy adres będzie dostępny, użyj adresu lokalnego widocznego powyżej.","Nombre del dispositivo guardado. Cuando esté disponible, usa la dirección local que aparece arriba.","Nom de l’appareil enregistré. Lorsqu’elle sera disponible, utilisez l’adresse locale affichée ci-dessus.","Gerätename gespeichert. Verwende die oben angezeigte lokale Adresse, sobald sie verfügbar ist.","设备名称已保存。本地地址可用后，请使用上方显示的地址。"]
 };
 for(const [source,values] of Object.entries(PRINTDECK_EXTRA_TRANSLATIONS)){
   PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]);

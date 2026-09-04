@@ -586,6 +586,11 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
                      snapshot.job.chamber_light_pending, snapshot.job.chamber_light_target_on};
 }
 
+void WebConfig::update_power_status(const PowerSnapshot& snapshot) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  power_status_ = snapshot;
+}
+
 void WebConfig::set_settings_changed_callback(SettingsChangedCallback callback, void* context) {
   const std::lock_guard<std::mutex> lock(mutex_);
   settings_changed_callback_ = callback;
@@ -1134,11 +1139,13 @@ esp_err_t WebConfig::serve_reaction_set_preview(httpd_req_t* request) const {
 esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   const NetworkStatus network = network_->status();
   core::DeviceSettings current;
+  PowerSnapshot power;
   core::JobPhase selected_phase = core::JobPhase::unknown;
   float selected_completion = 0.0F;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     current = settings_;
+    power = power_status_;
     selected_phase = selected_phase_;
     selected_completion = selected_completion_;
   }
@@ -1154,6 +1161,16 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   body += network.station_connected ? "true" : "false";
   body += ",\"hostname\":";
   append_json_string(body, network.local_hostname);
+  body += ",\"stable_hostname\":";
+  append_json_string(body, network.local_hostname);
+  body += ",\"friendly_hostname\":";
+  append_json_string(body, network.friendly_hostname);
+  body += ",\"ipv4\":";
+  append_json_string(body, network.ipv4);
+  body += ",\"device_name\":";
+  append_json_string(body, network.device_name);
+  body += ",\"configured_device_name\":";
+  append_json_string(body, current.device_name);
   body += ",\"device_id\":";
   append_json_string(body, network.device_id);
   body += ",\"wifi_name\":";
@@ -1178,6 +1195,15 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   append_json_string(body, current.audio_preset);
   body += ",\"audio_muted_events\":" +
           std::to_string(current.audio_muted_events);
+  body += ",\"power_available\":";
+  body += power.available ? "true" : "false";
+  body += ",\"battery_present\":";
+  body += power.battery_present ? "true" : "false";
+  body += ",\"battery_percent\":" + std::to_string(power.battery_percent);
+  body += ",\"battery_charging\":";
+  body += power.charging ? "true" : "false";
+  body += ",\"usb_present\":";
+  body += power.usb_present ? "true" : "false";
   body += ",\"rotation\":";
   append_json_string(body, current.rotation);
   body += ",\"language\":";
@@ -1216,15 +1242,20 @@ esp_err_t WebConfig::serve_device_discovery(httpd_req_t* request) {
   const auto append_device = [&body](const DevicePeer& device, bool self) {
     body += "{\"id\":";
     append_json_string(body, device.id);
+    body += ",\"name\":";
+    append_json_string(body, device.name);
     body += ",\"hostname\":";
     append_json_string(body, device.hostname);
+    body += ",\"friendly_hostname\":";
+    append_json_string(body, device.friendly_hostname);
     body += ",\"ipv4\":";
     append_json_string(body, device.ipv4);
     body += ",\"hardware\":";
     append_json_string(body, device.hardware);
     body += self ? ",\"self\":true}" : ",\"self\":false}";
   };
-  append_device({network.device_id, network.local_hostname, network.ipv4, kBoardVariant}, true);
+  append_device({network.device_id, network.device_name, network.local_hostname,
+                 network.friendly_hostname, network.ipv4, kBoardVariant}, true);
   for (const auto& device : snapshot.devices) {
     body.push_back(',');
     append_device(device, false);
@@ -1425,8 +1456,10 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   }
   std::string body = "{\"hardware\":\"" + std::string(kBoardVariant) +
       "\",\"audio_available\":" +
-      (kBoardHasAudio ? std::string("true") : std::string("false")) +
-      ",\"brightness\":" + std::to_string(current.brightness_percent) +
+      (kBoardHasAudio ? std::string("true") : std::string("false"));
+  body += ",\"device_name\":";
+  append_json_string(body, current.device_name);
+  body += ",\"brightness\":" + std::to_string(current.brightness_percent) +
       ",\"theme\":";
   append_json_string(body, current.theme);
   body += ",\"timezone\":";
@@ -1707,6 +1740,8 @@ esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
   append_json_string(body, kBoardVariant);
   body += ",\"device_id\":";
   append_json_string(body, network.device_id);
+  body += ",\"name\":";
+  append_json_string(body, network.device_name);
   body += ",\"capabilities\":{\"snapshot\":true,\"home_assistant\":true}";
   body += ",\"network\":{\"wifi_name\":";
   append_json_string(body, network.station_name);
@@ -1716,6 +1751,9 @@ esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
   body += ",\"hostname\":";
   if (network.local_hostname.empty()) body += "null";
   else append_json_string(body, network.local_hostname);
+  body += ",\"friendly_hostname\":";
+  if (network.friendly_hostname.empty()) body += "null";
+  else append_json_string(body, network.friendly_hostname);
   body += "},\"read_only\":true}";
   return send_json(request, "200 OK", body.c_str());
 }
@@ -1723,7 +1761,19 @@ esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
 esp_err_t WebConfig::serve_unified_api_snapshot(httpd_req_t* request) const {
   if (!authorize_unified_api(request)) return ESP_OK;
   const std::vector<core::UnifiedPrinterView> views = unified_printer_views();
-  const std::string body = core::unified_api_snapshot_json(views);
+  PowerSnapshot power;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    power = power_status_;
+  }
+  const core::UnifiedDevicePower api_power = {
+      .available = power.available,
+      .battery_present = power.battery_present,
+      .battery_percent = power.battery_percent,
+      .charging = power.charging,
+      .external_power = power.usb_present || power.charging,
+  };
+  const std::string body = core::unified_api_snapshot_json(views, api_power);
   return send_json(request, "200 OK", body.c_str());
 }
 
@@ -1818,7 +1868,7 @@ esp_err_t WebConfig::test_audio(httpd_req_t* request) {
   }
   if (!callback(context, preset, event, volume)) {
     return send_json(request, "409 Conflict",
-                     "{\"error\":\"Turn up the sound volume and try again.\"}");
+                     "{\"error\":\"Wait for the current sound to finish and try again.\"}");
   }
   return send_json(request, "200 OK", "{\"played\":true}");
 }
@@ -2078,6 +2128,7 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
                      "{\"error\":\"The entered values are too long. Please shorten them and try again.\"}");
   }
   std::string brightness_text;
+  std::string device_name;
   std::string printer_animations_enabled_text;
   std::string reaction_progress_bar_enabled_text;
   std::string reaction_progress_percent_enabled_text;
@@ -2111,7 +2162,9 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
   int dim_active = 0;
   int off_idle = 0;
   int off_active = 0;
-  if (!form_value(body, "brightness", brightness_text) ||
+  if (!form_value(body, "device_name", device_name) ||
+      !core::valid_device_name(device_name) ||
+      !form_value(body, "brightness", brightness_text) ||
       !parse_int(brightness_text, brightness) ||
       !form_value(body, "printer_animations_enabled", printer_animations_enabled_text) ||
       (printer_animations_enabled_text != "0" && printer_animations_enabled_text != "1") ||
@@ -2169,6 +2222,7 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
     candidate = settings_;
   }
   const bool restart_required = candidate.timezone != timezone;
+  candidate.device_name = std::move(device_name);
   candidate.brightness_percent = static_cast<std::uint8_t>(std::clamp(brightness, 5, 100));
   candidate.printer_animations_enabled = printer_animations_enabled_text == "1";
   candidate.reaction_progress_bar_enabled = reaction_progress_bar_enabled_text == "1";

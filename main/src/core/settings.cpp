@@ -113,6 +113,131 @@ bool valid_unified_api_token(std::string_view token) {
   });
 }
 
+std::string device_name_slug(std::string_view name) {
+  std::string slug;
+  slug.reserve(std::min(name.size(), kMaximumDeviceNameBytes));
+  bool separator = false;
+  const auto append_separator = [&]() {
+    separator = !slug.empty();
+  };
+  const auto append_ascii = [&](char character) {
+    if (separator && !slug.empty() && slug.back() != '-') slug.push_back('-');
+    separator = false;
+    slug.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(character))));
+  };
+  for (std::size_t index = 0; index < name.size();) {
+    const unsigned char first = static_cast<unsigned char>(name[index]);
+    std::uint32_t codepoint = 0;
+    std::size_t width = 1;
+    if (first < 0x80) {
+      codepoint = first;
+    } else if ((first & 0xE0U) == 0xC0U && index + 1 < name.size()) {
+      codepoint = ((first & 0x1FU) << 6U) |
+                  (static_cast<unsigned char>(name[index + 1]) & 0x3FU);
+      width = 2;
+    } else if ((first & 0xF0U) == 0xE0U && index + 2 < name.size()) {
+      codepoint = ((first & 0x0FU) << 12U) |
+                  ((static_cast<unsigned char>(name[index + 1]) & 0x3FU) << 6U) |
+                  (static_cast<unsigned char>(name[index + 2]) & 0x3FU);
+      width = 3;
+    } else if ((first & 0xF8U) == 0xF0U && index + 3 < name.size()) {
+      codepoint = ((first & 0x07U) << 18U) |
+                  ((static_cast<unsigned char>(name[index + 1]) & 0x3FU) << 12U) |
+                  ((static_cast<unsigned char>(name[index + 2]) & 0x3FU) << 6U) |
+                  (static_cast<unsigned char>(name[index + 3]) & 0x3FU);
+      width = 4;
+    } else {
+      append_separator();
+      ++index;
+      continue;
+    }
+    index += width;
+    if (codepoint < 0x80 && std::isalnum(static_cast<unsigned char>(codepoint))) {
+      append_ascii(static_cast<char>(codepoint));
+      continue;
+    }
+    if (codepoint == ' ' || codepoint == '-' || codepoint == '_' || codepoint == '.') {
+      append_separator();
+      continue;
+    }
+    const char* replacement = nullptr;
+    switch (codepoint) {
+      case 0x00C0: case 0x00C1: case 0x00C2: case 0x00C3: case 0x00C4: case 0x00C5:
+      case 0x00E0: case 0x00E1: case 0x00E2: case 0x00E3: case 0x00E4: case 0x00E5:
+      case 0x0104: case 0x0105: replacement = "a"; break;
+      case 0x00C7: case 0x00E7: case 0x0106: case 0x0107: replacement = "c"; break;
+      case 0x00C8: case 0x00C9: case 0x00CA: case 0x00CB:
+      case 0x00E8: case 0x00E9: case 0x00EA: case 0x00EB:
+      case 0x0118: case 0x0119: replacement = "e"; break;
+      case 0x00CC: case 0x00CD: case 0x00CE: case 0x00CF:
+      case 0x00EC: case 0x00ED: case 0x00EE: case 0x00EF: replacement = "i"; break;
+      case 0x0141: case 0x0142: replacement = "l"; break;
+      case 0x00D1: case 0x00F1: case 0x0143: case 0x0144: replacement = "n"; break;
+      case 0x00D2: case 0x00D3: case 0x00D4: case 0x00D5: case 0x00D6: case 0x00D8:
+      case 0x00F2: case 0x00F3: case 0x00F4: case 0x00F5: case 0x00F6: case 0x00F8:
+        replacement = "o"; break;
+      case 0x0152: case 0x0153: replacement = "oe"; break;
+      case 0x015A: case 0x015B: replacement = "s"; break;
+      case 0x00DF: replacement = "ss"; break;
+      case 0x00D9: case 0x00DA: case 0x00DB: case 0x00DC:
+      case 0x00F9: case 0x00FA: case 0x00FB: case 0x00FC: replacement = "u"; break;
+      case 0x00DD: case 0x00FD: case 0x00FF: replacement = "y"; break;
+      case 0x0179: case 0x017A: case 0x017B: case 0x017C: replacement = "z"; break;
+      default: break;
+    }
+    if (replacement != nullptr) {
+      for (const char* cursor = replacement; *cursor != '\0'; ++cursor) append_ascii(*cursor);
+    } else {
+      append_separator();
+    }
+  }
+  while (!slug.empty() && slug.back() == '-') slug.pop_back();
+  return slug;
+}
+
+bool valid_device_name(std::string_view name) {
+  if (name.size() > kMaximumDeviceNameBytes) return false;
+  if (!name.empty() && (name.front() == ' ' || name.back() == ' ')) return false;
+  bool has_visible_character = false;
+  std::size_t characters = 0;
+  for (std::size_t index = 0; index < name.size();) {
+    const unsigned char first = static_cast<unsigned char>(name[index]);
+    std::uint32_t codepoint = first;
+    std::size_t width = 1;
+    if (first >= 0x80) {
+      if ((first & 0xE0U) == 0xC0U) {
+        codepoint = first & 0x1FU;
+        width = 2;
+      } else if ((first & 0xF0U) == 0xE0U) {
+        codepoint = first & 0x0FU;
+        width = 3;
+      } else if ((first & 0xF8U) == 0xF0U) {
+        codepoint = first & 0x07U;
+        width = 4;
+      } else {
+        return false;
+      }
+      if (index + width > name.size()) return false;
+      for (std::size_t offset = 1; offset < width; ++offset) {
+        const unsigned char continuation = static_cast<unsigned char>(name[index + offset]);
+        if ((continuation & 0xC0U) != 0x80U) return false;
+        codepoint = (codepoint << 6U) | (continuation & 0x3FU);
+      }
+      if ((width == 2 && codepoint < 0x80U) ||
+          (width == 3 && codepoint < 0x800U) ||
+          (width == 4 && codepoint < 0x10000U) ||
+          codepoint > 0x10FFFFU || (codepoint >= 0xD800U && codepoint <= 0xDFFFU)) {
+        return false;
+      }
+    }
+    index += width;
+    if (++characters > kMaximumDeviceNameCharacters) return false;
+    if (codepoint < 0x20U || (codepoint >= 0x7FU && codepoint <= 0x9FU)) return false;
+    has_visible_character = has_visible_character || codepoint != ' ';
+  }
+  return name.empty() || has_visible_character;
+}
+
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
   if (settings.theme == "blue") settings.theme = "banana";
@@ -134,11 +259,16 @@ bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
     settings.unified_api_enabled = false;
     settings.unified_api_token.clear();
   }
+  if (source_schema < 10) settings.device_name.clear();
   return true;
 }
 
 std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
   std::vector<ValidationIssue> issues;
+  check_text(issues, "device_name", settings.device_name, kMaximumDeviceNameBytes, false);
+  if (!valid_device_name(settings.device_name)) {
+    issues.push_back({"device_name", "Device name contains unsupported characters"});
+  }
   check_text(issues, "wifi_name", settings.wifi_name, 32, false);
   check_text(issues, "wifi_password", settings.wifi_password, 64, false);
   check_text(issues, "theme", settings.theme, 20, true);

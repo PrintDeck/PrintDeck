@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 
@@ -136,6 +137,18 @@ wifi_config_t station_config(const std::string& network_name, const std::string&
   return station;
 }
 
+std::string default_device_name(std::string_view hostname) {
+  if (hostname.ends_with(".local")) hostname.remove_suffix(6);
+  constexpr std::string_view prefix = "printdeck-";
+  if (hostname.starts_with(prefix)) hostname.remove_prefix(prefix.size());
+  std::string suffix = hostname.size() >= 6
+      ? std::string(hostname.substr(hostname.size() - 6)) : std::string("device");
+  std::transform(suffix.begin(), suffix.end(), suffix.begin(), [](unsigned char character) {
+    return static_cast<char>(std::toupper(character));
+  });
+  return "PrintDeck " + suffix;
+}
+
 }  // namespace
 
 esp_err_t NetworkService::start(const core::DeviceSettings& settings) {
@@ -172,6 +185,11 @@ esp_err_t NetworkService::start(const core::DeviceSettings& settings) {
   std::snprintf(hostname.data(), hostname.size(), "printdeck-%02x%02x%02x",
                 access_point_mac[3], access_point_mac[4], access_point_mac[5]);
   mdns_hostname_ = hostname.data();
+  device_name_ = settings.device_name.empty()
+      ? default_device_name(mdns_hostname_) : settings.device_name;
+  const std::string friendly_slug = core::device_name_slug(settings.device_name);
+  friendly_mdns_hostname_ = friendly_slug.empty()
+      ? mdns_hostname_ : "printdeck-" + friendly_slug;
   // PrintDeck owns persistence through SettingsStore. Candidate onboarding
   // credentials must stay volatile until a complete connection, including
   // DHCP, has been verified.
@@ -202,6 +220,8 @@ esp_err_t NetworkService::start(const core::DeviceSettings& settings) {
     status_.station_connecting = !settings.wifi_name.empty();
     status_.setup_network_name = setup_network_name_;
     status_.device_id = device_id_;
+    status_.device_name = device_name_;
+    status_.friendly_hostname = friendly_mdns_hostname_ + ".local";
   }
 
   const esp_err_t mdns_result = start_mdns();
@@ -233,6 +253,7 @@ NetworkStatus NetworkService::status() const {
 }
 
 esp_err_t NetworkService::start_mdns() {
+  const std::lock_guard<std::mutex> mdns_lock(mdns_mutex_);
   esp_err_t result = mdns_init();
   if (result != ESP_OK) return result;
 
@@ -244,6 +265,12 @@ esp_err_t NetworkService::start_mdns() {
   if (result == ESP_OK) {
     result = mdns_delegate_hostname_add(mdns_hostname_.c_str(), nullptr);
     if (result == ESP_OK && !mdns_hostname_exists(mdns_hostname_.c_str())) {
+      result = ESP_ERR_NO_MEM;
+    }
+  }
+  if (result == ESP_OK && friendly_mdns_hostname_ != mdns_hostname_) {
+    result = mdns_delegate_hostname_add(friendly_mdns_hostname_.c_str(), nullptr);
+    if (result == ESP_OK && !mdns_hostname_exists(friendly_mdns_hostname_.c_str())) {
       result = ESP_ERR_NO_MEM;
     }
   }
@@ -268,6 +295,8 @@ esp_err_t NetworkService::start_mdns() {
       {.key = "path", .value = "/v1"},
       {.key = "auth", .value = "bearer"},
       {.key = "hardware", .value = kBoardVariant},
+      {.key = "name", .value = device_name_.c_str()},
+      {.key = "alias", .value = friendly_mdns_hostname_.c_str()},
   };
   const esp_err_t api_result = mdns_service_add_for_host(
       nullptr, kMdnsApiService, "_tcp", mdns_hostname_.c_str(), 80,
@@ -282,6 +311,58 @@ esp_err_t NetworkService::start_mdns() {
 
   ESP_LOGI(kLogTag, "Web Config and Unified API advertised at http://%s.local/",
            mdns_hostname_.c_str());
+  return ESP_OK;
+}
+
+esp_err_t NetworkService::set_device_name(std::string_view name) {
+  if (!core::valid_device_name(name)) return ESP_ERR_INVALID_ARG;
+  const std::string next_name = name.empty() ? default_device_name(mdns_hostname_) : std::string(name);
+  const std::string slug = core::device_name_slug(name);
+  const std::string next_hostname = slug.empty() ? mdns_hostname_ : "printdeck-" + slug;
+  if (!valid_printdeck_hostname(next_hostname)) return ESP_ERR_INVALID_ARG;
+
+  const std::lock_guard<std::mutex> mdns_lock(mdns_mutex_);
+  const std::string previous_hostname = friendly_mdns_hostname_;
+  if (mdns_started_.load(std::memory_order_acquire) && next_hostname != previous_hostname) {
+    mdns_ip_addr_t address{};
+    const mdns_ip_addr_t* address_list = nullptr;
+    esp_netif_ip_info_t ip_info{};
+    esp_netif_t* station = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (station != nullptr && esp_netif_get_ip_info(station, &ip_info) == ESP_OK &&
+        ip_info.ip.addr != 0) {
+      address.addr.type = ESP_IPADDR_TYPE_V4;
+      address.addr.u_addr.ip4.addr = ip_info.ip.addr;
+      address_list = &address;
+    }
+    if (next_hostname != mdns_hostname_) {
+      const esp_err_t add_result = mdns_delegate_hostname_add(next_hostname.c_str(), address_list);
+      if (add_result != ESP_OK) return add_result;
+    }
+    if (previous_hostname != mdns_hostname_) {
+      const esp_err_t remove_result = mdns_delegate_hostname_remove(previous_hostname.c_str());
+      if (remove_result != ESP_OK && remove_result != ESP_ERR_NOT_FOUND) {
+        ESP_LOGW(kLogTag, "Could not remove previous mDNS alias: %s",
+                 esp_err_to_name(remove_result));
+      }
+    }
+  }
+  friendly_mdns_hostname_ = next_hostname;
+  device_name_ = next_name;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    status_.device_name = device_name_;
+    status_.friendly_hostname = friendly_mdns_hostname_ + ".local";
+  }
+  if (mdns_started_.load(std::memory_order_acquire)) {
+    const esp_err_t name_result = mdns_service_txt_item_set_for_host(
+        nullptr, kMdnsApiService, "_tcp", mdns_hostname_.c_str(), "name",
+        device_name_.c_str());
+    const esp_err_t alias_result = mdns_service_txt_item_set_for_host(
+        nullptr, kMdnsApiService, "_tcp", mdns_hostname_.c_str(), "alias",
+        friendly_mdns_hostname_.c_str());
+    if (name_result != ESP_OK) return name_result;
+    if (alias_result != ESP_OK) return alias_result;
+  }
   return ESP_OK;
 }
 
@@ -351,6 +432,11 @@ void NetworkService::run_device_discovery() {
       if (std::strcmp(txt.key, "id") == 0 && valid_printdeck_id(value)) device.id = value;
       if (std::strcmp(txt.key, "hardware") == 0 &&
           (value == "amoled_1_75" || value == "lcd_1_54" || value == "knomi2")) device.hardware = value;
+      if (std::strcmp(txt.key, "name") == 0 && !value.empty() &&
+          core::valid_device_name(value)) device.name = value;
+      if (std::strcmp(txt.key, "alias") == 0 && valid_printdeck_hostname(value)) {
+        device.friendly_hostname = std::string(value) + ".local";
+      }
     }
     if (device.id.empty() || device.id == device_id_ ||
         std::any_of(devices.begin(), devices.end(), [&device](const auto& known) {
@@ -367,13 +453,15 @@ void NetworkService::run_device_discovery() {
     }
     if (device.ipv4.empty()) continue;
     device.hostname = std::string(peer->hostname) + ".local";
+    if (device.name.empty()) device.name = default_device_name(device.hostname);
+    if (device.friendly_hostname.empty()) device.friendly_hostname = device.hostname;
     devices.push_back(std::move(device));
   }
   // mdns_query_ptr transfers ownership of the complete result list, including
   // empty/failed queries. Free it before releasing the concurrency slot.
   mdns_query_results_free(results);
   std::sort(devices.begin(), devices.end(), [](const auto& left, const auto& right) {
-    return left.hostname < right.hostname;
+    return left.name == right.name ? left.hostname < right.hostname : left.name < right.name;
   });
   const std::lock_guard<std::mutex> lock(device_discovery_mutex_);
   const bool success = result == ESP_OK && epoch == network_epoch_.load();
@@ -723,9 +811,13 @@ void NetworkService::handle_event(esp_event_base_t base, std::int32_t id, void* 
   if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
     network_epoch_.fetch_add(1);
     if (mdns_started_.load(std::memory_order_acquire)) {
+      const std::lock_guard<std::mutex> mdns_lock(mdns_mutex_);
       // Retain the alias/services, but never advertise a stale station IP
       // through the recovery AP. DHCP supplies the address on reconnect.
-      const esp_err_t result = mdns_delegate_hostname_set_address(mdns_hostname_.c_str(), nullptr);
+      esp_err_t result = mdns_delegate_hostname_set_address(mdns_hostname_.c_str(), nullptr);
+      if (result == ESP_OK && friendly_mdns_hostname_ != mdns_hostname_) {
+        result = mdns_delegate_hostname_set_address(friendly_mdns_hostname_.c_str(), nullptr);
+      }
       if (result != ESP_OK) ESP_LOGW(kLogTag, "Could not clear mDNS station address: %s", esp_err_to_name(result));
     }
     const auto* event = static_cast<const wifi_event_sta_disconnected_t*>(event_data);
@@ -762,10 +854,14 @@ void NetworkService::handle_event(esp_event_base_t base, std::int32_t id, void* 
     network_epoch_.fetch_add(1);
     const auto* event = static_cast<const ip_event_got_ip_t*>(event_data);
     if (mdns_started_.load(std::memory_order_acquire)) {
+      const std::lock_guard<std::mutex> mdns_lock(mdns_mutex_);
       mdns_ip_addr_t address{};
       address.addr.type = ESP_IPADDR_TYPE_V4;
       address.addr.u_addr.ip4.addr = event->ip_info.ip.addr;
       esp_err_t result = mdns_delegate_hostname_set_address(mdns_hostname_.c_str(), &address);
+      if (result == ESP_OK && friendly_mdns_hostname_ != mdns_hostname_) {
+        result = mdns_delegate_hostname_set_address(friendly_mdns_hostname_.c_str(), &address);
+      }
       // Reconsider the shared name only on a connection event, including
       // returning to a network where another device now owns printdeck.local.
       // This synchronous action also applies the queued address update first.

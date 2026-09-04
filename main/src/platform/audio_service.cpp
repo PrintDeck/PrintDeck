@@ -572,9 +572,13 @@ bool AudioService::play(Event event, Preset preset) {
 
 bool AudioService::preview(Event event, Preset preset, int volume_percent) {
   if (volume_percent <= 0 || queue_ == nullptr) return false;
+  bool expected = false;
+  if (!preview_busy_.compare_exchange_strong(expected, true)) return false;
   const Request request{event, preset, std::clamp(volume_percent, 1, 100), true,
                         language_.load(), nullptr, nullptr};
-  return xQueueSend(queue_, &request, 0) == pdTRUE;
+  if (xQueueSend(queue_, &request, 0) == pdTRUE) return true;
+  preview_busy_.store(false);
+  return false;
 }
 
 void AudioService::task_entry(void* context) { static_cast<AudioService*>(context)->task_loop(); }
@@ -585,6 +589,7 @@ void AudioService::task_loop() {
     if (xQueueReceive(queue_, &request, portMAX_DELAY) == pdTRUE) {
       play_now(request.event, request.preset, request.volume, request.force,
                request.language);
+      if (request.force) preview_busy_.store(false);
       if (request.completion != nullptr) {
         request.completion(request.completion_context);
       }

@@ -16,6 +16,7 @@
 #include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/core/unified_printer_api.hpp"
 #include "printdeck/platform/network_service.hpp"
+#include "printdeck/platform/power_service.hpp"
 #include "printdeck/platform/settings_store.hpp"
 #include "printdeck/platform/moonraker_connection_probe.hpp"
 #include "printdeck/platform/printer_discovery_service.hpp"
@@ -62,6 +63,7 @@ class WebConfig {
                                      PrinterLightCallback light, void* context);
   void synchronize_settings(const core::DeviceSettings& settings);
   void update_selected_printer_status(const core::PrinterSnapshot& snapshot);
+  void update_power_status(const PowerSnapshot& snapshot);
   esp_err_t save_brightness(int percent);
   esp_err_t save_audio(bool enabled, int volume_percent);
   esp_err_t save_audio_preset(std::string_view preset);
@@ -214,6 +216,7 @@ class WebConfig {
   core::LinkState selected_link_ = core::LinkState::stopped;
   core::JobPhase selected_phase_ = core::JobPhase::unknown;
   float selected_completion_ = 0.0F;
+  PowerSnapshot power_status_;
   struct PrinterLightState {
     bool supported = false;
     bool on = false;
