@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>PrintDeck round monitor</title>
+  <circle cx="256" cy="256" r="240" fill="#32d2aa"/>
+  <circle cx="256" cy="256" r="196" fill="#071018"/>
+  <circle cx="256" cy="256" r="164" fill="#10272e" stroke="#78efd1" stroke-width="8"/>
+  <path d="M256 151 354 207 256 263 158 207Z" fill="#f5fbf9"/>
+  <path d="m158 207 98 56v112l-98-57Z" fill="#32d2aa"/>
+  <path d="m354 207-98 56v112l98-57Z" fill="#24afd0"/>
+  <path d="m256 151 98 56-98 56-98-56Z M256 263v112 M158 207v111l98 57 98-57V207"
+        fill="none" stroke="#071018" stroke-width="13" stroke-linejoin="round"/>
+  <path d="M190 292 229 315 M190 318 229 341"
+        fill="none" stroke="#f5fbf9" stroke-width="10" stroke-linecap="round"/>
+</svg>

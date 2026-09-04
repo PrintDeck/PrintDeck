@@ -396,12 +396,16 @@
       return player;
     };
 
-    mediaIds.forEach((mediaId) => players.set(mediaId, createPlayer(mediaId)));
-
     const playVisibleVideo = (mediaId) => {
-      const player = players.get(mediaId);
       const viewportState = viewportStates.get(mediaId);
-      if (!player || !viewportState || !viewportState.isIntersecting || document.hidden) return;
+      if (!viewportState || !viewportState.isIntersecting || document.hidden) return;
+
+      let player = players.get(mediaId);
+      if (!player) {
+        player = createPlayer(mediaId);
+        if (!player) return;
+        players.set(mediaId, player);
+      }
 
       if (!player.ready) {
         if (viewportState.waitingForPlayer) return;
@@ -426,14 +430,14 @@
     const updateVideoVisibility = (mediaId, isIntersecting, intersectionRatio) => {
       const player = players.get(mediaId);
       const viewportState = viewportStates.get(mediaId);
-      if (!player || !viewportState) return;
+      if (!viewportState) return;
 
       viewportState.isIntersecting = isIntersecting;
 
       if (!isIntersecting) {
         viewportState.hasStartedInView = false;
         viewportState.resumeWhenDocumentVisible = false;
-        player.pause();
+        player?.pause();
         return;
       }
 
@@ -480,12 +484,10 @@
     document.addEventListener('visibilitychange', () => {
       viewportStates.forEach((viewportState, mediaId) => {
         const player = players.get(mediaId);
-        if (!player) return;
-
         if (document.hidden) {
-          viewportState.resumeWhenDocumentVisible = viewportState.isIntersecting
-            && (!player.paused || viewportState.waitingForPlayer);
-          player.pause();
+          viewportState.resumeWhenDocumentVisible = viewportState.resumeWhenDocumentVisible
+            || (viewportState.isIntersecting && player && (!player.paused || viewportState.waitingForPlayer));
+          player?.pause();
           return;
         }
 
