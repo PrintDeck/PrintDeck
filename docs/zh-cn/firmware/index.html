@@ -581,7 +581,8 @@
             <label class="firmware-version" for="firmware-version">
               <span class="firmware-version-label">固件版本</span>
               <select id="firmware-version" aria-label="固件版本">
-                <option value="1.0.7" selected="">1.0.7 （最新）</option>
+                <option value="1.0.8" selected="">1.0.8 （最新）</option>
+                <option value="1.0.7">1.0.7</option>
                 <option value="1.0.6">1.0.6</option>
                 <option value="1.0.5">1.0.5</option>
                 <option value="1.0.4">1.0.4</option>
@@ -732,7 +733,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>启动下方的安装程序。</strong> 选择 WCH USB Serial (cu.wchusbserial…)、USB-SERIAL CH340 (COM…) 或 /dev/ttyUSB…。按提示确认完全擦除，然后等待安装达到 100%。</li>
             </ol>
             <esp-web-install-button id="install-button" manifest="../manifest-install.json">
-              <button slot="activate" id="install-button-label">安装 1.0.7 或恢复出厂设置</button>
+              <button slot="activate" id="install-button-label">安装 1.0.8 或恢复出厂设置</button>
               <span slot="not-allowed">USB 访问要求通过 HTTPS 打开此页面。</span>
             </esp-web-install-button>
             <div class="tip" data-hardware-instruction="waveshare"><strong>如果未显示设备：</strong> 拔下数据线。按住屏幕的 <strong>BOOT</strong> 按钮，重新连接 USB-C，两秒后松开 BOOT，然后重试。</div>
@@ -760,7 +761,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>启动下方的 USB 更新。</strong> 出现提示时，选择 WCH USB Serial (cu.wchusbserial…)、USB-SERIAL CH340 (COM…) 或 /dev/ttyUSB…。</li>
               <li><strong>等待屏幕重启。</strong> 显示更新进度时请勿断开 USB。</li>
             </ol>
-            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">通过 USB 更新到 1.0.7</button>
+            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">通过 USB 更新到 1.0.8</button>
             <div class="tip" data-hardware-instruction="knomi2" hidden=""><strong>如果未显示 KNOMI2：</strong> 按照上方红色区域中的 USB 驱动程序说明操作，重新连接设备，然后再次开始更新。</div>
             <p class="warning" id="full-install-required" role="status"></p>
             <div class="update-progress" id="update-progress" role="status" aria-live="polite" hidden="">
@@ -993,7 +994,7 @@
 
       if (supported) {
         let activeInstallMode = 'install';
-        let activeVersion = '1.0.7';
+        let activeVersion = '1.0.8';
         let activeHardware = 'amoled_1_75';
         let activeInstallHardware = 'amoled_1_75';
         const versionSelect = document.getElementById('firmware-version');
@@ -1023,11 +1024,23 @@
         let setupNetworkName = '';
         const releaseBase = 'https://raw.githubusercontent.com/PrintDeck/PrintDeck';
         const versions = {
-          '1.0.7': {
-            releaseTag: 'amoled_1_75-v1.0.7',
+          '1.0.8': {
+            releaseTag: 'amoled_1_75-v1.0.8',
             installManifest: '../manifest-install.json',
             application: '../firmware/printdeck.bin',
             otaData: '../firmware/ota_data_initial.bin'
+          },
+          '1.0.7': {
+            releaseTag: 'amoled_1_75-v1.0.7',
+            installManifest: '../manifests/manifest-install-amoled_1_75-1.0.7.json',
+            application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.7/docs/firmware/printdeck.bin',
+            otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.7/docs/firmware/ota_data_initial.bin',
+            knomi2: {
+              releaseTag: 'knomi2-v1.0.7',
+              installManifest: '../manifest-install-knomi2.json',
+              application: '../firmware/knomi2/printdeck.bin',
+              otaData: '../firmware/knomi2/ota_data_initial.bin'
+            }
           },
           '1.0.6': {
             releaseTag: 'amoled_1_75-v1.0.6',
@@ -1042,9 +1055,9 @@
             },
             knomi2: {
               releaseTag: 'knomi2-v1.0.6',
-              installManifest: '../manifest-install-knomi2.json',
-              application: '../firmware/knomi2/printdeck.bin',
-              otaData: '../firmware/knomi2/ota_data_initial.bin'
+              installManifest: '../manifests/manifest-install-knomi2-1.0.6.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.6/docs/firmware/knomi2/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.6/docs/firmware/knomi2/ota_data_initial.bin'
             }
           },
           '1.0.5': {

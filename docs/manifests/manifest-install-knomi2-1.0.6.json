@@ -1,0 +1,17 @@
+{
+  "name": "PrintDeck · KNOMI2",
+  "version": "1.0.6",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.6/docs/firmware/knomi2/bootloader.bin", "offset": 0 },
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.6/docs/firmware/knomi2/partition-table.bin", "offset": 32768 },
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.6/docs/firmware/knomi2/ota_data_initial.bin", "offset": 61440 },
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.6/docs/firmware/knomi2/printdeck.bin", "offset": 131072 },
+        { "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.6/docs/firmware/knomi2/assets.bin", "offset": 10616832 }
+      ]
+    }
+  ]
+}
