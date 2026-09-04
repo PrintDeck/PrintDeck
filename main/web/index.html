@@ -772,6 +772,7 @@
       $('#device-hostname').textContent=hostname||'—';
       $('#device-toggle').disabled=!hostname;
     }
+    function setDeviceDiscoveryStatus(message){const status=$('#device-discovery-status');status.setAttribute('data-i18n',message);status.textContent=translated(message)}
     function closeDevicePicker(){
       $('#device-popover').hidden=true;$('#device-toggle').setAttribute('aria-expanded','false');
       ++deviceDiscoveryGeneration;clearTimeout(deviceDiscoveryTimer);
@@ -795,7 +796,9 @@
         const text=document.createElement('span'),name=document.createElement('strong'),detail=document.createElement('small');
         name.textContent=String(device.hostname||'PrintDeck').replace(/\.local$/,'');
         const hardware={amoled_1_75:'AMOLED 1.75',lcd_1_54:'LCD 1.54',knomi2:'KNOMI2'}[device.hardware]||'PrintDeck';
-        detail.textContent=hardware+(device.self?' · '+translated('This device'):'');text.append(name,detail);row.append(text);
+        detail.textContent=hardware;
+        if(device.self){const selfLabel=document.createElement('span');selfLabel.setAttribute('data-i18n','This device');selfLabel.textContent=translated('This device');detail.append(' · ',selfLabel)}
+        text.append(name,detail);row.append(text);
         const mark=document.createElement('span');mark.textContent=device.self?'✓':'↗';mark.setAttribute('aria-hidden','true');row.append(mark);list.append(row);
       }
     }
@@ -811,17 +814,17 @@
         status.classList.remove('error');
         if(result.state==='scanning'){
           if(Date.now()>=deadline)throw new Error('Device search timed out. Please try again.');
-          status.textContent=translated('Finding PrintDeck devices…');refresh.disabled=true;
+          setDeviceDiscoveryStatus('Finding PrintDeck devices…');refresh.disabled=true;
           deviceDiscoveryTimer=setTimeout(()=>requestDeviceDiscovery('GET',generation,deadline),600);
         }else{
           const remaining=Math.min(60000,Math.max(0,Number(result.cache_remaining_ms)||0));
-          status.textContent=translated(result.state==='failed'?'Device search is unavailable. Please try again shortly.':result.limited?'The device list reached its limit. You can still open another device by its address.':result.devices?.length>1?'Recent results are kept for up to one minute.':'No other PrintDeck devices were found. Recent results are kept for up to one minute.');
+          setDeviceDiscoveryStatus(result.state==='failed'?'Device search is unavailable. Please try again shortly.':result.limited?'The device list reached its limit. You can still open another device by its address.':result.devices?.length>1?'Recent results are kept for up to one minute.':'No other PrintDeck devices were found. Recent results are kept for up to one minute.');
           refresh.disabled=remaining>0;
           if(remaining)deviceDiscoveryTimer=setTimeout(()=>{if(generation===deviceDiscoveryGeneration)refresh.disabled=false},remaining);
         }
       }catch(error){
         if(generation!==deviceDiscoveryGeneration)return;
-        $('#device-discovery-status').textContent=translated(error.name==='AbortError'?'Device search timed out. Please try again.':error.message);
+        setDeviceDiscoveryStatus(error.name==='AbortError'?'Device search timed out. Please try again.':error.message);
         $('#device-discovery-status').classList.add('error');$('#device-refresh').disabled=false;
       }finally{clearTimeout(timeout);if(deviceDiscoveryAbort===controller)deviceDiscoveryAbort=null}
     }
@@ -829,7 +832,7 @@
       clearTimeout(deviceDiscoveryTimer);deviceDiscoveryAbort?.abort();
       const generation=++deviceDiscoveryGeneration;
       $('#device-refresh').disabled=true;$('#device-discovery-status').classList.remove('error');
-      $('#device-discovery-status').textContent=translated('Finding PrintDeck devices…');
+      setDeviceDiscoveryStatus('Finding PrintDeck devices…');
       requestDeviceDiscovery('POST',generation,Date.now()+10000);
     }
     $('#device-toggle').addEventListener('click',()=>{
