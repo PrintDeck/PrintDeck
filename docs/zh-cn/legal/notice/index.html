@@ -3,10 +3,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>法律声明 · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260903-2">
+    <link rel="stylesheet" href="/assets/site.css?v=20260904-3">
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-4"></script>
 
-    <meta name="description" content="查看 PrintDeck 的版权、商业许可和第三方署名声明。">
+    <meta name="description" content="PrintDeck 所需的署名信息、原始源代码及第三方许可声明。">
     <link rel="canonical" href="https://printdeck.xyz/zh-cn/legal/notice/">
     <link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/">
     <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/">
@@ -24,14 +24,14 @@
     <meta property="og:locale:alternate" content="fr_FR">
     <meta property="og:locale:alternate" content="de_DE">
     <meta property="og:title" content="法律声明 · PrintDeck">
-    <meta property="og:description" content="查看 PrintDeck 的版权、商业许可和第三方署名声明。">
+    <meta property="og:description" content="PrintDeck 所需的署名信息、原始源代码及第三方许可声明。">
     <meta property="og:url" content="https://printdeck.xyz/zh-cn/legal/notice/">
     <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="法律声明 · PrintDeck">
-    <meta name="twitter:description" content="查看 PrintDeck 的版权、商业许可和第三方署名声明。">
+    <meta name="twitter:description" content="PrintDeck 所需的署名信息、原始源代码及第三方许可声明。">
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"法律声明 · PrintDeck","description":"查看 PrintDeck 的版权、商业许可和第三方署名声明。","url":"https://printdeck.xyz/zh-cn/legal/notice/","inLanguage":"zh-CN","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"法律声明 · PrintDeck","description":"PrintDeck 所需的署名信息、原始源代码及第三方许可声明。","url":"https://printdeck.xyz/zh-cn/legal/notice/","inLanguage":"zh-CN","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
   <body class="site-page legal-page" data-page-title="法律声明 · PrintDeck">
     <header class="site-header">
@@ -53,45 +53,44 @@
     </header>
 
     <main class="legal-content">
-      <section class="legal-hero">
-        <div class="legal-inner">
-          <span class="legal-eyebrow">法律声明</span>
-          <h1>版权和法律声明</h1>
-          <p>PrintDeck © 2026 kitek。本项目结合了原创作品与第三方软件和资源。</p>
-        </div>
-      </section>
+      <header class="legal-heading">
+        <span class="legal-eyebrow">法律声明</span>
+        <h1>版权和法律声明</h1>
+      </header>
 
-      <section class="legal-body">
-        <div class="legal-inner">
-          <h2>适用内容</h2>
-          <div class="legal-grid">
-            <article>
-              <span>01</span>
-              <h3>PrintDeck 原创作品</h3>
-              <p>Copyright © 2026 kitek。除非文件另有说明，否则适用 PolyForm Noncommercial License 1.0.0。</p>
-            </article>
-            <article>
-              <span>02</span>
-              <h3>商业许可</h3>
-              <p>商业使用需要与版权所有者另行签订书面协议。</p>
-            </article>
-            <article>
-              <span>03</span>
-              <h3>第三方作品</h3>
-              <p>ESP-IDF、库、字体及其他所含组件保留其各自的许可证和署名声明。</p>
-            </article>
-          </div>
-          <aside class="legal-note">每个 PrintDeck 固件二进制文件都会附带完整的综合声明。</aside>
-          <div class="site-actions">
-            <a class="site-button" href="/zh-cn/legal/license/">阅读许可证</a>
-            <a class="site-button secondary" href="/zh-cn/support/">联系支持</a>
-          </div>
-        </div>
-      </section>
+      <div class="campaign-signal legal-signal">
+        <span>署名信息</span>
+        <span>PrintDeck 原始源代码</span>
+        <span>第三方组件</span>
+      </div>
+
+      <div class="legal-body">
+        <section>
+          <h2>署名信息</h2>
+          <p>如果你再分发 PrintDeck 代码或固件，请保留 NOTICE 文件中的必要声明，包括版权所有者及指向 PrintDeck 原始源代码的链接。</p>
+          <ul class="legal-links">
+            <li><a href="https://github.com/PrintDeck/PrintDeck/blob/main/NOTICE" target="_blank" rel="noopener">完整版权和署名声明</a></li>
+            <li><a href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener">PrintDeck 原始源代码</a></li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>第三方组件</h2>
+          <p>所包含的库、字体及其他第三方资源保留各自的许可证和署名要求。PrintDeck 的许可证不取代这些条款。</p>
+          <p><a href="https://github.com/PrintDeck/PrintDeck/blob/main/THIRD_PARTY.md" target="_blank" rel="noopener">组件列表及其许可证</a></p>
+        </section>
+
+        <section>
+          <h2>商标</h2>
+          <p>第三方名称和标志归各自所有者所有，仅用于标识兼容的产品和浏览器。PrintDeck 与这些公司没有关联，也未获得其认可或背书。</p>
+        </section>
+
+        <p class="legal-reference"><span>Copyright © 2026 PrintDeck.</span><br><a href="/zh-cn/legal/license/">PrintDeck 许可证与商业使用</a></p>
+      </div>
     </main>
 
     <footer class="site-footer legal-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
       <div class="footer-controls">
         <label hidden="" for="notice-language">语言</label>
         <select class="installer-language" id="notice-language" aria-label="语言" data-site-language=""><option value="/legal/notice/">English</option><option value="/pl/legal/notice/">Polski</option><option value="/es/legal/notice/">Español</option><option value="/fr/legal/notice/">Français</option><option value="/de/legal/notice/">Deutsch</option><option value="/zh-cn/legal/notice/" selected="">简体中文</option></select>

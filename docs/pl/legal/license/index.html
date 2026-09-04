@@ -3,7 +3,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>Licencja · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260903-2">
+    <link rel="stylesheet" href="/assets/site.css?v=20260904-3">
     <script>window.printDeckInstallerI18n={language:"pl",t:(source,values={})=>{let result=({"Play":"Odtwórz","Pause":"Wstrzymaj","Seek":"Przewiń","{currentTime} of {duration}":"{currentTime} z {duration}","Played":"Odtworzono","Buffered":"Zbuforowano","Current time":"Bieżący czas","Volume":"Głośność","Mute":"Wycisz","Unmute":"Włącz dźwięk","Enter fullscreen":"Włącz pełny ekran","Exit fullscreen":"Wyjdź z pełnego ekranu"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-4"></script>
 
     <meta name="description" content="Przeczytaj krótkie omówienie warunków licencji dotyczących oryginalnego oprogramowania i dokumentacji PrintDeck.">
@@ -53,45 +53,43 @@
     </header>
 
     <main class="legal-content">
-      <section class="legal-hero">
-        <div class="legal-inner">
-          <span class="legal-eyebrow">INFORMACJE PRAWNE</span>
-          <h1>Licencja oprogramowania</h1>
-          <p>Oryginalne oprogramowanie i dokumentacja PrintDeck są udostępniane na licencji PolyForm Noncommercial License 1.0.0.</p>
-        </div>
-      </section>
+      <header class="legal-heading">
+        <span class="legal-eyebrow">INFORMACJE PRAWNE</span>
+        <h1>Licencja oprogramowania</h1>
+      </header>
 
-      <section class="legal-body">
-        <div class="legal-inner">
-          <h2>W skrócie</h2>
-          <div class="legal-grid">
-            <article>
-              <span>01</span>
-              <h3>Użytek niekomercyjny</h3>
-              <p>Licencja zezwala na projekty osobiste, naukę, badania, testy i inne zastosowania niekomercyjne.</p>
-            </article>
-            <article>
-              <span>02</span>
-              <h3>Użytek komercyjny</h3>
-              <p>Użytek komercyjny wymaga osobnej pisemnej licencji od właściciela praw autorskich.</p>
-            </article>
-            <article>
-              <span>03</span>
-              <h3>Komponenty stron trzecich</h3>
-              <p>Dołączone oprogramowanie i zasoby stron trzecich pozostają objęte własnymi warunkami licencyjnymi.</p>
-            </article>
-          </div>
-          <aside class="legal-note">Te krótkie informacje są jedynie wskazówką. Warunki <a href="https://polyformproject.org/licenses/noncommercial/1.0.0/" target="_blank" rel="noopener">licencji PolyForm Noncommercial License 1.0.0</a> mają zastosowanie do korzystania z oryginalnych prac PrintDeck.</aside>
-          <div class="site-actions">
-            <a class="site-button" href="/pl/legal/notice/">Przeczytaj informacje prawne</a>
-            <a class="site-button secondary" href="/pl/support/">Skontaktuj się z pomocą</a>
-          </div>
-        </div>
-      </section>
+      <div class="campaign-signal legal-signal">
+        <span>Użytek niekomercyjny</span>
+        <span>Udostępnianie kodu i autorstwo</span>
+        <span>Licencja komercyjna na zapytanie</span>
+      </div>
+
+      <div class="legal-body">
+        <p>Oryginalne oprogramowanie i dokumentacja PrintDeck są udostępniane na licencji <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener"><strong>PolyForm Noncommercial License 1.0.0</strong></a>, chyba że dany plik stanowi inaczej.</p>
+
+        <section>
+          <h2>Użytek niekomercyjny</h2>
+          <p>Możesz używać i modyfikować PrintDeck w celach niekomercyjnych, w tym do własnych projektów, nauki i eksperymentów, zgodnie z warunkami licencji.</p>
+        </section>
+
+        <section>
+          <h2>Udostępnianie kodu i autorstwo</h2>
+          <p>Udostępniając kod lub firmware PrintDeck, ze zmianami lub bez, dołącz licencję albo jej adres URL oraz wymagane informacje wskazujące właściciela praw autorskich i oryginalne źródło PrintDeck.</p>
+          <p><a href="/pl/legal/notice/">Wymagane informacje i licencje komponentów zewnętrznych</a></p>
+        </section>
+
+        <section>
+          <h2>Użytek komercyjny</h2>
+          <p>Sprzedaż oprogramowania PrintDeck, urządzeń z zainstalowanym PrintDeck lub inne wykorzystanie komercyjne wymaga osobnej pisemnej licencji komercyjnej od właściciela praw autorskich.</p>
+          <p><a href="/pl/support/">Skontaktuj się z nami w sprawie licencji komercyjnej</a></p>
+        </section>
+
+        <p class="legal-reference"><span>To jest podsumowanie. Obowiązują pełne warunki licencji.</span> <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener">Przeczytaj pełną licencję</a></p>
+      </div>
     </main>
 
     <footer class="site-footer legal-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/pl/support/">Skontaktuj się z pomocą</a> · <a href="/pl/legal/license/">Licencja</a> · <a href="/pl/legal/notice/">Informacje prawne</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/pl/support/">Skontaktuj się z pomocą</a> · <a href="/pl/legal/license/">Licencja</a> · <a href="/pl/legal/notice/">Informacje prawne</a> · <a href="/pl/legal/privacy/">Prywatność</a></span>
       <div class="footer-controls">
         <label hidden="" for="license-language">Język</label>
         <select class="installer-language" id="license-language" aria-label="Język" data-site-language=""><option value="/legal/license/">English</option><option value="/pl/legal/license/" selected="">Polski</option><option value="/es/legal/license/">Español</option><option value="/fr/legal/license/">Français</option><option value="/de/legal/license/">Deutsch</option><option value="/zh-cn/legal/license/">简体中文</option></select>

@@ -1,5 +1,6 @@
 (() => {
   const rows = [
+    ["Privacy", "Prywatność", "Privacidad", "Confidentialité", "Datenschutz", "隐私"],
     ['Firmware · PrintDeck','Firmware · PrintDeck','Firmware · PrintDeck','Micrologiciel · PrintDeck','Firmware · PrintDeck','固件 · PrintDeck'],
     ['PrintDeck website','Strona PrintDeck','Sitio web de PrintDeck','Site PrintDeck','PrintDeck-Website','PrintDeck 网站'],
     ['ADVANCED WIRELESS 3D PRINT MONITOR','ZAAWANSOWANY BEZPRZEWODOWY MONITOR DRUKU 3D','MONITOR INALÁMBRICO AVANZADO DE IMPRESIÓN 3D','MONITEUR SANS FIL AVANCÉ D’IMPRESSION 3D','FORTSCHRITTLICHER KABELLOSER 3D-DRUCKMONITOR','先进的无线 3D 打印监视器'],

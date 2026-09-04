@@ -3,7 +3,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>许可证 · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260903-2">
+    <link rel="stylesheet" href="/assets/site.css?v=20260904-3">
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-4"></script>
 
     <meta name="description" content="查看适用于 PrintDeck 原创软件和文档的许可条款概要。">
@@ -53,45 +53,43 @@
     </header>
 
     <main class="legal-content">
-      <section class="legal-hero">
-        <div class="legal-inner">
-          <span class="legal-eyebrow">法律信息</span>
-          <h1>软件许可证</h1>
-          <p>PrintDeck 的原创软件和文档采用 PolyForm Noncommercial License 1.0.0。</p>
-        </div>
-      </section>
+      <header class="legal-heading">
+        <span class="legal-eyebrow">法律信息</span>
+        <h1>软件许可证</h1>
+      </header>
 
-      <section class="legal-body">
-        <div class="legal-inner">
-          <h2>概览</h2>
-          <div class="legal-grid">
-            <article>
-              <span>01</span>
-              <h3>非商业用途</h3>
-              <p>该许可证允许个人项目、学习、研究、测试及其他非商业用途。</p>
-            </article>
-            <article>
-              <span>02</span>
-              <h3>商业用途</h3>
-              <p>商业使用需要获得版权所有者另行签发的书面许可。</p>
-            </article>
-            <article>
-              <span>03</span>
-              <h3>第三方组件</h3>
-              <p>所包含的第三方软件和资源仍受其各自许可条款约束。</p>
-            </article>
-          </div>
-          <aside class="legal-note">这些简短说明仅供参考。 <a href="https://polyformproject.org/licenses/noncommercial/1.0.0/" target="_blank" rel="noopener">PolyForm Noncommercial License 1.0.0</a> 的条款适用于 PrintDeck 原创作品的使用。</aside>
-          <div class="site-actions">
-            <a class="site-button" href="/zh-cn/legal/notice/">阅读法律声明</a>
-            <a class="site-button secondary" href="/zh-cn/support/">联系支持</a>
-          </div>
-        </div>
-      </section>
+      <div class="campaign-signal legal-signal">
+        <span>非商业用途</span>
+        <span>代码分享与署名</span>
+        <span>可申请商业许可</span>
+      </div>
+
+      <div class="legal-body">
+        <p>PrintDeck 的原创软件和文档采用 <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener"><strong>PolyForm Noncommercial License 1.0.0</strong></a>，除非文件另有说明。</p>
+
+        <section>
+          <h2>非商业用途</h2>
+          <p>你可以按照许可条款，为非商业目的使用和修改 PrintDeck，包括个人项目、学习和实验。</p>
+        </section>
+
+        <section>
+          <h2>代码分享与署名</h2>
+          <p>分享 PrintDeck 代码或固件时，无论是否经过修改，都须附上许可证或其网址，以及标明版权所有者和 PrintDeck 原始源代码的必要声明。</p>
+          <p><a href="/zh-cn/legal/notice/">必要声明与第三方许可证</a></p>
+        </section>
+
+        <section>
+          <h2>商业用途</h2>
+          <p>销售 PrintDeck 软件、销售已安装 PrintDeck 的设备或进行其他商业使用，均须另行取得版权所有者的书面商业许可。</p>
+          <p><a href="/zh-cn/support/">联系我们获取商业许可</a></p>
+        </section>
+
+        <p class="legal-reference"><span>此处仅为摘要，具体以完整许可条款为准。</span> <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener">阅读完整许可证</a></p>
+      </div>
     </main>
 
     <footer class="site-footer legal-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
       <div class="footer-controls">
         <label hidden="" for="license-language">语言</label>
         <select class="installer-language" id="license-language" aria-label="语言" data-site-language=""><option value="/legal/license/">English</option><option value="/pl/legal/license/">Polski</option><option value="/es/legal/license/">Español</option><option value="/fr/legal/license/">Français</option><option value="/de/legal/license/">Deutsch</option><option value="/zh-cn/legal/license/" selected="">简体中文</option></select>

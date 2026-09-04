@@ -3,7 +3,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>Licence · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260903-2">
+    <link rel="stylesheet" href="/assets/site.css?v=20260904-3">
     <script>window.printDeckInstallerI18n={language:"fr",t:(source,values={})=>{let result=({"Play":"Lire","Pause":"Pause","Seek":"Rechercher","{currentTime} of {duration}":"{currentTime} sur {duration}","Played":"Lu","Buffered":"Mis en mémoire tampon","Current time":"Temps actuel","Volume":"Volume","Mute":"Couper le son","Unmute":"Rétablir le son","Enter fullscreen":"Passer en plein écran","Exit fullscreen":"Quitter le plein écran"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-4"></script>
 
     <meta name="description" content="Consultez un résumé des conditions de licence applicables au logiciel et à la documentation d’origine de PrintDeck.">
@@ -53,45 +53,43 @@
     </header>
 
     <main class="legal-content">
-      <section class="legal-hero">
-        <div class="legal-inner">
-          <span class="legal-eyebrow">INFORMATIONS LÉGALES</span>
-          <h1>Licence du logiciel</h1>
-          <p>Le logiciel et la documentation d’origine de PrintDeck sont proposés sous la licence PolyForm Noncommercial License 1.0.0.</p>
-        </div>
-      </section>
+      <header class="legal-heading">
+        <span class="legal-eyebrow">INFORMATIONS LÉGALES</span>
+        <h1>Licence du logiciel</h1>
+      </header>
 
-      <section class="legal-body">
-        <div class="legal-inner">
-          <h2>En bref</h2>
-          <div class="legal-grid">
-            <article>
-              <span>01</span>
-              <h3>Utilisation non commerciale</h3>
-              <p>La licence autorise les projets personnels, l’étude, la recherche, les tests et les autres usages non commerciaux.</p>
-            </article>
-            <article>
-              <span>02</span>
-              <h3>Utilisation commerciale</h3>
-              <p>L’utilisation commerciale nécessite une licence écrite distincte du titulaire des droits d’auteur.</p>
-            </article>
-            <article>
-              <span>03</span>
-              <h3>Composants tiers</h3>
-              <p>Les logiciels et ressources tiers inclus restent soumis à leurs propres conditions de licence.</p>
-            </article>
-          </div>
-          <aside class="legal-note">Ces brèves indications ne sont qu’un guide. Les conditions de la <a href="https://polyformproject.org/licenses/noncommercial/1.0.0/" target="_blank" rel="noopener">PolyForm Noncommercial License 1.0.0</a> régissent l’utilisation du travail d’origine de PrintDeck.</aside>
-          <div class="site-actions">
-            <a class="site-button" href="/fr/legal/notice/">Lire les mentions légales</a>
-            <a class="site-button secondary" href="/fr/support/">Contacter l’assistance</a>
-          </div>
-        </div>
-      </section>
+      <div class="campaign-signal legal-signal">
+        <span>Utilisation non commerciale</span>
+        <span>Partage du code et attribution</span>
+        <span>Licence commerciale sur demande</span>
+      </div>
+
+      <div class="legal-body">
+        <p>Le logiciel et la documentation d’origine de PrintDeck sont proposés sous la <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener"><strong>PolyForm Noncommercial License 1.0.0</strong></a>, sauf indication contraire dans un fichier.</p>
+
+        <section>
+          <h2>Utilisation non commerciale</h2>
+          <p>Vous pouvez utiliser et modifier PrintDeck à des fins non commerciales, notamment pour des projets personnels, l’étude et l’expérimentation, conformément aux conditions de la licence.</p>
+        </section>
+
+        <section>
+          <h2>Partage du code et attribution</h2>
+          <p>Lorsque vous partagez le code ou le micrologiciel PrintDeck, modifié ou non, joignez la licence ou son URL ainsi que les mentions requises identifiant le titulaire des droits d’auteur et le code source d’origine de PrintDeck.</p>
+          <p><a href="/fr/legal/notice/">Mentions requises et licences des composants tiers</a></p>
+        </section>
+
+        <section>
+          <h2>Utilisation commerciale</h2>
+          <p>La vente du logiciel PrintDeck, de dispositifs sur lesquels PrintDeck est installé ou toute autre utilisation commerciale nécessite une licence commerciale écrite distincte du titulaire des droits d’auteur.</p>
+          <p><a href="/fr/support/">Contactez-nous pour une licence commerciale</a></p>
+        </section>
+
+        <p class="legal-reference"><span>Ceci est un résumé. Les conditions complètes de la licence s’appliquent.</span> <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener">Lire la licence complète</a></p>
+      </div>
     </main>
 
     <footer class="site-footer legal-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/fr/support/">Contacter l’assistance</a> · <a href="/fr/legal/license/">Licence</a> · <a href="/fr/legal/notice/">Mentions</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/fr/support/">Contacter l’assistance</a> · <a href="/fr/legal/license/">Licence</a> · <a href="/fr/legal/notice/">Mentions</a> · <a href="/fr/legal/privacy/">Confidentialité</a></span>
       <div class="footer-controls">
         <label hidden="" for="license-language">Langue</label>
         <select class="installer-language" id="license-language" aria-label="Langue" data-site-language=""><option value="/legal/license/">English</option><option value="/pl/legal/license/">Polski</option><option value="/es/legal/license/">Español</option><option value="/fr/legal/license/" selected="">Français</option><option value="/de/legal/license/">Deutsch</option><option value="/zh-cn/legal/license/">简体中文</option></select>

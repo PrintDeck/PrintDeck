@@ -481,6 +481,66 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/"/>
   </url>
   <url>
+    <loc>https://printdeck.xyz/legal/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/privacy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/legal/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/privacy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/legal/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/privacy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/legal/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/privacy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/legal/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/privacy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/legal/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/privacy/"/>
+  </url>
+  <url>
     <loc>https://printdeck.xyz/unified-printer-api/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/"/>
     <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/"/>
