@@ -6075,6 +6075,7 @@ void DisplayShell::handle_update_version_click() {
     lv_obj_remove_flag(update_install_button_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(update_dismiss_button_, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text(update_install_button_label_, tr("UPDATE NOW"));
+    align_update_overlay_content_below_title();
     lv_obj_remove_flag(update_overlay_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(update_overlay_);
     return;
@@ -6280,6 +6281,45 @@ void DisplayShell::ensure_update_overlay() {
   lv_obj_add_flag(update_overlay_, LV_OBJ_FLAG_HIDDEN);
 }
 
+void DisplayShell::align_update_overlay_content_below_title() {
+  if (update_overlay_ == nullptr || update_overlay_title_ == nullptr ||
+      update_overlay_versions_ == nullptr || update_overlay_detail_ == nullptr ||
+      update_overlay_progress_ == nullptr || update_overlay_progress_bar_ == nullptr ||
+      !lv_obj_is_valid(update_overlay_) || !lv_obj_is_valid(update_overlay_title_)) {
+    return;
+  }
+
+  constexpr lv_coord_t versions_top = kDisplayUsesLargeLayout
+                                          ? 116
+                                          : (kDisplayUsesCompactRoundLayout ? 52 : 48);
+  constexpr lv_coord_t detail_top = kDisplayUsesLargeLayout
+                                        ? 202
+                                        : (kDisplayUsesCompactRoundLayout ? 88 : 91);
+  constexpr lv_coord_t progress_top = kDisplayUsesLargeLayout
+                                          ? 267
+                                          : (kDisplayUsesCompactRoundLayout ? 148 : 145);
+  constexpr lv_coord_t progress_bar_top = kDisplayUsesLargeLayout
+                                              ? 302
+                                              : (kDisplayUsesCompactRoundLayout ? 174 : 169);
+  constexpr lv_coord_t title_clearance = kDisplayUsesLargeLayout ? 8 : 4;
+
+  // Translated update titles can wrap onto two lines. Keep the complete status
+  // group below the title instead of relying on positions sized for English.
+  lv_obj_update_layout(update_overlay_);
+  const lv_coord_t title_bottom =
+      lv_obj_get_y(update_overlay_title_) + lv_obj_get_height(update_overlay_title_);
+  const lv_coord_t content_shift =
+      std::max<lv_coord_t>(0, title_bottom + title_clearance - versions_top);
+  lv_obj_align(update_overlay_versions_, LV_ALIGN_TOP_MID, 0,
+               versions_top + content_shift);
+  lv_obj_align(update_overlay_detail_, LV_ALIGN_TOP_MID, 0,
+               detail_top + content_shift);
+  lv_obj_align(update_overlay_progress_, LV_ALIGN_TOP_MID, 0,
+               progress_top + content_shift);
+  lv_obj_align(update_overlay_progress_bar_, LV_ALIGN_TOP_MID, 0,
+               progress_bar_top + content_shift);
+}
+
 void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
   // The immediate LVGL callback normally handles a failed full-screen draw.
   // If LVGL could not allocate that callback under pressure, this existing
@@ -6410,6 +6450,7 @@ void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
                             update.progress_percent);
     }
     lv_bar_set_value(update_overlay_progress_bar_, update.progress_percent, LV_ANIM_OFF);
+    align_update_overlay_content_below_title();
     if (installing) {
       lv_obj_remove_flag(update_overlay_progress_, LV_OBJ_FLAG_HIDDEN);
       lv_obj_remove_flag(update_overlay_progress_bar_, LV_OBJ_FLAG_HIDDEN);

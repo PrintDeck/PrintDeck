@@ -160,6 +160,7 @@ class DisplayShell {
   void recover_failed_draw_locked();
   void handle_update_version_click();
   void ensure_update_overlay();
+  void align_update_overlay_content_below_title();
   void hide_update_overlay();
   // Every independently documentable screen must provide its stable slug here.
   // The USB screenshot protocol exports this value, so adding a renderer without
