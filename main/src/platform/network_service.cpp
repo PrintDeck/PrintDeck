@@ -627,9 +627,11 @@ std::vector<std::string> NetworkService::scan_visible_networks() {
 esp_err_t NetworkService::test_station_connection(const std::string& network_name,
                                                   const std::string& password) {
   const std::lock_guard<std::mutex> test_lock(station_test_mutex_);
-  if (!started_ || station_test_events_ == nullptr || !status().recovery_ap_active) {
+  if (!started_ || station_test_events_ == nullptr) {
     return ESP_ERR_INVALID_STATE;
   }
+
+  const bool keep_setup_access_point = status().recovery_ap_active;
 
   xEventGroupClearBits(station_test_events_, kStationTestConnectedBit);
   if (recovery_timer_ != nullptr) esp_timer_stop(recovery_timer_);
@@ -645,7 +647,8 @@ esp_err_t NetworkService::test_station_connection(const std::string& network_nam
     status_.netmask.clear();
   }
 
-  esp_err_t result = esp_wifi_set_mode(WIFI_MODE_APSTA);
+  esp_err_t result = esp_wifi_set_mode(
+      keep_setup_access_point ? WIFI_MODE_APSTA : WIFI_MODE_STA);
   wifi_config_t candidate = station_config(network_name, password);
   if (result == ESP_OK) result = esp_wifi_set_config(WIFI_IF_STA, &candidate);
   if (result == ESP_OK) {
@@ -664,7 +667,8 @@ esp_err_t NetworkService::test_station_connection(const std::string& network_nam
     return result;
   }
 
-  ESP_LOGI(kLogTag, "Testing Wi-Fi credentials while setup access point remains active");
+  ESP_LOGI(kLogTag, "Testing Wi-Fi credentials%s",
+           keep_setup_access_point ? " while setup access point remains active" : "");
   const EventBits_t bits = xEventGroupWaitBits(
       station_test_events_, kStationTestConnectedBit, pdTRUE, pdFALSE,
       pdMS_TO_TICKS(kStationConnectTimeoutUs / 1000));
@@ -958,7 +962,9 @@ esp_err_t NetworkService::restore_saved_station() {
   }
   if (network_name.empty()) return esp_wifi_set_mode(WIFI_MODE_AP);
 
-  esp_err_t result = esp_wifi_set_mode(WIFI_MODE_APSTA);
+  const bool keep_setup_access_point = status().recovery_ap_active;
+  esp_err_t result = esp_wifi_set_mode(
+      keep_setup_access_point ? WIFI_MODE_APSTA : WIFI_MODE_STA);
   wifi_config_t station = station_config(network_name, password);
   if (result == ESP_OK) result = esp_wifi_set_config(WIFI_IF_STA, &station);
   if (result == ESP_OK && !setup_client_connected) result = esp_wifi_connect();

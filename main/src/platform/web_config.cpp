@@ -21,6 +21,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#include "nvs_flash.h"
 #include "mbedtls/gcm.h"
 #include "mbedtls/md.h"
 #include "mbedtls/platform_util.h"
@@ -37,6 +38,7 @@
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/usb_developer_service.hpp"
 #include "img/printer_brand_logos_web.h"
+#include "libs/qrcode/qrcodegen.h"
 
 namespace printdeck::platform {
 namespace {
@@ -188,6 +190,43 @@ void append_json_string(std::string& target, std::string_view value) {
     }
   }
   target.push_back('"');
+}
+
+std::string setup_wifi_qr_svg(std::string_view network_name) {
+  constexpr int kMaximumQrVersion = 5;
+  constexpr int kQuietZoneModules = 4;
+  std::array<std::uint8_t, qrcodegen_BUFFER_LEN_FOR_VERSION(kMaximumQrVersion)> temporary{};
+  std::array<std::uint8_t, qrcodegen_BUFFER_LEN_FOR_VERSION(kMaximumQrVersion)> qr{};
+  const std::string payload =
+      "WIFI:T:nopass;S:" + std::string(network_name) + ";;";
+  if (!qrcodegen_encodeText(payload.c_str(), temporary.data(), qr.data(),
+                            qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN,
+                            kMaximumQrVersion, qrcodegen_Mask_AUTO, true)) {
+    return {};
+  }
+
+  const int qr_size = qrcodegen_getSize(qr.data());
+  const int canvas_size = qr_size + kQuietZoneModules * 2;
+  std::string svg =
+      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 " +
+      std::to_string(canvas_size) + " " + std::to_string(canvas_size) +
+      "\" shape-rendering=\"crispEdges\"><rect width=\"100%\" height=\"100%\" fill=\"#fff\"/><path fill=\"#000\" d=\"";
+  for (int y = 0; y < qr_size; ++y) {
+    for (int x = 0; x < qr_size;) {
+      if (!qrcodegen_getModule(qr.data(), x, y)) {
+        ++x;
+        continue;
+      }
+      const int start = x;
+      while (x < qr_size && qrcodegen_getModule(qr.data(), x, y)) ++x;
+      const int length = x - start;
+      svg += "M" + std::to_string(start + kQuietZoneModules) + " " +
+             std::to_string(y + kQuietZoneModules) + "h" +
+             std::to_string(length) + "v1h-" + std::to_string(length) + "z";
+    }
+  }
+  svg += "\"/></svg>";
+  return svg;
 }
 
 void append_theme_catalog(std::string& target, const core::ThemeColors& custom) {
@@ -538,6 +577,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/update/install", .method = HTTP_POST, .handler = update_install_entry, .user_ctx = this},
       {.uri = "/api/update/upload", .method = HTTP_POST, .handler = update_upload_entry, .user_ctx = this},
       {.uri = "/api/update/url", .method = HTTP_POST, .handler = update_url_entry, .user_ctx = this},
+      {.uri = "/api/factory-reset", .method = HTTP_POST, .handler = factory_reset_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_GET, .handler = settings_get_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_POST, .handler = settings_post_entry, .user_ctx = this},
       {.uri = "/api/unified-printer-api", .method = HTTP_GET, .handler = unified_api_settings_get_entry, .user_ctx = this},
@@ -959,6 +999,9 @@ esp_err_t WebConfig::update_check_entry(httpd_req_t* request) { return static_ca
 esp_err_t WebConfig::update_install_entry(httpd_req_t* request) { return static_cast<WebConfig*>(request->user_ctx)->request_update_install(request); }
 esp_err_t WebConfig::update_upload_entry(httpd_req_t* request) { return static_cast<WebConfig*>(request->user_ctx)->upload_update(request); }
 esp_err_t WebConfig::update_url_entry(httpd_req_t* request) { return static_cast<WebConfig*>(request->user_ctx)->install_update_url(request); }
+esp_err_t WebConfig::factory_reset_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->factory_reset(request);
+}
 
 esp_err_t WebConfig::settings_get_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_settings(request);
@@ -3209,46 +3252,105 @@ esp_err_t WebConfig::save_wifi(httpd_req_t* request) {
     return send_json(request, "400 Bad Request",
                      "{\"error\":\"Please check the Wi-Fi network name and password.\"}");
   }
-  const bool verify_before_save = network_->status().recovery_ap_active;
-  if (verify_before_save) {
-    const esp_err_t test_result =
-        network_->test_station_connection(candidate.wifi_name, candidate.wifi_password);
-    if (test_result == ESP_ERR_TIMEOUT) {
-      return send_json(
-          request, "409 Conflict",
-          "{\"error\":\"PrintDeck could not join this Wi-Fi network. Check the password and try again.\"}");
-    }
-    if (test_result != ESP_OK) {
-      ESP_LOGW(kLogTag, "Wi-Fi connection test could not run: %s",
-               esp_err_to_name(test_result));
-      return send_json(
-          request, "503 Service Unavailable",
-          "{\"error\":\"PrintDeck could not verify this Wi-Fi network. Stay connected to the PrintDeck setup network and try again.\"}");
-    }
+  const bool setup_access_point_active = network_->status().recovery_ap_active;
+  const esp_err_t test_result =
+      network_->test_station_connection(candidate.wifi_name, candidate.wifi_password);
+  if (test_result == ESP_ERR_TIMEOUT) {
+    return send_json(
+        request, "409 Conflict",
+        "{\"error\":\"PrintDeck could not join this Wi-Fi network. Check the password and try again.\"}");
+  }
+  if (test_result != ESP_OK) {
+    ESP_LOGW(kLogTag, "Wi-Fi connection test could not run: %s",
+             esp_err_to_name(test_result));
+    return send_json(
+        request, "503 Service Unavailable",
+        setup_access_point_active
+            ? "{\"error\":\"PrintDeck could not verify this Wi-Fi network. Stay connected to the PrintDeck setup network and try again.\"}"
+            : "{\"error\":\"PrintDeck could not verify this Wi-Fi network. The previous Wi-Fi settings were kept.\"}");
   }
 
   const esp_err_t result = store_->save(candidate);
   if (result != ESP_OK) {
-    if (verify_before_save) network_->cancel_tested_station();
+    network_->cancel_tested_station();
     ESP_LOGE(kLogTag, "Wi-Fi settings could not be saved: %s", esp_err_to_name(result));
     return send_json(request, "500 Internal Server Error",
                      "{\"error\":\"PrintDeck could not save this Wi-Fi network. Please try again.\"}");
   }
-  if (verify_before_save) {
-    network_->accept_tested_station(candidate.wifi_name, candidate.wifi_password);
-  }
+  network_->accept_tested_station(candidate.wifi_name, candidate.wifi_password);
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     settings_ = candidate;
   }
   notify_settings_changed(candidate, false);
   const esp_err_t response = send_json(
-      request, "200 OK",
-      verify_before_save ? "{\"saved\":true,\"verified\":true}"
-                         : "{\"saved\":true,\"verified\":false}");
+      request, "200 OK", "{\"saved\":true,\"verified\":true}");
   const esp_err_t restart_result = request_restart();
   if (restart_result != ESP_OK) {
     ESP_LOGE(kLogTag, "Restart after saving Wi-Fi could not be scheduled: %s",
+             esp_err_to_name(restart_result));
+  }
+  return response;
+}
+
+esp_err_t WebConfig::factory_reset(httpd_req_t* request) {
+  const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+  std::array<char, 6> confirmation_header{};
+  if (httpd_req_get_hdr_value_str(request, "X-PrintDeck-Confirmation",
+                                  confirmation_header.data(),
+                                  confirmation_header.size()) != ESP_OK ||
+      std::string_view(confirmation_header.data()) != "reset") {
+    return send_json(
+        request, "403 Forbidden",
+        "{\"error\":\"Factory reset confirmation is missing. Refresh the page and try again.\"}");
+  }
+  std::string body;
+  if (!receive_form(request, body)) {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"Type reset to confirm the factory reset.\"}");
+  }
+  std::string confirmation;
+  if (!form_value(body, "confirmation", confirmation) || confirmation != "reset") {
+    return send_json(request, "400 Bad Request",
+                     "{\"error\":\"Type reset exactly as shown to continue.\"}");
+  }
+
+  const esp_err_t reaction_result = reaction_assets_->prepare_factory_reset();
+  if (reaction_result == ESP_ERR_INVALID_STATE) {
+    return send_json(
+        request, "409 Conflict",
+        "{\"error\":\"Wait for the current reaction change to finish, then try again.\"}");
+  }
+  if (reaction_result != ESP_OK) {
+    ESP_LOGE(kLogTag, "Custom reactions could not be cleared for factory reset: %s",
+             esp_err_to_name(reaction_result));
+    return send_json(
+        request, "500 Internal Server Error",
+        "{\"error\":\"PrintDeck could not remove custom reactions. Nothing else was reset.\"}");
+  }
+
+  const std::string setup_network = network_->status().setup_network_name;
+  const std::string setup_qr_svg = setup_wifi_qr_svg(setup_network);
+  const esp_err_t erase_result = nvs_flash_erase();
+  if (erase_result != ESP_OK) {
+    ESP_LOGE(kLogTag, "Factory reset could not erase NVS: %s",
+             esp_err_to_name(erase_result));
+    return send_json(
+        request, "500 Internal Server Error",
+        "{\"error\":\"PrintDeck could not erase its saved settings. Please try again.\"}");
+  }
+
+  std::string response_body =
+      "{\"reset\":true,\"restarting\":true,\"setup_network\":";
+  append_json_string(response_body, setup_network);
+  response_body += ",\"setup_qr_svg\":";
+  append_json_string(response_body, setup_qr_svg);
+  response_body += "}";
+  const esp_err_t response =
+      send_json(request, "200 OK", response_body.c_str());
+  const esp_err_t restart_result = request_restart();
+  if (restart_result != ESP_OK) {
+    ESP_LOGE(kLogTag, "Restart after factory reset could not be requested: %s",
              esp_err_to_name(restart_result));
   }
   return response;

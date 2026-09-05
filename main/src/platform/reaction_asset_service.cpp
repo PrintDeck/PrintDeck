@@ -718,6 +718,48 @@ esp_err_t ReactionAssetService::reset_custom(std::string_view id) {
   return ESP_OK;
 }
 
+esp_err_t ReactionAssetService::prepare_factory_reset() {
+  static_assert(core::kReactionEventCount < 32);
+  const std::lock_guard<std::mutex> mutation_lock(filesystem_mutation_mutex_);
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (!snapshot_.available || snapshot_.busy) return ESP_ERR_INVALID_STATE;
+
+    // Publish the official files from the active reaction set before removing
+    // custom overrides. This lets LVGL close any custom GIF it is decoding.
+    const std::uint32_t all_events =
+        (1UL << core::kReactionEventCount) - 1UL;
+    const std::uint32_t previous_reset_mask = reset_mask_;
+    reset_mask_ = all_events;
+    if (persist_reset_mask_locked() != ESP_OK) {
+      reset_mask_ = previous_reset_mask;
+      return ESP_FAIL;
+    }
+    disabled_mask_ = 0;
+    custom_present_.fill(false);
+    custom_sizes_.fill(0);
+    ++snapshot_.generation;
+    refresh_active_bytes_locked();
+  }
+
+  // LittleFS rejects deletion while a decoder still holds a file open. Give
+  // the display a bounded opportunity to observe the generation change, then
+  // remove the complete user override directory. The active official set is
+  // intentionally retained, so no network access or firmware reflash is
+  // needed to restore the system versions of every reaction.
+  for (int attempt = 0; attempt < 50; ++attempt) {
+    vTaskDelay(pdMS_TO_TICKS(100));
+    if (remove_tree(kCustomPath)) {
+      ensure_directory(kCustomPath);
+      const std::lock_guard<std::mutex> lock(mutex_);
+      refresh_storage_locked();
+      return ESP_OK;
+    }
+  }
+  ESP_LOGW(kTag, "Custom reaction files could not be removed for factory reset");
+  return ESP_ERR_TIMEOUT;
+}
+
 std::string ReactionAssetService::set_vfs_path(std::string_view id) const {
   const auto* event = core::reaction_event(id);
   if (event == nullptr) return {};

@@ -99,6 +99,7 @@ class WebConfig {
   static esp_err_t update_install_entry(httpd_req_t* request);
   static esp_err_t update_upload_entry(httpd_req_t* request);
   static esp_err_t update_url_entry(httpd_req_t* request);
+  static esp_err_t factory_reset_entry(httpd_req_t* request);
   static esp_err_t settings_get_entry(httpd_req_t* request);
   static esp_err_t settings_post_entry(httpd_req_t* request);
   static esp_err_t unified_api_settings_get_entry(httpd_req_t* request);
@@ -156,6 +157,7 @@ class WebConfig {
   esp_err_t request_update_install(httpd_req_t* request);
   esp_err_t upload_update(httpd_req_t* request);
   esp_err_t install_update_url(httpd_req_t* request);
+  esp_err_t factory_reset(httpd_req_t* request);
   esp_err_t serve_settings(httpd_req_t* request) const;
   esp_err_t save_settings(httpd_req_t* request);
   esp_err_t serve_unified_api_settings(httpd_req_t* request) const;

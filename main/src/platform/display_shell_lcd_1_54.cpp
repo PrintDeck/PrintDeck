@@ -1000,7 +1000,7 @@ void DisplayShell::square_show_wifi_setup(const char* network_name,
     square_route_screen_gestures(label);
     return label;
   };
-  auto add_qr = [&](lv_obj_t* tile, const char* qr_payload) {
+  auto add_qr = [&](lv_obj_t* tile, const char* qr_payload, std::uint8_t step) {
     lv_obj_t* qr = lv_qrcode_create(tile);
     lv_qrcode_set_size(qr, kDisplayUsesCompactRoundLayout ? 104 : 112);
     lv_qrcode_set_dark_color(qr, lv_color_hex(theme_style_.surface));
@@ -1010,6 +1010,25 @@ void DisplayShell::square_show_wifi_setup(const char* network_name,
     lv_obj_align(qr, LV_ALIGN_TOP_MID, 0,
                  kDisplayUsesCompactRoundLayout ? 24 : 33);
     square_route_screen_gestures(qr);
+
+    lv_obj_t* step_badge = lv_obj_create(tile);
+    const int step_badge_size = kDisplayUsesCompactRoundLayout ? 28 : 30;
+    lv_obj_set_size(step_badge, step_badge_size, step_badge_size);
+    lv_obj_align_to(step_badge, qr, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_radius(step_badge, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(step_badge, lv_color_hex(accent_color_), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(step_badge, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(step_badge, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(step_badge, lv_color_hex(theme_style_.surface), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(step_badge, 0, LV_PART_MAIN);
+    square_route_screen_gestures(step_badge);
+    lv_obj_t* step_label = lv_label_create(step_badge);
+    lv_label_set_text_fmt(step_label, "%u", static_cast<unsigned>(step));
+    apply_text_style(step_label, lv_color_hex(theme_style_.on_accent),
+                     kDisplayUsesCompactRoundLayout ? &lv_font_montserrat_14
+                                                    : &lv_font_montserrat_16);
+    lv_obj_center(step_label);
+    square_route_screen_gestures(step_label);
   };
   auto add_round_language_button = [&](lv_obj_t* tile) {
     lv_obj_t* button = lv_button_create(tile);
@@ -1030,15 +1049,16 @@ void DisplayShell::square_show_wifi_setup(const char* network_name,
   lv_obj_t* join_tile = create_tile(0, LV_DIR_RIGHT, 1U);
   lv_obj_t* join_title = add_label(
       join_tile, tr("Connect to PrintDeck Wi-Fi"), &lv_font_montserrat_12,
-      lv_color_hex(theme_style_.text_primary), 1,
+      lv_color_hex(theme_style_.text_primary),
+      kDisplayUsesCompactRoundLayout ? 1 : 7,
       kDisplayUsesCompactRoundLayout ? 172 : 224);
   lv_obj_set_height(join_title, kDisplayUsesCompactRoundLayout ? 22 : 30);
   lv_label_set_long_mode(join_title, LV_LABEL_LONG_WRAP);
-  add_qr(join_tile, payload.c_str());
+  add_qr(join_tile, payload.c_str(), 1U);
   const std::string network_label = std::string("Wi-Fi: ") + network_name;
   lv_obj_t* network = add_label(join_tile, network_label.c_str(), &lv_font_montserrat_12,
                                 lv_color_hex(accent_color_),
-                                kDisplayUsesCompactRoundLayout ? 132 : 151,
+                                kDisplayUsesCompactRoundLayout ? 132 : 148,
                                 kDisplayUsesCompactRoundLayout ? 208 : 224);
   if constexpr (kDisplayUsesCompactRoundLayout) {
     lv_label_set_long_mode(network, LV_LABEL_LONG_DOT);
@@ -1046,7 +1066,7 @@ void DisplayShell::square_show_wifi_setup(const char* network_name,
   active_accent_text_objects_.push_back(network);
   add_label(join_tile, tr("Setup opens automatically"), &lv_font_montserrat_12,
             lv_color_hex(theme_style_.text_muted),
-            kDisplayUsesCompactRoundLayout ? 152 : 171,
+            kDisplayUsesCompactRoundLayout ? 152 : 164,
             kDisplayUsesCompactRoundLayout ? 184 : 224);
   if constexpr (kDisplayUsesCompactRoundLayout) {
     add_round_language_button(join_tile);
@@ -1055,13 +1075,14 @@ void DisplayShell::square_show_wifi_setup(const char* network_name,
   lv_obj_t* web_tile = create_tile(1, LV_DIR_LEFT, 2U);
   lv_obj_t* web_title = add_label(
       web_tile, tr("If setup does not open"), &lv_font_montserrat_12,
-      lv_color_hex(theme_style_.text_primary), 1,
+      lv_color_hex(theme_style_.text_primary),
+      kDisplayUsesCompactRoundLayout ? 1 : 7,
       kDisplayUsesCompactRoundLayout ? 172 : 224);
   lv_obj_set_height(web_title, kDisplayUsesCompactRoundLayout ? 22 : 30);
   lv_label_set_long_mode(web_title, LV_LABEL_LONG_WRAP);
-  const std::string web_url = std::string("http://") + primary_host + "/";
-  add_qr(web_tile, web_url.c_str());
-  lv_obj_t* address = add_label(web_tile, primary_host.c_str(), &lv_font_montserrat_12,
+  const std::string web_url = std::string("http://") + primary_host;
+  add_qr(web_tile, web_url.c_str(), 2U);
+  lv_obj_t* address = add_label(web_tile, web_url.c_str(), &lv_font_montserrat_12,
                                 lv_color_hex(accent_color_),
                                 kDisplayUsesCompactRoundLayout ? 132 : 151,
                                 kDisplayUsesCompactRoundLayout ? 208 : 224);

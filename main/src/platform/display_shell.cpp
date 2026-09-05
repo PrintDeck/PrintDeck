@@ -1081,6 +1081,8 @@ void DisplayShell::create_wifi_setup_navigation(lv_obj_t* screen) {
   constexpr int bottom_offset = kDisplayUsesLargeLayout
                                     ? -10
                                     : kDisplayUsesCompactRoundLayout ? 0 : -1;
+  constexpr int circle_y_offset =
+      kDisplayUsesLargeLayout || kDisplayUsesCompactRoundLayout ? 0 : 7;
 
   lv_obj_t* navigation = lv_obj_create(screen);
   lv_obj_set_size(navigation, navigation_width, navigation_height);
@@ -1098,7 +1100,9 @@ void DisplayShell::create_wifi_setup_navigation(lv_obj_t* screen) {
     lv_obj_t* circle = lv_obj_create(navigation);
     wifi_setup_dots_[index] = circle;
     lv_obj_set_size(circle, circle_size, circle_size);
-    lv_obj_align(circle, LV_ALIGN_CENTER, index == 0 ? -circle_offset : circle_offset, 0);
+    lv_obj_align(circle, LV_ALIGN_CENTER,
+                 index == 0 ? -circle_offset : circle_offset,
+                 circle_y_offset);
     lv_obj_remove_flag(circle, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_remove_flag(circle, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
@@ -2528,7 +2532,7 @@ void DisplayShell::show_wifi_setup(const char* network_name, const char* local_h
     make_gesture_passthrough(label);
     return label;
   };
-  auto add_qr = [&](lv_obj_t* tile, const char* payload) {
+  auto add_qr = [&](lv_obj_t* tile, const char* payload, std::uint8_t step) {
     lv_obj_t* qr = lv_qrcode_create(tile);
     lv_qrcode_set_size(qr, 172);
     lv_qrcode_set_dark_color(qr, lv_color_hex(theme_style_.surface));
@@ -2537,6 +2541,23 @@ void DisplayShell::show_wifi_setup(const char* network_name, const char* local_h
     lv_qrcode_set_data(qr, payload);
     lv_obj_align(qr, LV_ALIGN_TOP_MID, 0, 48);
     make_gesture_passthrough(qr);
+
+    lv_obj_t* step_badge = lv_obj_create(tile);
+    lv_obj_set_size(step_badge, 38, 38);
+    lv_obj_align_to(step_badge, qr, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_radius(step_badge, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(step_badge, lv_color_hex(accent_color_), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(step_badge, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(step_badge, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(step_badge, lv_color_hex(theme_style_.surface), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(step_badge, 0, LV_PART_MAIN);
+    make_gesture_passthrough(step_badge);
+    lv_obj_t* step_label = lv_label_create(step_badge);
+    lv_label_set_text_fmt(step_label, "%u", static_cast<unsigned>(step));
+    apply_text_style(step_label, lv_color_hex(theme_style_.on_accent),
+                     &lv_font_montserrat_16);
+    lv_obj_center(step_label);
+    make_gesture_passthrough(step_label);
   };
   auto add_language_button = [&](lv_obj_t* tile) {
     lv_obj_t* button = lv_button_create(tile);
@@ -2560,7 +2581,7 @@ void DisplayShell::show_wifi_setup(const char* network_name, const char* local_h
       lv_color_hex(theme_style_.text_primary), 2);
   lv_obj_set_height(join_title, 40);
   lv_label_set_long_mode(join_title, LV_LABEL_LONG_WRAP);
-  add_qr(join_tile, wifi_payload.c_str());
+  add_qr(join_tile, wifi_payload.c_str(), 1U);
   const std::string network_label = std::string("Wi-Fi: ") + network_name;
   lv_obj_t* network = add_label(join_tile, network_label.c_str(), &lv_font_montserrat_16,
                                 lv_color_hex(accent_color_), 226);
@@ -2575,9 +2596,9 @@ void DisplayShell::show_wifi_setup(const char* network_name, const char* local_h
       lv_color_hex(theme_style_.text_primary), 2);
   lv_obj_set_height(web_title, 40);
   lv_label_set_long_mode(web_title, LV_LABEL_LONG_WRAP);
-  const std::string web_url = std::string("http://") + primary_host + "/";
-  add_qr(web_tile, web_url.c_str());
-  lv_obj_t* address = add_label(web_tile, primary_host.c_str(), &lv_font_montserrat_16,
+  const std::string web_url = std::string("http://") + primary_host;
+  add_qr(web_tile, web_url.c_str(), 2U);
+  lv_obj_t* address = add_label(web_tile, web_url.c_str(), &lv_font_montserrat_16,
                                 lv_color_hex(accent_color_), 226);
   active_accent_text_objects_.push_back(address);
   add_language_button(web_tile);

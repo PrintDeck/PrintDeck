@@ -59,6 +59,7 @@ class ReactionAssetService {
   esp_err_t set_event_enabled(std::string_view id, bool enabled);
   esp_err_t install_custom(std::string_view id, std::span<const std::uint8_t> bytes);
   esp_err_t reset_custom(std::string_view id);
+  esp_err_t prepare_factory_reset();
   std::string effective_lvgl_path(core::PrinterActivity activity) const;
   std::string effective_vfs_path(std::string_view id) const;
   std::string preview_vfs_path(std::string_view id) const;
