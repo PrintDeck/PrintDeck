@@ -481,6 +481,126 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/"/>
   </url>
   <url>
+    <loc>https://printdeck.xyz/legal/notice/attribution/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/attribution/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/legal/notice/attribution/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/attribution/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/legal/notice/attribution/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/attribution/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/legal/notice/attribution/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/attribution/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/legal/notice/attribution/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/attribution/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/legal/notice/attribution/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/attribution/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/attribution/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/legal/notice/components/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/components/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/legal/notice/components/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/components/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/legal/notice/components/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/components/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/legal/notice/components/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/components/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/legal/notice/components/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/components/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/legal/notice/components/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/components/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/components/"/>
+  </url>
+  <url>
     <loc>https://printdeck.xyz/legal/privacy/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/privacy/"/>
     <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/privacy/"/>

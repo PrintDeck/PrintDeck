@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Mobile application</title>
+  <defs>
+    <linearGradient id="phone" x1="18" y1="8" x2="48" y2="57" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#243833"/>
+      <stop offset="1" stop-color="#12231f"/>
+    </linearGradient>
+    <linearGradient id="chart" x1="20" y1="44" x2="44" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#21bd96"/>
+      <stop offset="1" stop-color="#7cebd0"/>
+    </linearGradient>
+    <filter id="shadow" x="-40%" y="-30%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.6" flood-color="#0d4438" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="16" y="5" width="32" height="54" rx="9" fill="url(#phone)"/>
+    <rect x="19" y="10" width="26" height="42" rx="5" fill="#f8fffd"/>
+    <rect x="27" y="7.5" width="10" height="2" rx="1" fill="#7f9690"/>
+    <path d="m23 40 6-8 5 4 8-12" fill="none" stroke="url(#chart)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="42" cy="24" r="3.5" fill="#27cda4"/>
+    <rect x="28" y="55" width="8" height="1.8" rx=".9" fill="#78918b"/>
+  </g>
+</svg>

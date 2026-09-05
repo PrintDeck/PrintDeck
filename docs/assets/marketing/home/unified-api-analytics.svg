@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Analytics application</title>
+  <defs>
+    <linearGradient id="mint" x1="15" y1="48" x2="49" y2="14" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22b890"/>
+      <stop offset="1" stop-color="#78e6c9"/>
+    </linearGradient>
+    <linearGradient id="slate" x1="19" y1="51" x2="43" y2="18" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#314943"/>
+      <stop offset="1" stop-color="#6f8a83"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.6" flood-color="#123d34" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M30 7a25 25 0 1 0 25 25H30V7Z" fill="url(#slate)"/>
+    <path d="M34 7.4A25 25 0 0 1 56.6 30H34V7.4Z" fill="url(#mint)"/>
+    <path d="M34 35h20.6A25 25 0 0 1 42 53.7L34 35Z" fill="#a4f0df"/>
+    <path d="M30 7a25 25 0 1 0 25 25M34 7.4A25 25 0 0 1 56.6 30H34V7.4ZM34 35h20.6" fill="none" stroke="#243b36" stroke-width="2.3" stroke-linejoin="round"/>
+  </g>
+</svg>

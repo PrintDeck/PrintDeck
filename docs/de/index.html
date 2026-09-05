@@ -263,19 +263,91 @@
         </div>
       </section>
 
-      <section class="home-section home-community" id="community">
-        <div class="home-inner home-community-grid">
-          <div class="home-community-art" aria-hidden="true">
-            <img class="community-collage community-collage-light" src="/assets/marketing/home/open-design-collage-light.webp" alt="">
-            <img class="community-collage community-collage-dark" src="/assets/marketing/home/open-design-collage-dark.webp" alt="">
+      <section class="home-section home-community home-unified-api" id="unified-api">
+        <div class="home-inner home-unified-grid">
+          <header class="home-unified-heading">
+            <span class="home-kicker">Unified Printer API</span>
+            <h2>Eine Drucker-API. <strong>Viele Druckerformate.</strong></h2>
+          </header>
+          <div class="home-unified-visual">
+            <div class="home-unified-flow" aria-label="Von PrintDeck in einer JSON-API vereinheitlichte Druckerformate">
+              <div class="home-unified-sources">
+                <article class="home-unified-source">
+                  <strong>Bambu Lab</strong>
+                  <span class="home-unified-printer-art home-unified-printer-art-bambu" aria-hidden="true"></span>
+                  <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><g fill="#39c5a3"><circle cx="6" cy="14" r="2"></circle><circle cx="22" cy="14" r="3"></circle><circle cx="40" cy="14" r="2"></circle><circle cx="55" cy="14" r="3"></circle><circle cx="69" cy="14" r="2"></circle><circle cx="80" cy="14" r="2"></circle><circle cx="94" cy="14" r="3"></circle></g></svg>
+                  <small>Eine andere Sprache</small>
+                </article>
+                <article class="home-unified-source">
+                  <strong>Creality</strong>
+                  <span class="home-unified-printer-art home-unified-printer-art-creality" aria-hidden="true"></span>
+                  <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><path d="M5 11V17M15 8V20M25 12V16M35 5V23M45 9V19M55 2V26M65 7V21M75 11V17M85 8V20M95 12V16" fill="none" stroke="#329ce1" stroke-width="2" stroke-linecap="round"></path></svg>
+                  <small>Andere Felder</small>
+                </article>
+                <article class="home-unified-source">
+                  <strong>Prusa</strong>
+                  <span class="home-unified-printer-art home-unified-printer-art-prusa" aria-hidden="true"></span>
+                  <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><g fill="#a27bca"><rect x="2" y="10" width="9" height="9" rx="1.5"></rect><rect x="20" y="10" width="9" height="9" rx="1.5"></rect><rect x="38" y="10" width="6" height="9" rx="1.5"></rect><rect x="51" y="10" width="9" height="9" rx="1.5"></rect><rect x="67" y="10" width="6" height="9" rx="1.5"></rect><rect x="84" y="10" width="12" height="9" rx="1.5"></rect></g></svg>
+                  <small>Andere Namen</small>
+                </article>
+                <article class="home-unified-source">
+                  <strong>Snapmaker</strong>
+                  <span class="home-unified-printer-art home-unified-printer-art-snapmaker" aria-hidden="true"></span>
+                  <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><path d="M2 20H14V8H28V20H42V8H56V20H70V8H84V20H98" fill="none" stroke="#d4945b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  <small>Andere Signale</small>
+                </article>
+                <article class="home-unified-source">
+                  <strong>Drucker mit Klipper</strong>
+                  <span class="home-unified-printer-art home-unified-printer-art-klipper" aria-hidden="true"></span>
+                  <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><path d="M2 14C8 0 12 0 18 14S28 28 34 14S44 0 50 14S60 28 66 14S76 0 82 14S92 28 98 14" fill="none" stroke="#27aec5" stroke-width="2" stroke-linecap="round"></path></svg>
+                  <small>Ein anderes Datenformat</small>
+                </article>
+              </div>
+              <img class="home-unified-source-lines" src="/assets/marketing/home/unified-api-inputs.svg" alt="" aria-hidden="true">
+              <article class="home-unified-core">
+                <img class="home-unified-logo" src="/assets/brand/printdeck-logo-black.svg" alt="PrintDeck">
+                <img class="home-unified-device" src="/assets/marketing/home/riverstone-hero-green-cutout.webp" alt="The-Riverstone-Gehäuse für PrintDeck">
+                <div class="home-unified-core-copy">
+                  <strong>Versteht sie alle.</strong>
+                  <span>Bietet dir eine einheitliche API.</span>
+                </div>
+              </article>
+              <img class="home-unified-api-arrow" src="/assets/marketing/home/unified-api-arrow.svg" alt="" aria-hidden="true">
+              <div class="home-unified-delivery">
+                <article class="home-unified-output">
+                  <span>GET /v1/...</span>
+                  <strong>Ein JSON</strong>
+                  <code>{<br>&nbsp;&nbsp;"printer": ...,<br>&nbsp;&nbsp;"state": ...,<br>&nbsp;&nbsp;"progress": ...<br>}</code>
+                </article>
+                <img class="home-unified-output-lines" src="/assets/marketing/home/unified-api-outputs.svg" alt="" aria-hidden="true">
+                <div class="home-unified-apps" aria-label="Deine Anwendung">
+                  <span class="home-unified-app" aria-hidden="true">
+                    <img src="/assets/marketing/home/unified-api-dashboard.svg" alt="">
+                  </span>
+                  <span class="home-unified-app" aria-hidden="true">
+                    <img src="/assets/marketing/home/unified-api-analytics.svg" alt="">
+                  </span>
+                  <span class="home-unified-app" aria-hidden="true">
+                    <img src="/assets/marketing/home/unified-api-mobile.svg" alt="">
+                  </span>
+                  <a class="home-unified-app home-unified-app-ha" href="/de/unified-printer-api/home-assistant/" aria-label="REST-Einrichtungsanleitung für Home Assistant">
+                    <img src="/assets/integrations/home-assistant.png" alt="">
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div class="home-unified-caption">
+              <span>Nur lokales Netzwerk</span>
+              <span>Von Grund auf schreibgeschützt</span>
+              <span>Versioniertes JSON</span>
+            </div>
           </div>
-          <div class="home-community-copy">
-            <span class="home-kicker">QUELLCODE AUF GITHUB</span>
-            <h2>Offen<br><strong>für neue Ideen.</strong></h2>
-            <p>Der Quellcode von PrintDeck ist auf GitHub verfügbar. Sieh dir an, wie er funktioniert, verfolge neue Versionen oder hilf, das Projekt zu verbessern.</p>
-          </div>
-          <div class="site-actions centered home-community-actions">
-            <a class="site-button" href="https://github.com/PrintDeck/PrintDeck" target="_blank" rel="noopener noreferrer">Code auf GitHub ansehen</a>
+          <div class="home-community-copy home-unified-copy">
+            <p>PrintDeck übersetzt unterstützte Druckerprotokolle in einen einheitlichen, versionierten und schreibgeschützten JSON-Vertrag. Entwickle deine Software einmal und nutze dieselbe Struktur für Klipper und unterstützte Bambu-Lab-Drucker.</p>
+            <div class="site-actions home-community-actions">
+              <a class="site-button" href="/de/unified-printer-api/">Endpunkte ansehen</a>
+              <a class="site-button secondary" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">API-Leitfaden herunterladen</a>
+            </div>
           </div>
         </div>
       </section>

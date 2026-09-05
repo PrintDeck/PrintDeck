@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5f6">
+    <title>组件与许可证 · PrintDeck</title>
+    <link rel="stylesheet" href="/assets/site.css?v=20260904-3">
+    <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260902-4"></script>
+
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
+
+    <meta name="description" content="组件列表及其许可证">
+    <link rel="canonical" href="https://printdeck.xyz/zh-cn/legal/notice/components/">
+    <link rel="alternate" hreflang="en" href="https://printdeck.xyz/legal/notice/components/">
+    <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/legal/notice/components/">
+    <link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/legal/notice/components/">
+    <link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/legal/notice/components/">
+    <link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/legal/notice/components/">
+    <link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/legal/notice/components/">
+    <link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/legal/notice/components/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PrintDeck">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="pl_PL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:title" content="组件与许可证 · PrintDeck">
+    <meta property="og:description" content="组件列表及其许可证">
+    <meta property="og:url" content="https://printdeck.xyz/zh-cn/legal/notice/components/">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="组件与许可证 · PrintDeck">
+    <meta name="twitter:description" content="组件列表及其许可证">
+    <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"组件与许可证 · PrintDeck","description":"组件列表及其许可证","url":"https://printdeck.xyz/zh-cn/legal/notice/components/","inLanguage":"zh-CN","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
+  </head>
+  <body class="site-page legal-page" data-page-title="组件与许可证 · PrintDeck">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="/zh-cn/" aria-label="首页">
+          <img class="site-logo site-logo-white" src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="/assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        </a>
+        <nav class="site-tabs" aria-label="PrintDeck 网站">
+          <a class="site-tab" href="/zh-cn/">首页</a>
+          <a class="site-tab" href="/zh-cn/firmware/">固件</a>
+          <a class="site-tab" href="/zh-cn/gifs/">GIFs</a>
+          <a class="site-tab" href="/zh-cn/case-designs/">外壳设计</a>
+          <a class="site-tab" href="/zh-cn/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/zh-cn/unified-printer-api/">Unified API</a>
+          <a class="site-tab" href="/zh-cn/support/">支持</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="legal-content legal-document-content">
+      <header class="legal-heading">
+        <a class="legal-document-back" href="/zh-cn/legal/notice/"><span aria-hidden="true">←</span> <span>法律声明</span></a>
+        <h1>组件列表及其许可证</h1>
+      </header>
+
+      <div class="legal-body legal-document-body">
+        <p class="legal-document-language">英文原始文档。</p>
+        <pre class="legal-document-text" lang="en" translate="no"># Third-party software
+
+The application resolves the public dependencies below through ESP-IDF's
+Component Manager, except for the explicitly documented board-support override
+and vendored browser, font, audio and decoder assets. Versions are taken from
+the release `dependencies.lock`; a git commit is shown where the dependency is
+locked directly to git.
+
+| Dependency | Role | License |
+| --- | --- | --- |
+| ESP-IDF 5.5.4 | ESP32-S3 SDK | Apache-2.0 and component-specific licenses |
+| XPowersLib `d6997586e68f65afd51baa775903df930db39821` | AXP2101 power-management driver | MIT |
+| `espressif/button` 4.2.0 | Input-driver dependency | Apache-2.0 |
+| `espressif/cjson` 1.7.19~2 | JSON parser | MIT |
+| `espressif/cmake_utilities` 0.5.3 | Component build utilities | Apache-2.0 |
+| `espressif/esp_codec_dev` 1.5.11 | ES8311 audio-codec support | Apache-2.0 |
+| `espressif/esp_h264` 1.3.8 | Baseline H.264 camera decoder | Apache-2.0 |
+| `espressif/esp_io_expander` 1.2.1 | Board I/O-expander abstraction | Apache-2.0 |
+| `espressif/esp_io_expander_tca9554` 2.0.3 | TCA9554 I/O-expander driver | Apache-2.0 |
+| `espressif/esp_lcd_co5300` 2.1.0 | AMOLED panel driver | Apache-2.0 |
+| `espressif/esp_lcd_gc9a01` 2.0.4 | KNOMI2 LCD panel driver | Apache-2.0 |
+| `espressif/esp_lcd_panel_io_additions` 1.0.1~1 | Display I/O support | Apache-2.0 |
+| `espressif/esp_lcd_touch` 1.2.1 | Touch-controller abstraction | Apache-2.0 |
+| `espressif/esp_lcd_touch_cst816s` 1.1.2 | LCD-board touch driver | Apache-2.0 |
+| `espressif/esp_libsrtp` 1.0.0 | WebRTC media security | BSD-3-Clause |
+| `espressif/esp_lv_decoder` 0.4.3 | LVGL image decoding | Apache-2.0 |
+| `espressif/esp_lv_fs` 1.0.1 | LVGL flash-filesystem adapter | Apache-2.0 |
+| `espressif/esp_lvgl_adapter` 0.6.0 | Display and LVGL integration | Apache-2.0 |
+| `espressif/esp_mmap_assets` 2.0.1 | Memory-mapped asset support | Apache-2.0 |
+| `espressif/esp_new_jpeg` 1.0.2 | JPEG decoding | ESPRESSIF MIT License; use is restricted to Espressif Systems products |
+| `espressif/esp_peer` 1.5.4 | Local WebRTC camera transport | Espressif Modified MIT License; use is restricted to Espressif Systems products |
+| `espressif/esp_websocket_client` 1.8.0 | Snapmaker camera control transport | Apache-2.0 |
+| `espressif/freetype` 2.14.3~1 | Font-engine dependency resolved by the LVGL adapter | FreeType License (FTL) selected from the upstream FTL/GPLv2+ dual license |
+| `espressif/knob` 1.1.0 | Input-driver dependency | Apache-2.0 |
+| `espressif/libpng` 1.6.58~1 | PNG decoding | PNG Reference Library License version 2 |
+| `espressif/mdns` 1.12.0 | Local `printdeck.local` hostname and HTTP service discovery | Apache-2.0 |
+| `espressif/mqtt` 1.1.0 | MQTT transport | Apache-2.0 |
+| `espressif/zlib` 1.3.2~1 | PNG compression support | zlib License |
+| `joltwallet/littlefs` 1.22.3 | ESP-IDF LittleFS wrapper and persistent asset storage | MIT for the wrapper; BSD-3-Clause for bundled upstream littlefs |
+| `lvgl/lvgl` 9.5.0 | Embedded graphics | MIT |
+| `waveshare/esp_lcd_touch_cst9217` 2.0.0 | AMOLED-board touch driver | Apache-2.0 |
+| `waveshare/qmi8658` 2.0.0 | Motion-sensor driver | Apache-2.0 |
+
+The target linker maps retain runtime objects from the applicable board drivers
+and from `esp_codec_dev`, `esp_h264`,
+`esp_io_expander`, `esp_lcd_touch`, `esp_libsrtp`, `esp_lv_decoder`,
+`esp_lvgl_adapter`, `esp_new_jpeg`, `esp_peer`, `esp_websocket_client`,
+`cjson`, `libpng`, `mdns`, `mqtt`, `zlib`, LittleFS, LVGL and QMI8658. The target-specific maps
+also retain XPowersLib, TCA9554, CO5300 and CST9217 for AMOLED, CST816S for LCD,
+and GC9A01 plus CST816S for KNOMI2. `button`, `cmake_utilities`, `esp_lcd_panel_io_additions`,
+`esp_lv_fs`, `esp_mmap_assets`, `freetype` and `knob` are resolved build or
+adapter dependencies but contribute no retained archive object to either final
+link. They remain listed so this inventory exactly covers `dependencies.lock`.
+
+The enabled LVGL build links the following bundled third-party code and fonts:
+
+| Bundled dependency | Role | License |
+| --- | --- | --- |
+| AnimatedGIF by BitBank Software | Device GIF decoding | Apache-2.0 |
+| Pictogrammers Material Design Icons webfont 7.4.47 (five-glyph device subset) | Nozzle and tool icons | Apache-2.0 (`main/fonts/LICENSE-MaterialDesignIcons.txt`) |
+| Project Nayuki QR Code generator library | Device QR-code generation | MIT |
+| `stb_truetype` by Sean Barrett | Tiny TTF font rasterization | MIT selected from the upstream MIT/Public Domain dual offer |
+| Tiny TTF modifications by honey the codewitch | LVGL Tiny TTF integration | MIT |
+| Montserrat Medium | Glyph source for LVGL's built-in Montserrat fonts | SIL Open Font License 1.1 |
+| Font Awesome 5 Free font | Icon glyph source for LVGL's built-in Montserrat fonts | SIL Open Font License 1.1; Reserved Font Name `Font Awesome` |
+
+PrintDeck also distributes the following vendored browser code, fonts, audio or
+local decoder code in the tagged source and public Web Config/installer:
+
+| Dependency or asset | Role | License |
+| --- | --- | --- |
+| gifuct-js 2.1.2 | Browser-side GIF parsing and frame decoding | MIT (`main/web/vendor/gifuct-js/LICENSE`) |
+| gifenc 1.0.3 | Browser-side GIF optimization and encoding | MIT (`main/web/vendor/gifenc/LICENSE`) |
+| ESP Web Tools 10.4.0 | Browser first-install transport loaded from unpkg | Apache-2.0 |
+| esptool-js 0.6.0 | Browser USB update transport loaded from unpkg | Apache-2.0 |
+| QRCode.js 1.0.0 by davidshimjs | Browser setup QR-code rendering loaded from jsDelivr | MIT |
+| Natural Earth 1:110m land data | Simplified Web Config time-zone map shape | Public Domain |
+| Waveshare ESP32-S3 Touch AMOLED 1.75 BSP 3.0.1 (local override) | Display, touch and board services | Apache-2.0 |
+| Waveshare ESP32-S3 Touch LCD 1.54 reference implementation | Board pinout and peripheral initialization reference | Apache-2.0 |
+| BIGTREETECH KNOMI reference repository (`0c0cda214377b94b90efed274ba51b04d25c6e89`) | KNOMI2 pinout and peripheral initialization reference; no source code is distributed or linked | No license declared by upstream at the pinned revision |
+| Noto Sans Simplified Chinese (PrintDeck glyph subset) | Device localization fallback font | SIL Open Font License 1.1 (`main/fonts/OFL-NotoSansSC.txt`) |
+| DejaVu Sans (PrintDeck glyph subset) | Extended-Latin device localization fallback font | Bitstream Vera/DejaVu license (`main/fonts/LICENSE-DejaVuSans.txt`) |
+| Unscii (PrintDeck ASCII subset) | Retro Terminal device typography | Public Domain (`main/fonts/LICENSE-Unscii.txt`) |
+| Poppins Regular and SemiBold | Public website typography and embedded logo font | SIL Open Font License 1.1 (`docs/assets/fonts/OFL-Poppins.txt`) |
+| Plyr 3.8.4 | Accessible public-website video player | MIT (`docs/assets/vendor/plyr/LICENSE.md`) |
+| Cisco OpenH264 2.6.0 (local IDR-only decoder subset) | Creality 1080p keyframe snapshots | BSD-2-Clause (`components/printdeck_h264_snapshot/third_party/openh264/LICENSE`) |
+| Kenney Interface Sounds, Digital Audio, Sci-Fi Sounds and UI Audio (selected converted effects) | Modern, Arcade, Sci-Fi and Clean device sound presets | CC0 1.0 (`main/audio/kenney/LICENSE.txt`) |
+
+The device and Web Config contain simplified marks for supported printer
+manufacturers, and the public installer contains Google Chrome and Microsoft
+Edge compatibility marks. These trademarks remain the property of their
+respective owners and are used only for product or browser identification.
+PrintDeck is not affiliated with or endorsed by those manufacturers, Google or
+Microsoft.
+
+The user-manual source includes licensed Adobe Stock asset 1777478313 by
+Jirawatfoto as cover artwork. That file is excluded from the PrintDeck license
+and is not offered for independent reuse.
+
+`main/src/platform/bambu_trust.cpp` contains manufacturer-issued public X.509 trust anchors used
+only to validate local printer TLS certificates. They identify BBL Technologies Co. Ltd as issuer;
+PrintDeck does not claim authorship of this certificate data. Included SHA-256 fingerprints:
+
+- BBL CA2 RSA: `E9:8F:19:57:8B:3F:12:4A:CE:6B:8A:24:7F:FE:DA:52:DC:99:C8:9F:D4:E7:D2:0C:82:82:99:77:B7:F3:35:02`.
+- BBL CA: `03:0B:CA:81:CE:CE:18:B7:EF:F3:CF:D2:B7:5D:09:D3:EF:CA:89:3B:C0:69:60:9E:37:FA:04:25:7F:E4:D8:40`.
+
+The release process must retain the notices delivered with all resolved
+transitive dependencies. The release `NOTICE` consolidates the notices that
+must accompany a binary distribution; it is packaged as one of the five
+target-qualified release assets.
+
+## Waveshare BSP override
+
+`components/waveshare__esp32_s3_touch_amoled_1_75` contains PrintDeck's pinned
+copy of Waveshare BSP 3.0.1, based on upstream commit
+`bfeb6e6d5737178cdde78b630c8118074da0a657`. It is kept in Git because the
+released firmware depends on board-specific display fixes that are not present
+in the published component: software rotation for 90/270-degree orientations,
+matching touch rotation, PSRAM-backed rotation storage, internal DMA staging,
+TE-aware transfers and panel offsets. Keeping the override in source makes a
+clean release build reproducible instead of relying on an ignored modification
+inside `managed_components`.
+
+The upstream Apache-2.0 `LICENSE` and component metadata are retained in that
+directory. Future BSP upgrades must rebase and verify this override on hardware.
+
+## Waveshare ESP32-S3 Touch LCD 1.54 reference
+
+The square-display board integration in `main/src/platform/board_lcd_1_54.cpp`
+uses the public Waveshare ESP32-S3 Touch LCD 1.54 examples as its hardware
+reference, pinned during development to upstream commit
+`5157db7c888e476fd57f8a95020800377447478f`. PrintDeck does not vendor that
+example project or link its application code; it uses ESP-IDF drivers and the
+managed CST816S, QMI8658 and ES8311 components directly. The upstream reference
+is licensed under Apache-2.0.
+
+## BIGTREETECH KNOMI2 hardware reference
+
+The KNOMI2 integration in `main/src/platform/board_knomi2.cpp` uses the public
+BIGTREETECH KNOMI repository as its hardware pinout reference, pinned during
+development to commit `0c0cda214377b94b90efed274ba51b04d25c6e89`.
+PrintDeck does not vendor or copy that application code and does not link it;
+the target is implemented with ESP-IDF and managed Espressif GC9A01 and CST816S
+drivers. The pinned upstream revision does not contain a license file, so it is
+used only as factual hardware documentation.
+</pre>
+      </div>
+    </main>
+
+    <footer class="site-footer legal-footer">
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
+      <div class="footer-controls">
+        <label hidden="" for="notice-language">语言</label>
+        <select class="installer-language" id="notice-language" aria-label="语言" data-site-language=""><option value="/legal/notice/components/">English</option><option value="/pl/legal/notice/components/">Polski</option><option value="/es/legal/notice/components/">Español</option><option value="/fr/legal/notice/components/">Français</option><option value="/de/legal/notice/components/">Deutsch</option><option value="/zh-cn/legal/notice/components/" selected="">简体中文</option></select>
+        <div class="appearance-switch" data-site-appearance="" role="switch" tabindex="0" aria-label="页面外观">
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="浅色外观"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="深色外观"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+        </div>
+      </div>
+    </footer>
+
+
+
+
+<script>(()=>{const language="zh-CN";try{localStorage.setItem('printdeck-installer-language',language)}catch(_){}document.querySelectorAll('[data-site-language]').forEach((selector)=>selector.addEventListener('change',()=>location.assign(selector.value)));})();</script></body></html>

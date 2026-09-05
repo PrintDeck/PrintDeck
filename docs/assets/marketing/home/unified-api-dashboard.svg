@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Dashboard application</title>
+  <defs>
+    <linearGradient id="screen" x1="10" y1="8" x2="53" y2="53" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#172522"/>
+      <stop offset="1" stop-color="#2d4540"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="20" y1="43" x2="45" y2="19" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#28cda4"/>
+      <stop offset="1" stop-color="#76e8cd"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#0d4438" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="8" y="9" width="48" height="35" rx="7" fill="url(#screen)"/>
+    <rect x="11" y="12" width="42" height="29" rx="4.5" fill="#f8fffd"/>
+    <path d="M16 34.5h32" stroke="#dceae6" stroke-width="1.5" stroke-linecap="round"/>
+    <rect x="18" y="27" width="5" height="7.5" rx="1.5" fill="url(#accent)"/>
+    <rect x="27" y="21" width="5" height="13.5" rx="1.5" fill="url(#accent)"/>
+    <rect x="36" y="16" width="5" height="18.5" rx="1.5" fill="url(#accent)"/>
+    <path d="M25 48h14l2 4H23l2-4Z" fill="#2d4540"/>
+    <rect x="17" y="51" width="30" height="4" rx="2" fill="#172522"/>
+  </g>
+</svg>
