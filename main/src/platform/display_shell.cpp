@@ -4813,13 +4813,8 @@ void DisplayShell::show_printer_materials(const core::PrinterProfile& profile,
                                 LV_PART_MAIN);
   if (external.installed) {
     const char* material = external.material.empty() ? tr("Material") : external.material.c_str();
-    if (external.remaining_percent >= 0) {
-      lv_label_set_text_fmt(external_material_label_, "%s  " LV_SYMBOL_BULLET "  %s  " LV_SYMBOL_BULLET "  %d%%",
-                            tr("External"), material, external.remaining_percent);
-    } else {
-      lv_label_set_text_fmt(external_material_label_, "%s  " LV_SYMBOL_BULLET "  %s  " LV_SYMBOL_BULLET "  --",
-                            tr("External"), material);
-    }
+    lv_label_set_text_fmt(external_material_label_, "%s  " LV_SYMBOL_BULLET "  %s",
+                          tr("External"), material);
   } else {
     lv_label_set_text_fmt(external_material_label_, "%s  " LV_SYMBOL_BULLET "  %s",
                           tr("External spool"), tr("Not detected"));
