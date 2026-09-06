@@ -501,6 +501,7 @@ class DisplayShell {
   std::string language_ = "en";
   std::atomic<core::CalendarDateFormat> clock_date_format_{
       core::CalendarDateFormat::year_month_day};
+  bool localized_fonts_available_ = false;
   std::array<lv_font_t, 5> localized_base_fonts_{};
   std::array<lv_font_t*, 3> terminal_fonts_{};
   std::array<lv_font_t*, 5> localized_latin_fonts_{};

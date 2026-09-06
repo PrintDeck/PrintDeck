@@ -3,74 +3,17 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <memory>
 
 #include "esp_codec_dev.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "printdeck/core/audio_sample.hpp"
+#include "printdeck/core/compressed_resource.hpp"
+#include "printdeck/platform/audio_assets.hpp"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/task_affinity.hpp"
-
-extern "C" {
-#define PRINTDECK_AUDIO_ASSET(name)                                             \
-  extern const std::uint8_t name##_start[] asm("_binary_" #name "_adpcm_start"); \
-  extern const std::uint8_t name##_end[] asm("_binary_" #name "_adpcm_end")
-PRINTDECK_AUDIO_ASSET(modern_startup);
-PRINTDECK_AUDIO_ASSET(modern_navigation);
-PRINTDECK_AUDIO_ASSET(modern_orientation);
-PRINTDECK_AUDIO_ASSET(modern_print_started);
-PRINTDECK_AUDIO_ASSET(modern_print_paused);
-PRINTDECK_AUDIO_ASSET(modern_print_finished);
-PRINTDECK_AUDIO_ASSET(modern_print_error);
-PRINTDECK_AUDIO_ASSET(modern_hms_alert);
-PRINTDECK_AUDIO_ASSET(modern_filament_attention);
-PRINTDECK_AUDIO_ASSET(modern_shutdown_countdown);
-PRINTDECK_AUDIO_ASSET(modern_shutdown);
-PRINTDECK_AUDIO_ASSET(modern_test);
-#define PRINTDECK_PRESET_AUDIO_ASSETS(prefix)             \
-  PRINTDECK_AUDIO_ASSET(prefix##_startup);                \
-  PRINTDECK_AUDIO_ASSET(prefix##_navigation);             \
-  PRINTDECK_AUDIO_ASSET(prefix##_orientation);            \
-  PRINTDECK_AUDIO_ASSET(prefix##_print_started);          \
-  PRINTDECK_AUDIO_ASSET(prefix##_progress_25);            \
-  PRINTDECK_AUDIO_ASSET(prefix##_progress_50);            \
-  PRINTDECK_AUDIO_ASSET(prefix##_progress_75);            \
-  PRINTDECK_AUDIO_ASSET(prefix##_print_paused);           \
-  PRINTDECK_AUDIO_ASSET(prefix##_print_finished);         \
-  PRINTDECK_AUDIO_ASSET(prefix##_print_error);            \
-  PRINTDECK_AUDIO_ASSET(prefix##_hms_alert);              \
-  PRINTDECK_AUDIO_ASSET(prefix##_filament_attention);     \
-  PRINTDECK_AUDIO_ASSET(prefix##_shutdown_countdown);     \
-  PRINTDECK_AUDIO_ASSET(prefix##_shutdown);               \
-  PRINTDECK_AUDIO_ASSET(prefix##_test)
-PRINTDECK_PRESET_AUDIO_ASSETS(arcade);
-PRINTDECK_PRESET_AUDIO_ASSETS(scifi);
-#undef PRINTDECK_PRESET_AUDIO_ASSETS
-PRINTDECK_AUDIO_ASSET(clean_navigation);
-PRINTDECK_AUDIO_ASSET(clean_orientation);
-PRINTDECK_AUDIO_ASSET(clean_shutdown_countdown);
-PRINTDECK_AUDIO_ASSET(clean_test);
-#define PRINTDECK_VOICE_AUDIO_ASSETS(language)                 \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_startup);           \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_print_started);     \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_progress_25);       \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_progress_50);       \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_progress_75);       \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_print_paused);      \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_print_finished);    \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_print_error);       \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_hms_alert);         \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_filament_attention); \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_shutdown);          \
-  PRINTDECK_AUDIO_ASSET(voice_##language##_restarting)
-PRINTDECK_VOICE_AUDIO_ASSETS(en);
-PRINTDECK_VOICE_AUDIO_ASSETS(pl);
-PRINTDECK_VOICE_AUDIO_ASSETS(es);
-PRINTDECK_VOICE_AUDIO_ASSETS(fr);
-PRINTDECK_VOICE_AUDIO_ASSETS(de);
-PRINTDECK_VOICE_AUDIO_ASSETS(zh_cn);
-#undef PRINTDECK_VOICE_AUDIO_ASSETS
-#undef PRINTDECK_AUDIO_ASSET
-}
 
 namespace printdeck::platform {
 namespace {
@@ -79,21 +22,6 @@ constexpr char kLogTag[] = "audio";
 constexpr int kSampleRate = 16000;
 constexpr float kPi = 3.14159265358979323846F;
 constexpr std::size_t kChunkSamples = 320;
-constexpr std::size_t kAdpcmHeaderSize = 12;
-
-constexpr std::array<std::int16_t, 89> kAdpcmStepTable{
-    7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31,
-    34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130,
-    143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449,
-    494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411,
-    1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660,
-    4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493,
-    10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385,
-    24623, 27086, 29794, 32767,
-};
-constexpr std::array<std::int8_t, 8> kAdpcmIndexChange{-1, -1, -1, -1,
-                                                       2,  4,  6,  8};
-
 struct Note {
   std::uint16_t frequency;
   std::uint16_t milliseconds;
@@ -115,12 +43,19 @@ struct SoundStyle {
   int maximum_volume;
 };
 
-struct AdpcmSample {
-  const std::uint8_t* begin;
-  const std::uint8_t* end;
+using AdpcmSample = audio_assets::CompressedSample;
+
+struct PlaybackControl {
+  const std::atomic<std::uint32_t>& generation;
+  std::uint32_t expected;
+  bool cancelled() const { return generation.load() != expected; }
 };
 
-#define PRINTDECK_ADPCM_SAMPLE(name) AdpcmSample{name##_start, name##_end}
+void* allocate_audio_resource(std::size_t size) {
+  return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+}
+
+#define PRINTDECK_ADPCM_SAMPLE(name) audio_assets::name
 constexpr std::size_t kVoiceEventCount = 12;
 #define PRINTDECK_VOICE_SAMPLE_SET(language)                                    \
   {{PRINTDECK_ADPCM_SAMPLE(voice_##language##_startup),                         \
@@ -366,71 +301,43 @@ void write_silence(esp_codec_dev_handle_t codec, std::size_t samples) {
   }
 }
 
-std::uint32_t read_le_u32(const std::uint8_t* bytes) {
-  return static_cast<std::uint32_t>(bytes[0]) |
-         static_cast<std::uint32_t>(bytes[1]) << 8U |
-         static_cast<std::uint32_t>(bytes[2]) << 16U |
-         static_cast<std::uint32_t>(bytes[3]) << 24U;
-}
-
-int read_le_i16(const std::uint8_t* bytes) {
-  const int value = static_cast<int>(bytes[0]) |
-                    static_cast<int>(bytes[1]) << 8;
-  return value >= 0x8000 ? value - 0x10000 : value;
-}
-
-bool write_adpcm_sample(esp_codec_dev_handle_t codec, AdpcmSample sample, int volume) {
+bool write_adpcm_sample(esp_codec_dev_handle_t codec, AdpcmSample sample, int volume,
+                        const PlaybackControl& control) {
+  if (control.cancelled()) return true;
   const std::size_t size = static_cast<std::size_t>(sample.end - sample.begin);
-  if (size < kAdpcmHeaderSize || sample.begin[0] != 'P' || sample.begin[1] != 'D' ||
-      sample.begin[2] != 'I' || sample.begin[3] != 'A') {
-    return false;
-  }
-  const std::uint32_t sample_count = read_le_u32(sample.begin + 4);
-  int predictor = read_le_i16(sample.begin + 8);
-  int step_index = sample.begin[10];
-  if (sample_count == 0 || step_index >= static_cast<int>(kAdpcmStepTable.size()) ||
-      sample.begin[11] != 0 ||
-      size != kAdpcmHeaderSize + static_cast<std::size_t>(sample_count) / 2U) {
-    return false;
-  }
+  if (sample.decoded_size < 12 ||
+      sample.decoded_size > core::kMaximumAudioSampleBytes ||
+      size > core::kMaximumAudioSampleBytes + 1024) return false;
+  std::unique_ptr<std::uint8_t, decltype(&heap_caps_free)> decoded(
+      static_cast<std::uint8_t*>(allocate_audio_resource(sample.decoded_size)),
+      &heap_caps_free);
+  if (!decoded) return false;
+  if (!core::decompress_gzip_exact(sample.begin, size, decoded.get(), sample.decoded_size,
+                                  allocate_audio_resource, heap_caps_free)) return false;
+  if (control.cancelled()) return true;
+  core::AudioSampleDecoder reader;
+  if (!reader.open(decoded.get(), sample.decoded_size)) return false;
 
+  // Validate the full compressed stream before any clip samples reach I2S.
+  // The complete PDIA buffer and zlib workspace use PSRAM, never the task stack.
   std::array<std::int16_t, kChunkSamples> output{};
-  std::size_t buffered = 0;
   const int clamped_volume = std::clamp(volume, 0, 100);
-  const auto append = [&](int decoded) {
-    output[buffered++] = static_cast<std::int16_t>(
-        static_cast<std::int32_t>(decoded) * clamped_volume / 100);
-    if (buffered == output.size()) {
-      esp_codec_dev_write(codec, output.data(), buffered * sizeof(output[0]));
-      buffered = 0;
+  while (!reader.finished()) {
+    if (control.cancelled()) return true;
+    const std::size_t count = reader.read(output.data(), output.size());
+    for (std::size_t index = 0; index < count; ++index) {
+      output[index] = static_cast<std::int16_t>(
+          static_cast<std::int32_t>(output[index]) * clamped_volume / 100);
     }
-  };
-
-  append(predictor);
-  const std::uint8_t* payload = sample.begin + kAdpcmHeaderSize;
-  for (std::uint32_t index = 1; index < sample_count; ++index) {
-    const std::uint32_t code_index = index - 1;
-    const std::uint8_t packed = payload[code_index / 2U];
-    const int code = (code_index & 1U) == 0 ? packed & 0x0F : packed >> 4U;
-    const int step = kAdpcmStepTable[static_cast<std::size_t>(step_index)];
-    int delta = step >> 3;
-    if ((code & 4) != 0) delta += step;
-    if ((code & 2) != 0) delta += step >> 1;
-    if ((code & 1) != 0) delta += step >> 2;
-    predictor = std::clamp(predictor + ((code & 8) != 0 ? -delta : delta),
-                           -32768, 32767);
-    step_index = std::clamp(
-        step_index + kAdpcmIndexChange[static_cast<std::size_t>(code & 7)], 0, 88);
-    append(predictor);
-  }
-  if (buffered > 0) {
-    esp_codec_dev_write(codec, output.data(), buffered * sizeof(output[0]));
+    if (esp_codec_dev_write(codec, output.data(), count * sizeof(output[0])) != ESP_OK) {
+      return false;
+    }
   }
   return true;
 }
 
 void write_note(esp_codec_dev_handle_t codec, Note note, int volume,
-                const SoundStyle& style) {
+                const SoundStyle& style, const PlaybackControl& control) {
   const int milliseconds = std::max(
       1, static_cast<int>(note.milliseconds) * style.duration_percent / 100);
   if (note.frequency == 0) {
@@ -447,6 +354,7 @@ void write_note(esp_codec_dev_handle_t codec, Note note, int volume,
   std::array<std::int16_t, kChunkSamples> samples{};
   int written = 0;
   while (written < total) {
+    if (control.cancelled()) return;
     const int count = std::min<int>(samples.size(), total - written);
     for (int index = 0; index < count; ++index) {
       const int position = written + index;
@@ -514,37 +422,6 @@ esp_err_t AudioService::start(bool enabled, int volume_percent, std::string_view
   return ESP_OK;
 }
 
-void AudioService::set_enabled(bool enabled) { enabled_.store(enabled); }
-
-void AudioService::set_volume(int percent) { volume_.store(std::clamp(percent, 0, 100)); }
-
-void AudioService::set_preset(Preset preset) { preset_.store(preset); }
-
-void AudioService::set_muted_events(std::uint16_t muted_events) {
-  muted_events_.store(muted_events & core::kAudioEventMuteMask);
-}
-
-void AudioService::set_language(std::string_view language) {
-  std::uint8_t selected = 0;
-  if (language == "pl") selected = 1;
-  else if (language == "es") selected = 2;
-  else if (language == "fr") selected = 3;
-  else if (language == "de") selected = 4;
-  else if (language == "zh-CN") selected = 5;
-  language_.store(selected);
-}
-
-bool AudioService::preset_from_id(std::string_view id, Preset& preset) {
-  if (id == "modern") preset = Preset::modern;
-  else if (id == "soft") preset = Preset::soft;
-  else if (id == "oldschool") preset = Preset::oldschool;
-  else if (id == "arcade") preset = Preset::arcade;
-  else if (id == "scifi") preset = Preset::scifi;
-  else if (id == "clean") preset = Preset::clean;
-  else return false;
-  return true;
-}
-
 bool AudioService::play(Event event) {
   return play(event, nullptr, nullptr);
 }
@@ -556,7 +433,7 @@ bool AudioService::play(Event event, CompletionCallback completion, void* contex
   if (event_index < 14U &&
       (muted_events_.load() & (1U << event_index)) != 0) return false;
   const Request request{event, preset, volume_.load(), false, language_.load(),
-                        completion, context};
+                        completion, context, playback_generation_.load()};
   return xQueueSend(queue_, &request, 0) == pdTRUE;
 }
 
@@ -566,7 +443,7 @@ bool AudioService::play(Event event, Preset preset) {
   if (event_index < 14U &&
       (muted_events_.load() & (1U << event_index)) != 0) return false;
   const Request request{event, preset, volume_.load(), false, language_.load(),
-                        nullptr, nullptr};
+                        nullptr, nullptr, playback_generation_.load()};
   return xQueueSend(queue_, &request, 0) == pdTRUE;
 }
 
@@ -575,7 +452,7 @@ bool AudioService::preview(Event event, Preset preset, int volume_percent) {
   bool expected = false;
   if (!preview_busy_.compare_exchange_strong(expected, true)) return false;
   const Request request{event, preset, std::clamp(volume_percent, 1, 100), true,
-                        language_.load(), nullptr, nullptr};
+                        language_.load(), nullptr, nullptr, playback_generation_.load()};
   if (xQueueSend(queue_, &request, 0) == pdTRUE) return true;
   preview_busy_.store(false);
   return false;
@@ -586,9 +463,9 @@ void AudioService::task_entry(void* context) { static_cast<AudioService*>(contex
 void AudioService::task_loop() {
   Request request{};
   while (true) {
-    if (xQueueReceive(queue_, &request, portMAX_DELAY) == pdTRUE) {
+    if (xQueueReceive(queue_, &request, pdMS_TO_TICKS(250)) == pdTRUE) {
       play_now(request.event, request.preset, request.volume, request.force,
-               request.language);
+               request.language, request.generation);
       if (request.force) preview_busy_.store(false);
       if (request.completion != nullptr) {
         request.completion(request.completion_context);
@@ -598,7 +475,9 @@ void AudioService::task_loop() {
 }
 
 void AudioService::play_now(Event event, Preset preset, int requested_volume, bool force,
-                            std::uint8_t language) {
+                            std::uint8_t language, std::uint32_t generation) {
+  const PlaybackControl control{playback_generation_, generation};
+  if (control.cancelled()) return;
   if (!force && !enabled_.load()) return;
   auto codec = static_cast<esp_codec_dev_handle_t>(codec_);
   if (requested_volume <= 0) return;
@@ -608,7 +487,7 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   // volume selected by the user.
   if (event == Event::restarting) {
     if (write_adpcm_sample(codec, voice_sample_for(language, event),
-                           std::clamp(requested_volume, 1, 100))) {
+                           std::clamp(requested_volume, 1, 100), control)) {
       write_silence(codec, 1024);
       return;
     }
@@ -620,7 +499,7 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   const SoundStyle style = style_for(preset);
   const int sample_volume = std::min(requested_volume, style.maximum_volume);
   if (preset == Preset::clean && is_voice_event(event)) {
-    if (write_adpcm_sample(codec, voice_sample_for(language, event), sample_volume)) {
+    if (write_adpcm_sample(codec, voice_sample_for(language, event), sample_volume, control)) {
       write_silence(codec, 1024);
       return;
     }
@@ -630,7 +509,7 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
                                   event == Event::progress_50 ||
                                   event == Event::progress_75;
   if (preset == Preset::modern && !generated_progress) {
-    if (write_adpcm_sample(codec, modern_sample_for(event), sample_volume)) {
+    if (write_adpcm_sample(codec, modern_sample_for(event), sample_volume, control)) {
       write_silence(codec, 1024);
       return;
     }
@@ -641,7 +520,7 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
         preset == Preset::clean && event == Event::orientation
             ? std::max(1, sample_volume * 60 / 100)
             : sample_volume;
-    if (write_adpcm_sample(codec, embedded_sample_for(preset, event), effect_volume)) {
+    if (write_adpcm_sample(codec, embedded_sample_for(preset, event), effect_volume, control)) {
       write_silence(codec, 1024);
       return;
     }
@@ -649,7 +528,8 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   }
   const int volume = std::min(sample_volume, selected.maximum_volume);
   for (std::size_t index = 0; index < selected.count; ++index) {
-    write_note(codec, selected.notes[index], volume, style);
+    if (control.cancelled()) return;
+    write_note(codec, selected.notes[index], volume, style, control);
   }
   write_silence(codec, 1024);
 }

@@ -5,8 +5,6 @@
 #include "esp_lv_adapter.h"
 #include "lvgl.h"
 #include "png.h"
-#include "img/printer_brand_logos.h"
-#include "img/printdeck_boot_logo.h"
 
 #include <string>
 #include <cstdio>
@@ -19,6 +17,7 @@
 #include "printdeck/core/localization.hpp"
 #include "printdeck/core/printer_driver.hpp"
 #include "printdeck/platform/board.hpp"
+#include "printdeck/platform/embedded_resources.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/network_service.hpp"
 #include "printdeck/platform/power_service.hpp"
@@ -30,19 +29,6 @@
 extern "C" {
 extern const lv_font_t mdi_40;
 }
-
-extern const std::uint8_t localized_latin_font_start[]
-    asm("_binary_DejaVuSans_PrintDeck_ttf_start");
-extern const std::uint8_t localized_latin_font_end[]
-    asm("_binary_DejaVuSans_PrintDeck_ttf_end");
-extern const std::uint8_t localized_cjk_font_start[]
-    asm("_binary_NotoSansSC_PrintDeck_ttf_start");
-extern const std::uint8_t localized_cjk_font_end[]
-    asm("_binary_NotoSansSC_PrintDeck_ttf_end");
-extern const std::uint8_t terminal_font_start[]
-    asm("_binary_Unscii_PrintDeck_ttf_start");
-extern const std::uint8_t terminal_font_end[]
-    asm("_binary_Unscii_PrintDeck_ttf_end");
 
 namespace printdeck::platform {
 namespace {
@@ -295,43 +281,11 @@ std::uint32_t DisplayShell::brand_logo_color(const core::PrinterProfile& profile
 }
 
 const lv_image_dsc_t* DisplayShell::brand_logo(const core::PrinterProfile& profile) {
-  const std::string brand = effective_brand(profile);
-  if (brand == "ankermake") return &printer_logo_ankermake;
-  if (brand == "anycubic") return &printer_logo_anycubic;
-  if (brand == "bambu") return &printer_logo_bambu;
-  if (brand == "creality") return &printer_logo_creality;
-  if (brand == "elegoo") return &printer_logo_elegoo;
-  if (brand == "flashforge") return &printer_logo_flashforge;
-  if (brand == "lulzbot") return &printer_logo_lulzbot;
-  if (brand == "makerbot") return &printer_logo_makerbot;
-  if (brand == "prusa") return &printer_logo_prusa;
-  if (brand == "qidi") return &printer_logo_qidi;
-  if (brand == "ratrig") return &printer_logo_ratrig;
-  if (brand == "snapmaker") return &printer_logo_snapmaker;
-  if (brand == "sovol") return &printer_logo_sovol;
-  if (brand == "ultimaker") return &printer_logo_ultimaker;
-  if (brand == "voron") return &printer_logo_voron;
-  return nullptr;
+  return embedded_large_brand_logo(effective_brand(profile));
 }
 
 const lv_image_dsc_t* DisplayShell::brand_logo_small(const core::PrinterProfile& profile) {
-  const std::string brand = effective_brand(profile);
-  if (brand == "ankermake") return &printer_logo_ankermake_small;
-  if (brand == "anycubic") return &printer_logo_anycubic_small;
-  if (brand == "bambu") return &printer_logo_bambu_small;
-  if (brand == "creality") return &printer_logo_creality_small;
-  if (brand == "elegoo") return &printer_logo_elegoo_small;
-  if (brand == "flashforge") return &printer_logo_flashforge_small;
-  if (brand == "lulzbot") return &printer_logo_lulzbot_small;
-  if (brand == "makerbot") return &printer_logo_makerbot_small;
-  if (brand == "prusa") return &printer_logo_prusa_small;
-  if (brand == "qidi") return &printer_logo_qidi_small;
-  if (brand == "ratrig") return &printer_logo_ratrig_small;
-  if (brand == "snapmaker") return &printer_logo_snapmaker_small;
-  if (brand == "sovol") return &printer_logo_sovol_small;
-  if (brand == "ultimaker") return &printer_logo_ultimaker_small;
-  if (brand == "voron") return &printer_logo_voron_small;
-  return nullptr;
+  return embedded_small_brand_logo(effective_brand(profile));
 }
 
 namespace {
@@ -470,6 +424,7 @@ void composite_snapshot_bgra(lv_draw_buf_t* destination,
 }  // namespace
 
 esp_err_t DisplayShell::start(int initial_rotation_degrees) {
+  initialize_embedded_resources();
   current_rotation_ = initial_rotation_degrees == 90 ? 90
                     : initial_rotation_degrees == 180 ? 180
                     : initial_rotation_degrees == 270 ? 270 : 0;
@@ -635,8 +590,19 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
   lv_obj_set_style_border_width(logo_clip, 0, LV_PART_MAIN);
   lv_obj_set_style_pad_all(logo_clip, 0, LV_PART_MAIN);
 
-  lv_obj_t* logo_image = lv_image_create(logo_clip);
-  lv_image_set_src(logo_image, &printdeck_boot_logo_large);
+  lv_obj_t* logo_image = nullptr;
+  if (const lv_image_dsc_t* logo = embedded_boot_logo(); logo != nullptr) {
+    logo_image = lv_image_create(logo_clip);
+    lv_image_set_src(logo_image, logo);
+  } else {
+    // Keep the reveal hierarchy usable when PSRAM or asset verification fails.
+    logo_image = lv_label_create(logo_clip);
+    lv_label_set_text(logo_image, "PrintDeck");
+    apply_text_style(logo_image, lv_color_hex(theme_style_.text_primary),
+                     &lv_font_montserrat_32);
+    lv_obj_set_size(logo_image, kBootLogoWidth, kBootLogoHeight);
+    lv_obj_set_style_text_align(logo_image, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  }
   lv_obj_set_pos(logo_image, 0, -(kBootLogoHeight - 1));
   lv_obj_remove_flag(logo_image, LV_OBJ_FLAG_CLICKABLE);
 
@@ -5817,7 +5783,7 @@ void DisplayShell::set_clock_date_format(core::CalendarDateFormat format) {
 }
 
 const char* DisplayShell::tr(const char* english) const {
-  return core::localized_text(language_, english);
+  return core::localized_text(localized_fonts_available_ ? language_ : "en", english);
 }
 
 bool DisplayShell::initialize_localized_fonts() {
@@ -5825,10 +5791,32 @@ bool DisplayShell::initialize_localized_fonts() {
                                 &lv_font_montserrat_16, &lv_font_montserrat_24,
                                 &lv_font_montserrat_32};
   const int sizes[]{12, 14, 16, 24, 32};
-  const std::size_t latin_size = static_cast<std::size_t>(
-      localized_latin_font_end - localized_latin_font_start);
-  const std::size_t cjk_size = static_cast<std::size_t>(
-      localized_cjk_font_end - localized_cjk_font_start);
+  const auto latin = embedded_latin_font();
+  const auto cjk = embedded_cjk_font();
+  const auto terminal = embedded_terminal_font();
+  // Keep recovery navigation usable even if PSRAM allocation or resource
+  // validation fails. Fall back to the built-in English font chain.
+  const auto use_builtin_fonts = [&]() {
+    for (auto*& font : terminal_fonts_) {
+      if (font != nullptr) lv_tiny_ttf_destroy(font);
+      font = nullptr;
+    }
+    for (auto*& font : localized_latin_fonts_) {
+      if (font != nullptr) lv_tiny_ttf_destroy(font);
+      font = nullptr;
+    }
+    for (auto*& font : localized_cjk_fonts_) {
+      if (font != nullptr) lv_tiny_ttf_destroy(font);
+      font = nullptr;
+    }
+    for (std::size_t index = 0; index < localized_base_fonts_.size(); ++index) {
+      localized_base_fonts_[index] = *base_fonts[index];
+    }
+    localized_fonts_available_ = false;
+    ESP_LOGW(kLogTag, "Using built-in English display fonts");
+    return true;
+  };
+  if (!latin.data || !cjk.data || !terminal.data) return use_builtin_fonts();
   // These fonts are fallbacks for characters Montserrat does not contain. A
   // large cache per fallback and per size quickly consumes the internal heap
   // needed by MQTT/TLS (most cached glyph bitmaps are smaller than the PSRAM
@@ -5838,34 +5826,33 @@ bool DisplayShell::initialize_localized_fonts() {
   constexpr std::size_t kFallbackGlyphCacheEntries = 16;
   for (std::size_t index = 0; index < localized_latin_fonts_.size(); ++index) {
     localized_latin_fonts_[index] =
-        lv_tiny_ttf_create_data_ex(localized_latin_font_start, latin_size, sizes[index],
+        lv_tiny_ttf_create_data_ex(latin.data, latin.size, sizes[index],
                                    LV_FONT_KERNING_NONE, kFallbackGlyphCacheEntries);
     localized_cjk_fonts_[index] =
-        lv_tiny_ttf_create_data_ex(localized_cjk_font_start, cjk_size, sizes[index],
+        lv_tiny_ttf_create_data_ex(cjk.data, cjk.size, sizes[index],
                                    LV_FONT_KERNING_NONE, kFallbackGlyphCacheEntries);
     if (localized_latin_fonts_[index] == nullptr || localized_cjk_fonts_[index] == nullptr) {
-      return false;
+      return use_builtin_fonts();
     }
     localized_latin_fonts_[index]->fallback = localized_cjk_fonts_[index];
     localized_base_fonts_[index] = *base_fonts[index];
     localized_base_fonts_[index].fallback = localized_latin_fonts_[index];
   }
-  const std::size_t terminal_size = static_cast<std::size_t>(
-      terminal_font_end - terminal_font_start);
   const int terminal_sizes[]{kDisplayUsesLargeLayout ? 10 : 8, 14, 16};
   const std::size_t terminal_fallback_indices[]{0, 1, 2};
   constexpr std::size_t kTerminalGlyphCacheEntries = 12;
   for (std::size_t index = 0; index < terminal_fonts_.size(); ++index) {
     terminal_fonts_[index] = lv_tiny_ttf_create_data_ex(
-        terminal_font_start, terminal_size, terminal_sizes[index],
+        terminal.data, terminal.size, terminal_sizes[index],
         LV_FONT_KERNING_NONE, kTerminalGlyphCacheEntries);
-    if (terminal_fonts_[index] == nullptr) return false;
+    if (terminal_fonts_[index] == nullptr) return use_builtin_fonts();
     // The terminal subset intentionally contains printable ASCII only. Route
     // LVGL private-use symbols and localized glyphs through the normal font
     // chain instead of displaying missing-glyph boxes.
     terminal_fonts_[index]->fallback =
         &localized_base_fonts_[terminal_fallback_indices[index]];
   }
+  localized_fonts_available_ = true;
   return true;
 }
 
@@ -5880,7 +5867,8 @@ const lv_font_t* DisplayShell::localized_font(const lv_font_t* font,
   static constexpr std::size_t terminal_font_indices[]{0, 0, 1, 2, 2};
   for (std::size_t index = 0; index < localized_base_fonts_.size(); ++index) {
     if (font == base_fonts[index]) {
-      return terminal_typography && theme_style_.terminal_typography
+      return terminal_typography && theme_style_.terminal_typography &&
+                     terminal_fonts_[terminal_font_indices[index]] != nullptr
                  ? terminal_fonts_[terminal_font_indices[index]]
                  : &localized_base_fonts_[index];
     }

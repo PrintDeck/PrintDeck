@@ -69,12 +69,13 @@ class AudioService {
     std::uint8_t language;
     CompletionCallback completion;
     void* completion_context;
+    std::uint32_t generation;
   };
 
   static void task_entry(void* context);
   void task_loop();
   void play_now(Event event, Preset preset, int volume, bool force,
-                std::uint8_t language);
+                std::uint8_t language, std::uint32_t generation);
 
   std::atomic<bool> enabled_{true};
   std::atomic<int> volume_{60};
@@ -82,6 +83,7 @@ class AudioService {
   std::atomic<std::uint16_t> muted_events_{0};
   std::atomic<std::uint8_t> language_{0};
   std::atomic<bool> preview_busy_{false};
+  std::atomic<std::uint32_t> playback_generation_{0};
   QueueHandle_t queue_ = nullptr;
   TaskHandle_t task_ = nullptr;
   void* codec_ = nullptr;

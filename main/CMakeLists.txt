@@ -4,6 +4,7 @@ unset(PRINTDECK_ANYCUBIC_TEST_CONFIG CACHE)
 set(PRINTDECK_SRCS
         "app_main.cpp"
         "src/core/configuration_backup.cpp"
+        "src/core/compressed_resource.cpp"
         "src/core/device_state.cpp"
         "src/core/firmware_channel.cpp"
         "src/core/job_state.cpp"
@@ -15,8 +16,7 @@ set(PRINTDECK_SRCS
         "src/core/theme.cpp"
         "src/core/unified_printer_api.cpp"
         "include/font/mdi_40.c"
-        "include/img/printer_brand_logos.c"
-        "include/img/printer_brand_logos_small.c"
+        "src/platform/embedded_resources.cpp"
         "src/platform/runtime.cpp"
         "src/platform/display_shell.cpp"
         "src/platform/printer_animation_renderer.cpp"
@@ -52,13 +52,14 @@ set(PRINTDECK_SRCS
         "src/platform/bambu_a1_camera_client.cpp"
         "src/platform/bambu_compatibility_probe.cpp"
         "src/platform/reset_diagnostics.cpp"
-        "src/platform/audio_service.cpp"
+        "src/platform/audio_service_settings.cpp"
         "src/platform/orientation_service.cpp"
 )
 
 set(PRINTDECK_BOARD_REQUIRES)
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     list(APPEND PRINTDECK_SRCS
+        "src/platform/audio_service_knomi2.cpp"
         "src/platform/board_knomi2.cpp"
         "src/platform/display_shell_lcd_1_54.cpp"
         "src/platform/power_service_knomi2.cpp"
@@ -71,6 +72,8 @@ if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     )
 elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
     list(APPEND PRINTDECK_SRCS
+        "src/platform/audio_service.cpp"
+        "src/core/audio_sample.cpp"
         "src/platform/board_lcd_1_54.cpp"
         "src/platform/display_shell_lcd_1_54.cpp"
         "src/platform/power_service_lcd_1_54.cpp"
@@ -85,7 +88,8 @@ elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
     )
 else()
     list(APPEND PRINTDECK_SRCS
-        "include/img/printdeck_boot_logo.c"
+        "src/platform/audio_service.cpp"
+        "src/core/audio_sample.cpp"
         "src/platform/board_amoled_1_75.cpp"
         "src/platform/rotating_panel.cpp"
         "src/platform/power_service.cpp"
@@ -96,28 +100,29 @@ else()
     )
 endif()
 
-set(PRINTDECK_VOICE_AUDIO_FILES)
-set(PRINTDECK_VOICE_LANGUAGES en pl es fr de zh_cn)
-set(PRINTDECK_VOICE_EVENTS
-    startup
-    print_started
-    progress_25
-    progress_50
-    progress_75
-    print_paused
-    print_finished
-    print_error
-    hms_alert
-    filament_attention
-    shutdown
-    restarting
-)
-foreach(language IN LISTS PRINTDECK_VOICE_LANGUAGES)
-    foreach(event IN LISTS PRINTDECK_VOICE_EVENTS)
-        list(APPEND PRINTDECK_VOICE_AUDIO_FILES
-            "audio/voice/voice_${language}_${event}.adpcm")
+# KNOMI2 has no speaker; keep audio settings but omit playback and its assets.
+set(PRINTDECK_COMPRESSED_AUDIO_FILES)
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+    set(PRINTDECK_COMPRESSED_AUDIO_ROOT "${CMAKE_CURRENT_LIST_DIR}/audio/compressed")
+    include("${PRINTDECK_COMPRESSED_AUDIO_ROOT}/manifest.cmake")
+    foreach(asset_name IN LISTS PRINTDECK_AUDIO_RESOURCE_NAMES)
+        set(source_variable "PRINTDECK_AUDIO_RESOURCE_${asset_name}_SOURCE")
+        set(source_hash_variable "PRINTDECK_AUDIO_RESOURCE_${asset_name}_SOURCE_SHA256")
+        set(gzip_variable "PRINTDECK_AUDIO_RESOURCE_${asset_name}_GZIP")
+        set(gzip_hash_variable "PRINTDECK_AUDIO_RESOURCE_${asset_name}_GZIP_SHA256")
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+            "${CMAKE_CURRENT_LIST_DIR}/${${source_variable}}"
+            "${PRINTDECK_COMPRESSED_AUDIO_ROOT}/${${gzip_variable}}")
+        file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/${${source_variable}}" source_hash)
+        file(SHA256 "${PRINTDECK_COMPRESSED_AUDIO_ROOT}/${${gzip_variable}}" gzip_hash)
+        if(NOT source_hash STREQUAL "${${source_hash_variable}}" OR
+           NOT gzip_hash STREQUAL "${${gzip_hash_variable}}")
+            message(FATAL_ERROR "Compressed audio resource ${asset_name} is stale.")
+        endif()
+        list(APPEND PRINTDECK_COMPRESSED_AUDIO_FILES "audio/compressed/${${gzip_variable}}")
     endforeach()
-endforeach()
+    list(REMOVE_DUPLICATES PRINTDECK_COMPRESSED_AUDIO_FILES)
+endif()
 
 set(PRINTDECK_COMPRESSED_WEB_ROOT "${CMAKE_CURRENT_LIST_DIR}/web/compressed")
 include("${PRINTDECK_COMPRESSED_WEB_ROOT}/manifest.cmake")
@@ -129,6 +134,9 @@ foreach(asset_name IN LISTS PRINTDECK_COMPRESSED_WEB_ASSET_NAMES)
     set(gzip_hash_variable "PRINTDECK_COMPRESSED_WEB_ASSET_${asset_name}_GZIP_SHA256")
     set(source_name "${${source_variable}}")
     set(gzip_name "${${gzip_variable}}")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_LIST_DIR}/web/${source_name}"
+        "${PRINTDECK_COMPRESSED_WEB_ROOT}/${gzip_name}")
     file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/web/${source_name}" source_hash)
     file(SHA256 "${PRINTDECK_COMPRESSED_WEB_ROOT}/${gzip_name}" gzip_hash)
     if(NOT source_hash STREQUAL "${${source_hash_variable}}" OR
@@ -142,60 +150,14 @@ endforeach()
 
 include("${CMAKE_CURRENT_LIST_DIR}/generated/reaction-catalog/reaction_previews.cmake")
 
+include("${CMAKE_CURRENT_LIST_DIR}/generated/compressed-device-assets/manifest.cmake")
+
 idf_component_register(
     SRCS ${PRINTDECK_SRCS}
     INCLUDE_DIRS "include"
     EMBED_FILES
-        "fonts/DejaVuSans-PrintDeck.ttf"
-        "fonts/NotoSansSC-PrintDeck.ttf"
-        "fonts/Unscii-PrintDeck.ttf"
-        "audio/kenney/modern_startup.adpcm"
-        "audio/kenney/modern_navigation.adpcm"
-        "audio/kenney/modern_orientation.adpcm"
-        "audio/kenney/modern_print_started.adpcm"
-        "audio/kenney/modern_print_paused.adpcm"
-        "audio/kenney/modern_print_finished.adpcm"
-        "audio/kenney/modern_print_error.adpcm"
-        "audio/kenney/modern_hms_alert.adpcm"
-        "audio/kenney/modern_filament_attention.adpcm"
-        "audio/kenney/modern_shutdown_countdown.adpcm"
-        "audio/kenney/modern_shutdown.adpcm"
-        "audio/kenney/modern_test.adpcm"
-        "audio/kenney/arcade/arcade_startup.adpcm"
-        "audio/kenney/arcade/arcade_navigation.adpcm"
-        "audio/kenney/arcade/arcade_orientation.adpcm"
-        "audio/kenney/arcade/arcade_print_started.adpcm"
-        "audio/kenney/arcade/arcade_progress_25.adpcm"
-        "audio/kenney/arcade/arcade_progress_50.adpcm"
-        "audio/kenney/arcade/arcade_progress_75.adpcm"
-        "audio/kenney/arcade/arcade_print_paused.adpcm"
-        "audio/kenney/arcade/arcade_print_finished.adpcm"
-        "audio/kenney/arcade/arcade_print_error.adpcm"
-        "audio/kenney/arcade/arcade_hms_alert.adpcm"
-        "audio/kenney/arcade/arcade_filament_attention.adpcm"
-        "audio/kenney/arcade/arcade_shutdown_countdown.adpcm"
-        "audio/kenney/arcade/arcade_shutdown.adpcm"
-        "audio/kenney/arcade/arcade_test.adpcm"
-        "audio/kenney/scifi/scifi_startup.adpcm"
-        "audio/kenney/scifi/scifi_navigation.adpcm"
-        "audio/kenney/scifi/scifi_orientation.adpcm"
-        "audio/kenney/scifi/scifi_print_started.adpcm"
-        "audio/kenney/scifi/scifi_progress_25.adpcm"
-        "audio/kenney/scifi/scifi_progress_50.adpcm"
-        "audio/kenney/scifi/scifi_progress_75.adpcm"
-        "audio/kenney/scifi/scifi_print_paused.adpcm"
-        "audio/kenney/scifi/scifi_print_finished.adpcm"
-        "audio/kenney/scifi/scifi_print_error.adpcm"
-        "audio/kenney/scifi/scifi_hms_alert.adpcm"
-        "audio/kenney/scifi/scifi_filament_attention.adpcm"
-        "audio/kenney/scifi/scifi_shutdown_countdown.adpcm"
-        "audio/kenney/scifi/scifi_shutdown.adpcm"
-        "audio/kenney/scifi/scifi_test.adpcm"
-        "audio/kenney/clean/clean_navigation.adpcm"
-        "audio/kenney/clean/clean_orientation.adpcm"
-        "audio/kenney/clean/clean_shutdown_countdown.adpcm"
-        "audio/kenney/clean/clean_test.adpcm"
-        ${PRINTDECK_VOICE_AUDIO_FILES}
+        ${PRINTDECK_COMPRESSED_DEVICE_FILES}
+        ${PRINTDECK_COMPRESSED_AUDIO_FILES}
         ${PRINTDECK_COMPRESSED_WEB_FILES}
         ${PRINTDECK_REACTION_PREVIEW_FILES}
     REQUIRES

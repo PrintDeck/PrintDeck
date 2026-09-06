@@ -37,7 +37,6 @@
 #include "printdeck/platform/web_assets.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/usb_developer_service.hpp"
-#include "img/printer_brand_logos_web.h"
 #include "libs/qrcode/qrcodegen.h"
 
 namespace printdeck::platform {
@@ -1677,7 +1676,7 @@ esp_err_t WebConfig::serve_device_info(httpd_req_t* request) const {
 }
 
 esp_err_t WebConfig::serve_brand_logos(httpd_req_t* request) const {
-  return send_json(request, "200 OK", assets::kPrinterBrandLogosWebJson);
+  return send_gzip_asset(request, web_brand_logos_json(), "application/json; charset=utf-8");
 }
 
 esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {

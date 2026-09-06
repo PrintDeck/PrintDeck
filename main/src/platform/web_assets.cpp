@@ -14,6 +14,8 @@ extern const std::uint8_t web_world_map_svg_start[] asm("_binary_world_map_svg_g
 extern const std::uint8_t web_world_map_svg_end[] asm("_binary_world_map_svg_gz_end");
 extern const std::uint8_t web_reactions_js_start[] asm("_binary_reactions_bundle_js_gz_start");
 extern const std::uint8_t web_reactions_js_end[] asm("_binary_reactions_bundle_js_gz_end");
+extern const std::uint8_t web_brand_logos_start[] asm("_binary_brand_logos_json_gz_start");
+extern const std::uint8_t web_brand_logos_end[] asm("_binary_brand_logos_json_gz_end");
 #define PRINTDECK_REACTION_PREVIEW(symbol, id)                                      \
   extern const std::uint8_t symbol##_preview_start[] asm("_binary_" #symbol       \
                                                           "_webp_start");          \
@@ -58,6 +60,10 @@ std::string_view world_map_svg() {
 
 std::string_view reactions_script() {
   return embedded_binary(web_reactions_js_start, web_reactions_js_end);
+}
+
+std::string_view web_brand_logos_json() {
+  return embedded_binary(web_brand_logos_start, web_brand_logos_end);
 }
 
 std::string_view reaction_set_preview(std::string_view id) {

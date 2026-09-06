@@ -36,8 +36,12 @@ not sourced from Kenney and are not covered by the CC0 statement above.
 The resulting signed 16-bit PCM is stored as 4-bit IMA ADPCM in PrintDeck's
 small `PDIA` container. Its 12-byte little-endian header contains the magic,
 decoded sample count, initial predictor, initial step index and one reserved
-byte. Firmware validates the header and decodes directly from flash into its
-existing 320-sample output buffer; it never loads a complete effect into RAM.
-Every converted asset receives a round-trip verification before it is committed.
+byte. Audio-capable targets store these resources losslessly compressed with
+gzip. Firmware decompresses one bounded PDIA resource into PSRAM, validates its
+integrity and header, and decodes into its existing 320-sample output buffer.
+The complete PCM effect is never buffered. Identical Sci-Fi countdown and sound
+test recordings share one stored resource. Every compressed resource receives
+a byte-exact round-trip verification. KNOMI2 has no audio output and does not
+embed the audio resources or playback implementation.
 No network fetch runs on the device. Soft and Oldschool remain deterministic
 synthesized presets and do not embed third-party samples.
