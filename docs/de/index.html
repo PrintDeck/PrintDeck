@@ -11,9 +11,9 @@
 
     <title>PrintDeck · Firmware für dein 3D-Drucker-Display</title>
     <link rel="stylesheet" href="/assets/vendor/plyr/plyr.css?v=3.8.4">
-    <link rel="stylesheet" href="/assets/site.css?v=20260905-1">
+    <link rel="stylesheet" href="/assets/site.css?v=20260905-13">
     <script src="/assets/vendor/plyr/plyr.min.js?v=3.8.4" defer=""></script>
-    <script>window.printDeckInstallerI18n={language:"de",t:(source,values={})=>{let result=({"Play":"Abspielen","Pause":"Pause","Seek":"Spulen","{currentTime} of {duration}":"{currentTime} von {duration}","Played":"Abgespielt","Buffered":"Gepuffert","Current time":"Aktuelle Zeit","Volume":"Lautstärke","Mute":"Stummschalten","Unmute":"Ton einschalten","Enter fullscreen":"Vollbild aktivieren","Exit fullscreen":"Vollbild beenden"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260904-1"></script>
+    <script>window.printDeckInstallerI18n={language:"de",t:(source,values={})=>{let result=({"Play":"Abspielen","Pause":"Pause","Seek":"Spulen","{currentTime} of {duration}":"{currentTime} von {duration}","Played":"Abgespielt","Buffered":"Gepuffert","Current time":"Aktuelle Zeit","Volume":"Lautstärke","Mute":"Stummschalten","Unmute":"Ton einschalten","Enter fullscreen":"Vollbild aktivieren","Exit fullscreen":"Vollbild beenden","Automatic appearance":"Automatische Darstellung"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-5"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
@@ -45,7 +45,7 @@
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PrintDeck · Firmware für dein 3D-Drucker-Display","description":"Die PrintDeck-Firmware macht ein kompatibles ESP32-Display zu einem eigenen lokalen Begleiter für deinen 3D-Drucker. Sie verbindet sich direkt mit Klipper und unterstützten Bambu-Lab-Druckern – ganz ohne Cloud-Konto.","url":"https://printdeck.xyz/de/","inLanguage":"de"}</script>
   </head>
-  <body class="site-page home-page" data-page-title="PrintDeck · Firmware für dein 3D-Drucker-Display">
+  <body class="site-page home-page home-page-v2" data-page-title="PrintDeck · Firmware für dein 3D-Drucker-Display">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/de/" aria-label="Startseite">
@@ -65,7 +65,30 @@
     </header>
 
     <main class="home-content">
-      <section class="home-hero home-dark-band">
+      <section class="home-hero home-dark-band" data-workshop-hero=""><div class="home-workshop-screen-stage" data-workshop-screen-stage="" aria-hidden="true">
+          <div class="home-workshop-live-screen home-workshop-live-screen-head">
+            <img src="/assets/marketing/knomi2/blue-eye.gif" alt="">
+          </div>
+          <div class="home-workshop-live-screen home-workshop-live-screen-cube">
+            <div class="home-workshop-screen-carousel" data-screen-carousel="" data-screen-carousel-delay="0">
+              <div class="home-workshop-screen-track" data-screen-carousel-track="">
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/filament-loading-green.gif" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/printing-violet.gif" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/filament-changing-cyan.gif" alt=""></span>
+              </div>
+            </div>
+          </div>
+          <div class="home-workshop-live-screen home-workshop-live-screen-round">
+            <div class="home-workshop-screen-carousel" data-screen-carousel="" data-screen-carousel-delay="1500">
+              <div class="home-workshop-screen-track" data-screen-carousel-track="">
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/status-screen-cutout.webp" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/status-screen-nozzles.webp" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/screens/local-camera-round.png" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/status-screen-printing.webp" alt=""></span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="home-inner home-hero-grid">
           <div class="home-hero-copy">
             <span class="home-eyebrow">UNABHÄNGIGE FIRMWARE FÜR 3D-DRUCKER-DISPLAYS</span>
@@ -75,6 +98,10 @@
             <div class="site-actions">
               <a class="site-button secondary" href="#at-a-glance">So funktioniert es</a>
               <a class="site-button" href="/de/firmware/">Firmware installieren</a>
+            </div><div class="home-hero-benefits" aria-label="Praktische PrintDeck-Highlights">
+              <span><img src="/assets/marketing/home/icons/ico_ekrany.svg" alt="" aria-hidden="true">2 Displayformate</span>
+              <span><img src="/assets/marketing/home/icons/ico_narzedzia.svg" alt="" aria-hidden="true">12 Werkzeuge mit Moonraker</span>
+              <span><img src="/assets/marketing/home/icons/ico_Lokalnie.svg" alt="" aria-hidden="true">Direkte lokale Druckerverbindungen</span>
             </div>
           </div>
           <figure class="home-hero-product" aria-label="The Riverstone" data-hero-product="">
@@ -99,12 +126,18 @@
       <div class="home-compatibility" aria-label="Unterstützte PrintDeck-Plattformen">
         <span>Klipper · Moonraker</span>
         <span>Bambu Lab · Lokales Netzwerk</span>
+        <span>Prusa · Experimentell · KNOMI2</span>
         <span>Für mehrere Werkzeuge bereit</span>
         <span>Kein Cloud-Konto</span>
       </div>
 
       <section class="home-section home-glance" id="at-a-glance">
         <div class="home-inner">
+          <figure class="home-section-video home-glance-video">
+            <video data-home-video="riverstone" data-video-label="The Riverstone startet" controls="" playsinline="" preload="none" width="1920" height="1080" controlslist="nodownload" aria-label="The Riverstone startet">
+              <source src="/assets/marketing/home/riverstone-powering.mp4" type="video/mp4">
+            </video>
+          </figure>
           <header class="home-section-head">
             <span class="home-kicker">ALLES AUF EINEN BLICK</span>
             <h2>Das Wichtigste.<br><strong>Immer im Blick.</strong></h2>
@@ -124,7 +157,15 @@
               <p>Bei Moonraker-Druckern erkennt PrintDeck bis zu zwölf Extruder und zeigt Temperaturen, Materialien und Farben übersichtlich an.</p>
             </article>
             <article class="home-feature-card">
-              <div class="home-screen-frame"><img src="/assets/marketing/home/status-screen-printing.webp" alt="PrintDeck-Druckeranimation"></div>
+              <div class="home-screen-frame home-reaction-screen" role="img" aria-label="PrintDeck-Druckeranimation">
+                <span class="home-reaction-screen-viewport" aria-hidden="true"><img src="/assets/marketing/home/reaction-cute-printhead.gif" alt=""></span>
+                <svg class="home-reaction-screen-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="home-reaction-screen-ring-outline" cx="50" cy="50" r="47"></circle>
+                  <path class="home-reaction-screen-ring-muted" d="M 50 97 A 47 47 0 0 1 37.04 4.82"></path>
+                  <path class="home-reaction-screen-ring-active" d="M 62.96 4.82 A 47 47 0 0 1 50 97"></path>
+                </svg>
+                <span class="home-reaction-screen-progress" aria-hidden="true">42%</span>
+              </div>
               <span class="home-card-index">03</span>
               <h3>Druckerstatus sofort erkennbar</h3>
               <p>Animationen machen Aufheizen, Drucken, Pausieren und Abschluss sofort erkennbar.</p>
@@ -136,7 +177,15 @@
               <p>Eine eigene Animation zeigt, wenn Filament geladen oder gewechselt wird.</p>
             </article>
             <article class="home-feature-card">
-              <div class="home-screen-frame"><img src="/assets/marketing/home/printing-violet.gif" alt="PrintDeck-Druckeranimation"></div>
+              <div class="home-screen-frame home-reaction-screen" role="img" aria-label="PrintDeck-Druckeranimation">
+                <span class="home-reaction-screen-viewport" aria-hidden="true"><img src="/assets/marketing/home/nozzle-heating-cartoon.gif" alt=""></span>
+                <svg class="home-reaction-screen-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="home-reaction-screen-ring-outline" cx="50" cy="50" r="47"></circle>
+                  <path class="home-reaction-screen-ring-muted" d="M 50 97 A 47 47 0 0 1 37.04 4.82"></path>
+                  <path class="home-reaction-screen-ring-active" d="M 62.96 4.82 A 47 47 0 0 1 50 97"></path>
+                </svg>
+                <span class="home-reaction-screen-progress" aria-hidden="true">42%</span>
+              </div>
               <span class="home-card-index">05</span>
               <h3>Mach es zu deinem</h3>
               <p>Wähle ein Animationsdesign passend zu deinem Drucker, Arbeitsplatz oder deinen Lieblingsfarben.</p>
@@ -239,11 +288,6 @@
               <div><strong>LOKAL</strong><h3>direkte Druckerverbindungen</h3><p>Direkte Verbindungen in deinem lokalen Netzwerk.</p></div>
             </article>
           </div>
-          <figure class="home-section-video home-engineering-video">
-            <video data-home-video="riverstone" data-video-label="The Riverstone startet" controls="" playsinline="" preload="none" width="1920" height="1080" controlslist="nodownload" aria-label="The Riverstone startet">
-              <source src="/assets/marketing/home/riverstone-powering.mp4" type="video/mp4">
-            </video>
-          </figure>
         </div>
       </section>
 
@@ -288,7 +332,7 @@
                   <strong>Prusa</strong>
                   <span class="home-unified-printer-art home-unified-printer-art-prusa" aria-hidden="true"></span>
                   <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><g fill="#a27bca"><rect x="2" y="10" width="9" height="9" rx="1.5"></rect><rect x="20" y="10" width="9" height="9" rx="1.5"></rect><rect x="38" y="10" width="6" height="9" rx="1.5"></rect><rect x="51" y="10" width="9" height="9" rx="1.5"></rect><rect x="67" y="10" width="6" height="9" rx="1.5"></rect><rect x="84" y="10" width="12" height="9" rx="1.5"></rect></g></svg>
-                  <small>Andere Namen</small>
+                  <small>Experimentell · KNOMI2</small>
                 </article>
                 <article class="home-unified-source">
                   <strong>Snapmaker</strong>

@@ -1,4 +1,7 @@
 #include "printdeck/platform/inactive_printer_poller.hpp"
+#include "printdeck/platform/prusalink_service.hpp"
+#include "printdeck/platform/elegoo_sdcp_service.hpp"
+#include "printdeck/platform/elegoo_cc2_service.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -192,7 +195,7 @@ esp_err_t InactivePrinterPoller::start(const core::DeviceSettings& settings,
   if (task_ != nullptr) return ESP_ERR_INVALID_STATE;
   network_ = &network;
   configure(settings);
-  if (xTaskCreatePinnedToCoreWithCaps(task_entry, "inactive_printers", 8192, this, 2,
+  if (xTaskCreatePinnedToCoreWithCaps(task_entry, "inactive_printers", 49152, this, 2,
                                       &task_, kServiceCore,
                                       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
     task_ = nullptr;
@@ -432,6 +435,61 @@ InactivePrinterStatus InactivePrinterPoller::probe(
   InactivePrinterStatus summary;
   summary.profile_id = profile.id;
   summary.available = true;
+  if (profile.protocol == core::PrinterProtocol::elegoo_sdcp ||
+      profile.protocol == core::PrinterProtocol::elegoo_cc2) {
+    const auto cancelled = [&] {
+      if (!network_ || !network_->status().station_connected) return true;
+      const std::lock_guard<std::mutex> lock(mutex_);
+      return active_profile_ == profile.id || interval_s_ == 0 ||
+          std::none_of(profiles_.begin(), profiles_.end(),
+              [&](const auto& value) { return core::same_printer_connection(value, profile); });
+    };
+    const auto deadline = static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + 8000;
+    const auto result = profile.protocol == core::PrinterProtocol::elegoo_sdcp
+        ? elegoo_sdcp_probe(profile, deadline, cancelled)
+        : elegoo_cc2_probe(profile, deadline, cancelled);
+    if (cancelled()) { summary.available = false; return summary; }
+    if (result.snapshot && result.snapshot->link == core::LinkState::online) {
+      const auto& job = result.snapshot->job;
+      summary.connected = true;
+      summary.job_name = job.name;
+      summary.phase = job.phase;
+      summary.kind = job.kind;
+      summary.condition = job.condition;
+      summary.remaining_seconds = job.remaining_seconds;
+      summary.remaining_known = job.remaining_known;
+    } else if (result.error == ElegooError::capacity || result.error == ElegooError::service_not_ready) {
+      summary.available = false;
+    }
+    return summary;
+  }
+  if (profile.protocol == core::PrinterProtocol::prusalink) {
+    const auto cancelled = [&] {
+      if (network_ == nullptr || !network_->status().station_connected) return true;
+      const std::lock_guard<std::mutex> lock(mutex_);
+      const auto found = std::find_if(profiles_.begin(), profiles_.end(),
+          [&](const auto& value) { return core::same_printer_connection(value, profile); });
+      return active_profile_ == profile.id || interval_s_ == 0 || found == profiles_.end();
+    };
+    const auto result = prusalink_probe(profile, prusalink_now_ms() + 5000, cancelled);
+    // One resource observation per boot, never an endpoint or credential.
+    static bool reported_prusa_stack = false;
+    if (result.sample && !reported_prusa_stack) {
+      ESP_LOGI(kTag, "Prusa status probe stack high-water=%u",
+               static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+      reported_prusa_stack = true;
+    }
+    if (result.sample && !cancelled()) {
+      const auto& job = result.sample->snapshot.job;
+      summary.connected = true;
+      summary.phase = job.phase;
+      summary.kind = job.kind;
+      summary.condition = job.condition;
+      summary.remaining_seconds = job.remaining_seconds;
+      summary.remaining_known = job.remaining_known;
+    }
+    return summary;
+  }
   if (profile.protocol == core::PrinterProtocol::bambu_lan) {
     BambuProbeContext context;
     context.owner = xTaskGetCurrentTaskHandle();
@@ -521,10 +579,13 @@ InactivePrinterStatus InactivePrinterPoller::probe(
     }
     summary.remaining_seconds = static_cast<std::uint32_t>(std::max(
         0.0, number_member(print, "mc_remaining_time") * 60.0));
+    summary.remaining_known = cJSON_IsNumber(member(print, "mc_remaining_time"));
     return summary;
   }
 
+  if (profile.protocol != core::PrinterProtocol::moonraker) return summary;
   ResponseBuffer response;
+  if (profile.protocol != core::PrinterProtocol::moonraker) return summary;
   const std::string url = base_url(profile.endpoint) +
       "/printer/objects/query?webhooks&virtual_sdcard&print_stats&display_status";
   esp_http_client_config_t config{};
@@ -565,6 +626,7 @@ InactivePrinterStatus InactivePrinterPoller::probe(
       0.0, 1.0);
   const double elapsed = std::max(0.0, number_member(stats, "print_duration"));
   if (progress > 0.001 && progress < 1.0 && elapsed > 0.0) {
+    summary.remaining_known = true;
     summary.remaining_seconds = static_cast<std::uint32_t>(
         std::max(0.0, elapsed / progress - elapsed));
   }

@@ -19,6 +19,8 @@
 #include "printdeck/platform/power_service.hpp"
 #include "printdeck/platform/settings_store.hpp"
 #include "printdeck/platform/moonraker_connection_probe.hpp"
+#include "printdeck/platform/prusalink_service.hpp"
+#include "printdeck/platform/elegoo_connection_probe.hpp"
 #include "printdeck/platform/printer_discovery_service.hpp"
 #include "printdeck/platform/firmware_update_service.hpp"
 #include "printdeck/platform/bambu_compatibility_probe.hpp"
@@ -45,6 +47,8 @@ class WebConfig {
 
   esp_err_t start(const core::DeviceSettings& settings, const SettingsStore& store,
                   NetworkService& network, MoonrakerConnectionProbe& moonraker_probe,
+                  PrusaLinkConnectionProbe& prusalink_probe,
+                  ElegooConnectionProbe& elegoo_probe,
                   PrinterDiscoveryService& printer_discovery,
                   FirmwareUpdateService& firmware_update,
                   ReactionAssetService& reaction_assets,
@@ -123,6 +127,18 @@ class WebConfig {
   static esp_err_t reactions_upload_entry(httpd_req_t* request);
   static esp_err_t reactions_gif_entry(httpd_req_t* request);
   static esp_err_t moonraker_check_start_entry(httpd_req_t* request);
+  static esp_err_t prusalink_check_start_entry(httpd_req_t* request);
+  static esp_err_t prusalink_check_status_entry(httpd_req_t* request);
+  static esp_err_t prusalink_check_cancel_entry(httpd_req_t* request);
+  esp_err_t start_prusalink_check(httpd_req_t* request);
+  esp_err_t serve_prusalink_check_status(httpd_req_t* request) const;
+  bool read_prusalink_credentials(const std::string& body, core::PrinterProfile& profile) const;
+  static esp_err_t elegoo_check_start_entry(httpd_req_t* request);
+  static esp_err_t elegoo_check_status_entry(httpd_req_t* request);
+  static esp_err_t elegoo_check_cancel_entry(httpd_req_t* request);
+  esp_err_t start_elegoo_check(httpd_req_t* request);
+  esp_err_t serve_elegoo_check_status(httpd_req_t* request) const;
+  bool read_elegoo_credentials(const std::string& body, core::PrinterProfile& profile) const;
   static esp_err_t moonraker_check_status_entry(httpd_req_t* request);
   static esp_err_t compatibility_start_entry(httpd_req_t* request);
   static esp_err_t compatibility_status_entry(httpd_req_t* request);
@@ -208,6 +224,8 @@ class WebConfig {
   const SettingsStore* store_ = nullptr;
   NetworkService* network_ = nullptr;
   MoonrakerConnectionProbe* moonraker_probe_ = nullptr;
+  PrusaLinkConnectionProbe* prusalink_probe_ = nullptr;
+  ElegooConnectionProbe* elegoo_probe_ = nullptr;
   PrinterDiscoveryService* printer_discovery_ = nullptr;
   FirmwareUpdateService* firmware_update_ = nullptr;
   ReactionAssetService* reaction_assets_ = nullptr;

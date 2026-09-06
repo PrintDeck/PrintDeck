@@ -224,7 +224,7 @@ void Runtime::start() {
   web_config_.set_printer_controls_callbacks(
       printer_controls_activity_entry, printer_light_entry, this);
   const esp_err_t web_result =
-      web_config_.start(settings_, settings_store_, network_, moonraker_probe_, printer_discovery_,
+      web_config_.start(settings_, settings_store_, network_, moonraker_probe_, prusalink_probe_, elegoo_probe_, printer_discovery_,
                         firmware_update_, reaction_assets_,
                         bambu_compatibility_, inactive_printer_poller_, display_);
   if (web_result != ESP_OK) {
@@ -337,6 +337,32 @@ bool Runtime::ensure_moonraker_started(const core::PrinterProfile* selected) {
   }
   if (!was_running) ESP_LOGI(kLogTag, "Moonraker adapter started on demand");
   return true;
+}
+
+bool Runtime::ensure_prusalink_started(const core::PrinterProfile* selected) {
+  return prusalink_.start(selected, network_) == ESP_OK;
+}
+
+bool Runtime::ensure_selected_adapter_started(const core::PrinterProfile* selected) {
+  if (!selected) return false;
+  using Protocol = core::PrinterProtocol;
+  const std::pair<Protocol, bool> adapters[] = {
+      {Protocol::moonraker, moonraker_.running()},
+      {Protocol::bambu_lan, bambu_lan_.running()},
+      {Protocol::prusalink, prusalink_.running()},
+      {Protocol::elegoo_sdcp, elegoo_sdcp_.running()},
+      {Protocol::elegoo_cc2, elegoo_cc2_.running()},
+  };
+  for (const auto& [protocol, running] : adapters)
+    if (running && protocol != selected->protocol) return false;
+  switch (selected->protocol) {
+    case Protocol::moonraker: return ensure_moonraker_started(selected);
+    case Protocol::bambu_lan: return ensure_bambu_lan_started(selected);
+    case Protocol::prusalink: return ensure_prusalink_started(selected);
+    case Protocol::elegoo_sdcp: return elegoo_sdcp_.start(selected, network_) == ESP_OK;
+    case Protocol::elegoo_cc2: return elegoo_cc2_.start(selected, network_) == ESP_OK;
+    default: return false;
+  }
 }
 
 bool Runtime::ensure_bambu_lan_started(const core::PrinterProfile* selected) {
@@ -481,6 +507,19 @@ bool Runtime::selected_printer_snapshot_entry(
   auto* runtime = static_cast<Runtime*>(context);
   if (runtime == nullptr) return false;
   const int protocol = runtime->selected_printer_protocol_.load(std::memory_order_acquire);
+  if (protocol == static_cast<int>(core::PrinterProtocol::elegoo_sdcp) && runtime->elegoo_sdcp_.running()) {
+    runtime->elegoo_sdcp_.snapshot_into(destination);
+    return destination.profile_id != 0;
+  }
+  if (protocol == static_cast<int>(core::PrinterProtocol::elegoo_cc2) && runtime->elegoo_cc2_.running()) {
+    runtime->elegoo_cc2_.snapshot_into(destination);
+    return destination.profile_id != 0;
+  }
+  if (protocol == static_cast<int>(core::PrinterProtocol::prusalink) &&
+      runtime->prusalink_.running()) {
+    runtime->prusalink_.snapshot_into(destination);
+    return destination.profile_id != 0;
+  }
   if (protocol == static_cast<int>(core::PrinterProtocol::moonraker) &&
       runtime->moonraker_.running()) {
     runtime->moonraker_.snapshot_into(destination);
@@ -533,6 +572,8 @@ bool Runtime::background_update_blocked() const {
     return true;
   }
   if (moonraker_probe_.snapshot().running) return true;
+  if (prusalink_probe_.snapshot().running) return true;
+  if (elegoo_probe_.snapshot().running) return true;
   const BambuCompatibilityState compatibility = bambu_compatibility_.snapshot().state;
   return compatibility == BambuCompatibilityState::kConnecting ||
          compatibility == BambuCompatibilityState::kCollecting ||
@@ -929,6 +970,9 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   }
   inactive_printer_poller_.configure(settings);
   if (printer_configuration_changed) {
+    prusalink_.configure(selected);
+    elegoo_sdcp_.configure(selected);
+    elegoo_cc2_.configure(selected);
     moonraker_.configure(selected);
     moonraker_camera_.configure(selected);
     bambu_lan_.configure(selected);
@@ -1005,6 +1049,9 @@ bool Runtime::clear_unavailable_selection(std::uint32_t profile_id) {
   selected_printer_protocol_.store(-1, std::memory_order_release);
   web_config_.synchronize_settings(settings_);
   moonraker_.configure(nullptr);
+  prusalink_.configure(nullptr);
+  elegoo_sdcp_.configure(nullptr);
+  elegoo_cc2_.configure(nullptr);
   moonraker_camera_.configure(nullptr);
   bambu_lan_.configure(nullptr);
   inactive_printer_poller_.configure(settings_);
@@ -1275,6 +1322,8 @@ void Runtime::monitor_loop() {
         selected->protocol == core::PrinterProtocol::bambu_lan;
     const bool selected_is_moonraker = selected != nullptr &&
         selected->protocol == core::PrinterProtocol::moonraker;
+    const bool selected_is_prusalink = selected != nullptr &&
+        selected->protocol == core::PrinterProtocol::prusalink;
     const std::uint64_t connection_now_ms =
         static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
     const bool unified_api_connection_active = settings_.unified_api_enabled &&
@@ -1285,6 +1334,11 @@ void Runtime::monitor_loop() {
          connection_now_ms < printer_controls_active_until_ms_.load(std::memory_order_acquire));
     const bool want_bambu_connection = full_connection_active && selected_is_bambu;
     const bool want_moonraker_connection = full_connection_active && selected_is_moonraker;
+    const bool want_prusalink_connection = full_connection_active && selected_is_prusalink;
+    const bool want_elegoo_sdcp_connection = full_connection_active &&
+        selected->protocol == core::PrinterProtocol::elegoo_sdcp;
+    const bool want_elegoo_cc2_connection = full_connection_active &&
+        selected->protocol == core::PrinterProtocol::elegoo_cc2;
     const bool camera_page_visible = display_.camera_page_active() && screen_visible;
     const bool bambu_print_active = selected_is_bambu &&
         active_phase(bambu_lan_.snapshot().job.phase);
@@ -1311,6 +1365,9 @@ void Runtime::monitor_loop() {
     if (moonraker_connection_requested_ && !want_moonraker_connection) {
       moonraker_.stop();
     }
+    if (prusalink_connection_requested_ && !want_prusalink_connection) prusalink_.stop();
+    if (elegoo_sdcp_connection_requested_ && !want_elegoo_sdcp_connection) elegoo_sdcp_.stop();
+    if (elegoo_cc2_connection_requested_ && !want_elegoo_cc2_connection) elegoo_cc2_.stop();
     if (bambu_connection_requested_ && !want_bambu_connection) {
       bambu_lan_.stop();
     }
@@ -1323,6 +1380,9 @@ void Runtime::monitor_loop() {
     }
 
     moonraker_connection_requested_ = want_moonraker_connection;
+    prusalink_connection_requested_ = want_prusalink_connection;
+    elegoo_sdcp_connection_requested_ = want_elegoo_sdcp_connection;
+    elegoo_cc2_connection_requested_ = want_elegoo_cc2_connection;
     bambu_connection_requested_ = want_bambu_connection;
     moonraker_camera_requested_ = want_moonraker_camera;
     bambu_preview_requested_ = want_bambu_preview;
@@ -1334,12 +1394,7 @@ void Runtime::monitor_loop() {
             ? selected->id
             : pending_profile);
 
-    bool full_adapter_ready = false;
-    if (want_bambu_connection && !moonraker_.running()) {
-      full_adapter_ready = ensure_bambu_lan_started(selected);
-    } else if (want_moonraker_connection && !bambu_lan_.running()) {
-      full_adapter_ready = ensure_moonraker_started(selected);
-    }
+    const bool full_adapter_ready = full_connection_active && ensure_selected_adapter_started(selected);
     if (want_bambu_preview && full_adapter_ready) ensure_bambu_preview_started();
     const bool bambu_camera_ready = !want_bambu_camera ||
         (full_adapter_ready && ensure_bambu_camera_started());
@@ -1373,6 +1428,8 @@ void Runtime::monitor_loop() {
       snapshot.job.kind = status->kind;
       snapshot.job.name = status->job_name;
       snapshot.job.remaining_seconds = status->remaining_seconds;
+      snapshot.job.remaining_known = status->remaining_known;
+      snapshot.job.condition = status->condition;
       snapshot.updated_at_ms = status->updated_at_ms;
       return snapshot;
     };
@@ -1385,6 +1442,12 @@ void Runtime::monitor_loop() {
       }
       if (selected != nullptr && want_bambu_connection && full_adapter_ready) {
         selected_snapshot = update_bambu_snapshot();
+      } else if (selected != nullptr && want_prusalink_connection && full_adapter_ready) {
+        selected_snapshot = prusalink_.snapshot();
+      } else if (want_elegoo_sdcp_connection && full_adapter_ready) {
+        elegoo_sdcp_.snapshot_into(selected_snapshot);
+      } else if (want_elegoo_cc2_connection && full_adapter_ready) {
+        elegoo_cc2_.snapshot_into(selected_snapshot);
       } else if (selected != nullptr && want_moonraker_connection && full_adapter_ready) {
         selected_snapshot = moonraker_.snapshot();
         const MoonrakerCameraSnapshot camera = moonraker_camera_.snapshot();
@@ -1417,22 +1480,23 @@ void Runtime::monitor_loop() {
         }
       }
       if (selected != nullptr && full_connection_active &&
-          selected_snapshot.link != core::LinkState::online) {
+          selected_snapshot.link == core::LinkState::connecting) {
         // My Printers already owns a recent, bounded status probe. Reuse its
         // confirmed job state while the full protocol adapter reconnects so
         // the first reactions frame does not imply that the printer failed.
+        // A confirmed failure or unavailable network must keep unknown state.
         const core::PrinterSnapshot last_known = lightweight_snapshot(*selected);
         core::retain_last_known_job_during_reconnect(selected_snapshot, last_known);
       }
       if (selected != nullptr && selected_is_bambu && full_connection_active &&
-          selected_snapshot.link != core::LinkState::online &&
+          selected_snapshot.link == core::LinkState::connecting &&
           display_phase_primed_) {
         // Returning from the dashboard intentionally unloads the full Bambu
         // MQTT connection. When the user immediately re-enters, retain the
         // last rendered job state during the short reconnect instead of
         // flashing the unknown/unavailable reaction. The real link state is
-        // left untouched, so an actual connection failure still follows the
-        // normal grace and selection-clear path.
+        // left untouched. Confirmed failures must show unavailable, not revive
+        // this cached phase during the normal grace and selection-clear path.
         if (selected_snapshot.job.phase == core::JobPhase::unknown) {
           selected_snapshot.job.phase = last_display_phase_;
         }
@@ -1453,7 +1517,7 @@ void Runtime::monitor_loop() {
           selected_snapshot.job.chamber_light_supported) {
         const bool enabled = (light_command & 1U) != 0;
         const bool accepted = selected_is_bambu ? bambu_lan_.request_chamber_light(enabled)
-                                               : moonraker_.request_chamber_light(enabled);
+            : selected_is_moonraker && moonraker_.request_chamber_light(enabled);
         if (accepted) {
           web_printer_light_profile_ = light_profile;
           web_printer_light_target_ = enabled;

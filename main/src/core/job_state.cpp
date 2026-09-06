@@ -43,6 +43,16 @@ bool is_emoji_codepoint(std::uint32_t codepoint) {
 }  // namespace
 
 void JobState::normalize() {
+  completion_known = completion_known && std::isfinite(completion) &&
+                     completion >= 0 && completion <= 100;
+  temperatures.nozzle_known &= std::isfinite(temperatures.nozzle_c);
+  temperatures.nozzle_target_known &= std::isfinite(temperatures.nozzle_target_c);
+  temperatures.bed_known &= std::isfinite(temperatures.bed_c);
+  temperatures.bed_target_known &= std::isfinite(temperatures.bed_target_c);
+  temperatures.chamber_known &= std::isfinite(temperatures.chamber_c);
+  motion.x_known &= std::isfinite(motion.x_mm);
+  motion.y_known &= std::isfinite(motion.y_mm);
+  motion.z_known &= std::isfinite(motion.z_mm);
   completion = std::clamp(finite_or_zero(completion), 0.0F, 100.0F);
   temperatures.nozzle_c = finite_or_zero(temperatures.nozzle_c);
   temperatures.nozzle_target_c = finite_or_zero(temperatures.nozzle_target_c);
@@ -61,6 +71,8 @@ void JobState::normalize() {
   toolhead_count = std::min<std::uint8_t>(toolhead_count, kMaximumToolheads);
   if (active_toolhead < 0 || active_toolhead >= toolhead_count) active_toolhead = -1;
   for (auto& toolhead : toolheads) {
+    toolhead.temperature_known &= std::isfinite(toolhead.temperature_c);
+    toolhead.target_known &= std::isfinite(toolhead.target_c);
     toolhead.temperature_c = finite_or_zero(toolhead.temperature_c);
     toolhead.target_c = finite_or_zero(toolhead.target_c);
     toolhead.heater_power = std::clamp(finite_or_zero(toolhead.heater_power), 0.0F, 1.0F);
@@ -84,11 +96,35 @@ void JobState::normalize() {
   }
 
   if (phase == JobPhase::idle) {
-    kind = JobKind::print;
-    activity = PrinterActivity::unknown;
+    // No print job can coexist with a real, explicitly reported maintenance
+    // operation. Preserve only that bounded activity set, never stale job state.
+    bool maintenance = false;
+    if (condition == PrinterCondition::busy) {
+      switch (activity) {
+        case PrinterActivity::nozzle_heating:
+        case PrinterActivity::bed_heating:
+        case PrinterActivity::homing:
+        case PrinterActivity::bed_leveling:
+        case PrinterActivity::nozzle_cleaning:
+        case PrinterActivity::calibrating:
+        case PrinterActivity::filament_changing:
+        case PrinterActivity::filament_unloading:
+        case PrinterActivity::filament_loading:
+        case PrinterActivity::filament_purging: maintenance = true; break;
+        default: break;
+      }
+    }
+    if (!maintenance || (activity != PrinterActivity::bed_leveling &&
+                         activity != PrinterActivity::calibrating)) {
+      kind = JobKind::print;
+    }
+    if (!maintenance) activity = PrinterActivity::unknown;
     completion = 0.0F;
     elapsed_seconds = 0;
     remaining_seconds = 0;
+    completion_known = false;
+    elapsed_known = false;
+    remaining_known = false;
     current_layer = 0;
     total_layers = 0;
   }
@@ -109,6 +145,12 @@ const char* phase_label(JobPhase phase) {
 }
 
 const char* job_status_label(const JobState& job) {
+  switch (job.condition) {
+    case PrinterCondition::attention: return "Needs attention";
+    case PrinterCondition::error: return "Printer error";
+    case PrinterCondition::busy: return "Printer busy";
+    default: break;
+  }
   const bool active = job.phase == JobPhase::preparing ||
                       job.phase == JobPhase::printing;
   return active && job.kind == JobKind::calibration ? "Calibration"
@@ -152,10 +194,12 @@ PrinterActivity effective_printer_activity(const JobState& job) {
   switch (job.phase) {
     case JobPhase::idle: return PrinterActivity::standby;
     case JobPhase::preparing:
-      if (job.temperatures.bed_target_c > job.temperatures.bed_c + 2.0F) {
+      if (job.temperatures.bed_known && job.temperatures.bed_target_known &&
+          job.temperatures.bed_target_c > job.temperatures.bed_c + 2.0F) {
         return PrinterActivity::bed_heating;
       }
-      if (job.temperatures.nozzle_target_c > job.temperatures.nozzle_c + 2.0F) {
+      if (job.temperatures.nozzle_known && job.temperatures.nozzle_target_known &&
+          job.temperatures.nozzle_target_c > job.temperatures.nozzle_c + 2.0F) {
         return PrinterActivity::nozzle_heating;
       }
       return job.kind == JobKind::calibration ? PrinterActivity::calibrating

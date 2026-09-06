@@ -15,6 +15,8 @@ enum class PrinterCapability : std::uint32_t {
   local_camera = 1U << 4U,
   chamber_light = 1U << 5U,
   compatibility_report = 1U << 6U,
+  http_endpoint = 1U << 7U,
+  http_digest = 1U << 8U,
 };
 
 struct PrinterDriverDescriptor {
@@ -24,9 +26,11 @@ struct PrinterDriverDescriptor {
   const char* default_manufacturer;
   const char* default_brand;
   std::uint32_t capabilities;
+  bool experimental = false;
 };
 
 const PrinterDriverDescriptor& printer_driver(PrinterProtocol protocol);
+bool printer_protocol_supported(PrinterProtocol protocol);
 bool printer_protocol_from_id(std::string_view id, PrinterProtocol& protocol);
 bool printer_protocol_from_storage_id(std::uint8_t storage_id, PrinterProtocol& protocol);
 bool printer_supports(PrinterProtocol protocol, PrinterCapability capability);

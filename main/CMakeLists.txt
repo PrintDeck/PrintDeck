@@ -1,3 +1,6 @@
+# Clear the retired private test option from persistent development caches.
+unset(PRINTDECK_ANYCUBIC_TEST_CONFIG CACHE)
+
 set(PRINTDECK_SRCS
         "app_main.cpp"
         "src/core/configuration_backup.cpp"
@@ -24,6 +27,18 @@ set(PRINTDECK_SRCS
         "src/platform/web_assets.cpp"
         "src/platform/moonraker_adapter.cpp"
         "src/platform/moonraker_status_parser.cpp"
+        "src/platform/prusalink_status_parser.cpp"
+        "src/platform/prusalink_auth.cpp"
+        "src/platform/prusalink_client.cpp"
+        "src/platform/prusalink_http_decoder.cpp"
+        "src/platform/prusalink_http_transport.cpp"
+        "src/platform/prusalink_service.cpp"
+        "src/platform/elegoo_sdcp_parser.cpp"
+        "src/platform/elegoo_sdcp_service.cpp"
+        "src/platform/elegoo_cc2_parser.cpp"
+        "src/platform/elegoo_cc2_service.cpp"
+        "src/platform/elegoo_connection_probe.cpp"
+        "src/platform/prusalink_discovery.cpp"
         "src/platform/moonraker_connection_probe.cpp"
         "src/platform/moonraker_camera_client.cpp"
         "src/platform/inactive_printer_poller.cpp"
@@ -125,6 +140,8 @@ foreach(asset_name IN LISTS PRINTDECK_COMPRESSED_WEB_ASSET_NAMES)
     list(APPEND PRINTDECK_COMPRESSED_WEB_FILES "web/compressed/${gzip_name}")
 endforeach()
 
+include("${CMAKE_CURRENT_LIST_DIR}/generated/reaction-catalog/reaction_previews.cmake")
+
 idf_component_register(
     SRCS ${PRINTDECK_SRCS}
     INCLUDE_DIRS "include"
@@ -180,19 +197,12 @@ idf_component_register(
         "audio/kenney/clean/clean_test.adpcm"
         ${PRINTDECK_VOICE_AUDIO_FILES}
         ${PRINTDECK_COMPRESSED_WEB_FILES}
-        "web/reaction-previews/alloy_iris_green.webp"
-        "web/reaction-previews/alloy_iris_blue.webp"
-        "web/reaction-previews/alloy_iris_brown.webp"
-        "web/reaction-previews/alloy_iris_amber.webp"
-        "web/reaction-previews/alloy_iris_gray.webp"
-        "web/reaction-previews/alloy_iris_hazel.webp"
-        "web/reaction-previews/alloy_iris_red.webp"
-        "web/reaction-previews/alloy_iris_violet.webp"
-        "web/reaction-previews/alloy_iris_cyan.webp"
+        ${PRINTDECK_REACTION_PREVIEW_FILES}
     REQUIRES
         app_update
         esp_event
         esp_http_client
+        http_parser
         esp_http_server
         esp_https_ota
         esp_netif
@@ -202,6 +212,7 @@ idf_component_register(
         esp-tls
         espressif__esp_new_jpeg
         espressif__libpng
+        espressif__zlib
         espressif__esp_codec_dev
         espressif__mdns
         XPowersLib

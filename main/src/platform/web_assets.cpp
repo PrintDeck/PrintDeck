@@ -1,5 +1,6 @@
 #include "printdeck/platform/web_assets.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -13,26 +14,29 @@ extern const std::uint8_t web_world_map_svg_start[] asm("_binary_world_map_svg_g
 extern const std::uint8_t web_world_map_svg_end[] asm("_binary_world_map_svg_gz_end");
 extern const std::uint8_t web_reactions_js_start[] asm("_binary_reactions_bundle_js_gz_start");
 extern const std::uint8_t web_reactions_js_end[] asm("_binary_reactions_bundle_js_gz_end");
-extern const std::uint8_t green_preview_start[] asm("_binary_alloy_iris_green_webp_start");
-extern const std::uint8_t green_preview_end[] asm("_binary_alloy_iris_green_webp_end");
-extern const std::uint8_t blue_preview_start[] asm("_binary_alloy_iris_blue_webp_start");
-extern const std::uint8_t blue_preview_end[] asm("_binary_alloy_iris_blue_webp_end");
-extern const std::uint8_t brown_preview_start[] asm("_binary_alloy_iris_brown_webp_start");
-extern const std::uint8_t brown_preview_end[] asm("_binary_alloy_iris_brown_webp_end");
-extern const std::uint8_t amber_preview_start[] asm("_binary_alloy_iris_amber_webp_start");
-extern const std::uint8_t amber_preview_end[] asm("_binary_alloy_iris_amber_webp_end");
-extern const std::uint8_t gray_preview_start[] asm("_binary_alloy_iris_gray_webp_start");
-extern const std::uint8_t gray_preview_end[] asm("_binary_alloy_iris_gray_webp_end");
-extern const std::uint8_t hazel_preview_start[] asm("_binary_alloy_iris_hazel_webp_start");
-extern const std::uint8_t hazel_preview_end[] asm("_binary_alloy_iris_hazel_webp_end");
-extern const std::uint8_t red_preview_start[] asm("_binary_alloy_iris_red_webp_start");
-extern const std::uint8_t red_preview_end[] asm("_binary_alloy_iris_red_webp_end");
-extern const std::uint8_t violet_preview_start[] asm("_binary_alloy_iris_violet_webp_start");
-extern const std::uint8_t violet_preview_end[] asm("_binary_alloy_iris_violet_webp_end");
-extern const std::uint8_t cyan_preview_start[] asm("_binary_alloy_iris_cyan_webp_start");
-extern const std::uint8_t cyan_preview_end[] asm("_binary_alloy_iris_cyan_webp_end");
+#define PRINTDECK_REACTION_PREVIEW(symbol, id)                                      \
+  extern const std::uint8_t symbol##_preview_start[] asm("_binary_" #symbol       \
+                                                          "_webp_start");          \
+  extern const std::uint8_t symbol##_preview_end[] asm("_binary_" #symbol         \
+                                                        "_webp_end");
+#include "../../generated/reaction-catalog/reaction_previews.inc"
+#undef PRINTDECK_REACTION_PREVIEW
 
 namespace {
+
+struct ReactionPreviewDefinition {
+  std::string_view id;
+  const std::uint8_t* start;
+  const std::uint8_t* end;
+};
+
+constexpr std::array<ReactionPreviewDefinition, PRINTDECK_REACTION_PREVIEW_COUNT>
+    kReactionPreviews = {{
+#define PRINTDECK_REACTION_PREVIEW(symbol, id) \
+  {id, symbol##_preview_start, symbol##_preview_end},
+#include "../../generated/reaction-catalog/reaction_previews.inc"
+#undef PRINTDECK_REACTION_PREVIEW
+}};
 
 std::string_view embedded_binary(const std::uint8_t* start, const std::uint8_t* end) {
   return {reinterpret_cast<const char*>(start), static_cast<std::size_t>(end - start)};
@@ -57,15 +61,9 @@ std::string_view reactions_script() {
 }
 
 std::string_view reaction_set_preview(std::string_view id) {
-  if (id == "alloy_iris_green") return embedded_binary(green_preview_start, green_preview_end);
-  if (id == "alloy_iris_blue") return embedded_binary(blue_preview_start, blue_preview_end);
-  if (id == "alloy_iris_brown") return embedded_binary(brown_preview_start, brown_preview_end);
-  if (id == "alloy_iris_amber") return embedded_binary(amber_preview_start, amber_preview_end);
-  if (id == "alloy_iris_gray") return embedded_binary(gray_preview_start, gray_preview_end);
-  if (id == "alloy_iris_hazel") return embedded_binary(hazel_preview_start, hazel_preview_end);
-  if (id == "alloy_iris_red") return embedded_binary(red_preview_start, red_preview_end);
-  if (id == "alloy_iris_violet") return embedded_binary(violet_preview_start, violet_preview_end);
-  if (id == "alloy_iris_cyan") return embedded_binary(cyan_preview_start, cyan_preview_end);
+  for (const auto& preview : kReactionPreviews) {
+    if (preview.id == id) return embedded_binary(preview.start, preview.end);
+  }
   return {};
 }
 

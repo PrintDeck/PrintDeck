@@ -9,7 +9,11 @@
 
 namespace printdeck::core {
 
-enum class PrinterProtocol : std::uint8_t { moonraker, bambu_lan };
+enum class PrinterProtocol : std::uint8_t {
+  moonraker = 0, bambu_lan = 1, prusalink = 2, elegoo_sdcp = 3, elegoo_cc2 = 4,
+  // Storage ID 5 is retired and must not be reused.
+};
+enum class HttpAuthMode : std::uint8_t { api_key = 0, digest = 1 };
 enum class LinkState : std::uint8_t { stopped, waiting_for_network, connecting, online, failed };
 enum class PrinterReachability : std::uint8_t { unknown, online, offline };
 
@@ -29,6 +33,9 @@ struct PrinterProfile {
   std::string manufacturer;
   std::string model;
   std::string brand;
+  HttpAuthMode http_auth_mode = HttpAuthMode::api_key;
+  std::string http_username;
+  std::string http_password;
 };
 
 struct DeviceState {
@@ -72,7 +79,10 @@ class SnapshotStore {
 
   PrinterSnapshot read() const;
   void read_into(PrinterSnapshot& destination) const;
-  void replace(PrinterSnapshot next);
+  void replace(const PrinterSnapshot& next);
+  void replace(PrinterSnapshot&& next);
+  // Retire a connection without allocating a replacement snapshot or retaining telemetry.
+  void invalidate(std::uint32_t profile_id, LinkState link, std::uint64_t now_ms = 0);
 
  private:
   mutable std::mutex mutex_;

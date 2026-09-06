@@ -11,7 +11,7 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 10;
+constexpr std::uint8_t kSettingsSchemaVersion = 11;
 constexpr std::size_t kUnifiedApiTokenLength = 67;
 constexpr std::size_t kMaximumDeviceNameCharacters = 16;
 constexpr std::size_t kMaximumDeviceNameBytes = kMaximumDeviceNameCharacters * 4;
@@ -64,6 +64,8 @@ struct ValidationIssue {
 
 std::vector<ValidationIssue> validate(const DeviceSettings& settings);
 DeviceSettings redact_secrets(DeviceSettings settings);
+void clear_irrelevant_printer_credentials(PrinterProfile& profile);
+bool same_http_auth_context(const PrinterProfile& first, const PrinterProfile& second);
 bool is_local_printer_endpoint(std::string_view endpoint, PrinterProtocol protocol);
 bool supported_audio_preset(std::string_view id);
 bool valid_unified_api_token(std::string_view token);

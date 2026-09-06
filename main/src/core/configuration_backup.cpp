@@ -166,6 +166,9 @@ bool add_profiles(cJSON* settings_object, const std::vector<PrinterProfile>& pro
         !add_string(object, "display_name", profile.display_name) ||
         !add_string(object, "endpoint", profile.endpoint) ||
         !add_string(object, "api_key", profile.api_key) ||
+        !add_string(object, "http_auth_mode", profile.http_auth_mode == HttpAuthMode::digest ? "digest" : "api_key") ||
+        !add_string(object, "http_username", profile.http_username) ||
+        !add_string(object, "http_password", profile.http_password) ||
         !add_string(object, "serial", profile.serial) ||
         !add_string(object, "access_code", profile.access_code) ||
         !add_string(object, "manufacturer", profile.manufacturer) ||
@@ -177,7 +180,8 @@ bool add_profiles(cJSON* settings_object, const std::vector<PrinterProfile>& pro
   return true;
 }
 
-bool read_profiles(const cJSON* settings_object, std::vector<PrinterProfile>& profiles) {
+bool read_profiles(const cJSON* settings_object, std::vector<PrinterProfile>& profiles,
+                   std::uint8_t source_schema) {
   const cJSON* array = item(settings_object, "profiles");
   if (!cJSON_IsArray(array)) return false;
   const int count = cJSON_GetArraySize(array);
@@ -189,6 +193,7 @@ bool read_profiles(const cJSON* settings_object, std::vector<PrinterProfile>& pr
     if (!cJSON_IsObject(object)) return false;
     PrinterProfile profile;
     std::string protocol;
+    std::string auth_mode = "api_key";
     if (!read_unsigned(object, "id", profile.id,
                        std::numeric_limits<std::uint32_t>::max(), true) ||
         !read_string(object, "protocol", protocol, 24, true) ||
@@ -196,6 +201,9 @@ bool read_profiles(const cJSON* settings_object, std::vector<PrinterProfile>& pr
         !read_string(object, "display_name", profile.display_name, 48, true) ||
         !read_string(object, "endpoint", profile.endpoint, 128, true) ||
         !read_string(object, "api_key", profile.api_key, 128, true) ||
+        !read_string(object, "http_auth_mode", auth_mode, 16, source_schema >= 11) ||
+        !read_string(object, "http_username", profile.http_username, 64, source_schema >= 11) ||
+        !read_string(object, "http_password", profile.http_password, 128, source_schema >= 11) ||
         !read_string(object, "serial", profile.serial, 32, true) ||
         !read_string(object, "access_code", profile.access_code, 32, true) ||
         !read_string(object, "manufacturer", profile.manufacturer, 48, true) ||
@@ -203,6 +211,8 @@ bool read_profiles(const cJSON* settings_object, std::vector<PrinterProfile>& pr
         !read_string(object, "brand", profile.brand, 24, true)) {
       return false;
     }
+    if (auth_mode == "digest") profile.http_auth_mode = HttpAuthMode::digest;
+    else if (auth_mode != "api_key") return false;
     profiles.push_back(std::move(profile));
   }
   return true;
@@ -314,7 +324,7 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
   const bool required = source_schema >= kSettingsSchemaVersion;
   return read_string(object, "wifi_name", settings.wifi_name, 32, required) &&
          read_string(object, "wifi_password", settings.wifi_password, 64, required) &&
-         read_profiles(object, settings.profiles) &&
+         read_profiles(object, settings.profiles, source_schema) &&
          read_unsigned(object, "selected_profile", settings.selected_profile,
                        std::numeric_limits<std::uint32_t>::max(), required) &&
          read_unsigned(object, "brightness_percent", settings.brightness_percent, 100,

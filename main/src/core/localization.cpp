@@ -30,6 +30,23 @@ std::string_view normalize_language(std::string_view browser_language) {
 const char* localized_text(std::string_view language, std::string_view english) {
   struct Entry { const char* en; const char* pl; const char* es; const char* fr; const char* de; const char* zh; };
   static constexpr Entry entries[]{
+      {"Experimental", "Eksperymentalne", "Experimental", "Expérimental", "Experimentell", "实验性"},
+      {"Add Prusa printer", "Dodaj drukarkę Prusa", "Añadir impresora Prusa", "Ajouter une imprimante Prusa", "Prusa-Drucker hinzufügen", "添加 Prusa 打印机"},
+      {"Authentication", "Uwierzytelnianie", "Autenticación", "Authentification", "Authentifizierung", "身份验证"},
+      {"Username and password", "Login i hasło", "Usuario y contraseña", "Identifiant et mot de passe", "Benutzername und Passwort", "用户名和密码"},
+      {"Username", "Login", "Usuario", "Identifiant", "Benutzername", "用户名"},
+      {"PrusaLink password", "Hasło PrusaLink", "Contraseña de PrusaLink", "Mot de passe PrusaLink", "PrusaLink-Passwort", "PrusaLink 密码"},
+      {"Leave blank to keep saved credentials at the same address.", "Pozostaw puste, aby zachować dane logowania dla tego samego adresu.", "Déjalo vacío para conservar las credenciales de la misma dirección.", "Laissez vide pour conserver les identifiants de la même adresse.", "Leer lassen, um die Zugangsdaten für dieselbe Adresse zu behalten.", "留空以保留同一地址的已保存凭据。"},
+      {"Check the Prusa connection before saving.", "Przed zapisaniem sprawdź połączenie z Prusą.", "Comprueba la conexión con Prusa antes de guardar.", "Vérifiez la connexion Prusa avant d’enregistrer.", "Prusa-Verbindung vor dem Speichern prüfen.", "保存前请检查 Prusa 连接。"},
+      {"PrusaLink did not accept these credentials.", "PrusaLink nie zaakceptował danych logowania.", "PrusaLink no aceptó estas credenciales.", "PrusaLink n’a pas accepté ces identifiants.", "PrusaLink hat diese Zugangsdaten nicht akzeptiert.", "PrusaLink 未接受这些凭据。"},
+      {"PrusaLink is unavailable or returned an unsupported response.", "PrusaLink jest niedostępny lub zwrócił nieobsługiwaną odpowiedź.", "PrusaLink no está disponible o devolvió una respuesta no compatible.", "PrusaLink est indisponible ou a renvoyé une réponse non prise en charge.", "PrusaLink ist nicht erreichbar oder hat eine nicht unterstützte Antwort gesendet.", "PrusaLink 不可用或返回了不支持的响应。"},
+      {"Unsupported printer connection", "Nieobsługiwane połączenie drukarki", "Conexión de impresora no compatible", "Connexion d’imprimante non prise en charge", "Nicht unterstützte Druckerverbindung", "不支持的打印机连接"},
+      {"Unsupported authentication method", "Nieobsługiwana metoda uwierzytelniania", "Método de autenticación no compatible", "Méthode d’authentification non prise en charge", "Nicht unterstützte Authentifizierungsmethode", "不支持的身份验证方式"},
+      {"Credentials contain unsupported characters", "Dane logowania zawierają niedozwolone znaki", "Las credenciales contienen caracteres no admitidos", "Les identifiants contiennent des caractères non pris en charge", "Zugangsdaten enthalten nicht unterstützte Zeichen", "凭据包含不支持的字符"},
+      {"Credentials do not match the connection method", "Dane logowania nie pasują do metody połączenia", "Las credenciales no corresponden al método de conexión", "Les identifiants ne correspondent pas à la méthode de connexion", "Zugangsdaten passen nicht zur Verbindungsmethode", "凭据与连接方式不匹配"},
+      {"Needs attention", "Wymaga uwagi", "Requiere atención", "Intervention requise", "Eingriff erforderlich", "需要处理"},
+      {"Printer error", "Błąd drukarki", "Error de impresora", "Erreur d’imprimante", "Druckerfehler", "打印机错误"},
+      {"Printer busy", "Drukarka zajęta", "Impresora ocupada", "Imprimante occupée", "Drucker beschäftigt", "打印机忙碌"},
       {"Starting device services", "Uruchamianie usług", "Iniciando servicios", "Démarrage des services", "Gerätedienste starten", "正在启动设备服务"},
       {"QUICK MENU", "SZYBKIE MENU", "MENÚ RÁPIDO", "MENU RAPIDE", "SCHNELLMENÜ", "快捷菜单"},
       {"DISPLAY & BRIGHTNESS", "EKRAN I JASNOŚĆ", "PANTALLA Y BRILLO", "ÉCRAN ET LUMINOSITÉ", "DISPLAY UND HELLIGKEIT", "显示与亮度"},

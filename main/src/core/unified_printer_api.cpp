@@ -139,6 +139,17 @@ void append_connection(std::string& output, const UnifiedPrinterView& printer) {
 void append_job(std::string& output, const JobState& job) {
   output += "{\"phase\":";
   append_json_string(output, phase_id(job.phase));
+  output += ",\"condition\":";
+  const char* condition = "unknown";
+  switch (job.condition) {
+    case PrinterCondition::normal: condition = "normal"; break;
+    case PrinterCondition::ready: condition = "ready"; break;
+    case PrinterCondition::busy: condition = "busy"; break;
+    case PrinterCondition::attention: condition = "attention"; break;
+    case PrinterCondition::error: condition = "error"; break;
+    case PrinterCondition::unknown: break;
+  }
+  append_json_string(output, condition);
   output += ",\"kind\":\"";
   output += kind_id(job.kind);
   output += "\",\"activity\":\"";
@@ -147,9 +158,9 @@ void append_job(std::string& output, const JobState& job) {
   if (job.name.empty()) output += "null";
   else append_json_string(output, job.name);
   output += ",\"progress_percent\":";
-  append_float(output, std::clamp(job.completion, 0.0F, 100.0F));
-  output += ",\"elapsed_seconds\":" + std::to_string(job.elapsed_seconds);
-  output += ",\"remaining_seconds\":" + std::to_string(job.remaining_seconds);
+  append_nullable_float(output, job.completion_known, std::clamp(job.completion, 0.0F, 100.0F));
+  output += ",\"elapsed_seconds\":" + (job.elapsed_known ? std::to_string(job.elapsed_seconds) : "null");
+  output += ",\"remaining_seconds\":" + (job.remaining_known ? std::to_string(job.remaining_seconds) : "null");
   output += ",\"current_layer\":" + std::to_string(job.current_layer);
   output += ",\"total_layers\":" + std::to_string(job.total_layers) + "}";
 }
@@ -158,13 +169,13 @@ void append_temperatures(std::string& output, const UnifiedPrinterView& printer)
   const bool full = printer.detail_level == UnifiedApiDetailLevel::full;
   const Temperatures& temperatures = printer.snapshot.job.temperatures;
   output += "{\"nozzle_current_c\":";
-  append_nullable_float(output, full, temperatures.nozzle_c);
+  append_nullable_float(output, full && temperatures.nozzle_known, temperatures.nozzle_c);
   output += ",\"nozzle_target_c\":";
-  append_nullable_float(output, full, temperatures.nozzle_target_c);
+  append_nullable_float(output, full && temperatures.nozzle_target_known, temperatures.nozzle_target_c);
   output += ",\"bed_current_c\":";
-  append_nullable_float(output, full, temperatures.bed_c);
+  append_nullable_float(output, full && temperatures.bed_known, temperatures.bed_c);
   output += ",\"bed_target_c\":";
-  append_nullable_float(output, full, temperatures.bed_target_c);
+  append_nullable_float(output, full && temperatures.bed_target_known, temperatures.bed_target_c);
   output += ",\"chamber_current_c\":";
   append_nullable_float(output, full && temperatures.chamber_known, temperatures.chamber_c);
   output += "}";
@@ -334,7 +345,7 @@ std::string unified_api_nozzles_json(const UnifiedPrinterView& printer) {
     output += ",\"temperature\":{\"current_c\":";
     append_nullable_float(output, tool.temperature_known, tool.temperature_c);
     output += ",\"target_c\":";
-    append_nullable_float(output, tool.temperature_known, tool.target_c);
+    append_nullable_float(output, tool.target_known, tool.target_c);
     output += "},\"material\":{\"type\":";
     if (tool.material.empty()) output += "null";
     else append_json_string(output, tool.material);
@@ -344,12 +355,12 @@ std::string unified_api_nozzles_json(const UnifiedPrinterView& printer) {
     append_nullable_bool(output, tool.filament_state_known, tool.filament_detected);
     output += "}";
   }
-  if (first && printer.detail_level == UnifiedApiDetailLevel::full) {
+  if (first && printer.detail_level == UnifiedApiDetailLevel::full && job.active_toolhead >= 0) {
     output += "{\"id\":\"T0\",\"active\":true,\"state\":null,\"diameter_mm\":null,"
               "\"temperature\":{\"current_c\":";
-    append_float(output, job.temperatures.nozzle_c);
+    append_nullable_float(output, job.temperatures.nozzle_known, job.temperatures.nozzle_c);
     output += ",\"target_c\":";
-    append_float(output, job.temperatures.nozzle_target_c);
+    append_nullable_float(output, job.temperatures.nozzle_target_known, job.temperatures.nozzle_target_c);
     output += "},\"material\":{\"type\":null,\"color\":null},\"filament_detected\":null}";
   }
   output += "]}";

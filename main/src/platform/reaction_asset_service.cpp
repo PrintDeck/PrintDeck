@@ -18,6 +18,7 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_littlefs.h"
+#include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/idf_additions.h"
 #include "lvgl.h"
@@ -57,16 +58,15 @@ constexpr std::string_view kSetAssetProfile = kBoardVariant;
 constexpr bool kNeedsRound240ProfileMigration =
     kDisplayIsRound && kDisplayWidth == 240 && kDisplayHeight == 240;
 
-constexpr std::array<ReactionSetDefinition, 9> kSets = {{
-    {"alloy_iris_green", "Green", "4.0.0"},
-    {"alloy_iris_blue", "Blue", "4.0.0"},
-    {"alloy_iris_brown", "Brown", "4.0.0"},
-    {"alloy_iris_amber", "Amber", "4.0.0"},
-    {"alloy_iris_gray", "Gray", "4.0.0"},
-    {"alloy_iris_hazel", "Hazel", "4.0.0"},
-    {"alloy_iris_red", "Red", "4.0.0"},
-    {"alloy_iris_violet", "Violet", "4.0.0"},
-    {"alloy_iris_cyan", "Cyan", "4.0.0"},
+#define PRINTDECK_REACTION_SET(id, name, version, family_id, family_name, variant_name)
+#include "../../generated/reaction-catalog/reaction_sets.inc"
+#undef PRINTDECK_REACTION_SET
+
+constexpr std::array<ReactionSetDefinition, PRINTDECK_REACTION_SET_COUNT> kSets = {{
+#define PRINTDECK_REACTION_SET(id, name, version, family_id, family_name, variant_name) \
+  {id, name, version, family_id, family_name, variant_name},
+#include "../../generated/reaction-catalog/reaction_sets.inc"
+#undef PRINTDECK_REACTION_SET
 }};
 
 std::uint64_t monotonic_ms() {
@@ -302,13 +302,14 @@ lv_fs_res_t lv_reaction_tell(lv_fs_drv_t*, void* file, std::uint32_t* position) 
 
 }  // namespace
 
-const std::array<ReactionSetDefinition, 9>& ReactionAssetService::sets() {
+std::span<const ReactionSetDefinition> ReactionAssetService::sets() {
   return kSets;
 }
 
 esp_err_t ReactionAssetService::start(const NetworkService& network) {
   if (network_ != nullptr || reaper_task_ != nullptr) return ESP_ERR_INVALID_STATE;
   network_ = &network;
+  snapshot_.preview_session = esp_random();
   const esp_vfs_littlefs_conf_t config{
       .base_path = kMountPath,
       .partition_label = kPartitionLabel,
@@ -412,6 +413,7 @@ ReactionAssetSnapshot ReactionAssetService::snapshot() const {
 
 void ReactionAssetService::refresh_active_bytes_locked() {
   snapshot_.active_bytes = 0;
+  snapshot_.effective_custom = custom_present_;
   for (std::size_t index = 0; index < core::kReactionEventCount; ++index) {
     if (custom_present_[index]) {
       snapshot_.effective_bytes[index] = custom_sizes_[index];
@@ -421,6 +423,14 @@ void ReactionAssetService::refresh_active_bytes_locked() {
       snapshot_.effective_bytes[index] = 0;
     }
     snapshot_.active_bytes += snapshot_.effective_bytes[index];
+  }
+}
+
+void ReactionAssetService::refresh_set_preview_generations_locked() {
+  for (std::size_t index = 0; index < core::kReactionEventCount; ++index) {
+    if (!custom_present_[index]) {
+      snapshot_.preview_generations[index] = snapshot_.generation;
+    }
   }
 }
 
@@ -460,6 +470,7 @@ bool ReactionAssetService::begin_set_request(std::string_view id,
   snapshot_.installing_set_name.assign(requested->name);
   snapshot_.busy = true;
   snapshot_.cancellable = true;
+  snapshot_.install_failed = false;
   snapshot_.progress_percent = 0;
   snapshot_.detail = "Preparing the reaction set…";
   cancel_requested_.store(false, std::memory_order_release);
@@ -687,6 +698,7 @@ esp_err_t ReactionAssetService::install_custom(
   custom_present_[index] = true;
   custom_sizes_[index] = bytes.size();
   ++snapshot_.generation;
+  snapshot_.preview_generations[index] = snapshot_.generation;
   refresh_active_bytes_locked();
   refresh_storage_locked();
   return ESP_OK;
@@ -708,6 +720,9 @@ esp_err_t ReactionAssetService::reset_custom(std::string_view id) {
   if (persist_reset_mask_locked() != ESP_OK) {
     reset_mask_ = previous_reset_mask;
     return ESP_FAIL;
+  }
+  if (custom_present_[index]) {
+    snapshot_.preview_generations[index] = snapshot_.generation + 1;
   }
   custom_present_[index] = false;
   custom_sizes_[index] = 0;
@@ -736,6 +751,11 @@ esp_err_t ReactionAssetService::prepare_factory_reset() {
       return ESP_FAIL;
     }
     disabled_mask_ = 0;
+    for (std::size_t index = 0; index < core::kReactionEventCount; ++index) {
+      if (custom_present_[index]) {
+        snapshot_.preview_generations[index] = snapshot_.generation + 1;
+      }
+    }
     custom_present_.fill(false);
     custom_sizes_.fill(0);
     ++snapshot_.generation;
@@ -1146,6 +1166,7 @@ bool ReactionAssetService::load_active_manifest() {
     }
   }
   ++snapshot_.generation;
+  refresh_set_preview_generations_locked();
   refresh_active_bytes_locked();
   return true;
 }
@@ -1266,6 +1287,7 @@ void ReactionAssetService::finish_cancelled_install() {
   cancel_requested_.store(false, std::memory_order_release);
   snapshot_.busy = false;
   snapshot_.cancellable = false;
+  snapshot_.install_failed = false;
   snapshot_.progress_percent = 0;
   snapshot_.detail = "Reaction set installation cancelled.";
   snapshot_.installing_set_id.clear();
@@ -1444,6 +1466,7 @@ void ReactionAssetService::install_requested_set(std::string id) {
         snapshot_.active_set_name.clear();
         snapshot_.active_set_version.clear();
         ++snapshot_.generation;
+        refresh_set_preview_generations_locked();
         refresh_active_bytes_locked();
       }
       fail("The new reaction set could not be activated.");
@@ -1462,6 +1485,7 @@ void ReactionAssetService::install_requested_set(std::string id) {
     profile_migration_set_.clear();
     profile_migration_not_before_ms_ = 0;
     ++snapshot_.generation;
+    refresh_set_preview_generations_locked();
     refresh_active_bytes_locked();
     refresh_storage_locked();
   }
@@ -1480,6 +1504,7 @@ void ReactionAssetService::install_requested_set(std::string id) {
     cancel_requested_.store(false, std::memory_order_release);
     snapshot_.busy = false;
     snapshot_.cancellable = false;
+    snapshot_.install_failed = false;
     snapshot_.progress_percent = 100;
     snapshot_.detail = "Reaction set installed.";
     snapshot_.installing_set_id.clear();
@@ -1493,6 +1518,7 @@ void ReactionAssetService::fail(std::string detail) {
   cancel_requested_.store(false, std::memory_order_release);
   snapshot_.busy = false;
   snapshot_.cancellable = false;
+  snapshot_.install_failed = true;
   snapshot_.progress_percent = 0;
   snapshot_.detail = std::move(detail);
   snapshot_.installing_set_id.clear();

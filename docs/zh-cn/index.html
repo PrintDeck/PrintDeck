@@ -11,9 +11,9 @@
 
     <title>PrintDeck · 3D 打印机显示屏固件</title>
     <link rel="stylesheet" href="/assets/vendor/plyr/plyr.css?v=3.8.4">
-    <link rel="stylesheet" href="/assets/site.css?v=20260905-1">
+    <link rel="stylesheet" href="/assets/site.css?v=20260905-13">
     <script src="/assets/vendor/plyr/plyr.min.js?v=3.8.4" defer=""></script>
-    <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260904-1"></script>
+    <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏","Automatic appearance":"自动外观"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-5"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
@@ -45,7 +45,7 @@
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PrintDeck · 3D 打印机显示屏固件","description":"PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。","url":"https://printdeck.xyz/zh-cn/","inLanguage":"zh-CN"}</script>
   </head>
-  <body class="site-page home-page" data-page-title="PrintDeck · 3D 打印机显示屏固件">
+  <body class="site-page home-page home-page-v2" data-page-title="PrintDeck · 3D 打印机显示屏固件">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/zh-cn/" aria-label="首页">
@@ -65,7 +65,30 @@
     </header>
 
     <main class="home-content">
-      <section class="home-hero home-dark-band">
+      <section class="home-hero home-dark-band" data-workshop-hero=""><div class="home-workshop-screen-stage" data-workshop-screen-stage="" aria-hidden="true">
+          <div class="home-workshop-live-screen home-workshop-live-screen-head">
+            <img src="/assets/marketing/knomi2/blue-eye.gif" alt="">
+          </div>
+          <div class="home-workshop-live-screen home-workshop-live-screen-cube">
+            <div class="home-workshop-screen-carousel" data-screen-carousel="" data-screen-carousel-delay="0">
+              <div class="home-workshop-screen-track" data-screen-carousel-track="">
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/filament-loading-green.gif" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/printing-violet.gif" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/filament-changing-cyan.gif" alt=""></span>
+              </div>
+            </div>
+          </div>
+          <div class="home-workshop-live-screen home-workshop-live-screen-round">
+            <div class="home-workshop-screen-carousel" data-screen-carousel="" data-screen-carousel-delay="1500">
+              <div class="home-workshop-screen-track" data-screen-carousel-track="">
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/status-screen-cutout.webp" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/status-screen-nozzles.webp" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/screens/local-camera-round.png" alt=""></span>
+                <span class="home-workshop-screen-slide"><img src="/assets/marketing/home/status-screen-printing.webp" alt=""></span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="home-inner home-hero-grid">
           <div class="home-hero-copy">
             <span class="home-eyebrow">适用于 3D 打印机显示屏的独立固件</span>
@@ -75,6 +98,10 @@
             <div class="site-actions">
               <a class="site-button secondary" href="#at-a-glance">了解工作原理</a>
               <a class="site-button" href="/zh-cn/firmware/">安装固件</a>
+            </div><div class="home-hero-benefits" aria-label="PrintDeck 实用亮点">
+              <span><img src="/assets/marketing/home/icons/ico_ekrany.svg" alt="" aria-hidden="true">2 种显示屏规格</span>
+              <span><img src="/assets/marketing/home/icons/ico_narzedzia.svg" alt="" aria-hidden="true">Moonraker 支持 12 个工具</span>
+              <span><img src="/assets/marketing/home/icons/ico_Lokalnie.svg" alt="" aria-hidden="true">本地直连打印机</span>
             </div>
           </div>
           <figure class="home-hero-product" aria-label="The Riverstone" data-hero-product="">
@@ -99,12 +126,18 @@
       <div class="home-compatibility" aria-label="PrintDeck 支持的平台">
         <span>Klipper · Moonraker</span>
         <span>Bambu Lab · 本地网络</span>
+        <span>Prusa · 实验性 · KNOMI2</span>
         <span>多工具就绪</span>
         <span>无需云账户</span>
       </div>
 
       <section class="home-section home-glance" id="at-a-glance">
         <div class="home-inner">
+          <figure class="home-section-video home-glance-video">
+            <video data-home-video="riverstone" data-video-label="The Riverstone 启动" controls="" playsinline="" preload="none" width="1920" height="1080" controlslist="nodownload" aria-label="The Riverstone 启动">
+              <source src="/assets/marketing/home/riverstone-powering.mp4" type="video/mp4">
+            </video>
+          </figure>
           <header class="home-section-head">
             <span class="home-kicker">所有信息一目了然</span>
             <h2>关键信息。<br><strong>始终在眼前。</strong></h2>
@@ -124,7 +157,15 @@
               <p>对于使用 Moonraker 的打印机，PrintDeck 可发现多达十二个挤出机，并清晰显示温度、材料和颜色。</p>
             </article>
             <article class="home-feature-card">
-              <div class="home-screen-frame"><img src="/assets/marketing/home/status-screen-printing.webp" alt="PrintDeck 打印机动画"></div>
+              <div class="home-screen-frame home-reaction-screen" role="img" aria-label="PrintDeck 打印机动画">
+                <span class="home-reaction-screen-viewport" aria-hidden="true"><img src="/assets/marketing/home/reaction-cute-printhead.gif" alt=""></span>
+                <svg class="home-reaction-screen-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="home-reaction-screen-ring-outline" cx="50" cy="50" r="47"></circle>
+                  <path class="home-reaction-screen-ring-muted" d="M 50 97 A 47 47 0 0 1 37.04 4.82"></path>
+                  <path class="home-reaction-screen-ring-active" d="M 62.96 4.82 A 47 47 0 0 1 50 97"></path>
+                </svg>
+                <span class="home-reaction-screen-progress" aria-hidden="true">42%</span>
+              </div>
               <span class="home-card-index">03</span>
               <h3>打印机状态一眼可见</h3>
               <p>动画让加热、打印、暂停和完成状态一目了然。</p>
@@ -136,7 +177,15 @@
               <p>专用动画会显示耗材正在装载或更换。</p>
             </article>
             <article class="home-feature-card">
-              <div class="home-screen-frame"><img src="/assets/marketing/home/printing-violet.gif" alt="PrintDeck 打印机动画"></div>
+              <div class="home-screen-frame home-reaction-screen" role="img" aria-label="PrintDeck 打印机动画">
+                <span class="home-reaction-screen-viewport" aria-hidden="true"><img src="/assets/marketing/home/nozzle-heating-cartoon.gif" alt=""></span>
+                <svg class="home-reaction-screen-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="home-reaction-screen-ring-outline" cx="50" cy="50" r="47"></circle>
+                  <path class="home-reaction-screen-ring-muted" d="M 50 97 A 47 47 0 0 1 37.04 4.82"></path>
+                  <path class="home-reaction-screen-ring-active" d="M 62.96 4.82 A 47 47 0 0 1 50 97"></path>
+                </svg>
+                <span class="home-reaction-screen-progress" aria-hidden="true">42%</span>
+              </div>
               <span class="home-card-index">05</span>
               <h3>打造你的风格</h3>
               <p>选择与打印机、工作空间或偏爱色彩相配的动画主题。</p>
@@ -239,11 +288,6 @@
               <div><strong>本地</strong><h3>直接打印机连接</h3><p>在本地网络中直接连接。</p></div>
             </article>
           </div>
-          <figure class="home-section-video home-engineering-video">
-            <video data-home-video="riverstone" data-video-label="The Riverstone 启动" controls="" playsinline="" preload="none" width="1920" height="1080" controlslist="nodownload" aria-label="The Riverstone 启动">
-              <source src="/assets/marketing/home/riverstone-powering.mp4" type="video/mp4">
-            </video>
-          </figure>
         </div>
       </section>
 
@@ -288,7 +332,7 @@
                   <strong>Prusa</strong>
                   <span class="home-unified-printer-art home-unified-printer-art-prusa" aria-hidden="true"></span>
                   <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><g fill="#a27bca"><rect x="2" y="10" width="9" height="9" rx="1.5"></rect><rect x="20" y="10" width="9" height="9" rx="1.5"></rect><rect x="38" y="10" width="6" height="9" rx="1.5"></rect><rect x="51" y="10" width="9" height="9" rx="1.5"></rect><rect x="67" y="10" width="6" height="9" rx="1.5"></rect><rect x="84" y="10" width="12" height="9" rx="1.5"></rect></g></svg>
-                  <small>不同的命名</small>
+                  <small>实验性 · KNOMI2</small>
                 </article>
                 <article class="home-unified-source">
                   <strong>Snapmaker</strong>

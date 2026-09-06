@@ -10,6 +10,41 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "This action could not be understood. Refresh the page and try again.":["Nie udało się odczytać tej operacji. Odśwież stronę i spróbuj ponownie.","No se ha podido interpretar esta acción. Actualiza la página e inténtalo de nuevo.","Cette action n’a pas pu être comprise. Actualisez la page et réessayez.","Diese Aktion konnte nicht verstanden werden. Aktualisiere die Seite und versuche es erneut.","无法识别此操作。请刷新页面后重试。"],
+  "Please check the printer name, network address and connection details.":["Sprawdź nazwę drukarki, adres sieciowy i dane połączenia.","Comprueba el nombre de la impresora, la dirección de red y los datos de conexión.","Vérifiez le nom de l’imprimante, l’adresse réseau et les détails de connexion.","Prüfe Druckernamen, Netzwerkadresse und Verbindungsdaten.","请检查打印机名称、网络地址和连接信息。"],
+  "Connect PrintDeck to Wi-Fi before testing a printer.":["Połącz PrintDeck z Wi-Fi przed sprawdzeniem drukarki.","Conecta PrintDeck al Wi-Fi antes de comprobar una impresora.","Connectez PrintDeck au Wi-Fi avant de vérifier une imprimante.","Verbinde PrintDeck mit dem WLAN, bevor du einen Drucker prüfst.","检查打印机前，请先将 PrintDeck 连接到 Wi-Fi。"],
+  "PrintDeck could not start the connection test. Please try again.":["PrintDeck nie mógł rozpocząć sprawdzania połączenia. Spróbuj ponownie.","PrintDeck no ha podido iniciar la comprobación de conexión. Inténtalo de nuevo.","PrintDeck n’a pas pu lancer la vérification de la connexion. Réessayez.","PrintDeck konnte die Verbindungsprüfung nicht starten. Bitte versuche es erneut.","PrintDeck 无法开始连接检查。请重试。"],
+  "Experimental":["Eksperymentalne","Experimental","Expérimental","Experimentell","实验性"],
+  "Add Elegoo printer":["Dodaj drukarkę Elegoo","Añadir impresora Elegoo","Ajouter une imprimante Elegoo","Elegoo-Drucker hinzufügen","添加 Elegoo 打印机"],
+  "Choose your Elegoo printer family.":["Wybierz rodzinę drukarek Elegoo.","Elige la familia de tu impresora Elegoo.","Choisissez la famille de votre imprimante Elegoo.","Wähle die Familie deines Elegoo-Druckers.","选择您的 Elegoo 打印机系列。"],
+  "Neptune 4 / Pro / Plus / Max":["Neptune 4 / Pro / Plus / Max","Neptune 4 / Pro / Plus / Max","Neptune 4 / Pro / Plus / Max","Neptune 4 / Pro / Plus / Max","Neptune 4 / Pro / Plus / Max"],
+  "Centauri Carbon":["Centauri Carbon","Centauri Carbon","Centauri Carbon","Centauri Carbon","Centauri Carbon"],
+  "Centauri Carbon 2":["Centauri Carbon 2","Centauri Carbon 2","Centauri Carbon 2","Centauri Carbon 2","Centauri Carbon 2"],
+  "Printer identifier":["Identyfikator drukarki","Identificador de la impresora","Identifiant de l’imprimante","Druckerkennung","打印机标识符"],
+  "Leave blank to read the identifier from the printer.":["Pozostaw puste, aby odczytać identyfikator z drukarki.","Déjalo vacío para leer el identificador de la impresora.","Laissez vide pour lire l’identifiant depuis l’imprimante.","Leer lassen, um die Kennung vom Drucker auszulesen.","留空以从打印机读取标识符。"],
+  "Enable LAN mode on the printer and enter its access code.":["Włącz tryb LAN na drukarce i wpisz jej kod dostępu.","Activa el modo LAN en la impresora e introduce su código de acceso.","Activez le mode LAN sur l’imprimante et saisissez son code d’accès.","Aktiviere den LAN-Modus am Drucker und gib seinen Zugangscode ein.","在打印机上启用局域网模式并输入其访问码。"],
+  "Check the Elegoo connection before saving.":["Sprawdź połączenie z Elegoo przed zapisaniem.","Comprueba la conexión con Elegoo antes de guardar.","Vérifiez la connexion Elegoo avant d’enregistrer.","Prüfe die Elegoo-Verbindung vor dem Speichern.","保存前请检查 Elegoo 连接。"],
+  "Elegoo did not accept the access code.":["Elegoo nie zaakceptowało kodu dostępu.","Elegoo no ha aceptado el código de acceso.","Elegoo n’a pas accepté le code d’accès.","Elegoo hat den Zugangscode nicht akzeptiert.","Elegoo 未接受访问码。"],
+  "The printer has no free connection. Close another printer app and try again.":["Drukarka nie ma wolnego połączenia. Zamknij inną aplikację drukarki i spróbuj ponownie.","La impresora no tiene conexiones libres. Cierra otra aplicación de la impresora e inténtalo de nuevo.","L’imprimante n’a plus de connexion disponible. Fermez une autre application d’imprimante et réessayez.","Der Drucker hat keine freie Verbindung. Schließe eine andere Drucker-App und versuche es erneut.","打印机没有空闲连接。请关闭其他打印机应用后重试。"],
+  "Elegoo is unavailable or returned an unsupported response. Check LAN mode and the local network.":["Elegoo jest niedostępne lub zwróciło nieobsługiwaną odpowiedź. Sprawdź tryb LAN i sieć lokalną.","Elegoo no está disponible o ha devuelto una respuesta no compatible. Comprueba el modo LAN y la red local.","Elegoo est indisponible ou a renvoyé une réponse non prise en charge. Vérifiez le mode LAN et le réseau local.","Elegoo ist nicht erreichbar oder hat eine nicht unterstützte Antwort gesendet. Prüfe den LAN-Modus und das lokale Netzwerk.","Elegoo 不可用或返回了不支持的响应。请检查局域网模式和本地网络。"],
+  "Neptune 4 · Centauri Carbon":["Neptune 4 · Centauri Carbon","Neptune 4 · Centauri Carbon","Neptune 4 · Centauri Carbon","Neptune 4 · Centauri Carbon","Neptune 4 · Centauri Carbon"],
+  "Add Prusa printer":["Dodaj drukarkę Prusa","Añadir impresora Prusa","Ajouter une imprimante Prusa","Prusa-Drucker hinzufügen","添加 Prusa 打印机"],
+  "Authentication":["Uwierzytelnianie","Autenticación","Authentification","Authentifizierung","身份验证"],
+  "Username and password":["Login i hasło","Usuario y contraseña","Identifiant et mot de passe","Benutzername und Passwort","用户名和密码"],
+  "Username":["Login","Usuario","Identifiant","Benutzername","用户名"],
+  "PrusaLink password":["Hasło PrusaLink","Contraseña de PrusaLink","Mot de passe PrusaLink","PrusaLink-Passwort","PrusaLink 密码"],
+  "API key":["Klucz API","Clave API","Clé API","API-Schlüssel","API 密钥"],
+  "Leave blank to keep saved credentials at the same address.":["Pozostaw puste, aby zachować dane logowania dla tego samego adresu.","Déjalo vacío para conservar las credenciales de la misma dirección.","Laissez vide pour conserver les identifiants de la même adresse.","Leer lassen, um die Zugangsdaten für dieselbe Adresse zu behalten.","留空以保留同一地址的已保存凭据。"],
+  "Check the Prusa connection before saving.":["Przed zapisaniem sprawdź połączenie z Prusą.","Comprueba la conexión con Prusa antes de guardar.","Vérifiez la connexion Prusa avant d’enregistrer.","Prusa-Verbindung vor dem Speichern prüfen.","保存前请检查 Prusa 连接。"],
+  "PrusaLink did not accept these credentials.":["PrusaLink nie zaakceptował danych logowania.","PrusaLink no aceptó estas credenciales.","PrusaLink n’a pas accepté ces identifiants.","PrusaLink hat diese Zugangsdaten nicht akzeptiert.","PrusaLink 未接受这些凭据。"],
+  "PrusaLink is unavailable or returned an unsupported response.":["PrusaLink jest niedostępny lub zwrócił nieobsługiwaną odpowiedź.","PrusaLink no está disponible o devolvió una respuesta no compatible.","PrusaLink est indisponible ou a renvoyé une réponse non prise en charge.","PrusaLink ist nicht erreichbar oder hat eine nicht unterstützte Antwort gesendet.","PrusaLink 不可用或返回了不支持的响应。"],
+  "Unsupported printer connection":["Nieobsługiwane połączenie drukarki","Conexión de impresora no compatible","Connexion d’imprimante non prise en charge","Nicht unterstützte Druckerverbindung","不支持的打印机连接"],
+  "Unsupported authentication method":["Nieobsługiwana metoda uwierzytelniania","Método de autenticación no compatible","Méthode d’authentification non prise en charge","Nicht unterstützte Authentifizierungsmethode","不支持的身份验证方式"],
+  "Credentials contain unsupported characters":["Dane logowania zawierają niedozwolone znaki","Las credenciales contienen caracteres no admitidos","Les identifiants contiennent des caractères non pris en charge","Zugangsdaten enthalten nicht unterstützte Zeichen","凭据包含不支持的字符"],
+  "Credentials do not match the connection method":["Dane logowania nie pasują do metody połączenia","Las credenciales no corresponden al método de conexión","Les identifiants ne correspondent pas à la méthode de connexion","Zugangsdaten passen nicht zur Verbindungsmethode","凭据与连接方式不匹配"],
+  "Needs attention":["Wymaga uwagi","Requiere atención","Intervention requise","Eingriff erforderlich","需要处理"],
+  "Printer error":["Błąd drukarki","Error de impresora","Erreur d’imprimante","Druckerfehler","打印机错误"],
+  "Printer busy":["Drukarka zajęta","Impresora ocupada","Imprimante occupée","Drucker beschäftigt","打印机忙碌"],
   "Device:":["Urządzenie:", "Dispositivo:", "Appareil :", "Gerät:", "设备："],
   "PrintDeck devices":["Urządzenia PrintDeck", "Dispositivos PrintDeck", "Appareils PrintDeck", "PrintDeck-Geräte", "PrintDeck 设备"],
   "This device":["To urządzenie", "Este dispositivo", "Cet appareil", "Dieses Gerät", "此设备"],
@@ -139,6 +174,9 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   "Preparing the reaction set…":["Przygotowywanie zestawu reakcji…","Preparando el conjunto de reacciones…","Préparation du jeu de réactions…","Reaktionsset wird vorbereitet…","正在准备反应套装…"],
   "Downloading and validating reaction GIFs…":["Pobieranie i sprawdzanie GIF-ów reakcji…","Descargando y validando los GIF de reacción…","Téléchargement et validation des GIF de réaction…","Reaktions-GIFs werden geladen und geprüft…","正在下载并验证反应 GIF…"],
   "Reaction set installed.":["Zainstalowano zestaw reakcji.","Conjunto de reacciones instalado.","Jeu de réactions installé.","Reaktionsset installiert.","反应套装已安装。"],
+  "Reaction set installation failed.":["Instalacja zestawu reakcji nie powiodła się.","No se pudo instalar el conjunto de reacciones.","L’installation du jeu de réactions a échoué.","Die Installation des Reaktionssets ist fehlgeschlagen.","反应套装安装失败。"],
+  "The active reaction set was not changed.":["Aktywny zestaw reakcji nie został zmieniony.","El conjunto de reacciones activo no se ha cambiado.","Le jeu de réactions actif n’a pas été modifié.","Das aktive Reaktionsset wurde nicht geändert.","当前反应套装未更改。"],
+  "The reaction set could not be installed.":["Nie udało się zainstalować zestawu reakcji.","No se pudo instalar el conjunto de reacciones.","Le jeu de réactions n’a pas pu être installé.","Das Reaktionsset konnte nicht installiert werden.","无法安装反应套装。"],
   "Reaction storage is unavailable.":["Pamięć reakcji jest niedostępna.","El almacenamiento de reacciones no está disponible.","Le stockage des réactions est indisponible.","Der Reaktionsspeicher ist nicht verfügbar.","反应存储不可用。"],
   "Connect PrintDeck to Wi-Fi before changing reaction sets.":["Połącz PrintDeck z Wi-Fi przed zmianą zestawu reakcji.","Conecta PrintDeck a una red Wi-Fi antes de cambiar el conjunto de reacciones.","Connectez PrintDeck au Wi-Fi avant de changer de jeu de réactions.","Verbinde PrintDeck mit dem WLAN, bevor du das Reaktionsset wechselst.","更换反应套装前，请先将 PrintDeck 连接到 Wi-Fi。"],
   "The reaction set could not be downloaded from GitHub.":["Nie udało się pobrać zestawu reakcji z GitHub.","No se pudo descargar el conjunto de reacciones desde GitHub.","Le jeu de réactions n’a pas pu être téléchargé depuis GitHub.","Das Reaktionsset konnte nicht von GitHub geladen werden.","无法从 GitHub 下载反应套装。"],
@@ -259,6 +297,8 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   "Page appearance":["Wygląd strony","Apariencia de la página","Apparence de la page","Seitendarstellung","页面外观"],
   "Light appearance":["Jasny wygląd","Apariencia clara","Apparence claire","Helle Darstellung","浅色外观"],
   "Dark appearance":["Ciemny wygląd","Apariencia oscura","Apparence sombre","Dunkle Darstellung","深色外观"],
+  "Automatic appearance":["Wygląd zgodny z systemem","Apariencia automática","Apparence automatique","Automatische Darstellung","跟随系统外观"],
+  "CORE One · MK4/S · XL · MINI/+":["CORE One · MK4/S · XL · MINI/+","CORE One · MK4/S · XL · MINI/+","CORE One · MK4/S · XL · MINI/+","CORE One · MK4/S · XL · MINI/+","CORE One · MK4/S · XL · MINI/+"],
   "Close":["Zamknij","Cerrar","Fermer","Schließen","关闭"],
   "Find my printer on network":["Znajdź drukarkę w sieci","Buscar mi impresora en la red","Trouver mon imprimante sur le réseau","Drucker im Netzwerk finden","在网络中查找打印机"],
   "Scanning network":["Skanowanie sieci","Escaneando la red","Analyse du réseau","Netzwerk wird durchsucht","正在扫描网络"],
@@ -695,13 +735,16 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"Display options":["Opcje wyświetlania","Opciones de visualización","Options d’affichage","Anzeigeoptionen","显示选项"]
   ,"Reaction set":["Zestaw reakcji","Conjunto de reacciones","Ensemble de réactions","Reaktionsset","反应集"]
   ,"Preview":["Podgląd","Vista previa","Aperçu","Vorschau","预览"]
+  ,"Choose {set}":["Wybierz {set}","Elegir {set}","Choisir {set}","{set} auswählen","选择{set}"]
+  ,"{count} color variants":["{count} wersji kolorystycznych","{count} variantes de color","{count} variantes de couleur","{count} Farbvarianten","{count} 种颜色变体"]
   ,"Choose a color":["Wybierz kolor","Elige un color","Choisissez une couleur","Farbe wählen","选择颜色"]
   ,"Select a color to preview the set.":["Wybierz kolor, aby zobaczyć podgląd zestawu.","Selecciona un color para ver el conjunto.","Sélectionnez une couleur pour prévisualiser l’ensemble.","Wähle eine Farbe, um das Set anzusehen.","选择颜色以预览反应集。"]
   ,"Installed on PrintDeck:":["Zainstalowany na PrintDeck:","Instalado en PrintDeck:","Installé sur PrintDeck :","Auf PrintDeck installiert:","PrintDeck 上已安装："]
   ,"Installed set:":["Zainstalowany zestaw:","Conjunto instalado:","Ensemble installé :","Installiertes Set:","已安装的反应集："]
   ,"Install {set}":["Zainstaluj: {set}","Instalar {set}","Installer {set}","{set} installieren","安装{set}"]
   ,"This set is installed on PrintDeck.":["Ten zestaw jest zainstalowany na PrintDeck.","Este conjunto está instalado en PrintDeck.","Cet ensemble est installé sur PrintDeck.","Dieses Set ist auf PrintDeck installiert.","此反应集已安装在 PrintDeck 上。"]
-  ,"Installing replaces the set defaults. Custom images are kept.":["Instalacja zmienia domyślne animacje. Własne obrazy zostają.","La instalación cambia las animaciones predeterminadas. Conserva tus imágenes.","L’installation remplace les animations par défaut et conserve vos images.","Die Installation ersetzt die Standardanimationen. Eigene Bilder bleiben erhalten.","安装会替换默认动画，并保留自定义图像。"]
+  ,"Installing replaces the set defaults.":["Instalacja zmienia domyślne animacje.","La instalación cambia las animaciones predeterminadas.","L’installation remplace les animations par défaut.","Die Installation ersetzt die Standardanimationen.","安装会替换默认动画。"]
+  ,"Custom images are kept.":["Własne obrazy zostają.","Tus imágenes personalizadas se conservan.","Vos images personnalisées sont conservées.","Eigene Bilder bleiben erhalten.","自定义图像会保留。"]
   ,"Customize individual events in your installed set.":["Dostosuj poszczególne zdarzenia w zainstalowanym zestawie.","Personaliza cada evento del conjunto instalado.","Personnalisez les événements de l’ensemble installé.","Passe einzelne Ereignisse im installierten Set an.","自定义已安装反应集中的各个事件。"]
   ,"No reaction sets are available.":["Brak dostępnych zestawów reakcji.","No hay conjuntos de reacciones disponibles.","Aucun ensemble de réactions n’est disponible.","Keine Reaktionssets verfügbar.","暂无可用的反应集。"]
   ,"Reaction set installation progress":["Postęp instalacji zestawu reakcji","Progreso de instalación del conjunto","Progression de l’installation de l’ensemble","Fortschritt der Reaktionsset-Installation","反应集安装进度"]

@@ -2901,7 +2901,10 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
           state_text = "CONNECTING";
           state_color = theme_colors_.preparing;
         } else {
-          selected_state = uppercase_ascii(core::job_status_label(selected_snapshot->job));
+          selected_state = selected_snapshot->job.condition == core::PrinterCondition::normal ||
+                           selected_snapshot->job.condition == core::PrinterCondition::ready
+              ? uppercase_ascii(core::job_status_label(selected_snapshot->job))
+              : core::job_status_label(selected_snapshot->job);
           state_text = selected_state.c_str();
           state_color = core::phase_color(theme_colors_, selected_snapshot->job.phase, true);
         }
@@ -2912,7 +2915,14 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
         state_text = "OFFLINE";
         state_color = theme_colors_.offline;
       } else if (has_status) {
-        if (inactive_status->kind == core::JobKind::calibration &&
+        if (inactive_status->condition == core::PrinterCondition::attention ||
+            inactive_status->condition == core::PrinterCondition::error) {
+          state_text = "ATTENTION";
+        } else if (inactive_status->condition == core::PrinterCondition::busy) {
+          state_text = "Printer busy";
+        } else if (inactive_status->condition == core::PrinterCondition::unknown) {
+          state_text = "UNKNOWN";
+        } else if (inactive_status->kind == core::JobKind::calibration &&
             (inactive_status->phase == core::JobPhase::preparing ||
              inactive_status->phase == core::JobPhase::printing)) {
           state_text = "CALIBRATION";
@@ -3241,7 +3251,8 @@ void DisplayShell::update_printer_progress(const core::PrinterSnapshot& snapshot
                                 LV_PART_MAIN);
     lv_bar_set_value(progress_arc_, progress, LV_ANIM_OFF);
   }
-  lv_label_set_text_fmt(progress_label_, "%d%%", progress);
+  if (snapshot.job.completion_known) lv_label_set_text_fmt(progress_label_, "%d%%", progress);
+  else lv_label_set_text(progress_label_, "--%");
 }
 
 void DisplayShell::create_printer_animation(lv_obj_t* parent) {
@@ -3918,11 +3929,11 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
   lv_label_set_text(detail_label_, snapshot.job.kind == core::JobKind::calibration
                                        ? tr("Printer calibration")
                                        : display_job_name.empty()
-                                             ? tr("No active print")
+                                             ? tr(snapshot.job.phase == core::JobPhase::idle ? "No active print" : core::job_status_label(snapshot.job))
                                              : display_job_name.c_str());
-  const std::string remaining = active_job ? duration_hms(snapshot.job.remaining_seconds) : "--m";
+  const std::string remaining = active_job && snapshot.job.remaining_known ? duration_hms(snapshot.job.remaining_seconds) : "--m";
   const std::uint32_t total_seconds = snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
-  const std::string total = active_job && total_seconds > 0 ? duration_hms(total_seconds) : "--";
+  const std::string total = active_job && snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0 ? duration_hms(total_seconds) : "--";
   lv_label_set_text(remaining_label_, remaining.c_str());
   lv_label_set_text(total_time_label_, total.c_str());
   if (snapshot.job.current_layer > 0 || snapshot.job.total_layers > 0) {
@@ -3931,10 +3942,10 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
   } else {
     lv_label_set_text_fmt(layer_label_, "%s: -- / --", tr("Layer"));
   }
-  lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C",
-                        snapshot.job.temperatures.nozzle_c);
-  lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C",
-                        snapshot.job.temperatures.bed_c);
+  if (snapshot.job.temperatures.nozzle_known) lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C", snapshot.job.temperatures.nozzle_c);
+  else lv_label_set_text(nozzle_temperature_label_, "--°C");
+  if (snapshot.job.temperatures.bed_known) lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
+  else lv_label_set_text(bed_temperature_label_, "--°C");
   if (snapshot.job.temperatures.chamber_known) {
     lv_label_set_text_fmt(chamber_temperature_label_, "%.0f°C",
                           snapshot.job.temperatures.chamber_c);
@@ -4104,8 +4115,9 @@ void DisplayShell::show_printer_nozzles(const core::PrinterProfile& profile,
       tool = &snapshot.job.toolheads[index];
     } else {
       fallback.present = true;
-      fallback.active = index == 0;
-      fallback.temperature_known = index == 0;
+      fallback.active = snapshot.job.active_toolhead == index;
+      fallback.temperature_known = index == 0 && snapshot.job.temperatures.nozzle_known;
+      fallback.target_known = index == 0 && snapshot.job.temperatures.nozzle_target_known;
       fallback.temperature_c = index == 0 ? snapshot.job.temperatures.nozzle_c : 0.0F;
       fallback.target_c = index == 0 ? snapshot.job.temperatures.nozzle_target_c : 0.0F;
       tool = &fallback;
@@ -4124,13 +4136,16 @@ void DisplayShell::show_printer_nozzles(const core::PrinterProfile& profile,
       lv_obj_set_width(label, card_width - 8);
     }
     lv_obj_set_pos(nozzle_cards_[index], x, 0);
-    lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    if (index < snapshot.job.toolhead_count) lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    else lv_label_set_text(nozzle_tool_labels_[index], "--");
     if (tool->temperature_known) {
       lv_label_set_text_fmt(nozzle_temperature_labels_[index], "%.0f°C", tool->temperature_c);
     } else {
       lv_label_set_text(nozzle_temperature_labels_[index], "--°C");
     }
-    lv_label_set_text_fmt(nozzle_target_labels_[index], "%s %.0f°C", tr("SET"), tool->target_c);
+    if (tool->target_known)
+      lv_label_set_text_fmt(nozzle_target_labels_[index], "%s %.0f°C", tr("SET"), tool->target_c);
+    else lv_label_set_text_fmt(nozzle_target_labels_[index], "%s --°", tr("SET"));
     const bool empty = tool->filament_state_known && !tool->filament_detected;
     lv_label_set_text(nozzle_material_labels_[index],
                       empty ? "---" : (tool->material.empty() ? "--" : tool->material.c_str()));
@@ -4377,8 +4392,9 @@ void DisplayShell::show_printer_compact(const core::PrinterProfile& profile,
       tool = &snapshot.job.toolheads[index];
     } else {
       fallback.present = true;
-      fallback.active = index == 0;
-      fallback.temperature_known = index == 0;
+      fallback.active = snapshot.job.active_toolhead == index;
+      fallback.temperature_known = index == 0 && snapshot.job.temperatures.nozzle_known;
+      fallback.target_known = index == 0 && snapshot.job.temperatures.nozzle_target_known;
       fallback.temperature_c = index == 0 ? snapshot.job.temperatures.nozzle_c : 0.0F;
       fallback.target_c = index == 0 ? snapshot.job.temperatures.nozzle_target_c : 0.0F;
       tool = &fallback;
@@ -4388,7 +4404,8 @@ void DisplayShell::show_printer_compact(const core::PrinterProfile& profile,
     const int x = overflow ? index * kStride
                            : (kViewportWidth - occupied_width) / 2 + index * kStride;
     lv_obj_set_pos(nozzle_cards_[index], x, 0);
-    lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    if (index < snapshot.job.toolhead_count) lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    else lv_label_set_text(nozzle_tool_labels_[index], "--");
     if (tool->temperature_known) {
       lv_label_set_text_fmt(nozzle_temperature_labels_[index], "%.0f°C", tool->temperature_c);
     } else {
@@ -4426,11 +4443,13 @@ void DisplayShell::show_printer_compact(const core::PrinterProfile& profile,
     }
   }
 
-  lv_label_set_text_fmt(layer_label_, "%s: %u / %u", tr("Layer"),
+  if (snapshot.job.total_layers > 0) lv_label_set_text_fmt(layer_label_, "%s: %u / %u", tr("Layer"),
                         snapshot.job.current_layer, snapshot.job.total_layers);
-  lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C",
-                        snapshot.job.temperatures.nozzle_c);
-  lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
+  else lv_label_set_text_fmt(layer_label_, "%s: -- / --", tr("Layer"));
+  if (snapshot.job.temperatures.nozzle_known) lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C", snapshot.job.temperatures.nozzle_c);
+  else lv_label_set_text(nozzle_temperature_label_, "--°C");
+  if (snapshot.job.temperatures.bed_known) lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
+  else lv_label_set_text(bed_temperature_label_, "--°C");
   if (snapshot.job.temperatures.chamber_known) {
     lv_label_set_text_fmt(chamber_temperature_label_, "%.0f°C",
                           snapshot.job.temperatures.chamber_c);
@@ -4440,11 +4459,11 @@ void DisplayShell::show_printer_compact(const core::PrinterProfile& profile,
   const bool active_job = snapshot.job.phase == core::JobPhase::printing ||
                           snapshot.job.phase == core::JobPhase::preparing ||
                           snapshot.job.phase == core::JobPhase::paused;
-  const std::string remaining = active_job ? duration_text(snapshot.job.remaining_seconds) : "--m";
-  const std::string elapsed = snapshot.job.elapsed_seconds > 0
+  const std::string remaining = active_job && snapshot.job.remaining_known ? duration_text(snapshot.job.remaining_seconds) : "--m";
+  const std::string elapsed = snapshot.job.elapsed_known && snapshot.job.elapsed_seconds > 0
                                   ? duration_text(snapshot.job.elapsed_seconds) : "--";
   const std::uint32_t total_seconds = snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
-  const std::string total = total_seconds > 0 ? duration_text(total_seconds) : "--";
+  const std::string total = snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0 ? duration_text(total_seconds) : "--";
   lv_label_set_text(remaining_label_, remaining.c_str());
   lv_label_set_text_fmt(total_time_label_, "%s                         %s\n%s                         %s",
                         tr("PRINT"), tr("TOTAL"), elapsed.c_str(), total.c_str());

@@ -739,14 +739,48 @@
   overflow: hidden;
   border-radius: 20px;
 }
-.reactions-page .reactions-editor-screenshot img {
+.reactions-page .reactions-editor-screenshot > img {
   position: absolute;
+  z-index: 2;
   top: -2.96%;
   left: -3.42%;
   display: block;
   width: 111.29%;
   max-width: none;
   height: auto;
+}
+
+.reactions-page .reactions-editor-crop-preview {
+  position: absolute;
+  z-index: 1;
+  top: 12.8%;
+  left: 27.3%;
+  width: 49.3%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid #91bd80;
+  border-radius: 50%;
+  background: #f7f4ee;
+}
+
+.reactions-page .reactions-editor-crop-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.reactions-page .reactions-editor-crop-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(#ffffff73 1px, transparent 1px),
+    linear-gradient(90deg, #ffffff73 1px, transparent 1px);
+  background-position: center;
+  background-size: 33.333% 33.333%;
+  pointer-events: none;
 }
 
 .reactions-page .reactions-limits-section { background: #fff; }

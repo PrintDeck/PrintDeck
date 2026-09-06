@@ -25,6 +25,11 @@ enum class JobKind : std::uint8_t {
   calibration,
 };
 
+// A printer/service condition is independent of the outcome of a print job.
+enum class PrinterCondition : std::uint8_t {
+  normal, ready, busy, attention, error, unknown,
+};
+
 enum class PrinterActivity : std::uint8_t {
   unknown,
   standby,
@@ -53,6 +58,10 @@ struct Temperatures {
   float bed_target_c = 0.0F;
   float chamber_c = 0.0F;
   bool chamber_known = false;
+  bool nozzle_known = false;
+  bool nozzle_target_known = false;
+  bool bed_known = false;
+  bool bed_target_known = false;
 };
 
 struct MotionMetrics {
@@ -68,6 +77,9 @@ struct MotionMetrics {
   bool extrusion_multiplier_known = false;
   bool fan_percent_known = false;
   bool position_known = false;
+  bool x_known = false;
+  bool y_known = false;
+  bool z_known = false;
   std::string homed_axes;
 };
 
@@ -95,6 +107,7 @@ struct ToolheadState {
   bool present = false;
   bool active = false;
   bool temperature_known = false;
+  bool target_known = false;
   float temperature_c = 0.0F;
   float target_c = 0.0F;
   float heater_power = 0.0F;
@@ -111,6 +124,7 @@ struct JobState {
   JobPhase phase = JobPhase::unknown;
   JobKind kind = JobKind::print;
   PrinterActivity activity = PrinterActivity::unknown;
+  PrinterCondition condition = PrinterCondition::normal;
   std::string name;
   std::string gcode_file;
   std::string preview_hint;
@@ -128,6 +142,9 @@ struct JobState {
   float completion = 0.0F;
   std::uint32_t elapsed_seconds = 0;
   std::uint32_t remaining_seconds = 0;
+  bool completion_known = false;
+  bool elapsed_known = false;
+  bool remaining_known = false;
   std::uint16_t current_layer = 0;
   std::uint16_t total_layers = 0;
   std::shared_ptr<std::vector<std::uint8_t>> preview;

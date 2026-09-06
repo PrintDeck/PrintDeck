@@ -11,6 +11,10 @@
 #include "printdeck/platform/network_service.hpp"
 #include "printdeck/platform/web_config.hpp"
 #include "printdeck/platform/moonraker_adapter.hpp"
+#include "printdeck/platform/prusalink_service.hpp"
+#include "printdeck/platform/elegoo_sdcp_service.hpp"
+#include "printdeck/platform/elegoo_cc2_service.hpp"
+#include "printdeck/platform/elegoo_connection_probe.hpp"
 #include "printdeck/platform/moonraker_connection_probe.hpp"
 #include "printdeck/platform/moonraker_camera_client.hpp"
 #include "printdeck/platform/inactive_printer_poller.hpp"
@@ -74,6 +78,8 @@ class Runtime {
   void apply_settings(const core::DeviceSettings& settings, bool play_feedback);
   void apply_pending_printer_selection();
   bool ensure_moonraker_started(const core::PrinterProfile* selected);
+  bool ensure_prusalink_started(const core::PrinterProfile* selected);
+  bool ensure_selected_adapter_started(const core::PrinterProfile* selected);
   bool ensure_bambu_lan_started(const core::PrinterProfile* selected);
   bool ensure_moonraker_camera_started();
   bool ensure_bambu_preview_started();
@@ -90,6 +96,11 @@ class Runtime {
   NetworkService network_;
   WebConfig web_config_;
   MoonrakerAdapter moonraker_;
+  PrusaLinkAdapter prusalink_;
+  PrusaLinkConnectionProbe prusalink_probe_;
+  ElegooSdcpAdapter elegoo_sdcp_;
+  ElegooCc2Adapter elegoo_cc2_;
+  ElegooConnectionProbe elegoo_probe_;
   MoonrakerConnectionProbe moonraker_probe_;
   MoonrakerCameraClient moonraker_camera_;
   InactivePrinterPoller inactive_printer_poller_;
@@ -143,6 +154,9 @@ class Runtime {
   bool pending_settings_feedback_ = false;
   bool time_sync_started_ = false;
   bool moonraker_connection_requested_ = false;
+  bool prusalink_connection_requested_ = false;
+  bool elegoo_sdcp_connection_requested_ = false;
+  bool elegoo_cc2_connection_requested_ = false;
   bool bambu_connection_requested_ = false;
   bool moonraker_camera_requested_ = false;
   bool bambu_preview_requested_ = false;

@@ -20,6 +20,9 @@ struct PrinterDiscoveryTiming {
   static constexpr std::uint32_t bambu_tcp_connect_timeout_ms = 250;
   static constexpr std::uint32_t bambu_tls_handshake_timeout_ms = 4000;
 
+  // A 50ms HTTP probe can miss a reachable Wi-Fi printer before its SYN reply.
+  static constexpr std::uint32_t http_tcp_connect_timeout_ms = 250;
+
   static constexpr std::uint32_t bounded_wait_ms(std::uint64_t now_ms,
                                                  std::uint64_t deadline_ms,
                                                  std::uint32_t preferred_ms) {

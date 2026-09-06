@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "sets": [
+    {
+      "id": "alloy_iris_green",
+      "name": "Green",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Green",
+      "preview": "previews/alloy_iris_green.webp"
+    },
+    {
+      "id": "alloy_iris_blue",
+      "name": "Blue",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Blue",
+      "preview": "previews/alloy_iris_blue.webp"
+    },
+    {
+      "id": "alloy_iris_brown",
+      "name": "Brown",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Brown",
+      "preview": "previews/alloy_iris_brown.webp"
+    },
+    {
+      "id": "alloy_iris_amber",
+      "name": "Amber",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Amber",
+      "preview": "previews/alloy_iris_amber.webp"
+    },
+    {
+      "id": "alloy_iris_gray",
+      "name": "Gray",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Gray",
+      "preview": "previews/alloy_iris_gray.webp"
+    },
+    {
+      "id": "alloy_iris_hazel",
+      "name": "Hazel",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Hazel",
+      "preview": "previews/alloy_iris_hazel.webp"
+    },
+    {
+      "id": "alloy_iris_red",
+      "name": "Red",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Red",
+      "preview": "previews/alloy_iris_red.webp"
+    },
+    {
+      "id": "alloy_iris_violet",
+      "name": "Violet",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Violet",
+      "preview": "previews/alloy_iris_violet.webp"
+    },
+    {
+      "id": "alloy_iris_cyan",
+      "name": "Cyan",
+      "version": "4.0.0",
+      "family_id": "iris_palette",
+      "family_name": "Iris Palette",
+      "variant_name": "Cyan",
+      "preview": "previews/alloy_iris_cyan.webp"
+    },
+    {
+      "id": "cartoon",
+      "name": "Cartoon",
+      "version": "1.0.0",
+      "family_id": "cartoon",
+      "family_name": "Cartoon",
+      "variant_name": "",
+      "preview": "previews/cartoon.webp"
+    },
+    {
+      "id": "cookie",
+      "name": "Cookie",
+      "version": "1.0.0",
+      "family_id": "cookie",
+      "family_name": "Cookie",
+      "variant_name": "",
+      "preview": "previews/cookie.webp"
+    }
+  ]
+}

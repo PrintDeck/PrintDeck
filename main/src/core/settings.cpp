@@ -75,8 +75,9 @@ bool local_hostname(std::string_view host) {
 }  // namespace
 
 bool is_local_printer_endpoint(std::string_view endpoint, PrinterProtocol protocol) {
-  if (endpoint.empty()) return false;
-  if (protocol == PrinterProtocol::moonraker) {
+  if (endpoint.empty() || !printer_protocol_supported(protocol)) return false;
+  const bool http = printer_supports(protocol, PrinterCapability::http_endpoint);
+  if (http) {
     if (endpoint.rfind("http://", 0) == 0) endpoint.remove_prefix(7);
     else if (endpoint.rfind("https://", 0) == 0) endpoint.remove_prefix(8);
   } else if (endpoint.find("://") != std::string_view::npos) {
@@ -87,7 +88,9 @@ bool is_local_printer_endpoint(std::string_view endpoint, PrinterProtocol protoc
   std::string_view host = endpoint;
   const std::size_t colon = endpoint.rfind(':');
   if (colon != std::string_view::npos) {
-    if (protocol != PrinterProtocol::moonraker || endpoint.find(':') != colon) return false;
+    const bool local_port = protocol == PrinterProtocol::elegoo_sdcp ||
+                            protocol == PrinterProtocol::elegoo_cc2;
+    if ((!http && !local_port) || endpoint.find(':') != colon) return false;
     host = endpoint.substr(0, colon);
     const std::string_view port_text = endpoint.substr(colon + 1);
     unsigned port = 0;
@@ -260,6 +263,14 @@ bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
     settings.unified_api_token.clear();
   }
   if (source_schema < 10) settings.device_name.clear();
+  if (source_schema < 11) {
+    for (auto& profile : settings.profiles) {
+      if (profile.protocol == PrinterProtocol::prusalink) return false;
+      profile.http_auth_mode = HttpAuthMode::api_key;
+      profile.http_username.clear();
+      profile.http_password.clear();
+    }
+  }
   return true;
 }
 
@@ -342,6 +353,9 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
   for (std::size_t index = 0; index < settings.profiles.size(); ++index) {
     const PrinterProfile& profile = settings.profiles[index];
     const std::string prefix = "profiles[" + std::to_string(index) + "].";
+    if (!printer_protocol_supported(profile.protocol)) {
+      issues.push_back({prefix + "protocol", "Unsupported printer connection"});
+    }
     if (profile.id == 0 || !ids.insert(profile.id).second) {
       issues.push_back({prefix + "id", "Profile ID must be non-zero and unique"});
     }
@@ -351,10 +365,45 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
       issues.push_back({prefix + "endpoint", "Printer address must be on the local network"});
     }
     check_text(issues, (prefix + "api_key").c_str(), profile.api_key, 128, false);
+    if (profile.protocol == PrinterProtocol::prusalink) {
+      const bool digest = profile.http_auth_mode == HttpAuthMode::digest;
+      if (!digest && profile.http_auth_mode != HttpAuthMode::api_key)
+        issues.push_back({prefix + "http_auth_mode", "Unsupported authentication method"});
+      check_text(issues, (prefix + "http_username").c_str(), profile.http_username, 64, digest);
+      check_text(issues, (prefix + "http_password").c_str(), profile.http_password, 128, digest);
+      check_text(issues, (prefix + "api_key").c_str(), profile.api_key, 128, !digest);
+      for (const auto* credential : {&profile.http_username, &profile.http_password, &profile.api_key}) {
+        if (std::any_of(credential->begin(), credential->end(), [](unsigned char ch) { return ch < 0x20 || ch == 0x7f; }))
+          issues.push_back({prefix + "credentials", "Credentials contain unsupported characters"});
+      }
+      if ((!digest && (!profile.http_username.empty() || !profile.http_password.empty())) ||
+          (digest && !profile.api_key.empty()) || !profile.serial.empty() || !profile.access_code.empty())
+        issues.push_back({prefix + "credentials", "Credentials do not match the connection method"});
+    } else if (!profile.http_username.empty() || !profile.http_password.empty() ||
+               profile.http_auth_mode != HttpAuthMode::api_key) {
+      issues.push_back({prefix + "credentials", "Credentials do not match the connection method"});
+    }
     check_text(issues, (prefix + "serial").c_str(), profile.serial, 32,
                printer_supports(profile.protocol, PrinterCapability::serial_number));
     check_text(issues, (prefix + "access_code").c_str(), profile.access_code, 32,
                printer_supports(profile.protocol, PrinterCapability::access_code));
+    if (profile.protocol == PrinterProtocol::elegoo_sdcp ||
+        profile.protocol == PrinterProtocol::elegoo_cc2) {
+      const bool sdcp = profile.protocol == PrinterProtocol::elegoo_sdcp;
+      const bool valid_serial = !profile.serial.empty() && profile.serial.size() <= 32 &&
+          (!sdcp || profile.serial.size() == 16 || profile.serial.size() == 32) &&
+          std::all_of(profile.serial.begin(), profile.serial.end(), [sdcp](unsigned char ch) {
+            return sdcp ? std::isxdigit(ch) != 0 :
+                ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+                 (ch >= '0' && ch <= '9') || ch == '-' || ch == '_');
+          });
+      if (!valid_serial)
+        issues.push_back({prefix + "serial", "Please check the printer name, network address and connection details."});
+      if (!profile.api_key.empty() || (sdcp && !profile.access_code.empty()) ||
+          std::any_of(profile.access_code.begin(), profile.access_code.end(),
+                      [](unsigned char ch) { return ch < 0x20 || ch == 0x7f; }))
+        issues.push_back({prefix + "credentials", "Credentials do not match the connection method"});
+    }
     check_text(issues, (prefix + "manufacturer").c_str(), profile.manufacturer, 48,
                profile.protocol == PrinterProtocol::moonraker);
     check_text(issues, (prefix + "model").c_str(), profile.model, 48, false);
@@ -373,8 +422,31 @@ DeviceSettings redact_secrets(DeviceSettings settings) {
   for (auto& profile : settings.profiles) {
     profile.api_key.clear();
     profile.access_code.clear();
+    profile.http_password.clear();
   }
   return settings;
+}
+
+void clear_irrelevant_printer_credentials(PrinterProfile& profile) {
+  if (profile.protocol == PrinterProtocol::prusalink) {
+    profile.serial.clear();
+    profile.access_code.clear();
+    if (profile.http_auth_mode == HttpAuthMode::digest) profile.api_key.clear();
+    else { profile.http_username.clear(); profile.http_password.clear(); }
+  } else {
+    profile.http_auth_mode = HttpAuthMode::api_key;
+    profile.http_username.clear();
+    profile.http_password.clear();
+    if (!printer_supports(profile.protocol, PrinterCapability::api_key)) profile.api_key.clear();
+    if (!printer_supports(profile.protocol, PrinterCapability::serial_number)) profile.serial.clear();
+    if (!printer_supports(profile.protocol, PrinterCapability::access_code)) profile.access_code.clear();
+  }
+}
+
+bool same_http_auth_context(const PrinterProfile& first, const PrinterProfile& second) {
+  return first.id != 0 && first.id == second.id && first.protocol == second.protocol &&
+         first.endpoint == second.endpoint && first.http_auth_mode == second.http_auth_mode &&
+         first.http_username == second.http_username;
 }
 
 }  // namespace printdeck::core

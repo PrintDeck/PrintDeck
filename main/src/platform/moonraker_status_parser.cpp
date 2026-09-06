@@ -202,10 +202,15 @@ MoonrakerStatusParseResult parse_moonraker_status(
   const double elapsed = std::max(0.0, number_member(stats, "print_duration"));
   next.job.completion = static_cast<float>(progress * 100.0);
   next.job.elapsed_seconds = static_cast<std::uint32_t>(elapsed);
+  next.job.completion_known = cJSON_IsNumber(member(display, "progress")) ||
+                              cJSON_IsNumber(member(virtual_sd, "progress"));
+  next.job.elapsed_known = cJSON_IsNumber(member(stats, "print_duration"));
   if (progress > 0.001 && progress < 1.0 && elapsed > 0.0) {
     next.job.remaining_seconds = static_cast<std::uint32_t>(elapsed / progress - elapsed);
+    next.job.remaining_known = true;
   } else if (context.estimated_seconds > elapsed) {
     next.job.remaining_seconds = context.estimated_seconds - static_cast<std::uint32_t>(elapsed);
+    next.job.remaining_known = true;
   }
   const cJSON* layer_info = member(stats, "info");
   next.job.current_layer = static_cast<std::uint16_t>(
@@ -229,6 +234,7 @@ MoonrakerStatusParseResult parse_moonraker_status(
     info.present = cJSON_IsObject(tool);
     info.active = object_name == active_extruder || bool_member(tool, "active_pin");
     info.temperature_known = cJSON_IsNumber(member(tool, "temperature"));
+    info.target_known = cJSON_IsNumber(member(tool, "target"));
     info.temperature_c = static_cast<float>(number_member(tool, "temperature"));
     info.target_c = static_cast<float>(number_member(tool, "target"));
     info.heater_power_known = cJSON_IsNumber(member(tool, "power"));
@@ -270,6 +276,10 @@ MoonrakerStatusParseResult parse_moonraker_status(
   next.job.temperatures.nozzle_target_c = static_cast<float>(number_member(extruder, "target"));
   next.job.temperatures.bed_c = static_cast<float>(number_member(bed, "temperature"));
   next.job.temperatures.bed_target_c = static_cast<float>(number_member(bed, "target"));
+  next.job.temperatures.nozzle_known = cJSON_IsNumber(member(extruder, "temperature"));
+  next.job.temperatures.nozzle_target_known = cJSON_IsNumber(member(extruder, "target"));
+  next.job.temperatures.bed_known = cJSON_IsNumber(member(bed, "temperature"));
+  next.job.temperatures.bed_target_known = cJSON_IsNumber(member(bed, "target"));
   next.job.bed_heater_power_known = cJSON_IsNumber(member(bed, "power"));
   next.job.bed_heater_power = static_cast<float>(number_member(bed, "power"));
   const cJSON* chamber = context.chamber_sensor_object.empty()
@@ -304,6 +314,9 @@ MoonrakerStatusParseResult parse_moonraker_status(
   next.job.motion.y_mm = static_cast<float>(array_number(position, 1));
   next.job.motion.z_mm = static_cast<float>(array_number(position, 2));
   next.job.motion.position_known = cJSON_IsArray(position) && cJSON_GetArraySize(position) >= 3;
+  next.job.motion.x_known = cJSON_IsNumber(cJSON_GetArrayItem(position, 0));
+  next.job.motion.y_known = cJSON_IsNumber(cJSON_GetArrayItem(position, 1));
+  next.job.motion.z_known = cJSON_IsNumber(cJSON_GetArrayItem(position, 2));
   next.job.motion.homed_axes = string_member(toolhead, "homed_axes");
   const cJSON* movement = member(status, "gcode_move");
   const cJSON* motion_report = member(status, "motion_report");

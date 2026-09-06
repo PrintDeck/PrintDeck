@@ -506,6 +506,8 @@ std::uint32_t generate_printer_profile_id(
 esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsStore& store,
                            NetworkService& network,
                            MoonrakerConnectionProbe& moonraker_probe,
+                           PrusaLinkConnectionProbe& prusalink_probe,
+                           ElegooConnectionProbe& elegoo_probe,
                            PrinterDiscoveryService& printer_discovery,
                            FirmwareUpdateService& firmware_update,
                            ReactionAssetService& reaction_assets,
@@ -520,6 +522,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   store_ = &store;
   network_ = &network;
   moonraker_probe_ = &moonraker_probe;
+  prusalink_probe_ = &prusalink_probe;
+  elegoo_probe_ = &elegoo_probe;
   printer_discovery_ = &printer_discovery;
   firmware_update_ = &firmware_update;
   reaction_assets_ = &reaction_assets;
@@ -596,6 +600,12 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/reactions/upload", .method = HTTP_POST, .handler = reactions_upload_entry, .user_ctx = this},
       {.uri = "/api/reactions/gif", .method = HTTP_GET, .handler = reactions_gif_entry, .user_ctx = this},
       {.uri = "/api/moonraker/check/start", .method = HTTP_POST, .handler = moonraker_check_start_entry, .user_ctx = this},
+      {.uri = "/api/prusalink/check/start", .method = HTTP_POST, .handler = prusalink_check_start_entry, .user_ctx = this},
+      {.uri = "/api/prusalink/check/status", .method = HTTP_GET, .handler = prusalink_check_status_entry, .user_ctx = this},
+      {.uri = "/api/prusalink/check/cancel", .method = HTTP_POST, .handler = prusalink_check_cancel_entry, .user_ctx = this},
+      {.uri = "/api/elegoo/check/start", .method = HTTP_POST, .handler = elegoo_check_start_entry, .user_ctx = this},
+      {.uri = "/api/elegoo/check/status", .method = HTTP_GET, .handler = elegoo_check_status_entry, .user_ctx = this},
+      {.uri = "/api/elegoo/check/cancel", .method = HTTP_POST, .handler = elegoo_check_cancel_entry, .user_ctx = this},
       {.uri = "/api/moonraker/check/status", .method = HTTP_GET, .handler = moonraker_check_status_entry, .user_ctx = this},
       {.uri = "/api/bambu/compatibility/start", .method = HTTP_POST, .handler = compatibility_start_entry, .user_ctx = this},
       {.uri = "/api/bambu/compatibility/status", .method = HTTP_GET, .handler = compatibility_status_entry, .user_ctx = this},
@@ -608,6 +618,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/v1/printers/*", .method = HTTP_GET, .handler = unified_api_printer_entry, .user_ctx = this},
       {.uri = "/*", .method = HTTP_GET, .handler = captive_entry, .user_ctx = this},
   };
+  static_assert(sizeof(routes) / sizeof(routes[0]) <= 64,
+                "Web Config route capacity must include every handler");
   for (const auto& route : routes) {
     result = httpd_register_uri_handler(server_, &route);
     if (result != ESP_OK) return result;
@@ -1096,6 +1108,183 @@ esp_err_t WebConfig::reactions_gif_entry(httpd_req_t* request) {
 
 esp_err_t WebConfig::moonraker_check_start_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->start_moonraker_check(request);
+}
+
+esp_err_t WebConfig::prusalink_check_start_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->start_prusalink_check(request);
+}
+
+esp_err_t WebConfig::prusalink_check_status_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_prusalink_check_status(request);
+}
+
+esp_err_t WebConfig::prusalink_check_cancel_entry(httpd_req_t* request) {
+  auto* self = static_cast<WebConfig*>(request->user_ctx);
+  std::string body, id;
+  if (request->content_len > 80 || !receive_form(request, body) ||
+      !form_value(body, "check_id", id) || id.size() != 32)
+    return send_json(request, "400 Bad Request", "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  self->prusalink_probe_->cancel(id);
+  return send_json(request, "200 OK", "{\"cancelled\":true}");
+}
+
+bool WebConfig::read_prusalink_credentials(const std::string& body, core::PrinterProfile& profile) const {
+  std::string mode;
+  if (!form_value(body, "http_auth_mode", mode) ||
+      !form_value(body, "http_username", profile.http_username) ||
+      !form_value(body, "http_password", profile.http_password) ||
+      !form_value(body, "api_key", profile.api_key) || (mode != "digest" && mode != "api_key")) return false;
+  const auto origin = prusalink_origin(profile.endpoint);
+  if (!origin) return false;
+  profile.endpoint = *origin;
+  profile.http_auth_mode = mode == "digest" ? core::HttpAuthMode::digest : core::HttpAuthMode::api_key;
+  core::clear_irrelevant_printer_credentials(profile);
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    for (auto existing : settings_.profiles) {
+      if (existing.id != profile.id || existing.protocol != profile.protocol) continue;
+      const auto saved_origin = prusalink_origin(existing.endpoint);
+      if (saved_origin) existing.endpoint = *saved_origin;
+      if (!core::same_http_auth_context(existing, profile)) break;
+      if (profile.api_key.empty()) profile.api_key = existing.api_key;
+      if (profile.http_password.empty()) profile.http_password = existing.http_password;
+      break;
+    }
+  }
+  return profile.http_auth_mode == core::HttpAuthMode::digest
+      ? prusalink_credential_valid(profile.http_username, 64) && prusalink_credential_valid(profile.http_password, 128)
+      : prusalink_credential_valid(profile.api_key, 128);
+}
+
+esp_err_t WebConfig::start_prusalink_check(httpd_req_t* request) {
+  if (!network_->status().station_connected)
+    return send_json(request, "409 Conflict", "{\"error\":\"Connect PrintDeck to Wi-Fi before testing a printer.\"}");
+  core::PrinterProfile profile;
+  profile.protocol = core::PrinterProtocol::prusalink;
+  std::string body, id;
+  if (!receive_form(request, body) || !form_value(body, "profile_id", id) ||
+      !parse_id(id, profile.id) || !form_value(body, "endpoint", profile.endpoint) ||
+      !read_prusalink_credentials(body, profile))
+    return send_json(request, "400 Bad Request", "{\"error\":\"Please check the printer name, network address and connection details.\"}");
+  const auto result = prusalink_probe_->start(std::move(profile), *network_);
+  if (result != ESP_OK)
+    return send_json(request, "409 Conflict", "{\"error\":\"PrintDeck could not start the connection test. Please try again.\"}");
+  return serve_prusalink_check_status(request);
+}
+
+esp_err_t WebConfig::serve_prusalink_check_status(httpd_req_t* request) const {
+  const auto snapshot = prusalink_probe_->snapshot();
+  std::string body = "{\"check_id\":";
+  append_json_string(body, snapshot.id);
+  body += ",\"running\":";
+  body += snapshot.running ? "true" : "false";
+  body += ",\"ready\":";
+  body += snapshot.ready ? "true" : "false";
+  body += ",\"error_code\":" + std::to_string(static_cast<unsigned>(snapshot.error));
+  body += ",\"model\":";
+  append_json_string(body, snapshot.identity.model);
+  body += ",\"version\":";
+  append_json_string(body, snapshot.identity.firmware_version);
+  body += "}";
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::elegoo_check_start_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->start_elegoo_check(request);
+}
+
+esp_err_t WebConfig::elegoo_check_status_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_elegoo_check_status(request);
+}
+
+esp_err_t WebConfig::elegoo_check_cancel_entry(httpd_req_t* request) {
+  auto* self = static_cast<WebConfig*>(request->user_ctx);
+  std::string body, id;
+  if (request->content_len > 80 || !receive_form(request, body) ||
+      !form_value(body, "check_id", id) || id.size() != 32)
+    return send_json(request, "400 Bad Request", "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  self->elegoo_probe_->cancel(id);
+  return send_json(request, "200 OK", "{\"cancelled\":true}");
+}
+
+bool WebConfig::read_elegoo_credentials(const std::string& body, core::PrinterProfile& profile) const {
+  const bool sdcp = profile.protocol == core::PrinterProtocol::elegoo_sdcp;
+  if (!sdcp && profile.protocol != core::PrinterProtocol::elegoo_cc2) return false;
+  if (!form_value(body, "serial", profile.serial) ||
+      !form_value(body, "access_code", profile.access_code) ||
+      profile.endpoint.size() > 128 || profile.serial.size() > 32 || profile.access_code.size() > 32 ||
+      !core::is_local_printer_endpoint(profile.endpoint, profile.protocol)) return false;
+  if (profile.endpoint.find(':') == std::string::npos) profile.endpoint += sdcp ? ":3030" : ":1883";
+  core::clear_irrelevant_printer_credentials(profile);
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto& existing : settings_.profiles) {
+      if (existing.id != profile.id || existing.protocol != profile.protocol ||
+          existing.endpoint != profile.endpoint || existing.serial != profile.serial) continue;
+      if (profile.access_code.empty()) profile.access_code = existing.access_code;
+      break;
+    }
+  }
+  const auto control = [](unsigned char ch) { return ch < 0x20 || ch == 0x7f; };
+  return (sdcp || !profile.access_code.empty()) &&
+      !std::any_of(profile.serial.begin(), profile.serial.end(), control) &&
+      !std::any_of(profile.access_code.begin(), profile.access_code.end(), control);
+}
+
+esp_err_t WebConfig::start_elegoo_check(httpd_req_t* request) {
+  if (!network_->status().station_connected)
+    return send_json(request, "409 Conflict", "{\"error\":\"Connect PrintDeck to Wi-Fi before testing a printer.\"}");
+  core::PrinterProfile profile;
+  std::string body, id, protocol;
+  if (!receive_form(request, body) || !form_value(body, "profile_id", id) || !parse_id(id, profile.id) ||
+      !form_value(body, "protocol", protocol) || !core::printer_protocol_from_id(protocol, profile.protocol) ||
+      !form_value(body, "endpoint", profile.endpoint) || !read_elegoo_credentials(body, profile))
+    return send_json(request, "400 Bad Request", "{\"error\":\"Please check the printer name, network address and connection details.\"}");
+  // Rechecking an unchanged active profile can use its verified live session.
+  // Do not compete for a printer connection slot just to rename that profile.
+  SelectedPrinterSnapshotCallback callback = nullptr;
+  void* callback_context = nullptr;
+  ElegooIdentity live_identity;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    const auto existing = std::find_if(settings_.profiles.begin(), settings_.profiles.end(),
+        [&](const auto& saved) { return saved.id == settings_.selected_profile &&
+                                       core::same_printer_connection(saved, profile); });
+    if (existing != settings_.profiles.end()) {
+      callback = selected_printer_snapshot_callback_;
+      callback_context = selected_printer_snapshot_context_;
+      live_identity.model = existing->model;
+      live_identity.serial = existing->serial;
+    }
+  }
+  if (callback) {
+    const auto live = std::make_unique<core::PrinterSnapshot>();
+    const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    if (callback(callback_context, *live) && live->profile_id == profile.id &&
+        live->link == core::LinkState::online && live->updated_at_ms <= now &&
+        now - live->updated_at_ms < 10000 && elegoo_probe_->accept_live(profile, live_identity))
+      return serve_elegoo_check_status(request);
+  }
+  if (elegoo_probe_->start(std::move(profile), *network_) != ESP_OK)
+    return send_json(request, "409 Conflict", "{\"error\":\"PrintDeck could not start the connection test. Please try again.\"}");
+  return serve_elegoo_check_status(request);
+}
+
+esp_err_t WebConfig::serve_elegoo_check_status(httpd_req_t* request) const {
+  const auto snapshot = elegoo_probe_->snapshot();
+  std::string body = "{\"check_id\":";
+  append_json_string(body, snapshot.id);
+  body += ",\"running\":";
+  body += snapshot.running ? "true" : "false";
+  body += ",\"ready\":";
+  body += snapshot.ready ? "true" : "false";
+  body += ",\"error_code\":" + std::to_string(static_cast<unsigned>(snapshot.error));
+  body += ",\"model\":";
+  append_json_string(body, snapshot.identity.model);
+  body += ",\"serial\":";
+  append_json_string(body, snapshot.ready ? snapshot.identity.serial : "");
+  body += "}";
+  return send_json(request, "200 OK", body.c_str());
 }
 
 esp_err_t WebConfig::moonraker_check_status_entry(httpd_req_t* request) {
@@ -1762,6 +1951,8 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views() const {
         view.snapshot.job.kind = status->kind;
         view.snapshot.job.name = status->job_name;
         view.snapshot.job.remaining_seconds = status->remaining_seconds;
+        view.snapshot.job.remaining_known = status->remaining_known;
+        view.snapshot.job.condition = status->condition;
         view.reachability = !status->available ? core::PrinterReachability::unknown
             : status->connected ? core::PrinterReachability::online
                                 : core::PrinterReachability::offline;
@@ -1928,6 +2119,8 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
   body += state.busy ? "true" : "false";
   body += ",\"cancellable\":";
   body += state.cancellable ? "true" : "false";
+  body += ",\"install_failed\":";
+  body += state.install_failed ? "true" : "false";
   body += ",\"progress\":" + std::to_string(state.progress_percent);
   body += ",\"detail\":";
   append_json_string(body, state.detail);
@@ -1963,6 +2156,12 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
     append_json_string(body, set.name);
     body += ",\"version\":";
     append_json_string(body, set.version);
+    body += ",\"family_id\":";
+    append_json_string(body, set.family_id);
+    body += ",\"family_name\":";
+    append_json_string(body, set.family_name);
+    body += ",\"variant_name\":";
+    append_json_string(body, set.variant_name);
     body += ",\"active\":";
     body += state.active_set_id == set.id && state.active_set_version == set.version
                 ? "true"
@@ -1982,7 +2181,10 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
     body += ",\"enabled\":";
     body += reaction_assets_->event_enabled(event.id) ? "true" : "false";
     body += ",\"custom\":";
-    body += reaction_assets_->custom_override(event.id) ? "true" : "false";
+    body += state.effective_custom[event_index] ? "true" : "false";
+    body += ",\"preview_version\":";
+    append_json_string(body, std::to_string(state.preview_session) + "-" +
+                                std::to_string(state.preview_generations[event_index]));
     const std::size_t current_bytes = state.effective_bytes[event_index++];
     const std::size_t active_without_event =
         state.active_bytes >= current_bytes ? state.active_bytes - current_bytes : 0;
@@ -2959,6 +3161,10 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
     append_json_string(body, profile.display_name);
     body += ",\"endpoint\":";
     append_json_string(body, profile.endpoint);
+    body += ",\"http_auth_mode\":";
+    append_json_string(body, profile.http_auth_mode == core::HttpAuthMode::digest ? "digest" : "api_key");
+    body += ",\"http_username\":";
+    append_json_string(body, profile.http_username);
     body += ",\"serial\":";
     append_json_string(body, profile.serial);
     body += ",\"manufacturer\":";
@@ -3382,7 +3588,28 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     return send_json(request, "400 Bad Request",
                      "{\"error\":\"This printer connection type is not supported.\"}");
   }
-  if (core::printer_supports(profile.protocol, core::PrinterCapability::access_code)) {
+  if (profile.protocol == core::PrinterProtocol::prusalink) {
+    profile.id = profile_id;
+    std::string check_id;
+    if (!read_prusalink_credentials(body, profile) || !form_value(body, "check_id", check_id) ||
+        !prusalink_probe_->verified(profile, check_id))
+      return send_json(request, "409 Conflict", "{\"error\":\"Check the Prusa connection before saving.\"}");
+    profile.manufacturer = "Prusa Research";
+    profile.model = prusalink_probe_->snapshot().identity.model;
+  }
+  const bool elegoo = profile.protocol == core::PrinterProtocol::elegoo_sdcp ||
+                      profile.protocol == core::PrinterProtocol::elegoo_cc2;
+  if (elegoo) {
+    profile.id = profile_id;
+    std::string check_id;
+    if (!read_elegoo_credentials(body, profile) || !form_value(body, "check_id", check_id) ||
+        !elegoo_probe_->verified(profile, check_id))
+      return send_json(request, "409 Conflict", "{\"error\":\"Check the Elegoo connection before saving.\"}");
+    profile.manufacturer = "ELEGOO";
+    profile.brand = "elegoo";
+    profile.model = elegoo_probe_->snapshot().identity.model;
+    core::clear_irrelevant_printer_credentials(profile);
+  } else if (core::printer_supports(profile.protocol, core::PrinterCapability::access_code)) {
     const core::PrinterDriverDescriptor& driver = core::printer_driver(profile.protocol);
     profile.api_key.clear();
     profile.manufacturer = driver.default_manufacturer;
@@ -3422,7 +3649,7 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     if (candidate.selected_profile == 0) candidate.selected_profile = next_id;
   } else {
     profile.id = profile_id;
-    if (profile.protocol == existing->protocol) {
+    if (profile.protocol == existing->protocol && profile.protocol != core::PrinterProtocol::prusalink && !elegoo) {
       if (profile.api_key.empty()) profile.api_key = existing->api_key;
       if (profile.access_code.empty()) profile.access_code = existing->access_code;
     }

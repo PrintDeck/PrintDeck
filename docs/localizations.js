@@ -463,6 +463,7 @@
     ['Page appearance','Wygląd strony','Apariencia de la página','Apparence de la page','Seitendarstellung','页面外观'],
     ['Light appearance','Jasny wygląd','Apariencia clara','Apparence claire','Helle Darstellung','浅色外观'],
     ['Dark appearance','Ciemny wygląd','Apariencia oscura','Apparence sombre','Dunkle Darstellung','深色外观'],
+    ['Automatic appearance','Automatyczny wygląd','Apariencia automática','Apparence automatique','Automatische Darstellung','自动外观'],
     ['Dark appearance. Activate to use light appearance.','Ciemny wygląd. Aktywuj, aby użyć jasnego.','Apariencia oscura. Activa para usar la apariencia clara.','Apparence sombre. Activez pour utiliser l’apparence claire.','Dunkle Darstellung. Aktivieren, um die helle Darstellung zu verwenden.','深色外观。启用以切换到浅色外观。'],
     ['Light appearance. Activate to use dark appearance.','Jasny wygląd. Aktywuj, aby użyć ciemnego.','Apariencia clara. Activa para usar la apariencia oscura.','Apparence claire. Activez pour utiliser l’apparence sombre.','Helle Darstellung. Aktivieren, um die dunkle Darstellung zu verwenden.','浅色外观。启用以切换到深色外观。'],
     ['Language','Język','Idioma','Langue','Sprache','语言'],

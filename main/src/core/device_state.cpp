@@ -49,7 +49,7 @@ bool printer_selection_unavailable(std::uint32_t selected_profile,
 bool retain_last_known_job_during_reconnect(PrinterSnapshot& current,
                                             const PrinterSnapshot& last_known) {
   if (current.profile_id == 0 || current.profile_id != last_known.profile_id ||
-      current.link == LinkState::online || current.job.phase != JobPhase::unknown ||
+      current.link != LinkState::connecting || current.job.phase != JobPhase::unknown ||
       last_known.link != LinkState::online ||
       last_known.job.phase == JobPhase::unknown) {
     return false;
@@ -60,6 +60,9 @@ bool retain_last_known_job_during_reconnect(PrinterSnapshot& current,
   current.job.name = last_known.job.name;
   current.job.completion = last_known.job.completion;
   current.job.remaining_seconds = last_known.job.remaining_seconds;
+  current.job.completion_known = last_known.job.completion_known;
+  current.job.remaining_known = last_known.job.remaining_known;
+  current.job.condition = last_known.job.condition;
   current.job.reachable = last_known.job.reachable;
   return true;
 }
@@ -93,7 +96,9 @@ bool same_printer_connection(const PrinterProfile& first,
                              const PrinterProfile& second) {
   return first.id == second.id && first.protocol == second.protocol &&
          first.endpoint == second.endpoint && first.api_key == second.api_key &&
-         first.serial == second.serial && first.access_code == second.access_code;
+         first.serial == second.serial && first.access_code == second.access_code &&
+         first.http_auth_mode == second.http_auth_mode &&
+         first.http_username == second.http_username && first.http_password == second.http_password;
 }
 
 SnapshotStore::SnapshotStore() {
@@ -133,10 +138,27 @@ void SnapshotStore::read_into(PrinterSnapshot& destination) const {
   destination = *value_;
 }
 
-void SnapshotStore::replace(PrinterSnapshot next) {
-  next.job.normalize();
+void SnapshotStore::replace(const PrinterSnapshot& next) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  *value_ = next;
+  value_->job.normalize();
+}
+
+void SnapshotStore::replace(PrinterSnapshot&& next) {
   const std::lock_guard<std::mutex> lock(mutex_);
   *value_ = std::move(next);
+  value_->job.normalize();
+}
+
+void SnapshotStore::invalidate(std::uint32_t profile_id, LinkState link, std::uint64_t now_ms) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  // Reconstruct in the existing allocation: no large stack temporary or new
+  // allocation is needed when a connection fails under memory pressure.
+  value_->~PrinterSnapshot();
+  value_ = ::new (value_) PrinterSnapshot();
+  value_->profile_id = profile_id;
+  value_->link = link == LinkState::online ? LinkState::failed : link;
+  value_->updated_at_ms = now_ms;
 }
 
 }  // namespace printdeck::core

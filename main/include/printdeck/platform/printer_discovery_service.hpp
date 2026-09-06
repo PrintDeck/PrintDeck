@@ -53,6 +53,7 @@ class PrinterDiscoveryService {
   mutable std::mutex mutex_;
   NetworkStatus network_;
   std::vector<std::string> saved_ipv4_hosts_;
+  std::vector<std::string> saved_prusa_origins_;
   std::string cache_network_key_;
   PrinterDiscoverySnapshot snapshot_;
   std::atomic<bool> cancel_requested_{false};

@@ -1,0 +1,13 @@
+set(PRINTDECK_REACTION_PREVIEW_FILES
+    "web/reaction-previews/alloy_iris_green.webp"
+    "web/reaction-previews/alloy_iris_blue.webp"
+    "web/reaction-previews/alloy_iris_brown.webp"
+    "web/reaction-previews/alloy_iris_amber.webp"
+    "web/reaction-previews/alloy_iris_gray.webp"
+    "web/reaction-previews/alloy_iris_hazel.webp"
+    "web/reaction-previews/alloy_iris_red.webp"
+    "web/reaction-previews/alloy_iris_violet.webp"
+    "web/reaction-previews/alloy_iris_cyan.webp"
+    "web/reaction-previews/cartoon.webp"
+    "web/reaction-previews/cookie.webp"
+)

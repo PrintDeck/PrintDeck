@@ -2,6 +2,7 @@
   const storageKey = 'printdeck-installer-appearance';
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
   const allowedModes = new Set(['light', 'dark']);
+  const automaticAppearanceIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h15v10h-15z"></path><path d="M9 19h6M12 15.5V19"></path><path d="M8 10a4 4 0 0 1 6.8-2.8"></path><path d="M14.8 5.6v2.5h-2.5"></path><path d="M16 11a4 4 0 0 1-6.8 2.8"></path><path d="M9.2 15.4v-2.5h2.5"></path></svg>';
   let followsSystem = true;
   let mode = systemDark.matches ? 'dark' : 'light';
 
@@ -13,12 +14,32 @@
     }
   } catch (_) {}
 
+  const appearanceControls = () => document.querySelectorAll('[data-site-appearance], .appearance-switch');
+
+  const ensureAutomaticOption = (control) => {
+    let option = control.querySelector('[data-appearance-reset]');
+    if (option) return option;
+    const localize = window.printDeckInstallerI18n?.t || ((text) => text);
+    const label = localize('Automatic appearance');
+    option = document.createElement('button');
+    option.className = 'appearance-option appearance-option-auto';
+    option.type = 'button';
+    option.dataset.appearanceReset = '';
+    option.hidden = true;
+    option.setAttribute('aria-label', label);
+    option.title = label;
+    option.innerHTML = automaticAppearanceIcon;
+    control.append(option);
+    return option;
+  };
+
   const updateControls = () => {
-    document.querySelectorAll('[data-site-appearance], .appearance-switch').forEach((control) => {
-      control.setAttribute('aria-checked', String(mode === 'dark'));
+    appearanceControls().forEach((control) => {
       control.querySelectorAll('[data-appearance-mode]').forEach((option) => {
         option.setAttribute('aria-pressed', String(option.dataset.appearanceMode === mode));
       });
+      const automaticOption = control.querySelector('[data-appearance-reset]');
+      if (automaticOption) automaticOption.hidden = followsSystem;
     });
   };
 
@@ -35,15 +56,24 @@
   };
 
   const bind = () => {
-    document.querySelectorAll('[data-site-appearance], .appearance-switch').forEach((control) => {
+    appearanceControls().forEach((control) => {
       if (control.dataset.bound) return;
       control.dataset.bound = 'true';
-      const toggle = () => apply(mode === 'dark' ? 'light' : 'dark');
-      control.addEventListener('click', toggle);
-      control.addEventListener('keydown', (event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        toggle();
+      control.setAttribute('role', 'group');
+      control.removeAttribute('tabindex');
+      control.removeAttribute('aria-checked');
+
+      control.querySelectorAll('[data-appearance-mode]').forEach((option) => {
+        option.tabIndex = 0;
+        option.addEventListener('click', () => apply(option.dataset.appearanceMode));
+      });
+
+      const automaticOption = ensureAutomaticOption(control);
+      automaticOption.tabIndex = 0;
+      automaticOption.addEventListener('click', () => {
+        followsSystem = true;
+        try { localStorage.removeItem(storageKey); } catch (_) {}
+        apply(systemDark.matches ? 'dark' : 'light', false);
       });
     });
     updateControls();
@@ -77,6 +107,70 @@
   apply(mode, false);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
+})();
+
+(() => {
+  const bindWorkshopHeroScreens = () => {
+    const hero = document.querySelector('[data-workshop-hero]');
+    const stage = hero?.querySelector('[data-workshop-screen-stage]');
+    if (!hero || !stage) return;
+
+    const sourceWidth = 1916;
+    const sourceHeight = 821;
+    const sourceRatio = sourceWidth / sourceHeight;
+
+    const axisPosition = (token, freeSpace) => {
+      const normalized = token.trim().toLowerCase();
+      if (normalized === 'left' || normalized === 'top') return 0;
+      if (normalized === 'center') return freeSpace * .5;
+      if (normalized === 'right' || normalized === 'bottom') return freeSpace;
+      if (normalized.endsWith('%')) return freeSpace * (Number.parseFloat(normalized) / 100);
+      const pixels = Number.parseFloat(normalized);
+      return Number.isFinite(pixels) ? pixels : freeSpace * .5;
+    };
+
+    const syncStage = () => {
+      const rect = hero.getBoundingClientRect();
+      const styles = getComputedStyle(hero);
+      const sizeTokens = styles.backgroundSize.trim().split(/\s+/);
+      let renderedWidth;
+      let renderedHeight;
+
+      if (sizeTokens[0] === 'cover') {
+        const scale = Math.max(rect.width / sourceWidth, rect.height / sourceHeight);
+        renderedWidth = sourceWidth * scale;
+        renderedHeight = sourceHeight * scale;
+      } else if (sizeTokens.length >= 2 && sizeTokens[0] === 'auto') {
+        renderedHeight = Number.parseFloat(sizeTokens[1]);
+        renderedWidth = renderedHeight * sourceRatio;
+      } else if (sizeTokens.length >= 2 && sizeTokens[1] === 'auto') {
+        renderedWidth = Number.parseFloat(sizeTokens[0]);
+        renderedHeight = renderedWidth / sourceRatio;
+      } else {
+        renderedWidth = Number.parseFloat(sizeTokens[0]);
+        renderedHeight = Number.parseFloat(sizeTokens[1] || sizeTokens[0]);
+      }
+
+      if (!Number.isFinite(renderedWidth) || !Number.isFinite(renderedHeight)) return;
+      const positionTokens = styles.backgroundPosition.trim().split(/\s+/);
+      const left = axisPosition(positionTokens[0] || '50%', rect.width - renderedWidth);
+      const top = axisPosition(positionTokens[1] || '50%', rect.height - renderedHeight);
+
+      stage.style.width = `${renderedWidth}px`;
+      stage.style.height = `${renderedHeight}px`;
+      stage.style.left = `${left}px`;
+      stage.style.top = `${top}px`;
+      stage.classList.add('is-ready');
+    };
+
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(syncStage) : null;
+    observer?.observe(hero);
+    if (!observer) window.addEventListener('resize', syncStage, { passive: true });
+    syncStage();
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindWorkshopHeroScreens);
+  else bindWorkshopHeroScreens();
 })();
 
 (() => {
@@ -284,6 +378,7 @@
       let current = 0;
       let timer = 0;
       let isVisible = true;
+      const staggerDelay = Math.max(0, Number.parseInt(carousel.dataset.screenCarouselDelay || '0', 10) || 0);
 
       const moveTrack = () => {
         track.style.transform = `translate3d(-${current * 100}%, 0, 0)`;
@@ -298,11 +393,13 @@
         });
       };
 
-      const scheduleNext = () => {
+      const scheduleNext = (delay = 3000) => {
         window.clearTimeout(timer);
         if (!isVisible || document.hidden) return;
-        timer = window.setTimeout(advance, 3000);
+        timer = window.setTimeout(advance, delay);
       };
+
+      const scheduleWithStagger = () => scheduleNext(3000 + staggerDelay);
 
       const advance = () => {
         if (!isVisible || document.hidden) return;
@@ -317,17 +414,17 @@
         scheduleNext();
       };
 
-      document.addEventListener('visibilitychange', scheduleNext);
+      document.addEventListener('visibilitychange', scheduleWithStagger);
 
       if ('IntersectionObserver' in window) {
         const observer = new IntersectionObserver(([entry]) => {
           isVisible = entry.isIntersecting;
-          scheduleNext();
+          scheduleWithStagger();
         }, { threshold: .2 });
         observer.observe(carousel);
       }
 
-      scheduleNext();
+      scheduleWithStagger();
     });
   };
 

@@ -390,8 +390,9 @@ void DisplayShell::square_create_printer_chrome(const core::PrinterProfile& prof
   }
 
   progress_label_ = lv_label_create(screen);
-  lv_label_set_text_fmt(progress_label_, "%d%%",
+  if (snapshot.job.completion_known) lv_label_set_text_fmt(progress_label_, "%d%%",
                         std::clamp(static_cast<int>(snapshot.job.completion), 0, 100));
+  else lv_label_set_text(progress_label_, "--%");
   apply_text_style(progress_label_, lv_color_hex(accent_color_), &lv_font_montserrat_12);
   lv_obj_set_width(progress_label_, kDisplayUsesCompactRoundLayout ? 32 : 40);
   lv_obj_set_style_text_align(progress_label_, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
@@ -1435,34 +1436,39 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
   lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
   lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_colors_.printing),
                             LV_PART_INDICATOR);
-  lv_label_set_text_fmt(progress_label_, "%d%%", progress);
+  if (snapshot.job.completion_known) lv_label_set_text_fmt(progress_label_, "%d%%", progress);
+  else lv_label_set_text(progress_label_, "--%");
   lv_obj_set_style_text_color(progress_label_, lv_color_hex(theme_colors_.printing),
                               LV_PART_MAIN);
   const std::string display_job_name = core::job_name_for_display(snapshot.job.name);
   lv_label_set_text(detail_label_, snapshot.job.kind == core::JobKind::calibration
                                        ? tr("Printer calibration")
                                        : display_job_name.empty()
-                                             ? tr("No active print")
+                                             ? tr(snapshot.job.phase == core::JobPhase::idle ? "No active print" : core::job_status_label(snapshot.job))
                                              : display_job_name.c_str());
   lv_label_set_text(status_label_, tr(core::job_status_label(snapshot.job)));
   lv_obj_set_style_text_color(status_label_, lv_color_hex(color), LV_PART_MAIN);
-  lv_label_set_text(remaining_label_, active ? short_duration(snapshot.job.remaining_seconds).c_str()
+  lv_label_set_text(remaining_label_, active && snapshot.job.remaining_known ? short_duration(snapshot.job.remaining_seconds).c_str()
                                              : "--");
   const std::uint32_t total_seconds =
       snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
   lv_label_set_text(total_time_label_,
-                    active && total_seconds > 0 ? short_duration(total_seconds).c_str() : "--");
-  lv_label_set_text_fmt(layer_label_, "%s: %u/%u", tr("Layer"), snapshot.job.current_layer,
+                    active && snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0 ? short_duration(total_seconds).c_str() : "--");
+  if (snapshot.job.total_layers > 0) lv_label_set_text_fmt(layer_label_, "%s: %u/%u", tr("Layer"), snapshot.job.current_layer,
                         snapshot.job.total_layers);
-  lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C",
-                        snapshot.job.temperatures.nozzle_c);
-  lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
+  else lv_label_set_text_fmt(layer_label_, "%s: --/--", tr("Layer"));
+  if (snapshot.job.temperatures.nozzle_known) lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C", snapshot.job.temperatures.nozzle_c);
+  else lv_label_set_text(nozzle_temperature_label_, "--°C");
+  if (snapshot.job.temperatures.bed_known) lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
+  else lv_label_set_text(bed_temperature_label_, "--°C");
   if (snapshot.job.temperatures.chamber_known) {
     lv_label_set_text_fmt(chamber_temperature_label_, "%.0f°C",
                           snapshot.job.temperatures.chamber_c);
   } else lv_label_set_text(chamber_temperature_label_, "--°C");
   lv_label_set_text(metrics_label_, snapshot.link == core::LinkState::online
-                                      ? tr("Printer ready") : tr(square_link_label(snapshot.link)));
+      ? tr(snapshot.job.condition == core::PrinterCondition::normal || snapshot.job.condition == core::PrinterCondition::ready
+               ? "Printer ready" : core::job_status_label(snapshot.job))
+      : tr(square_link_label(snapshot.link)));
   square_update_power_header(power);
   board_display_unlock();
 }
@@ -1524,7 +1530,8 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
           &nozzle_icons_[index]);
       nozzle_temperature_labels_[index] = lv_label_create(nozzle_cards_[index]);
       nozzle_material_labels_[index] = lv_label_create(nozzle_cards_[index]);
-      lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+      if (index < snapshot.job.toolhead_count) lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    else lv_label_set_text(nozzle_tool_labels_[index], "--");
       apply_text_style(nozzle_tool_labels_[index], lv_color_hex(theme_style_.text_muted), &lv_font_montserrat_14);
       apply_text_style(nozzle_target_labels_[index], lv_color_hex(theme_style_.text_muted),
                        &lv_font_montserrat_12);
@@ -1600,8 +1607,9 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
       tool = &snapshot.job.toolheads[index];
     } else {
       fallback.present = true;
-      fallback.active = index == 0;
-      fallback.temperature_known = index == 0;
+      fallback.active = snapshot.job.active_toolhead == index;
+      fallback.temperature_known = index == 0 && snapshot.job.temperatures.nozzle_known;
+      fallback.target_known = index == 0 && snapshot.job.temperatures.nozzle_target_known;
       fallback.temperature_c = index == 0 ? snapshot.job.temperatures.nozzle_c : 0.0F;
       fallback.target_c = index == 0 ? snapshot.job.temperatures.nozzle_target_c : 0.0F;
       tool = &fallback;
@@ -1624,15 +1632,17 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
       lv_obj_set_width(label, card_width - 6);
     }
     lv_obj_set_pos(nozzle_cards_[index], x, 0);
-    lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    if (index < snapshot.job.toolhead_count) lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    else lv_label_set_text(nozzle_tool_labels_[index], "--");
     if (tool->temperature_known) {
       lv_label_set_text_fmt(nozzle_temperature_labels_[index], "%.0f°C",
                             tool->temperature_c);
     } else {
       lv_label_set_text(nozzle_temperature_labels_[index], "--°C");
     }
-    lv_label_set_text_fmt(nozzle_target_labels_[index], "%s %.0f°", tr("Target"),
-                          tool->target_c);
+    if (tool->target_known)
+      lv_label_set_text_fmt(nozzle_target_labels_[index], "%s %.0f°", tr("Target"), tool->target_c);
+    else lv_label_set_text_fmt(nozzle_target_labels_[index], "%s --°", tr("Target"));
     const bool empty = tool->filament_state_known && !tool->filament_detected;
     lv_label_set_text(nozzle_material_labels_[index],
                       empty ? "---" : (tool->material.empty() ? "--"
@@ -1683,6 +1693,9 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
   }
   lv_bar_set_value(progress_arc_, std::clamp(static_cast<int>(snapshot.job.completion), 0, 100),
                    LV_ANIM_OFF);
+  if (snapshot.job.completion_known) lv_label_set_text_fmt(progress_label_, "%d%%",
+      std::clamp(static_cast<int>(snapshot.job.completion), 0, 100));
+  else lv_label_set_text(progress_label_, "--%");
   square_update_power_header(power);
   board_display_unlock();
 }
@@ -1872,7 +1885,7 @@ void DisplayShell::square_show_printer_compact(const core::PrinterProfile& profi
     visible_profile_ = profile.id;
   }
   const std::string display_job_name = core::job_name_for_display(snapshot.job.name);
-  lv_label_set_text(detail_label_, display_job_name.empty() ? tr("No active print")
+  lv_label_set_text(detail_label_, display_job_name.empty() ? tr(snapshot.job.phase == core::JobPhase::idle ? "No active print" : core::job_status_label(snapshot.job))
                                                             : display_job_name.c_str());
   int count = snapshot.job.toolhead_count;
   if (count <= 0) count = 1;
@@ -1905,8 +1918,9 @@ void DisplayShell::square_show_printer_compact(const core::PrinterProfile& profi
       tool = &snapshot.job.toolheads[index];
     } else {
       fallback.present = true;
-      fallback.active = index == 0;
-      fallback.temperature_known = index == 0;
+      fallback.active = snapshot.job.active_toolhead == index;
+      fallback.temperature_known = index == 0 && snapshot.job.temperatures.nozzle_known;
+      fallback.target_known = index == 0 && snapshot.job.temperatures.nozzle_target_known;
       fallback.temperature_c = index == 0 ? snapshot.job.temperatures.nozzle_c : 0.0F;
       fallback.target_c = index == 0 ? snapshot.job.temperatures.nozzle_target_c : 0.0F;
       tool = &fallback;
@@ -1915,7 +1929,8 @@ void DisplayShell::square_show_printer_compact(const core::PrinterProfile& profi
     const int x = overflow ? index * kStride
                            : (kViewportWidth - occupied_width) / 2 + index * kStride;
     lv_obj_set_pos(nozzle_cards_[index], x, 0);
-    lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    if (index < snapshot.job.toolhead_count) lv_label_set_text_fmt(nozzle_tool_labels_[index], "T%d", index);
+    else lv_label_set_text(nozzle_tool_labels_[index], "--");
     if (tool->temperature_known) {
       lv_label_set_text_fmt(nozzle_temperature_labels_[index], "%.0f°", tool->temperature_c);
     } else {
@@ -1957,27 +1972,29 @@ void DisplayShell::square_show_printer_compact(const core::PrinterProfile& profi
     }
   }
 
-  lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C",
-                        snapshot.job.temperatures.nozzle_c);
-  lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
+  if (snapshot.job.temperatures.nozzle_known) lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C", snapshot.job.temperatures.nozzle_c);
+  else lv_label_set_text(nozzle_temperature_label_, "--°C");
+  if (snapshot.job.temperatures.bed_known) lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
+  else lv_label_set_text(bed_temperature_label_, "--°C");
   if (snapshot.job.temperatures.chamber_known) {
     lv_label_set_text_fmt(chamber_temperature_label_, "%.0f°C",
                           snapshot.job.temperatures.chamber_c);
   } else {
     lv_label_set_text(chamber_temperature_label_, "--°C");
   }
-  lv_label_set_text_fmt(layer_label_, "%s: %u / %u", tr("Layer"),
+  if (snapshot.job.total_layers > 0) lv_label_set_text_fmt(layer_label_, "%s: %u / %u", tr("Layer"),
                         snapshot.job.current_layer, snapshot.job.total_layers);
+  else lv_label_set_text_fmt(layer_label_, "%s: -- / --", tr("Layer"));
   const bool active_job = snapshot.job.phase == core::JobPhase::printing ||
                           snapshot.job.phase == core::JobPhase::preparing ||
                           snapshot.job.phase == core::JobPhase::paused;
-  lv_label_set_text(remaining_label_, active_job
+  lv_label_set_text(remaining_label_, active_job && snapshot.job.remaining_known
         ? short_duration(snapshot.job.remaining_seconds).c_str() : "--");
-  lv_label_set_text(total_time_label_, snapshot.job.elapsed_seconds > 0
+  lv_label_set_text(total_time_label_, snapshot.job.elapsed_known && snapshot.job.elapsed_seconds > 0
         ? short_duration(snapshot.job.elapsed_seconds).c_str() : "--");
   const std::uint32_t total_seconds =
       snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
-  lv_label_set_text(metrics_label_, total_seconds > 0
+  lv_label_set_text(metrics_label_, snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0
         ? short_duration(total_seconds).c_str() : "--");
   lv_label_set_text(status_label_, tr(core::job_status_label(snapshot.job)));
   lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
@@ -1986,7 +2003,8 @@ void DisplayShell::square_show_printer_compact(const core::PrinterProfile& profi
   lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
   lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_colors_.printing),
                             LV_PART_INDICATOR);
-  lv_label_set_text_fmt(progress_label_, "%d%%", progress);
+  if (snapshot.job.completion_known) lv_label_set_text_fmt(progress_label_, "%d%%", progress);
+  else lv_label_set_text(progress_label_, "--%");
   lv_obj_set_style_text_color(progress_label_, lv_color_hex(theme_colors_.printing),
                               LV_PART_MAIN);
   square_update_power_header(power);
@@ -2178,7 +2196,8 @@ void DisplayShell::square_show_printer_telemetry(const core::PrinterProfile& pro
     if (motion.position_known) {
       lv_label_set_text_fmt(temperature_label_, "X %.1f   Y %.1f   Z %.2f",
                             motion.x_mm, motion.y_mm, motion.z_mm);
-    } else lv_label_set_text(temperature_label_, "X --   Y --   Z --");
+    } else if (motion.z_known) lv_label_set_text_fmt(temperature_label_, "X --   Y --   Z %.2f", motion.z_mm);
+    else lv_label_set_text(temperature_label_, "X --   Y --   Z --");
     lv_label_set_text(telemetry_detail_caption_labels_[0], tr("NOZZLE POWER"));
     lv_label_set_text(telemetry_detail_caption_labels_[1], tr("BED POWER"));
     if (nozzle_power_known) {
@@ -2205,7 +2224,8 @@ void DisplayShell::square_show_printer_telemetry(const core::PrinterProfile& pro
   lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
   lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_colors_.printing),
                             LV_PART_INDICATOR);
-  lv_label_set_text_fmt(progress_label_, "%d%%", progress);
+  if (snapshot.job.completion_known) lv_label_set_text_fmt(progress_label_, "%d%%", progress);
+  else lv_label_set_text(progress_label_, "--%");
   lv_obj_set_style_text_color(progress_label_, lv_color_hex(theme_colors_.printing),
                               LV_PART_MAIN);
   square_update_power_header(power);

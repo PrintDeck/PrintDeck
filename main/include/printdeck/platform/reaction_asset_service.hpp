@@ -22,12 +22,16 @@ struct ReactionSetDefinition {
   std::string_view id;
   std::string_view name;
   std::string_view version;
+  std::string_view family_id;
+  std::string_view family_name;
+  std::string_view variant_name;
 };
 
 struct ReactionAssetSnapshot {
   bool available = false;
   bool busy = false;
   bool cancellable = false;
+  bool install_failed = false;
   int progress_percent = 0;
   std::string detail;
   std::string active_set_id;
@@ -43,6 +47,11 @@ struct ReactionAssetSnapshot {
   std::size_t maximum_custom_bytes = 0;
   std::size_t storage_available_for_upload = 0;
   std::array<std::size_t, core::kReactionEventCount> effective_bytes{};
+  std::array<bool, core::kReactionEventCount> effective_custom{};
+  // Browser previews change only when their effective image changes. The
+  // general generation also wakes the device decoder for non-image changes.
+  std::array<std::uint32_t, core::kReactionEventCount> preview_generations{};
+  std::uint32_t preview_session = 0;
   std::uint32_t generation = 0;
 };
 
@@ -51,7 +60,7 @@ class ReactionAssetService {
   esp_err_t start(const NetworkService& network);
   ReactionAssetSnapshot snapshot() const;
   std::uint32_t generation() const;
-  static const std::array<ReactionSetDefinition, 9>& sets();
+  static std::span<const ReactionSetDefinition> sets();
   bool request_set(std::string_view id);
   bool cancel_set();
   bool event_enabled(std::string_view id) const;
@@ -88,6 +97,7 @@ class ReactionAssetService {
   bool download_file(std::string_view url, const char* output_path,
                      std::size_t expected_size, std::string_view expected_sha256) const;
   void refresh_active_bytes_locked();
+  void refresh_set_preview_generations_locked();
   void refresh_storage_locked();
   void fail(std::string detail);
   esp_err_t persist_disabled_mask_locked();

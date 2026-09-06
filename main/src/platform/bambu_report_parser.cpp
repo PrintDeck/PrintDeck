@@ -488,8 +488,14 @@ void merge_v2_device(const cJSON* print, core::JobState& job,
   if (!bed.current_known && !bed.target_known) {
     bed = temperature_pair_from(member(device, "bed_temp"));
   }
-  if (!legacy_bed_current && bed.current_known) job.temperatures.bed_c = bed.current;
-  if (!legacy_bed_target && bed.target_known) job.temperatures.bed_target_c = bed.target;
+  if (!legacy_bed_current && bed.current_known) {
+    job.temperatures.bed_c = bed.current;
+    job.temperatures.bed_known = true;
+  }
+  if (!legacy_bed_target && bed.target_known) {
+    job.temperatures.bed_target_c = bed.target;
+    job.temperatures.bed_target_known = true;
+  }
 
   TemperaturePair chamber = component_temperature("ctc");
   if (!chamber.current_known && !chamber.target_known) {
@@ -532,6 +538,7 @@ void merge_v2_device(const cJSON* print, core::JobState& job,
         tool.temperature_c = temperature.current;
       }
       if (temperature.target_known) {
+        tool.target_known = true;
         tool.target_c = temperature.target;
         target_known[static_cast<std::size_t>(id)] = true;
       }
@@ -588,9 +595,11 @@ void merge_v2_device(const cJSON* print, core::JobState& job,
     const core::ToolheadState& tool = job.toolheads[static_cast<std::size_t>(primary)];
     if (!legacy_nozzle_current && tool.temperature_known) {
       job.temperatures.nozzle_c = tool.temperature_c;
+      job.temperatures.nozzle_known = true;
     }
     if (!legacy_nozzle_target && target_known[static_cast<std::size_t>(primary)]) {
       job.temperatures.nozzle_target_c = tool.target_c;
+      job.temperatures.nozzle_target_known = true;
     }
   }
 }
@@ -713,9 +722,13 @@ BambuReportParseResult parse_bambu_report(const char* payload, std::size_t lengt
   }
 
   double value = 0;
-  if (read_number(print, "mc_percent", value)) next.job.completion = static_cast<float>(value);
+  if (read_number(print, "mc_percent", value)) {
+    next.job.completion = static_cast<float>(value);
+    next.job.completion_known = true;
+  }
   if (read_number(print, "mc_remaining_time", value)) {
     next.job.remaining_seconds = static_cast<std::uint32_t>(std::max(0.0, value) * 60.0);
+    next.job.remaining_known = true;
   }
   if (read_number(print, "layer_num", value)) {
     next.job.current_layer = static_cast<std::uint16_t>(std::clamp(value, 0.0, 65535.0));
@@ -727,21 +740,25 @@ BambuReportParseResult parse_bambu_report(const char* payload, std::size_t lengt
                                      valid_temperature(value);
   if (legacy_nozzle_current) {
     next.job.temperatures.nozzle_c = static_cast<float>(value);
+    next.job.temperatures.nozzle_known = true;
   }
   const bool legacy_nozzle_target = read_number(print, "nozzle_target_temper", value) &&
                                     valid_temperature(value);
   if (legacy_nozzle_target) {
     next.job.temperatures.nozzle_target_c = static_cast<float>(value);
+    next.job.temperatures.nozzle_target_known = true;
   }
   const bool legacy_bed_current = read_number(print, "bed_temper", value) &&
                                   valid_temperature(value);
   if (legacy_bed_current) {
     next.job.temperatures.bed_c = static_cast<float>(value);
+    next.job.temperatures.bed_known = true;
   }
   const bool legacy_bed_target = read_number(print, "bed_target_temper", value) &&
                                  valid_temperature(value);
   if (legacy_bed_target) {
     next.job.temperatures.bed_target_c = static_cast<float>(value);
+    next.job.temperatures.bed_target_known = true;
   }
   const bool legacy_chamber = read_number(print, "chamber_temper", value) &&
                               valid_temperature(value);
@@ -800,7 +817,10 @@ BambuReportParseResult parse_bambu_report(const char* payload, std::size_t lengt
       active_tool.temperature_known = true;
       active_tool.temperature_c = next.job.temperatures.nozzle_c;
     }
-    if (legacy_nozzle_target) active_tool.target_c = next.job.temperatures.nozzle_target_c;
+    if (legacy_nozzle_target) {
+      active_tool.target_known = true;
+      active_tool.target_c = next.job.temperatures.nozzle_target_c;
+    }
   }
   return result;
 }

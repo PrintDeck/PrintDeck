@@ -35,6 +35,7 @@
         const storageKey = 'printdeck-installer-appearance';
         const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
         const allowedModes = new Set(['light', 'dark']);
+        const automaticAppearanceIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h15v10h-15z"></path><path d="M9 19h6M12 15.5V19"></path><path d="M8 10a4 4 0 0 1 6.8-2.8"></path><path d="M14.8 5.6v2.5h-2.5"></path><path d="M16 11a4 4 0 0 1-6.8 2.8"></path><path d="M9.2 15.4v-2.5h2.5"></path></svg>';
         let followsSystem = true;
         let mode = systemDark.matches ? 'dark' : 'light';
         try {
@@ -50,11 +51,8 @@
             button.setAttribute('aria-pressed', String(button.dataset.appearanceMode === mode));
           });
           document.querySelectorAll('.appearance-switch').forEach((control) => {
-            control.setAttribute('aria-checked', String(mode === 'dark'));
-            const localize = window.printDeckInstallerI18n?.t || ((text) => text);
-            control.setAttribute('aria-label', localize(mode === 'dark'
-              ? 'Dark appearance. Activate to use light appearance.'
-              : 'Light appearance. Activate to use dark appearance.'));
+            const automaticOption = control.querySelector('[data-appearance-reset]');
+            if (automaticOption) automaticOption.hidden = followsSystem;
           });
         };
         const apply = (nextMode, persist = true) => {
@@ -73,13 +71,31 @@
           document.querySelectorAll('.appearance-switch').forEach((control) => {
             if (control.dataset.appearanceBound) return;
             control.dataset.appearanceBound = 'true';
-            const toggle = () => apply(mode === 'dark' ? 'light' : 'dark');
-            control.addEventListener('click', toggle);
-            control.addEventListener('keydown', (event) => {
-              if (event.key !== 'Enter' && event.key !== ' ') return;
-              event.preventDefault();
-              toggle();
+            control.setAttribute('role', 'group');
+            control.removeAttribute('tabindex');
+            control.removeAttribute('aria-checked');
+
+            control.querySelectorAll('[data-appearance-mode]').forEach((option) => {
+              option.tabIndex = 0;
+              option.addEventListener('click', () => apply(option.dataset.appearanceMode));
             });
+
+            const localize = window.printDeckInstallerI18n?.t || ((text) => text);
+            const label = localize('Automatic appearance');
+            const automaticOption = document.createElement('button');
+            automaticOption.className = 'appearance-option appearance-option-auto';
+            automaticOption.type = 'button';
+            automaticOption.dataset.appearanceReset = '';
+            automaticOption.hidden = true;
+            automaticOption.setAttribute('aria-label', label);
+            automaticOption.title = label;
+            automaticOption.innerHTML = automaticAppearanceIcon;
+            automaticOption.addEventListener('click', () => {
+              followsSystem = true;
+              try { window.localStorage.removeItem(storageKey); } catch (_) {}
+              apply(systemDark.matches ? 'dark' : 'light', false);
+            });
+            control.append(automaticOption);
           });
           updateControls();
         };
@@ -248,7 +264,8 @@
       }
       .installer-language { min-height: 44px; padding: 8px 42px 8px 14px; border: 1px solid var(--switch-line); border-radius: 999px; color: var(--text); background-color: var(--switch-bg); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23788f9a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-size: 18px 18px; background-position: right 15px center; appearance: none; -webkit-appearance: none; font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; }
       .appearance-switch { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--switch-line); border-radius: 999px; background: var(--switch-bg); color: var(--switch-text); cursor: pointer; }
-      .appearance-option { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; pointer-events:none; }
+      .appearance-option { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+      .appearance-option[hidden] { display: none; }
       .appearance-option svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .appearance-option:hover, .appearance-option:focus-visible { color: var(--strong); outline: none; }
       .appearance-option:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
@@ -517,7 +534,7 @@
         .completion-step strong { min-height: 0; }
       }
     </style>
-  <link rel="stylesheet" href="/assets/site.css?v=20260904-2">
+  <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
@@ -1030,7 +1047,13 @@
             releaseTag: 'amoled_1_75-v1.0.10',
             installManifest: '../manifest-install.json',
             application: '../firmware/printdeck.bin',
-            otaData: '../firmware/ota_data_initial.bin'
+            otaData: '../firmware/ota_data_initial.bin',
+            knomi2: {
+              releaseTag: 'knomi2-v1.0.10',
+              installManifest: '../manifest-install-knomi2.json',
+              application: '../firmware/knomi2/printdeck.bin',
+              otaData: '../firmware/knomi2/ota_data_initial.bin'
+            }
           },
           '1.0.9': {
             releaseTag: 'amoled_1_75-v1.0.9',
@@ -1039,9 +1062,9 @@
             otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.9/docs/firmware/ota_data_initial.bin',
             knomi2: {
               releaseTag: 'knomi2-v1.0.9',
-              installManifest: '../manifest-install-knomi2.json',
-              application: '../firmware/knomi2/printdeck.bin',
-              otaData: '../firmware/knomi2/ota_data_initial.bin'
+              installManifest: '../manifests/manifest-install-knomi2-1.0.9.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.9/docs/firmware/knomi2/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.9/docs/firmware/knomi2/ota_data_initial.bin'
             }
           },
           '1.0.8': {

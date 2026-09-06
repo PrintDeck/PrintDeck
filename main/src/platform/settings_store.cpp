@@ -208,11 +208,17 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   for (std::size_t index = 0; result == ESP_OK && index < profile_count; ++index) {
     core::PrinterProfile profile;
     std::uint8_t protocol = 0;
+    std::uint8_t http_auth = 0;
     result = nvs_get_u32(handle, key_for(index, "id").c_str(), &profile.id);
     if (result == ESP_OK) result = nvs_get_u8(handle, key_for(index, "proto").c_str(), &protocol);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "name").c_str(), profile.display_name);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "host").c_str(), profile.endpoint);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "api").c_str(), profile.api_key);
+    if (result == ESP_OK && schema >= 11) result = nvs_get_u8(handle, key_for(index, "hauth").c_str(), &http_auth);
+    if (result == ESP_OK && schema >= 11) result = read_text(handle, key_for(index, "huser").c_str(), profile.http_username);
+    if (result == ESP_OK && schema >= 11) result = read_text(handle, key_for(index, "hpass").c_str(), profile.http_password);
+    if (http_auth > 1) result = ESP_ERR_INVALID_VERSION;
+    profile.http_auth_mode = static_cast<core::HttpAuthMode>(http_auth);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "serial").c_str(), profile.serial);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "code").c_str(), profile.access_code);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "maker").c_str(), profile.manufacturer);
@@ -221,16 +227,9 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     if (result == ESP_OK && !core::printer_protocol_from_storage_id(protocol, profile.protocol)) {
       result = ESP_ERR_INVALID_VERSION;
     }
-    if (profile.protocol == core::PrinterProtocol::bambu_lan) {
-      const core::PrinterDriverDescriptor& driver = core::printer_driver(profile.protocol);
-      if (profile.manufacturer.empty()) profile.manufacturer = driver.default_manufacturer;
-      if (profile.brand.empty()) profile.brand = driver.default_brand;
-    } else if (profile.manufacturer.empty()) {
-      // Profiles saved before identity detection existed remain usable and can
-      // be refined from Web Config without losing their credentials.
-      profile.manufacturer = "Klipper";
-      profile.brand = "klipper";
-    }
+    const core::PrinterDriverDescriptor& driver = core::printer_driver(profile.protocol);
+    if (profile.manufacturer.empty()) profile.manufacturer = driver.default_manufacturer;
+    if (profile.brand.empty()) profile.brand = driver.default_brand;
     if (result == ESP_OK) loaded.profiles.push_back(std::move(profile));
   }
   nvs_close(handle);
@@ -308,6 +307,9 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
     write(write_text(handle, key_for(index, "name").c_str(), profile.display_name));
     write(write_text(handle, key_for(index, "host").c_str(), profile.endpoint));
     write(write_text(handle, key_for(index, "api").c_str(), profile.api_key));
+    write(nvs_set_u8(handle, key_for(index, "hauth").c_str(), static_cast<std::uint8_t>(profile.http_auth_mode)));
+    write(write_text(handle, key_for(index, "huser").c_str(), profile.http_username));
+    write(write_text(handle, key_for(index, "hpass").c_str(), profile.http_password));
     write(write_text(handle, key_for(index, "serial").c_str(), profile.serial));
     write(write_text(handle, key_for(index, "code").c_str(), profile.access_code));
     write(write_text(handle, key_for(index, "maker").c_str(), profile.manufacturer));
@@ -316,7 +318,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   }
   for (std::size_t index = settings.profiles.size(); index < core::kMaximumProfiles; ++index) {
     for (const char* suffix : {"id", "proto", "name", "host", "api", "serial", "code",
-                               "maker", "model", "brand"}) {
+                               "maker", "model", "brand", "hauth", "huser", "hpass"}) {
       write(nvs_erase_key(handle, key_for(index, suffix).c_str()));
     }
   }
