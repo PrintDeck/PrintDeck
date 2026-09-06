@@ -127,6 +127,9 @@ class DisplayShell {
   static void printer_list_scroll_event(lv_event_t* event);
   static void printer_retry_wait_finished(lv_timer_t* timer);
   static void camera_mode_event(lv_event_t* event);
+  static void camera_zoom_event(lv_event_t* event);
+  void update_camera_image(const core::JobState& job);
+  void update_camera_zoom_geometry();
   static void horizontal_transition_finished(lv_anim_t* animation);
   static void horizontal_transition_switch(lv_timer_t* timer);
   static void horizontal_transition_timeout(lv_timer_t* timer);
@@ -348,6 +351,16 @@ class DisplayShell {
   lv_obj_t* update_dismiss_button_ = nullptr;
   lv_obj_t* update_install_button_label_ = nullptr;
   lv_obj_t* media_image_ = nullptr;
+  lv_obj_t* camera_zoom_image_ = nullptr;
+  lv_obj_t* camera_zoom_root_ = nullptr;
+  int camera_pan_x_ = 0;
+  int camera_pan_y_ = 0;
+  int camera_pan_start_x_ = 0;
+  int camera_pan_start_y_ = 0;
+  bool camera_pan_candidate_ = false;
+  bool camera_pan_moved_ = false;
+  std::uint32_t camera_presented_frames_ = 0;
+  std::int64_t camera_presentation_window_us_ = 0;
   lv_obj_t* printer_animation_root_ = nullptr;
   lv_obj_t* printer_animation_gesture_surface_ = nullptr;
   lv_obj_t* printer_animation_label_ = nullptr;

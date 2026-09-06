@@ -4,6 +4,7 @@
 #include "esp_timer.h"
 #include "esp_lv_adapter.h"
 #include "lvgl.h"
+#include "src/misc/cache/instance/lv_image_cache.h"
 #include "png.h"
 
 #include <string>
@@ -701,6 +702,21 @@ void DisplayShell::screen_event(lv_event_t* event) {
     shell->gesture_start_y_ = point.y;
     shell->square_gesture_peak_dx_ = 0;
     shell->square_gesture_peak_dy_ = 0;
+    shell->camera_pan_candidate_ = false;
+    shell->camera_pan_moved_ = false;
+    if (shell->camera_zoom_root_ != nullptr &&
+        !lv_obj_has_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_HIDDEN)) {
+      const int cx = point.x - kDisplayWidth / 2;
+      const int cy = point.y - kDisplayHeight / 2;
+      const int inner_radius = std::min(kDisplayWidth, kDisplayHeight) / 2 - 20;
+      const bool edge = kDisplayIsRound
+          ? cx * cx + cy * cy >= inner_radius * inner_radius
+          : point.x < 20 || point.y < 20 ||
+            point.x >= kDisplayWidth - 20 || point.y >= kDisplayHeight - 20;
+      shell->camera_pan_candidate_ = !edge;
+      shell->camera_pan_start_x_ = shell->camera_pan_x_;
+      shell->camera_pan_start_y_ = shell->camera_pan_y_;
+    }
     if (shell->printer_list_scroll_ != nullptr &&
         lv_obj_is_valid(shell->printer_list_scroll_)) {
       lv_area_t area{};
@@ -747,6 +763,24 @@ void DisplayShell::screen_event(lv_event_t* event) {
     }
     if (abs_dy > std::abs(shell->square_gesture_peak_dy_)) {
       shell->square_gesture_peak_dy_ = dy;
+    }
+  }
+
+  if (shell->camera_pan_candidate_) {
+    if (code == LV_EVENT_PRESSING) {
+      if (abs_dx > 10 || abs_dy > 10) shell->camera_pan_moved_ = true;
+      if (shell->camera_pan_moved_) {
+        shell->camera_pan_x_ = shell->camera_pan_start_x_ + dx;
+        shell->camera_pan_y_ = shell->camera_pan_start_y_ - dy;
+        shell->update_camera_zoom_geometry();
+      }
+      return;
+    }
+    if (code == LV_EVENT_LONG_PRESSED && shell->camera_pan_moved_) return;
+    if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
+      shell->gesture_active_ = false;
+      shell->camera_pan_candidate_ = false;
+      return;
     }
   }
 
@@ -2159,6 +2193,12 @@ void DisplayShell::prepare_active_screen(const char* screen_name) {
   telemetry_metric_value_labels_ = {};
   telemetry_detail_caption_labels_ = {};
   media_image_ = nullptr;
+  camera_zoom_image_ = nullptr;
+  camera_zoom_root_ = nullptr;
+  camera_pan_x_ = camera_pan_y_ = 0;
+  camera_pan_candidate_ = camera_pan_moved_ = false;
+  camera_presented_frames_ = 0;
+  camera_presentation_window_us_ = 0;
   printer_animation_root_ = nullptr;
   printer_animation_gesture_surface_ = nullptr;
   printer_animation_label_ = nullptr;
@@ -2308,6 +2348,8 @@ void DisplayShell::release_camera_frame() {
   if (view_ == 22 && media_image_ != nullptr && lv_obj_is_valid(media_image_)) {
     lv_image_set_src(media_image_, nullptr);
   }
+  if (camera_zoom_image_ != nullptr) lv_image_set_src(camera_zoom_image_, nullptr);
+  lv_image_cache_drop(&camera_image_dsc_);
   camera_pixels_.reset();
   camera_image_dsc_ = {};
   camera_was_refreshing_ = false;
@@ -4823,7 +4865,6 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
   camera_was_refreshing_ = snapshot.job.camera_refreshing;
   if (frame_changed || refresh_completed) {
     camera_activity_updated_until_us_ = esp_timer_get_time() + 800000;
-    view_ = -1;
   }
   if (view_ != 22 || visible_profile_ != profile.id) {
     prepare_active_screen("local-camera");
@@ -4834,6 +4875,9 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
     lv_obj_set_width(detail_label_, 390);
     lv_obj_align(detail_label_, LV_ALIGN_TOP_MID, 0, 106);
     media_image_ = lv_image_create(lv_screen_active());
+    lv_obj_add_event_cb(media_image_, camera_zoom_event, LV_EVENT_SHORT_CLICKED, this);
+    lv_obj_add_flag(media_image_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_EVENT_BUBBLE |
+                                  LV_OBJ_FLAG_GESTURE_BUBBLE));
     lv_obj_set_size(media_image_, 360, 203);
     lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
     lv_obj_align(media_image_, LV_ALIGN_CENTER, 0, 7);
@@ -4946,22 +4990,14 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
   }
   if (snapshot.job.camera_frame && !snapshot.job.camera_frame->empty() &&
       snapshot.job.camera_width > 0 && snapshot.job.camera_height > 0) {
-    camera_pixels_ = snapshot.job.camera_frame;
-    camera_image_dsc_ = {};
-    camera_image_dsc_.header.magic = LV_IMAGE_HEADER_MAGIC;
-    camera_image_dsc_.header.cf = LV_COLOR_FORMAT_RGB565;
-    camera_image_dsc_.header.w = snapshot.job.camera_width;
-    camera_image_dsc_.header.h = snapshot.job.camera_height;
-    camera_image_dsc_.header.stride = snapshot.job.camera_width * sizeof(std::uint16_t);
-    camera_image_dsc_.data_size = static_cast<std::uint32_t>(camera_pixels_->size());
-    camera_image_dsc_.data = camera_pixels_->data();
-    lv_image_set_src(media_image_, &camera_image_dsc_);
+    update_camera_image(snapshot.job);
     lv_obj_add_flag(camera_spinner_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(camera_empty_label_, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text(detail_label_, live ? tr("Live local stream")
                                           : tr("Live local snapshot"));
   } else {
     lv_image_set_src(media_image_, nullptr);
+    if (camera_zoom_image_ != nullptr) lv_image_set_src(camera_zoom_image_, nullptr);
     const bool rtsps_unsupported =
         snapshot.job.camera_detail == "This display does not support RTSPS cameras";
     const bool detection_failed = snapshot.job.camera_detail == "No camera detected";
@@ -6039,6 +6075,100 @@ void DisplayShell::camera_mode_event(lv_event_t* event) {
   shell->view_ = -1;
   if (shell->camera_mode_changed_ != nullptr) {
     shell->camera_mode_changed_(shell->camera_mode_changed_context_, live);
+  }
+}
+
+void DisplayShell::update_camera_image(const core::JobState& job) {
+  if (camera_pixels_.get() == job.camera_frame.get() &&
+      lv_image_get_src(media_image_) == &camera_image_dsc_) return;
+  lv_image_cache_drop(&camera_image_dsc_);
+  camera_pixels_ = job.camera_frame;
+  camera_image_dsc_ = {};
+  camera_image_dsc_.header.magic = LV_IMAGE_HEADER_MAGIC;
+  camera_image_dsc_.header.cf = LV_COLOR_FORMAT_RGB565;
+  camera_image_dsc_.header.w = job.camera_width;
+  camera_image_dsc_.header.h = job.camera_height;
+  camera_image_dsc_.header.stride = job.camera_width * sizeof(std::uint16_t);
+  camera_image_dsc_.data_size = static_cast<std::uint32_t>(camera_pixels_->size());
+  camera_image_dsc_.data = camera_pixels_->data();
+  lv_image_set_src(media_image_, &camera_image_dsc_);
+  if (camera_zoom_image_ != nullptr) {
+    lv_image_set_src(camera_zoom_image_, &camera_image_dsc_);
+    update_camera_zoom_geometry();
+  }
+  const std::int64_t now = esp_timer_get_time();
+  if (camera_presentation_window_us_ == 0) camera_presentation_window_us_ = now;
+  ++camera_presented_frames_;
+  if (now - camera_presentation_window_us_ >= 10000000) {
+    ESP_LOGI(kLogTag, "Camera presented %u frames in %lld ms",
+             static_cast<unsigned>(camera_presented_frames_),
+             (now - camera_presentation_window_us_) / 1000);
+    camera_presented_frames_ = 0;
+    camera_presentation_window_us_ = now;
+  }
+}
+
+void DisplayShell::update_camera_zoom_geometry() {
+  if (camera_zoom_image_ == nullptr || camera_image_dsc_.header.w == 0 ||
+      camera_image_dsc_.header.h == 0) return;
+  const int source_width = camera_image_dsc_.header.w;
+  const int source_height = camera_image_dsc_.header.h;
+  int width = kDisplayWidth;
+  int height = kDisplayHeight;
+  if (kDisplayWidth * source_height >= kDisplayHeight * source_width) {
+    height = (kDisplayWidth * source_height + source_width - 1) / source_width;
+  } else {
+    width = (kDisplayHeight * source_width + source_height - 1) / source_height;
+  }
+  const int center_x = (kDisplayWidth - width) / 2;
+  const int center_y = (kDisplayHeight - height) / 2;
+  const int x = std::clamp(center_x + camera_pan_x_, kDisplayWidth - width, 0);
+  const int y = std::clamp(center_y + camera_pan_y_, kDisplayHeight - height, 0);
+  camera_pan_x_ = x - center_x;
+  camera_pan_y_ = y - center_y;
+  lv_obj_set_size(camera_zoom_image_, width, height);
+  lv_obj_set_pos(camera_zoom_image_, x, y);
+}
+
+void DisplayShell::camera_zoom_event(lv_event_t* event) {
+  auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
+  if (shell == nullptr || shell->view_ != 22 || !shell->camera_page_active() ||
+      !shell->camera_pixels_ || shell->camera_pixels_->empty() || shell->camera_pan_moved_) return;
+  // A custom carousel swipe can also finish as a short click in LVGL. Only a
+  // stationary tap toggles the image, and a long press remains Quick Menu.
+  lv_indev_t* input = lv_indev_active();
+  if (input != nullptr) {
+    lv_point_t point{};
+    lv_indev_get_point(input, &point);
+    if (std::abs(point.x - shell->gesture_start_x_) > 12 ||
+        std::abs(point.y - shell->gesture_start_y_) > 12) return;
+  }
+  shell->note_activity(true);
+  if (shell->camera_zoom_root_ == nullptr) {
+    shell->camera_zoom_root_ = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(shell->camera_zoom_root_, kDisplayWidth, kDisplayHeight);
+    lv_obj_center(shell->camera_zoom_root_);
+    lv_obj_set_style_pad_all(shell->camera_zoom_root_, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(shell->camera_zoom_root_, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(shell->camera_zoom_root_, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(shell->camera_zoom_root_, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(shell->camera_zoom_root_, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_remove_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(shell->camera_zoom_root_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE |
+        LV_OBJ_FLAG_EVENT_BUBBLE | LV_OBJ_FLAG_GESTURE_BUBBLE));
+    lv_obj_add_event_cb(shell->camera_zoom_root_, camera_zoom_event, LV_EVENT_SHORT_CLICKED, shell);
+    shell->camera_zoom_image_ = lv_image_create(shell->camera_zoom_root_);
+    lv_obj_remove_flag(shell->camera_zoom_image_, LV_OBJ_FLAG_CLICKABLE);
+    lv_image_set_inner_align(shell->camera_zoom_image_, LV_IMAGE_ALIGN_STRETCH);
+    lv_image_set_src(shell->camera_zoom_image_, &shell->camera_image_dsc_);
+    shell->update_camera_zoom_geometry();
+    shell->capture_screen_name_ = "local-camera-zoom";
+  } else if (lv_obj_has_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_HIDDEN)) {
+    lv_obj_remove_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_HIDDEN);
+    shell->capture_screen_name_ = "local-camera-zoom";
+  } else {
+    lv_obj_add_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_HIDDEN);
+    shell->capture_screen_name_ = "local-camera";
   }
 }
 

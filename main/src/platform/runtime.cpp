@@ -1709,7 +1709,9 @@ void Runtime::monitor_loop() {
       bambu_a1_camera_.set_enabled(false);
       moonraker_camera_.set_enabled(false);
     }
-    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
+    // Camera frames are independent of the one-second telemetry cadence.
+    // Only the visible Moonraker camera needs this faster presentation pass.
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(want_moonraker_camera ? 100 : 1000));
   }
 }
 

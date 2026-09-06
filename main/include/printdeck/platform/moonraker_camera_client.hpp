@@ -44,6 +44,7 @@ class MoonrakerCameraClient {
     unknown,
     generic_snapshot,
     paxx_snapshot,
+    paxx_mjpeg,
     snapmaker_stock,
     creality_webrtc,
   };
@@ -55,6 +56,7 @@ class MoonrakerCameraClient {
   core::PrinterProfile profile() const;
   bool fetch_frame(const core::PrinterProfile& profile, const char* path);
   bool detect_backend(const core::PrinterProfile& profile);
+  bool stream_paxx_camera(const core::PrinterProfile& profile);
   bool send_stock_command(const core::PrinterProfile& profile, bool start);
   bool start_creality_peer(const core::PrinterProfile& profile);
   void stop_creality_peer();
@@ -99,14 +101,17 @@ class MoonrakerCameraClient {
   std::atomic<std::uint32_t> creality_idr_count_{0};
   std::mutex pending_idr_mutex_{};
   std::shared_ptr<std::vector<std::uint8_t>> pending_idr_{};
+  std::shared_ptr<std::vector<std::uint8_t>> pending_mjpeg_{};
+  std::uint32_t pending_mjpeg_generation_ = 0;
   std::uint32_t pending_idr_generation_ = 0;
-  std::atomic<std::uint32_t> creality_session_generation_{0};
+  std::atomic<std::uint32_t> camera_session_generation_{0};
   std::atomic<std::uint32_t> video_callback_count_{0};
   std::atomic<std::uint64_t> last_published_frame_us_{0};
   std::atomic<std::uint64_t> last_creality_idr_queued_us_{0};
   std::atomic<std::uint64_t> last_creality_video_us_{0};
   std::uint8_t creality_codec_attempt_ = 0;
   std::string snapshot_path_{};
+  std::string mjpeg_url_{};
   std::string creality_signal_url_{};
 };
 

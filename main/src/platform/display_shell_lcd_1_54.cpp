@@ -2407,7 +2407,6 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
   camera_was_refreshing_ = snapshot.job.camera_refreshing;
   if (frame_changed || refresh_completed) {
     camera_activity_updated_until_us_ = esp_timer_get_time() + 800000;
-    view_ = -1;
   }
   if (view_ != 22 || visible_profile_ != profile.id) {
     prepare_active_screen("local-camera");
@@ -2424,10 +2423,13 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
     square_route_screen_gestures(detail_label_);
 
     media_image_ = lv_image_create(lv_screen_active());
+    lv_obj_add_event_cb(media_image_, camera_zoom_event, LV_EVENT_SHORT_CLICKED, this);
+    lv_obj_add_flag(media_image_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_EVENT_BUBBLE |
+                                  LV_OBJ_FLAG_GESTURE_BUBBLE));
     lv_obj_set_size(media_image_, 220, 124);
     lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
     lv_obj_align(media_image_, LV_ALIGN_TOP_MID, 0, 64);
-    square_route_screen_gestures(media_image_);
+    square_route_screen_gestures(media_image_, true);
     camera_spinner_ = lv_spinner_create(lv_screen_active());
     lv_obj_set_size(camera_spinner_, 44, 44);
     lv_obj_align(camera_spinner_, LV_ALIGN_TOP_MID, 0, 104);
@@ -2509,7 +2511,9 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
   const bool live = snapshot.job.camera_live_supported && camera_live_mode_.load();
   const bool recently_updated = esp_timer_get_time() < camera_activity_updated_until_us_;
   const bool refreshing = snapshot.job.camera_refreshing;
-  if (live || !snapshot.job.camera_frame || snapshot.job.camera_frame->empty()) {
+  // The compact view uses the activity row for its live/snapshot selector.
+  if (snapshot.job.camera_live_supported || !snapshot.job.camera_frame ||
+      snapshot.job.camera_frame->empty()) {
     lv_obj_add_flag(camera_activity_dot_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(camera_activity_label_, LV_OBJ_FLAG_HIDDEN);
   } else {
@@ -2532,22 +2536,14 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
   } else lv_obj_add_flag(camera_mode_row_, LV_OBJ_FLAG_HIDDEN);
   if (snapshot.job.camera_frame && !snapshot.job.camera_frame->empty() &&
       snapshot.job.camera_width > 0 && snapshot.job.camera_height > 0) {
-    camera_pixels_ = snapshot.job.camera_frame;
-    camera_image_dsc_ = {};
-    camera_image_dsc_.header.magic = LV_IMAGE_HEADER_MAGIC;
-    camera_image_dsc_.header.cf = LV_COLOR_FORMAT_RGB565;
-    camera_image_dsc_.header.w = snapshot.job.camera_width;
-    camera_image_dsc_.header.h = snapshot.job.camera_height;
-    camera_image_dsc_.header.stride = snapshot.job.camera_width * sizeof(std::uint16_t);
-    camera_image_dsc_.data_size = static_cast<std::uint32_t>(camera_pixels_->size());
-    camera_image_dsc_.data = camera_pixels_->data();
-    lv_image_set_src(media_image_, &camera_image_dsc_);
+    update_camera_image(snapshot.job);
     lv_obj_add_flag(camera_spinner_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(camera_empty_label_, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text(detail_label_, live ? tr("Live local stream")
                                           : tr("Live local snapshot"));
   } else {
     lv_image_set_src(media_image_, nullptr);
+    if (camera_zoom_image_ != nullptr) lv_image_set_src(camera_zoom_image_, nullptr);
     const bool rtsps_unsupported =
         snapshot.job.camera_detail == "This display does not support RTSPS cameras";
     const bool detection_failed = snapshot.job.camera_detail == "No camera detected";
@@ -2569,6 +2565,7 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
       lv_label_set_text(detail_label_, tr("Detecting camera…"));
     }
   }
+  update_printer_progress(snapshot);
   square_update_power_header(power);
   board_display_unlock();
 }

@@ -1,5 +1,7 @@
 #include "printdeck/platform/moonraker_camera_client.hpp"
 #include "printdeck/platform/task_affinity.hpp"
+#include "printdeck/platform/mjpeg_stream_parser.hpp"
+#include "printdeck/platform/camera_snapshot_timing.hpp"
 
 #include <algorithm>
 #include <array>
@@ -23,6 +25,7 @@
 #include "esp_websocket_client.h"
 #include "esp_wifi.h"
 #include "esp_peer_default.h"
+#include "printdeck/platform/board.hpp"
 #include "freertos/event_groups.h"
 #include "freertos/idf_additions.h"
 #include "mbedtls/base64.h"
@@ -170,6 +173,8 @@ bool decode_rgb565(const std::vector<std::uint8_t>& jpeg,
   bool success = false;
   do {
     if (jpeg_dec_parse_header(decoder, &io, &header) != JPEG_ERR_OK) break;
+    if (header.width == 0 || header.height == 0 ||
+        header.width > 4096 || header.height > 2160) break;
     int decoded_bytes = 0;
     if (jpeg_dec_get_outbuf_len(decoder, &decoded_bytes) != JPEG_ERR_OK || decoded_bytes <= 0) break;
     decoded = jpeg_calloc_align(static_cast<std::size_t>(decoded_bytes), 16);
@@ -185,6 +190,80 @@ bool decode_rgb565(const std::vector<std::uint8_t>& jpeg,
     success = true;
   } while (false);
   if (decoded != nullptr) jpeg_free_align(decoded);
+  jpeg_dec_close(decoder);
+  return success;
+}
+
+bool decode_stream_jpeg(const std::vector<std::uint8_t>& jpeg,
+                        const std::atomic<std::uint32_t>& generation,
+                        std::uint32_t expected_generation,
+                        std::shared_ptr<std::vector<std::uint8_t>>* pixels,
+                        std::uint16_t* width, std::uint16_t* height) {
+  // Decode one MCU-height strip at a time. This bounds working memory and
+  // gives networking and cancellation a scheduling point within each frame.
+  jpeg_dec_config_t config = DEFAULT_JPEG_DEC_CONFIG();
+  config.output_type = JPEG_PIXEL_FORMAT_RGB565_LE;
+  config.block_enable = true;
+  jpeg_dec_handle_t decoder = nullptr;
+  if (jpeg_dec_open(&config, &decoder) != JPEG_ERR_OK || decoder == nullptr) return false;
+  jpeg_dec_io_t io{};
+  jpeg_dec_header_info_t header{};
+  io.inbuf = const_cast<std::uint8_t*>(jpeg.data());
+  io.inbuf_len = static_cast<int>(jpeg.size());
+  void* strip = nullptr;
+  bool success = false;
+  const auto started = esp_timer_get_time();
+  do {
+    if (jpeg_dec_parse_header(decoder, &io, &header) != JPEG_ERR_OK ||
+        header.width == 0 || header.height == 0 || header.width > 1920 ||
+        header.height > 1080 || header.width % 8 != 0 || header.height % 8 != 0) break;
+    int strip_bytes = 0;
+    int strips = 0;
+    if (jpeg_dec_get_outbuf_len(decoder, &strip_bytes) != JPEG_ERR_OK ||
+        strip_bytes <= 0 || strip_bytes > 1920 * 16 * 2 ||
+        jpeg_dec_get_process_count(decoder, &strips) != JPEG_ERR_OK ||
+        strips <= 0 || strips > 135) break;
+    strip = heap_caps_aligned_alloc(16, strip_bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (strip == nullptr) strip = heap_caps_aligned_alloc(16, strip_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (strip == nullptr) break;
+    io.outbuf = static_cast<std::uint8_t*>(strip);
+    const unsigned output_width = std::min<unsigned>(header.width, kDisplayUsesLargeLayout ? 480 : 400);
+    const unsigned output_height = static_cast<unsigned>(header.height) * output_width / header.width;
+    auto output = std::make_shared<std::vector<std::uint8_t>>(output_width * output_height * 2);
+    unsigned source_y = 0;
+    unsigned output_y = 0;
+    bool valid = true;
+    for (int index = 0; index < strips; ++index) {
+      if (generation.load() != expected_generation || esp_timer_get_time() - started > 2000000 ||
+          jpeg_dec_process(decoder, &io) != JPEG_ERR_OK || io.out_size <= 0 ||
+          io.out_size > strip_bytes || io.out_size % (header.width * 2) != 0) {
+        valid = false;
+        break;
+      }
+      const unsigned rows = io.out_size / (header.width * 2);
+      while (output_y < output_height) {
+        const unsigned sample_y = output_y * header.height / output_height;
+        if (sample_y >= source_y + rows) break;
+        if (sample_y < source_y) { valid = false; break; }
+        const auto* row = io.outbuf + (sample_y - source_y) * header.width * 2;
+        auto* destination = output->data() + output_y * output_width * 2;
+        for (unsigned x = 0; x < output_width; ++x) {
+          const unsigned sample_x = x * header.width / output_width;
+          destination[2 * x] = row[2 * sample_x];
+          destination[2 * x + 1] = row[2 * sample_x + 1];
+        }
+        ++output_y;
+      }
+      source_y += rows;
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    if (!valid || output_y != output_height || generation.load() != expected_generation) break;
+    *width = static_cast<std::uint16_t>(output_width);
+    *height = static_cast<std::uint16_t>(output_height);
+    *pixels = std::move(output);
+    success = true;
+  } while (false);
+  if (strip != nullptr) heap_caps_free(strip);
   jpeg_dec_close(decoder);
   return success;
 }
@@ -570,6 +649,7 @@ void MoonrakerCameraClient::configure(const core::PrinterProfile* profile) {
     std::lock_guard<std::mutex> lock(profile_mutex_);
     profile_ = next;
   }
+  camera_session_generation_.fetch_add(1, std::memory_order_acq_rel);
   backend_.store(Backend::unknown);
   reconfigure_requested_.store(true);
   std::lock_guard<std::mutex> lock(snapshot_mutex_);
@@ -588,7 +668,7 @@ void MoonrakerCameraClient::set_enabled(bool enabled) {
   if (!enabled) {
     // Any frame completing after the page was left belongs to the previous
     // visible session and must not be published when the page is reopened.
-    creality_session_generation_.fetch_add(1, std::memory_order_acq_rel);
+    camera_session_generation_.fetch_add(1, std::memory_order_acq_rel);
   }
   TaskHandle_t task = nullptr;
   TaskHandle_t decoder = nullptr;
@@ -604,7 +684,10 @@ void MoonrakerCameraClient::set_enabled(bool enabled) {
 void MoonrakerCameraClient::set_mode(bool live, int snapshot_fps) {
   const bool changed = live_mode_.exchange(live) != live;
   snapshot_fps_.store(snapshot_fps == 5 ? 5 : snapshot_fps == 2 ? 2 : 1);
-  if (changed) reconfigure_requested_.store(true);
+  if (changed) {
+    camera_session_generation_.fetch_add(1, std::memory_order_acq_rel);
+    reconfigure_requested_.store(true);
+  }
 }
 
 esp_err_t MoonrakerCameraClient::start() {
@@ -638,7 +721,7 @@ esp_err_t MoonrakerCameraClient::start() {
 void MoonrakerCameraClient::stop() {
   enabled_.store(false, std::memory_order_release);
   stop_requested_.store(true, std::memory_order_release);
-  creality_session_generation_.fetch_add(1, std::memory_order_acq_rel);
+  camera_session_generation_.fetch_add(1, std::memory_order_acq_rel);
   TaskHandle_t task = nullptr;
   TaskHandle_t decoder = nullptr;
   {
@@ -692,6 +775,7 @@ void MoonrakerCameraClient::publish_frame(std::shared_ptr<std::vector<std::uint8
 
 bool MoonrakerCameraClient::fetch_frame(const core::PrinterProfile& profile,
                                         const char* path) {
+  const std::uint32_t generation = camera_session_generation_.load();
   ResponseBuffer response;
   response.bytes.reserve(256U * 1024U);
   const std::string resource = path == nullptr ? "" : path;
@@ -715,17 +799,38 @@ bool MoonrakerCameraClient::fetch_frame(const core::PrinterProfile& profile,
   esp_http_client_cleanup(client);
   if (result != ESP_OK || status < 200 || status >= 300 || response.overflow ||
       !complete_jpeg(response.bytes)) return false;
-  if (!enabled_.load()) return false;
+  if (!enabled_.load() || generation != camera_session_generation_.load()) return false;
   std::shared_ptr<std::vector<std::uint8_t>> frame;
   std::uint16_t width = 0;
   std::uint16_t height = 0;
   if (!decode_rgb565(response.bytes, &frame, &width, &height)) return false;
-  if (!enabled_.load()) return false;
+  if (!enabled_.load() || generation != camera_session_generation_.load()) return false;
   publish_frame(std::move(frame), width, height);
   return true;
 }
 
 bool MoonrakerCameraClient::detect_backend(const core::PrinterProfile& profile) {
+  // Qualify this exception by the actual camera service, not by a firmware
+  // version or by the presence of a generic /webcam/snapshot.jpg route.
+  if (supports_snapmaker_u1(profile)) {
+    const std::string origin = "http://" + camera_host(profile.endpoint) + "/webcam/";
+    std::vector<std::uint8_t> index;
+    if (fetch_bytes(profile, origin, 8192, &index)) {
+      const std::string page(index.begin(), index.end());
+      if (page.find("github.com/paxx12/v4l2-mpp") != std::string::npos &&
+          page.find("stream.mjpg") != std::string::npos) {
+        snapshot_path_ = origin + "snapshot.jpg";
+        mjpeg_url_ = origin + "stream.mjpg?fps=5";
+        backend_.store(Backend::paxx_mjpeg);
+        const std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        snapshot_.supported = true;
+        snapshot_.live_supported = true;
+        snapshot_.detail = "Snapmaker camera ready";
+        ESP_LOGI(kTag, "Detected U1 PAXX MJPEG camera service");
+        return true;
+      }
+    }
+  }
   std::vector<std::uint8_t> metadata;
   std::vector<std::string> snapshot_urls;
   std::vector<std::string> stream_urls;
@@ -851,6 +956,87 @@ bool MoonrakerCameraClient::send_stock_command(const core::PrinterProfile& profi
   esp_websocket_client_destroy(client);
   vEventGroupDelete(events);
   return success;
+}
+
+bool MoonrakerCameraClient::stream_paxx_camera(const core::PrinterProfile& profile) {
+  const std::uint32_t generation = camera_session_generation_.load();
+  std::string content_type;
+  esp_http_client_config_t config{};
+  config.url = mjpeg_url_.c_str();
+  config.timeout_ms = 1500;
+  config.buffer_size = 8192;
+  config.disable_auto_redirect = true;
+  config.user_data = &content_type;
+  config.event_handler = [](esp_http_client_event_t* event) -> esp_err_t {
+    if (event->event_id == HTTP_EVENT_ON_HEADER && event->header_key != nullptr &&
+        event->header_value != nullptr && strcasecmp(event->header_key, "Content-Type") == 0) {
+      const std::size_t length = strnlen(event->header_value, 256);
+      if (length < 256) static_cast<std::string*>(event->user_data)->assign(event->header_value, length);
+    }
+    return ESP_OK;
+  };
+  esp_http_client_handle_t client = esp_http_client_init(&config);
+  if (client == nullptr) return false;
+  if (!profile.api_key.empty()) esp_http_client_set_header(client, "X-Api-Key", profile.api_key.c_str());
+  const wifi_ps_type_t previous_ps = [] {
+    wifi_ps_type_t value = WIFI_PS_MIN_MODEM;
+    esp_wifi_get_ps(&value);
+    return value;
+  }();
+  esp_wifi_set_ps(WIFI_PS_NONE);
+  bool received = false;
+  if (esp_http_client_open(client, 0) == ESP_OK &&
+      esp_http_client_fetch_headers(client) >= 0 &&
+      esp_http_client_get_status_code(client) == 200 &&
+      content_type.starts_with("multipart/x-mixed-replace")) {
+    const auto boundary_at = content_type.find("boundary=");
+    std::string boundary = boundary_at == std::string::npos ? "" : content_type.substr(boundary_at + 9);
+    if (boundary.size() >= 2 && boundary.front() == '"' && boundary.back() == '"') {
+      boundary = boundary.substr(1, boundary.size() - 2);
+    }
+    if (!boundary.empty() && boundary.size() <= 70) {
+      MjpegStreamParser parser(std::move(boundary));
+      std::vector<std::uint8_t> chunk(8192);
+      std::int64_t last_frame = esp_timer_get_time();
+      const std::int64_t session_started = last_frame;
+      while (enabled_.load() && network_ready_.load() && live_mode_.load() &&
+             !stop_requested_.load() && !reconfigure_requested_.load() &&
+             generation == camera_session_generation_.load()) {
+        const int size = esp_http_client_read(client, reinterpret_cast<char*>(chunk.data()), chunk.size());
+        if (size <= 0 || esp_timer_get_time() - last_frame > 5000000) break;
+        const std::int64_t last_decoded = std::max(session_started,
+            static_cast<std::int64_t>(last_published_frame_us_.load()));
+        if (esp_timer_get_time() - last_decoded > 8000000) {
+          received = false;
+          break;
+        }
+        if (!parser.feed(std::span(chunk.data(), static_cast<std::size_t>(size)),
+            [&](std::vector<std::uint8_t>&& frame) {
+              last_frame = esp_timer_get_time();
+              received = true;
+              {
+                const std::lock_guard<std::mutex> lock(pending_idr_mutex_);
+                // A single replaceable pending frame bounds both memory and
+                // latency when decoding cannot keep up with the camera.
+                pending_mjpeg_ = std::make_shared<std::vector<std::uint8_t>>(std::move(frame));
+                pending_mjpeg_generation_ = generation;
+              }
+              const std::lock_guard<std::mutex> lock(task_mutex_);
+              if (decoder_task_ != nullptr) xTaskNotifyGive(decoder_task_);
+            })) break;
+        vTaskDelay(pdMS_TO_TICKS(1));
+      }
+    }
+  }
+  esp_http_client_close(client);
+  esp_http_client_cleanup(client);
+  esp_wifi_set_ps(previous_ps);
+  {
+    const std::lock_guard<std::mutex> lock(pending_idr_mutex_);
+    pending_mjpeg_.reset();
+  }
+  ESP_LOGI(kTag, "U1 MJPEG session closed; received=%d", received);
+  return received;
 }
 
 int MoonrakerCameraClient::peer_state_callback(esp_peer_state_t state, void* context) {
@@ -1020,10 +1206,11 @@ bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& prof
 
 void MoonrakerCameraClient::stop_creality_peer() {
   const bool peer_was_active = peer_ != nullptr || h264_decoder_ != nullptr;
-  creality_session_generation_.fetch_add(1);
+  camera_session_generation_.fetch_add(1);
   {
     const std::lock_guard<std::mutex> lock(pending_idr_mutex_);
     pending_idr_.reset();
+    pending_mjpeg_.reset();
   }
   set_refreshing(false);
   offer_ready_.store(false);
@@ -1223,7 +1410,7 @@ bool MoonrakerCameraClient::decode_creality_frame(const std::uint8_t* data,
       const std::lock_guard<std::mutex> lock(pending_idr_mutex_);
       if (pending_idr_ || creality_decoder_busy_.load()) return false;
       pending_idr_ = std::make_shared<std::vector<std::uint8_t>>(data, data + size);
-      pending_idr_generation_ = creality_session_generation_.load();
+      pending_idr_generation_ = camera_session_generation_.load();
       last_creality_idr_queued_us_.store(now);
     }
     set_refreshing(true);
@@ -1332,9 +1519,57 @@ void MoonrakerCameraClient::finish_task(bool decoder) {
 }
 
 void MoonrakerCameraClient::decoder_loop() {
+  std::uint32_t count = 0;
+  std::int64_t window = 0;
+  std::int64_t decode_us = 0;
+  std::uint32_t metrics_generation = 0;
   while (!stop_requested_.load(std::memory_order_acquire)) {
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(500));
     while (!stop_requested_.load(std::memory_order_acquire)) {
+      std::shared_ptr<std::vector<std::uint8_t>> jpeg;
+      std::uint32_t jpeg_generation = 0;
+      {
+        const std::lock_guard<std::mutex> lock(pending_idr_mutex_);
+        jpeg.swap(pending_mjpeg_);
+        jpeg_generation = pending_mjpeg_generation_;
+      }
+      if (jpeg) {
+        if (jpeg_generation != camera_session_generation_.load() ||
+            !enabled_.load() || !live_mode_.load()) continue;
+        const std::int64_t started = esp_timer_get_time();
+        std::shared_ptr<std::vector<std::uint8_t>> pixels;
+        std::uint16_t width = 0;
+        std::uint16_t height = 0;
+        const bool decoded = decode_stream_jpeg(*jpeg, camera_session_generation_,
+                                                jpeg_generation, &pixels, &width, &height);
+        if (decoded && jpeg_generation == camera_session_generation_.load() &&
+            enabled_.load() && network_ready_.load() && live_mode_.load() &&
+            backend_.load() == Backend::paxx_mjpeg) {
+          publish_frame(std::move(pixels), width, height);
+          last_published_frame_us_.store(esp_timer_get_time());
+          if (metrics_generation != jpeg_generation) {
+            count = 0;
+            window = 0;
+            decode_us = 0;
+            metrics_generation = jpeg_generation;
+          }
+          const std::int64_t now = esp_timer_get_time();
+          if (window == 0) window = started;
+          ++count;
+          decode_us += now - started;
+          if (now - window >= 10000000) {
+            ESP_LOGI(kTag, "U1 MJPEG decoded %u frames in %lld ms; mean decode %lld ms",
+                     static_cast<unsigned>(count), (now - window) / 1000,
+                     decode_us / count / 1000);
+            window = now;
+            count = 0;
+            decode_us = 0;
+          }
+        }
+        // Leave a bounded scheduling point even when new images are waiting.
+        vTaskDelay(pdMS_TO_TICKS(10));
+        continue;
+      }
       std::shared_ptr<std::vector<std::uint8_t>> encoded;
       std::uint32_t generation = 0;
       {
@@ -1348,7 +1583,7 @@ void MoonrakerCameraClient::decoder_loop() {
         creality_decoder_busy_.store(false);
         break;
       }
-      if (generation != creality_session_generation_.load()) {
+      if (generation != camera_session_generation_.load()) {
         creality_decoder_busy_.store(false);
         continue;
       }
@@ -1363,13 +1598,13 @@ void MoonrakerCameraClient::decoder_loop() {
       auto pixels = decode_idr_snapshot(encoded->data(), encoded->size(), &width, &height);
       if (!pixels) {
         ESP_LOGW(kTag, "Creality Main/CABAC keyframe decode failed");
-        if (generation == creality_session_generation_.load()) set_refreshing(false);
+        if (generation == camera_session_generation_.load()) set_refreshing(false);
         creality_decoder_busy_.store(false);
         continue;
       }
-      if (generation != creality_session_generation_.load() || !enabled_.load() ||
+      if (generation != camera_session_generation_.load() || !enabled_.load() ||
           !idr_snapshot_decoder_.load()) {
-        if (generation == creality_session_generation_.load()) set_refreshing(false);
+        if (generation == camera_session_generation_.load()) set_refreshing(false);
         creality_decoder_busy_.store(false);
         continue;
       }
@@ -1385,7 +1620,7 @@ void MoonrakerCameraClient::decoder_loop() {
 void MoonrakerCameraClient::task_loop() {
   bool stock_monitor_started = false;
   core::PrinterProfile last_profile;
-  std::int64_t last_capture_us = 0;
+  std::int64_t next_capture_us = 0;
   std::int64_t last_detection_us = 0;
   std::int64_t peer_started_us = 0;
   std::int64_t next_peer_start_us = 0;
@@ -1394,7 +1629,7 @@ void MoonrakerCameraClient::task_loop() {
     if (reconfigure_requested_.exchange(false)) {
       stop_creality_peer();
       stock_monitor_started = false;
-      last_capture_us = 0;
+      next_capture_us = 0;
       last_detection_us = 0;
       peer_started_us = 0;
       next_peer_start_us = 0;
@@ -1483,17 +1718,35 @@ void MoonrakerCameraClient::task_loop() {
       continue;
     }
 
+    if (backend == Backend::paxx_mjpeg && live_mode_.load()) {
+      const bool received = stream_paxx_camera(current);
+      if (received) failures = 0;
+      else if (++failures >= 3) {
+        // A detected service may lose its streaming endpoint. Keep its JPEG
+        // fallback usable without repeatedly opening a failing connection.
+        backend_.store(Backend::paxx_snapshot);
+        const std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        snapshot_.live_supported = false;
+      }
+      if (enabled_.load() && !stop_requested_.load()) {
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(received ? 250 : 2000));
+      }
+      continue;
+    }
+
     const std::int64_t refresh_interval = backend == Backend::snapmaker_stock
         ? kRefreshIntervalUs
         : 1000000 / std::max(1, snapshot_fps_.load());
-    if (last_capture_us != 0 && now - last_capture_us < refresh_interval) {
+    if (now < next_capture_us) {
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
       continue;
     }
+    const std::int64_t capture_started_us = esp_timer_get_time();
     publish_status(false, "Loading camera image");
     set_refreshing(true);
     bool captured = false;
-    if (backend == Backend::generic_snapshot || backend == Backend::paxx_snapshot) {
+    if (backend == Backend::generic_snapshot || backend == Backend::paxx_snapshot ||
+        backend == Backend::paxx_mjpeg) {
       captured = fetch_frame(current, snapshot_path_.empty()
                                           ? "/webcam/snapshot.jpg"
                                           : snapshot_path_.c_str());
@@ -1511,7 +1764,8 @@ void MoonrakerCameraClient::task_loop() {
         captured = fetch_frame(current, "/server/files/camera/monitor.jpg");
       }
     }
-    last_capture_us = esp_timer_get_time();
+    next_capture_us = next_snapshot_poll_us(capture_started_us, esp_timer_get_time(),
+                                            refresh_interval);
     if (captured) {
       failures = 0;
       ESP_LOGD(kTag, "Snapmaker camera snapshot updated");
