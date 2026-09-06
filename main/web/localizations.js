@@ -385,6 +385,7 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"Battery status":["Stan baterii","Estado de la batería","État de la batterie","Batteriestatus","电池状态"]
   ,"Battery: {percent}%":["Bateria: {percent}%","Batería: {percent}%","Batterie : {percent}%","Batterie: {percent}%","电池：{percent}%"]
   ,"Battery charging: {percent}%":["Ładowanie baterii: {percent}%","Batería cargando: {percent}%","Batterie en charge : {percent}%","Batterie wird geladen: {percent}%","电池充电中：{percent}%"]
+  ,"External power · Battery: {percent}%":["Zasilanie zewnętrzne · Bateria: {percent}%","Alimentación externa · Batería: {percent}%","Alimentation externe · Batterie : {percent}%","Externe Stromversorgung · Batterie: {percent}%","外部供电 · 电池：{percent}%"]
   ,"Setup mode":["Tryb konfiguracji","Modo de configuración","Mode configuration","Einrichtungsmodus","设置模式"]
   ,"Printers · ":["Drukarki · ","Impresoras · ","Imprimantes · ","Drucker · ","打印机 · "]
   ,"Saving your changes…":["Zapisywanie zmian…","Guardando cambios…","Enregistrement des modifications…","Änderungen werden gespeichert…","正在保存更改…"]
