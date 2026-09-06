@@ -835,6 +835,66 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"PrintDeck could not erase its saved settings. Please try again.":["PrintDeck nie mógł usunąć zapisanych ustawień. Spróbuj ponownie.","PrintDeck no pudo borrar los ajustes guardados. Inténtalo de nuevo.","PrintDeck n’a pas pu effacer les réglages enregistrés. Réessayez.","PrintDeck konnte die gespeicherten Einstellungen nicht löschen. Bitte erneut versuchen.","PrintDeck 无法清除已保存的设置。请重试。"]
   ,"Factory reset confirmation is missing. Refresh the page and try again.":["Brakuje potwierdzenia przywrócenia ustawień fabrycznych. Odśwież stronę i spróbuj ponownie.","Falta la confirmación del restablecimiento de fábrica. Actualiza la página e inténtalo de nuevo.","La confirmation de la réinitialisation d’usine est absente. Actualisez la page et réessayez.","Die Bestätigung für das Zurücksetzen fehlt. Aktualisiere die Seite und versuche es erneut.","缺少恢复出厂设置确认。请刷新页面后重试。"]
 };
+Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
+  "Turn off when no print is running": [
+    "Wyłącz ekran bez druku po",
+    "Apagar la pantalla sin impresión tras",
+    "Éteindre l’écran hors impression après",
+    "Display ohne Druck ausschalten nach",
+    "未打印时关闭屏幕的等待时间"
+  ],
+  "Turn off during a print": [
+    "Wyłącz ekran podczas druku po",
+    "Apagar la pantalla durante la impresión tras",
+    "Éteindre l’écran pendant l’impression après",
+    "Display beim Drucken ausschalten nach",
+    "打印时关闭屏幕的等待时间"
+  ],
+  "Advanced settings": [
+    "Ustawienia zaawansowane",
+    "Ajustes avanzados",
+    "Paramètres avancés",
+    "Erweiterte Einstellungen",
+    "高级设置"
+  ],
+  "Never": [
+    "Nigdy",
+    "Nunca",
+    "Jamais",
+    "Nie",
+    "永不"
+  ]
+});
+Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
+  "Keep the screen on?": [
+    "Pozostawić ekran włączony?",
+    "¿Mantener la pantalla encendida?",
+    "Garder l’écran allumé ?",
+    "Display eingeschaltet lassen?",
+    "保持屏幕开启？"
+  ],
+  "The screen will not turn off automatically in this print state. Dimming and USB power settings still apply.": [
+    "W tym stanie druku ekran nie wyłączy się automatycznie. Ustawienia przyciemniania i zasilania USB nadal obowiązują.",
+    "La pantalla no se apagará automáticamente en este estado de impresión. Se mantienen los ajustes de atenuación y alimentación USB.",
+    "L’écran ne s’éteindra pas automatiquement dans cet état d’impression. Les réglages d’atténuation et d’alimentation USB restent applicables.",
+    "In diesem Druckzustand schaltet sich das Display nicht automatisch aus. Die Einstellungen für Dimmen und USB-Stromversorgung gelten weiterhin.",
+    "在此打印状态下，屏幕不会自动关闭。调暗和 USB 供电设置仍然生效。"
+  ],
+  "Leaving a static image on an AMOLED screen for a long time can cause permanent burn-in. Automatic screen off is recommended.": [
+    "Długie wyświetlanie statycznego obrazu na ekranie AMOLED może spowodować trwałe wypalenie. Zalecamy automatyczne wyłączanie ekranu.",
+    "Mostrar una imagen estática durante mucho tiempo en una pantalla AMOLED puede causar quemaduras permanentes. Se recomienda el apagado automático.",
+    "L’affichage prolongé d’une image fixe sur un écran AMOLED peut provoquer un marquage permanent. L’extinction automatique est recommandée.",
+    "Ein lange angezeigtes statisches Bild kann auf einem AMOLED-Display dauerhaft einbrennen. Automatisches Ausschalten wird empfohlen.",
+    "在 AMOLED 屏幕上长时间显示静态图像可能导致永久烧屏。建议启用自动关闭屏幕。"
+  ],
+  "Keep screen on": [
+    "Pozostaw ekran włączony",
+    "Mantener encendida",
+    "Garder l’écran allumé",
+    "Eingeschaltet lassen",
+    "保持屏幕开启"
+  ]
+});
 for(const [source,values] of Object.entries(PRINTDECK_EXTRA_TRANSLATIONS)){
   PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]);
 }

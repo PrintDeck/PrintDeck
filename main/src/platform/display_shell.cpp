@@ -35,7 +35,6 @@ namespace printdeck::platform {
 namespace {
 
 constexpr char kLogTag[] = "display";
-constexpr std::uint64_t kMinimumVisibleDimStageMs = 10'000;
 constexpr int kHorizontalSwipeThresholdPx = 36;
 constexpr int kHorizontalFlickMinDisplacementPx = 20;
 constexpr int kHorizontalFlickVectorThresholdPx = 6;
@@ -6664,16 +6663,7 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
     return;
   }
   const std::uint64_t idle = now - last_activity_ms_;
-  const std::uint64_t dim_at = 1000ULL * (print_active
-      ? policy.dim_timeout_active_s : policy.dim_timeout_idle_s);
-  std::uint64_t off_at = 1000ULL * (print_active
-      ? policy.off_timeout_active_s : policy.off_timeout_idle_s);
-  if (policy.dim_enabled && policy.screen_off_enabled && off_at <= dim_at) {
-    off_at = dim_at + kMinimumVisibleDimStageMs;
-  }
-  int target = 0;
-  if (policy.screen_off_enabled && idle >= off_at) target = 2;
-  else if (policy.dim_enabled && idle >= dim_at) target = 1;
+  const int target = policy.mode_after_inactivity(idle, print_active);
   if (target == screen_power_mode_) return;
   const int previous = screen_power_mode_;
   if (previous != 2 && esp_lv_adapter_pause(1000) != ESP_OK) {

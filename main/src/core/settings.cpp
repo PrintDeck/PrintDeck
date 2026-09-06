@@ -343,9 +343,9 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
   };
   if (!valid_timeout(power.dim_timeout_idle_s) ||
       !valid_timeout(power.dim_timeout_active_s) ||
-      !valid_timeout(power.off_timeout_idle_s) ||
-      !valid_timeout(power.off_timeout_active_s)) {
-    issues.push_back({"display_power", "Display power timeouts must be between 1 and 3600 seconds"});
+      power.off_timeout_idle_s > 3600 ||
+      power.off_timeout_active_s > 3600) {
+    issues.push_back({"display_power", "Dim timeouts must be 1 to 3600 seconds; off timeouts must be 0 to 3600 seconds"});
   }
 
   std::unordered_set<std::uint32_t> ids;

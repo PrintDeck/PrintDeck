@@ -23,10 +23,26 @@ struct DisplayPowerPolicy {
   bool screen_off_enabled = true;
   std::uint32_t dim_timeout_idle_s = 20;
   std::uint32_t dim_timeout_active_s = 30;
+  // A zero off timeout keeps the display on in that print state; dimming is independent.
   std::uint32_t off_timeout_idle_s = 60;
   std::uint32_t off_timeout_active_s = 120;
   bool usb_power_save_enabled = false;
   bool wake_on_orientation_change = true;
+
+  // 0 = normal brightness, 1 = dimmed, 2 = fully off.
+  int mode_after_inactivity(std::uint64_t idle_ms, bool print_active) const {
+    const std::uint64_t dim_at = 1000ULL *
+        (print_active ? dim_timeout_active_s : dim_timeout_idle_s);
+    std::uint64_t off_at = 1000ULL *
+        (print_active ? off_timeout_active_s : off_timeout_idle_s);
+    const bool off_enabled = screen_off_enabled && off_at > 0;
+    if (dim_enabled && off_enabled && off_at <= dim_at) {
+      off_at = dim_at + 10'000;
+    }
+    if (off_enabled && idle_ms >= off_at) return 2;
+    if (dim_enabled && idle_ms >= dim_at) return 1;
+    return 0;
+  }
 };
 
 struct DeviceSettings {
