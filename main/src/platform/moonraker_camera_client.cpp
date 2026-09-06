@@ -29,6 +29,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/idf_additions.h"
 #include "mbedtls/base64.h"
+#include "mbedtls/sha256.h"
 
 namespace printdeck::platform {
 namespace {
@@ -50,6 +51,8 @@ struct ResponseBuffer {
   std::vector<std::uint8_t> bytes;
   bool overflow = false;
   std::size_t maximum = kMaximumJpegBytes;
+  std::string last_modified;
+  std::int64_t headers_received_us = 0;
 };
 
 struct WebsocketWaiter {
@@ -99,9 +102,22 @@ std::string websocket_url(const core::PrinterProfile& profile) {
 }
 
 esp_err_t response_event(esp_http_client_event_t* event) {
-  if (event == nullptr || event->user_data == nullptr || event->event_id != HTTP_EVENT_ON_DATA ||
-      event->data == nullptr || event->data_len <= 0) return ESP_OK;
+  if (event == nullptr || event->user_data == nullptr) return ESP_OK;
   auto* response = static_cast<ResponseBuffer*>(event->user_data);
+  if (event->event_id == HTTP_EVENT_ON_HEADER && response->headers_received_us == 0) {
+    response->headers_received_us = esp_timer_get_time();
+  }
+  if (event->event_id == HTTP_EVENT_ON_HEADER && event->header_key != nullptr &&
+      event->header_value != nullptr && lower(event->header_key) == "last-modified") {
+    const std::size_t length = std::strlen(event->header_value);
+    if (length > 0 && length < 64 &&
+        std::all_of(event->header_value, event->header_value + length,
+                    [](unsigned char c) { return c >= 32 && c < 127; })) {
+      response->last_modified.assign(event->header_value, length);
+    }
+  }
+  if (event->event_id != HTTP_EVENT_ON_DATA || event->data == nullptr ||
+      event->data_len <= 0) return ESP_OK;
   const auto size = static_cast<std::size_t>(event->data_len);
   if (response->bytes.size() + size > response->maximum) {
     response->overflow = true;
@@ -774,10 +790,10 @@ void MoonrakerCameraClient::publish_frame(std::shared_ptr<std::vector<std::uint8
 }
 
 bool MoonrakerCameraClient::fetch_frame(const core::PrinterProfile& profile,
-                                        const char* path) {
+                                        const char* path, bool stock_snapshot) {
   const std::uint32_t generation = camera_session_generation_.load();
   ResponseBuffer response;
-  response.bytes.reserve(256U * 1024U);
+  if (!stock_snapshot) response.bytes.reserve(256U * 1024U);
   const std::string resource = path == nullptr ? "" : path;
   const std::string url = resource.rfind("http://", 0) == 0 ||
                                   resource.rfind("https://", 0) == 0
@@ -794,17 +810,54 @@ bool MoonrakerCameraClient::fetch_frame(const core::PrinterProfile& profile,
   if (client == nullptr) return false;
   if (!profile.api_key.empty()) esp_http_client_set_header(client, "X-Api-Key", profile.api_key.c_str());
   esp_http_client_set_header(client, "Accept", "image/jpeg");
+  if (stock_snapshot && stock_digest_valid_ && !stock_last_modified_.empty()) {
+    esp_http_client_set_header(client, "If-Modified-Since", stock_last_modified_.c_str());
+  }
   const esp_err_t result = esp_http_client_perform(client);
   const int status = result == ESP_OK ? esp_http_client_get_status_code(client) : 0;
   esp_http_client_cleanup(client);
+  if (!enabled_.load() || generation != camera_session_generation_.load()) return false;
+  const auto received_us = esp_timer_get_time();
+  const auto observed_us = response.headers_received_us != 0
+      ? response.headers_received_us : received_us;
+  auto unchanged = [&](bool source_changed) {
+    stock_cadence_.observe(source_changed, observed_us);
+    ++stock_unchanged_frames_;
+    const bool fresh = !stock_cadence_.stalled(received_us);
+    publish_status(fresh, fresh ? "Camera image updated" : "Camera unavailable");
+    set_refreshing(false);
+    return fresh;
+  };
+  if (stock_snapshot && result == ESP_OK && status == 304 && stock_digest_valid_) {
+    return unchanged(false);
+  }
   if (result != ESP_OK || status < 200 || status >= 300 || response.overflow ||
       !complete_jpeg(response.bytes)) return false;
-  if (!enabled_.load() || generation != camera_session_generation_.load()) return false;
+  std::array<std::uint8_t, 32> digest{};
+  if (stock_snapshot) {
+    if (mbedtls_sha256(response.bytes.data(), response.bytes.size(), digest.data(), 0) != 0) {
+      return false;
+    }
+    if (stock_digest_valid_ && digest == stock_jpeg_digest_) {
+      // Identical pixels may still be a newly produced image of a static scene.
+      const bool source_changed = !response.last_modified.empty() &&
+                                  response.last_modified != stock_last_modified_;
+      stock_last_modified_ = response.last_modified;
+      return unchanged(source_changed);
+    }
+  }
   std::shared_ptr<std::vector<std::uint8_t>> frame;
   std::uint16_t width = 0;
   std::uint16_t height = 0;
   if (!decode_rgb565(response.bytes, &frame, &width, &height)) return false;
   if (!enabled_.load() || generation != camera_session_generation_.load()) return false;
+  if (stock_snapshot) {
+    stock_jpeg_digest_ = digest;
+    stock_digest_valid_ = true;
+    stock_last_modified_ = response.last_modified;
+    stock_cadence_.observe(true, observed_us);
+    ++stock_new_frames_;
+  }
   publish_frame(std::move(frame), width, height);
   return true;
 }
@@ -931,6 +984,7 @@ bool MoonrakerCameraClient::send_stock_command(const core::PrinterProfile& profi
   esp_websocket_client_config_t config{};
   config.uri = uri.c_str();
   config.network_timeout_ms = 5000;
+  config.disable_auto_reconnect = true;
   if (uri.rfind("wss://", 0) == 0) config.crt_bundle_attach = esp_crt_bundle_attach;
   esp_websocket_client_handle_t client = esp_websocket_client_init(&config);
   if (client == nullptr) {
@@ -946,10 +1000,10 @@ bool MoonrakerCameraClient::send_stock_command(const core::PrinterProfile& profi
   }
   if (success) {
     const char* message = start
-        ? "{\"jsonrpc\":\"2.0\",\"method\":\"camera.start_monitor\",\"params\":{\"domain\":\"lan\",\"interval\":2},\"id\":1}"
-        : "{\"jsonrpc\":\"2.0\",\"method\":\"camera.stop_monitor\",\"params\":{\"domain\":\"lan\"},\"id\":2}";
+        ? "{\"jsonrpc\":\"2.0\",\"method\":\"camera.start_monitor\",\"params\":{\"domain\":\"lan\",\"interval\":2,\"req_id\":1},\"id\":1}"
+        : "{\"jsonrpc\":\"2.0\",\"method\":\"camera.stop_monitor\",\"params\":{\"domain\":\"lan\",\"req_id\":2},\"id\":2}";
     success = esp_websocket_client_send_text(client, message, std::strlen(message),
-                                              pdMS_TO_TICKS(3000)) >= 0;
+                                              pdMS_TO_TICKS(3000)) == static_cast<int>(std::strlen(message));
     vTaskDelay(pdMS_TO_TICKS(start ? 500 : 100));
   }
   esp_websocket_client_stop(client);
@@ -1625,11 +1679,23 @@ void MoonrakerCameraClient::task_loop() {
   std::int64_t peer_started_us = 0;
   std::int64_t next_peer_start_us = 0;
   std::uint32_t failures = 0;
+  auto reset_stock_cache = [&] {
+    stock_cadence_.reset();
+    stock_last_modified_.clear();
+    stock_digest_valid_ = false;
+    stock_new_frames_ = 0;
+    stock_unchanged_frames_ = 0;
+    stock_metrics_started_us_ = 0;
+    next_capture_us = 0;
+  };
   while (!stop_requested_.load(std::memory_order_acquire)) {
     if (reconfigure_requested_.exchange(false)) {
+      if (stock_monitor_started && last_profile.id != 0 && network_ready_.load()) {
+        send_stock_command(last_profile, false);
+      }
       stop_creality_peer();
       stock_monitor_started = false;
-      next_capture_us = 0;
+      reset_stock_cache();
       last_detection_us = 0;
       peer_started_us = 0;
       next_peer_start_us = 0;
@@ -1655,6 +1721,7 @@ void MoonrakerCameraClient::task_loop() {
         send_stock_command(current, false);
         stock_monitor_started = false;
       }
+      reset_stock_cache();
       stop_creality_peer();
       publish_status(false, "Camera off", true);
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
@@ -1742,6 +1809,9 @@ void MoonrakerCameraClient::task_loop() {
       continue;
     }
     const std::int64_t capture_started_us = esp_timer_get_time();
+    if (backend == Backend::snapmaker_stock && stock_metrics_started_us_ == 0) {
+      stock_metrics_started_us_ = capture_started_us;
+    }
     publish_status(false, "Loading camera image");
     set_refreshing(true);
     bool captured = false;
@@ -1752,20 +1822,26 @@ void MoonrakerCameraClient::task_loop() {
                                           : snapshot_path_.c_str());
     }
     if (!captured && backend == Backend::snapmaker_stock) {
-      captured = fetch_frame(current, "/webcam/snapshot.jpg");
-      if (captured) {
-        backend_.store(Backend::paxx_snapshot);
-        snapshot_path_ = "/webcam/snapshot.jpg";
-      }
-    }
-    if (!captured && backend == Backend::snapmaker_stock) {
       if (!stock_monitor_started) stock_monitor_started = send_stock_command(current, true);
       if (stock_monitor_started) {
-        captured = fetch_frame(current, "/server/files/camera/monitor.jpg");
+        captured = fetch_frame(current, "/server/files/camera/monitor.jpg", true);
       }
     }
-    next_capture_us = next_snapshot_poll_us(capture_started_us, esp_timer_get_time(),
-                                            refresh_interval);
+    const auto completed_us = esp_timer_get_time();
+    next_capture_us = backend == Backend::snapmaker_stock
+        ? stock_cadence_.next_check_us(completed_us)
+        : next_snapshot_poll_us(capture_started_us, completed_us, refresh_interval);
+    if (backend == Backend::snapmaker_stock &&
+        completed_us - stock_metrics_started_us_ >= 10000000) {
+      ESP_LOGI(kTag, "U1 stock snapshots: %u new, %u unchanged in %lld ms; estimated period %lld ms",
+               static_cast<unsigned>(stock_new_frames_),
+               static_cast<unsigned>(stock_unchanged_frames_),
+               (completed_us - stock_metrics_started_us_) / 1000,
+               stock_cadence_.period_us() / 1000);
+      stock_new_frames_ = 0;
+      stock_unchanged_frames_ = 0;
+      stock_metrics_started_us_ = completed_us;
+    }
     if (captured) {
       failures = 0;
       ESP_LOGD(kTag, "Snapmaker camera snapshot updated");
@@ -1773,6 +1849,12 @@ void MoonrakerCameraClient::task_loop() {
     }
     set_refreshing(false);
     ++failures;
+    if (backend == Backend::snapmaker_stock && failures < 3) {
+      // The producer may replace monitor.jpg during a read. Discard the
+      // partial body and retry shortly, without destroying the current frame.
+      next_capture_us = completed_us + 200000;
+      continue;
+    }
     if (failures >= 3) {
       backend_.store(Backend::unknown);
       stock_monitor_started = false;

@@ -43,7 +43,7 @@ endif()
 # target to the other target's version merely because both share this source.
 set(PRINTDECK_AMOLED_1_75_VERSION "1.0.11")
 set(PRINTDECK_LCD_1_54_VERSION "1.0.8")
-set(PRINTDECK_KNOMI2_VERSION "1.0.11")
+set(PRINTDECK_KNOMI2_VERSION "1.0.12")
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     set(PROJECT_VER "${PRINTDECK_KNOMI2_VERSION}")
     set(PRINTDECK_REACTION_SEED_DIR "main/reaction_seed/knomi2")

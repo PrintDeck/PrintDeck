@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <array>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -11,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "printdeck/core/device_state.hpp"
+#include "printdeck/platform/camera_snapshot_timing.hpp"
 
 namespace printdeck::platform {
 
@@ -54,7 +56,8 @@ class MoonrakerCameraClient {
   void task_loop();
   void decoder_loop();
   core::PrinterProfile profile() const;
-  bool fetch_frame(const core::PrinterProfile& profile, const char* path);
+  bool fetch_frame(const core::PrinterProfile& profile, const char* path,
+                   bool stock_snapshot = false);
   bool detect_backend(const core::PrinterProfile& profile);
   bool stream_paxx_camera(const core::PrinterProfile& profile);
   bool send_stock_command(const core::PrinterProfile& profile, bool start);
@@ -113,6 +116,13 @@ class MoonrakerCameraClient {
   std::string snapshot_path_{};
   std::string mjpeg_url_{};
   std::string creality_signal_url_{};
+  StockSnapshotCadence stock_cadence_{};
+  std::string stock_last_modified_{};
+  std::array<std::uint8_t, 32> stock_jpeg_digest_{};
+  bool stock_digest_valid_ = false;
+  std::uint32_t stock_new_frames_ = 0;
+  std::uint32_t stock_unchanged_frames_ = 0;
+  std::int64_t stock_metrics_started_us_ = 0;
 };
 
 }  // namespace printdeck::platform
