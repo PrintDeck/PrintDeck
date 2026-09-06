@@ -2,7 +2,7 @@
   "schema": 1,
   "channel": "stable",
   "target": "knomi2",
-  "version": "1.0.12",
-  "url": "https://github.com/PrintDeck/PrintDeck/releases/download/knomi2-v1.0.12/printdeck_knomi2_ota-1.0.12.bin",
-  "sha256": "e87d5cb88b5f3f8b5e6fc39c907258a9c5f30ba14c5da0493eeb6c6a17282733"
+  "version": "1.0.13",
+  "url": "https://github.com/PrintDeck/PrintDeck/releases/download/knomi2-v1.0.13/printdeck_knomi2_ota-1.0.13.bin",
+  "sha256": "e401638f0a816bcf17337c62540d8048d872f8b6c386f58d1c52262df4a552ce"
 }
