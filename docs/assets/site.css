@@ -1054,6 +1054,27 @@ body.site-page {
   gap: 14px;
 }
 
+#the-cinquefoil .case-media {
+  margin-bottom: 24px;
+}
+
+#the-cinquefoil .case-main-image,
+#the-cinquefoil .case-detail-image,
+#the-scuttle .case-main-image,
+#the-scuttle .case-detail-image {
+  background: #191919;
+}
+
+#the-cinquefoil .case-detail-image img,
+#the-scuttle .case-detail-image img {
+  inset: 0 auto 0 50%;
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  transform: translateX(-50%);
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+}
+
 .case-main-image {
   min-height: 0;
   align-self: stretch;
@@ -1074,7 +1095,7 @@ body.site-page {
 }
 
 #the-scuttle .case-main-image img {
-  object-fit: cover;
+  object-fit: contain;
 }
 
 #riverstone .case-main-image {
