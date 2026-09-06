@@ -115,6 +115,21 @@ bool led_is_on(const cJSON* object) {
   return false;
 }
 
+core::PrinterActivity snapmaker_activity(const cJSON* status) {
+  constexpr int kBedLeveling = 256;
+  constexpr int kBedPreheating = 257;
+  constexpr int kBedPrescanning = 258;
+  const cJSON* manager = member(status, "machine_state_manager");
+  const cJSON* action = member(manager, "action_code");
+  if (!cJSON_IsNumber(action)) return core::PrinterActivity::unknown;
+  switch (action->valueint) {
+    case kBedPreheating: return core::PrinterActivity::bed_heating;
+    case kBedLeveling:
+    case kBedPrescanning: return core::PrinterActivity::bed_leveling;
+    default: return core::PrinterActivity::unknown;
+  }
+}
+
 }  // namespace
 
 core::JobPhase moonraker_phase(std::string_view status) {
@@ -197,6 +212,14 @@ MoonrakerStatusParseResult parse_moonraker_status(
   next.job.name = display_job_name(next.job.gcode_file);
   next.job.preview = context.preview;
   next.job.detail = string_member(stats, "message");
+  next.job.activity = snapmaker_activity(status);
+  if (next.job.activity != core::PrinterActivity::unknown &&
+      next.job.phase == core::JobPhase::idle) {
+    next.job.condition = core::PrinterCondition::busy;
+    if (next.job.activity == core::PrinterActivity::bed_leveling) {
+      next.job.kind = core::JobKind::calibration;
+    }
+  }
   const double progress = std::clamp(
       number_member(display, "progress", number_member(virtual_sd, "progress")), 0.0, 1.0);
   const double elapsed = std::max(0.0, number_member(stats, "print_duration"));
