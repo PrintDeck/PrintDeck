@@ -97,72 +97,55 @@ constexpr std::array<CommandAlias, 35> kAliases{{
 
 }  // namespace
 
-esp_err_t VoiceService::start(AudioService& audio) {
+esp_err_t VoiceService::start(AudioService& audio, WakeCallback wake, void* context) {
+  // Runtime is the single caller. A stopping worker retains ownership until all
+  // models and the microphone have been released; a later pass can start again.
   if (running_.load()) return ESP_OK;
   audio_ = &audio;
-
-  auto microphone = board_audio_codec_microphone_init();
-  if (microphone == nullptr) {
-    ESP_LOGE(kLogTag, "ES7210 microphone codec is unavailable");
-    return ESP_FAIL;
-  }
-  esp_codec_dev_sample_info_t sample{};
-  sample.bits_per_sample = 16;
-  sample.channel = 1;
-  sample.sample_rate = kSampleRate;
-  if (esp_codec_dev_open(microphone, &sample) != ESP_CODEC_DEV_OK) {
-    ESP_LOGE(kLogTag, "Could not open microphone at 16 kHz mono");
-    return ESP_FAIL;
-  }
-  if (esp_codec_dev_set_in_gain(microphone, kMicrophoneGainDb) != ESP_CODEC_DEV_OK) {
-    ESP_LOGW(kLogTag, "Microphone gain could not be set; using codec default");
-  }
-
-  const esp_err_t models_result = open_voice_models();
-  if (models_result != ESP_OK || !activate_voice_model(kWakeModel)) {
-    ESP_LOGE(kLogTag, "Compressed speech model is unavailable");
-    close_voice_models();
-    esp_codec_dev_close(microphone);
-    return models_result != ESP_OK ? models_result : ESP_FAIL;
-  }
-
-  const esp_wn_iface_t* wakenet = &esp_sr_wakenet9_quantized;
-  model_iface_data_t* wakenet_data = wakenet->create(kWakeModel, kWakeDetectionMode);
-  if (wakenet_data == nullptr) {
-    ESP_LOGE(kLogTag, "Could not create the Hi ESP recognizer");
-    close_voice_models();
-    esp_codec_dev_close(microphone);
-    return ESP_ERR_NO_MEM;
-  }
-
-  const esp_mn_iface_t* multinet = &esp_sr_multinet5_quantized8;
-  const int wake_samples = wakenet->get_samp_chunksize(wakenet_data);
-  if (wakenet->get_samp_rate(wakenet_data) != kSampleRate || wake_samples <= 0) {
-    ESP_LOGE(kLogTag, "Unsupported WakeNet input format");
-    wakenet->destroy(wakenet_data);
-    close_voice_models();
-    esp_codec_dev_close(microphone);
-    return ESP_ERR_NOT_SUPPORTED;
-  }
-
-  microphone_ = microphone;
-  wakenet_model_name_ = kWakeModel;
-  multinet_model_name_ = kCommandModel;
-  wakenet_interface_ = wakenet;
-  wakenet_data_ = wakenet_data;
-  multinet_interface_ = multinet;
-  frame_samples_ = wake_samples;
+  wake_callback_ = wake;
+  wake_context_ = context;
+  stop_requested_.store(false);
+  ready_.store(false);
   running_.store(true);
   if (xTaskCreatePinnedToCoreWithCaps(task_entry, "voice", 8192, this, 5,
                                       &task_, kServiceCore,
                                       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
-    release_resources();
+    running_.store(false);
     return ESP_ERR_NO_MEM;
   }
-  ESP_LOGI(kLogTag,
-           "Local voice ready: Hi ESP, %u English aliases, aggressive wake detection, "
-           "microphone gain %.0f dB",
-           static_cast<unsigned>(kAliases.size()), static_cast<double>(kMicrophoneGainDb));
+  return ESP_OK;
+}
+
+esp_err_t VoiceService::initialize_resources() {
+  // Only the enabled core-0 worker opens the microphone and expands models.
+  if (stop_requested_.load()) return ESP_ERR_INVALID_STATE;
+  microphone_ = board_audio_codec_microphone_init();
+  if (microphone_ == nullptr) return ESP_FAIL;
+  auto microphone = static_cast<esp_codec_dev_handle_t>(microphone_);
+  esp_codec_dev_sample_info_t sample{};
+  sample.bits_per_sample = 16;
+  sample.channel = 1;
+  sample.sample_rate = kSampleRate;
+  if (esp_codec_dev_open(microphone, &sample) != ESP_CODEC_DEV_OK) return ESP_FAIL;
+  if (esp_codec_dev_set_in_gain(microphone, kMicrophoneGainDb) != ESP_CODEC_DEV_OK) {
+    ESP_LOGW(kLogTag, "Microphone gain could not be set; using codec default");
+  }
+  if (stop_requested_.load()) return ESP_ERR_INVALID_STATE;
+  const esp_err_t result = open_voice_models();
+  if (result != ESP_OK) return result;
+  if (!activate_voice_model(kWakeModel)) return ESP_FAIL;
+  if (stop_requested_.load()) return ESP_ERR_INVALID_STATE;
+  wakenet_model_name_ = kWakeModel;
+  multinet_model_name_ = kCommandModel;
+  const esp_wn_iface_t* wakenet = &esp_sr_wakenet9_quantized;
+  wakenet_interface_ = wakenet;
+  multinet_interface_ = &esp_sr_multinet5_quantized8;
+  auto* data = wakenet->create(kWakeModel, kWakeDetectionMode);
+  wakenet_data_ = data;
+  if (data == nullptr) return ESP_ERR_NO_MEM;
+  frame_samples_ = wakenet->get_samp_chunksize(data);
+  if (wakenet->get_samp_rate(data) != kSampleRate || frame_samples_ <= 0)
+    return ESP_ERR_NOT_SUPPORTED;
   return ESP_OK;
 }
 
@@ -172,7 +155,16 @@ void VoiceService::update_status(const AudioService::SpokenPrintStatus& status) 
 }
 
 void VoiceService::task_entry(void* context) {
-  static_cast<VoiceService*>(context)->task_loop();
+  auto* service = static_cast<VoiceService*>(context);
+  const esp_err_t result = service->initialize_resources();
+  if (result != ESP_OK || service->stop_requested_.load()) {
+    if (!service->stop_requested_.load())
+      ESP_LOGW(kLogTag, "Local voice initialization failed: %s", esp_err_to_name(result));
+    service->release_resources();
+    vTaskDeleteWithCaps(nullptr);
+    return;
+  }
+  service->task_loop();
 }
 
 bool VoiceService::activate_wakenet() {
@@ -254,14 +246,13 @@ bool VoiceService::activate_multinet() {
 
 bool VoiceService::return_to_wake_word() {
   if (activate_wakenet()) return true;
-  running_.store(false);
+  stop_requested_.store(true);
   ready_.store(false);
   return false;
 }
 
 void VoiceService::release_resources() {
   ready_.store(false);
-  running_.store(false);
   deactivate_multinet();
   if (wakenet_data_ != nullptr) {
     auto wakenet = static_cast<const esp_wn_iface_t*>(wakenet_interface_);
@@ -274,6 +265,7 @@ void VoiceService::release_resources() {
     microphone_ = nullptr;
   }
   task_ = nullptr;
+  running_.store(false);
 }
 
 std::uint32_t VoiceService::speak_command(int command_id) {
@@ -313,31 +305,9 @@ void VoiceService::task_loop() {
   std::int64_t deadline_us = 0;
   bool suppressed_for_playback = false;
   unsigned consecutive_errors = 0;
-  while (running_.load()) {
-    if (power_suspended_.load()) {
-      ready_.store(false);
-      esp_codec_dev_close(microphone);
-      deactivate_multinet();
-      if (wakenet_data_ != nullptr) {
-        wakenet->destroy(static_cast<model_iface_data_t*>(wakenet_data_));
-        wakenet_data_ = nullptr;
-      }
-      close_voice_models();
-      while (running_.load() && power_suspended_.load()) vTaskDelay(pdMS_TO_TICKS(250));
-      if (!running_.load()) break;
-      esp_codec_dev_sample_info_t sample{};
-      sample.bits_per_sample = 16;
-      sample.channel = 1;
-      sample.sample_rate = kSampleRate;
-      if (esp_codec_dev_open(microphone, &sample) != ESP_CODEC_DEV_OK ||
-          open_voice_models() != ESP_OK ||
-          !activate_wakenet()) break;
-      esp_codec_dev_set_in_gain(microphone, kMicrophoneGainDb);
-      state = ListenState::wake_word;
-      suppressed_for_playback = false;
-      consecutive_errors = 0;
-      ready_.store(true);
-    }
+  ESP_LOGI(kLogTag, "Local voice ready: Hi ESP, %u English aliases",
+           static_cast<unsigned>(kAliases.size()));
+  while (!stop_requested_.load()) {
     const int read_result = esp_codec_dev_read(
         microphone, input, samples * static_cast<int>(sizeof(std::int16_t)));
     if (read_result != ESP_CODEC_DEV_OK) {
@@ -348,10 +318,11 @@ void VoiceService::task_loop() {
       continue;
     }
     consecutive_errors = 0;
+    if (stop_requested_.load()) break;
 
     const bool playing = audio_->playback_active();
     if (playing && (state == ListenState::wake_word || state == ListenState::command)) {
-      if (!suppressed_for_playback) return_to_wake_word();
+      if (!suppressed_for_playback && !return_to_wake_word()) break;
       suppressed_for_playback = true;
       state = ListenState::wake_word;
       continue;
@@ -384,7 +355,9 @@ void VoiceService::task_loop() {
     if (state == ListenState::wake_word) {
       if (wakenet->detect(static_cast<model_iface_data_t*>(wakenet_data_), input) ==
           WAKENET_DETECTED) {
+        if (stop_requested_.load()) break;
         ESP_LOGI(kLogTag, "Hi ESP detected");
+        if (wake_callback_ != nullptr) wake_callback_(wake_context_);
         acknowledgement_ticket = audio_->acknowledge_voice_command();
         if (acknowledgement_ticket == 0 || !activate_multinet()) {
           return_to_wake_word();
@@ -426,6 +399,7 @@ void VoiceService::task_loop() {
       return_to_wake_word();
     }
   }
+  std::memset(input, 0, static_cast<std::size_t>(samples) * sizeof(std::int16_t));
   free(input);
   release_resources();
   vTaskDeleteWithCaps(nullptr);

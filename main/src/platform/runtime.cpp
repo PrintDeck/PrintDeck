@@ -178,16 +178,6 @@ void Runtime::start() {
     ESP_LOGW(kLogTag, "Audio service is unavailable: %s", esp_err_to_name(audio_result));
   }
   verify_heap("audio startup");
-#if defined(PRINTDECK_LOCAL_VOICE)
-  if (audio_result == ESP_OK) {
-    const esp_err_t voice_result = voice_.start(audio_);
-    if (voice_result != ESP_OK) {
-      ESP_LOGW(kLogTag, "Local voice service is unavailable: %s",
-               esp_err_to_name(voice_result));
-    }
-    verify_heap("voice startup");
-  }
-#endif
   const esp_err_t power_result = power_.start();
   if (power_result != ESP_OK) {
     ESP_LOGW(kLogTag, "Power service is unavailable: %s", esp_err_to_name(power_result));
@@ -938,6 +928,10 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
                              audio_.volume() != settings.audio_volume_percent ||
                              audio_.preset() != requested_preset ||
                              audio_.muted_events() != settings.audio_muted_events;
+#if defined(PRINTDECK_LOCAL_VOICE)
+  if (settings_.voice_enabled != settings.voice_enabled) voice_retry_after_ms_ = 0;
+  if (!settings.voice_enabled) voice_.request_stop();
+#endif
   settings_ = settings;
   if (device_name_changed) {
     const esp_err_t name_result = network_.set_device_name(settings.device_name);
@@ -1761,8 +1755,23 @@ void Runtime::monitor_loop() {
     orientation_.set_power_suspended(content_hidden &&
         !settings_.display_power.wake_on_orientation_change);
 #if defined(PRINTDECK_LOCAL_VOICE)
-    // Voice currently answers while awake; it is not a physical display wake source.
-    voice_.set_power_suspended(content_hidden);
+    // An explicit opt-in keeps the wake phrase active even with the panel off.
+    // No worker, microphone stream or expanded model exists while disabled.
+    const auto voice_now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    if (!settings_.voice_enabled) {
+      voice_.request_stop();
+    } else if (!voice_.running() && voice_now_ms >= voice_retry_after_ms_) {
+      voice_retry_after_ms_ = voice_now_ms + 30'000;
+      const esp_err_t result = voice_.start(audio_, [](void* context) {
+        auto* runtime = static_cast<Runtime*>(context);
+        runtime->display_.reset_inactivity_and_wake();
+        runtime->audio_.set_display_volume_scale(100);
+        if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
+      }, this);
+      if (result != ESP_OK)
+        ESP_LOGW(kLogTag, "Could not start local voice worker: %s", esp_err_to_name(result));
+    }
+    web_config_.set_voice_ready(voice_.ready());
 #endif
     if (display_.automatic_shutdown_due(power.available && !power.usb_present &&
         !power.charging, keep_awake, print_active)) perform_shutdown();

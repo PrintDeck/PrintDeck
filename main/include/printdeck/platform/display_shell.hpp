@@ -489,7 +489,8 @@ class DisplayShell {
   int square_gesture_peak_dy_ = 0;
   std::atomic<std::int64_t> background_render_quiet_until_us_{0};
   std::atomic<std::uint64_t> last_activity_ms_{0};
-  std::atomic<std::uint64_t> last_print_activity_ms_{0};
+  std::atomic<std::uint64_t> display_off_since_ms_{0};
+  bool last_print_active_ = false;
   mutable std::atomic<std::int64_t> live_render_until_us_{0};
   bool consume_wake_touch_ = false;
   lv_obj_t* screen_saver_root_ = nullptr;

@@ -5696,7 +5696,7 @@ esp_err_t DisplayShell::touch_read(esp_lcd_touch_handle_t touch,
     if (shell->content_hidden() || shell->consume_wake_touch_) {
       bool wake = true;
       { const std::lock_guard<std::mutex> lock(shell->power_policy_mutex_);
-        wake = shell->power_policy_.wake_on_touch; }
+        wake = !kBoardHasPowerButton || shell->power_policy_.wake_on_touch; }
       shell->consume_wake_touch_ = true;
       *count = 0;
       if (wake) shell->note_activity(true);
@@ -6672,6 +6672,7 @@ void DisplayShell::request_wake() {
     return;
   }
   screen_power_mode_ = 0;
+  display_off_since_ms_ = 0;
   set_screen_saver_visible(false);
   suspend_visual_updates(false);
   board_display_brightness_set(applied_brightness_);
@@ -6698,9 +6699,14 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
     request_wake();
   }
   last_on_battery_ = on_battery;
-  if (print_active || keep_awake) last_print_activity_ms_ = now;
+  if (print_active != last_print_active_) {
+    last_print_active_ = print_active;
+    last_activity_ms_ = now;
+    request_wake();
+  }
   if (keep_awake || !policy.timers_allowed(on_battery,
                                           kBoardHasPowerSourceDetection, print_active)) {
+    last_activity_ms_ = now;
     request_wake();
     return;
   }
@@ -6716,6 +6722,7 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
   }
   const int previous = screen_power_mode_.load();
   screen_power_mode_ = target;
+  display_off_since_ms_ = target == 2 ? now : 0;
   set_screen_saver_visible(target == 3);
   suspend_visual_updates(target == 2 || target == 3);
   const int dim_brightness = policy.dim_brightness_percent == 0
@@ -6736,11 +6743,12 @@ bool DisplayShell::background_content_needed() const {
 
 bool DisplayShell::automatic_shutdown_due(bool on_battery, bool keep_awake,
                                            bool print_active) const {
-  if (!on_battery || keep_awake || print_active) return false;
+  if (!on_battery || keep_awake || print_active || !screen_fully_off()) return false;
+  const auto off_since = display_off_since_ms_.load();
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  if (off_since == 0 || now < off_since || last_activity_ms_.load() > off_since) return false;
   const std::lock_guard<std::mutex> lock(power_policy_mutex_);
-  const std::uint64_t delay = 1000ULL * power_policy_.shutdown_timeout_s;
-  const std::uint64_t since = std::max(last_activity_ms_.load(), last_print_activity_ms_.load());
-  return delay > 0 && static_cast<std::uint64_t>(esp_timer_get_time() / 1000) - since >= delay;
+  return power_policy_.shutdown_after_display_off(now - off_since);
 }
 
 void DisplayShell::suspend_visual_updates(bool suspended) {

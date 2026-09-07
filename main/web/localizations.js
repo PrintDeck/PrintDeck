@@ -10,6 +10,35 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "Shut down PrintDeck":["Wyłącz PrintDeck", "Apagar PrintDeck", "Arrêter PrintDeck", "PrintDeck herunterfahren", "关闭 PrintDeck"],
+  "PrintDeck stays powered on.":["PrintDeck pozostaje włączony.", "PrintDeck permanece encendido.", "PrintDeck reste allumé.", "PrintDeck bleibt eingeschaltet.", "PrintDeck 保持开启。"],
+  "Display turns off first. PrintDeck shuts down {time} later on battery.":["Najpierw gaśnie ekran. Na baterii PrintDeck wyłączy się {time} później.", "Primero se apaga la pantalla. Con batería, PrintDeck se apaga {time} después.", "L’écran s’éteint d’abord. Sur batterie, PrintDeck s’arrête {time} plus tard.", "Zuerst geht das Display aus. Im Akkubetrieb schaltet sich PrintDeck {time} später aus.", "先关闭屏幕。使用电池时，PrintDeck 将在 {time}后关机。"],
+
+  "2 days":["2 dni", "2 días", "2 jours", "2 Tage", "2 天"],
+  "3 days":["3 dni", "3 días", "3 jours", "3 Tage", "3 天"],
+  "5 days":["5 dni", "5 días", "5 jours", "5 Tage", "5 天"],
+  "7 days":["7 dni", "7 días", "7 jours", "7 Tage", "7 天"],
+
+  "Then":["Następnie", "Después", "Ensuite", "Danach", "然后"],
+  "Choose when to start and how long each step lasts.":["Wybierz, kiedy rozpocząć i jak długo ma trwać każdy etap.", "Elige cuándo empezar y cuánto dura cada paso.", "Choisissez quand commencer et la durée de chaque étape.", "Wähle den Startzeitpunkt und die Dauer jedes Schritts.", "选择开始时间和每个阶段的持续时长。"],
+  "Start after inactivity":["Rozpocznij po bezczynności", "Iniciar tras inactividad", "Démarrer après une inactivité de", "Nach Inaktivität starten", "无操作后开始"],
+  "The sequence starts after your last interaction with PrintDeck.":["Czas oczekiwania liczy się od ostatniej interakcji z PrintDeck.", "La espera empieza tras tu última interacción con PrintDeck.", "Le délai commence après votre dernière interaction avec PrintDeck.", "Die Wartezeit beginnt nach deiner letzten Bedienung von PrintDeck.", "等待时间从您上次操作 PrintDeck 时开始计算。"],
+  "The sequence starts after your last interaction with PrintDeck. Includes paused prints.":["Czas oczekiwania liczy się od ostatniej interakcji z PrintDeck. Dotyczy również wstrzymanego druku.", "La espera empieza tras tu última interacción con PrintDeck. Incluye impresiones pausadas.", "Le délai commence après votre dernière interaction avec PrintDeck. S’applique aussi aux impressions en pause.", "Die Wartezeit beginnt nach deiner letzten Bedienung von PrintDeck. Gilt auch für pausierte Drucke.", "等待时间从您上次操作 PrintDeck 时开始计算。也适用于已暂停的打印。"],
+  "Dim the display for":["Przyciemnij ekran na", "Atenuar la pantalla durante", "Assombrir l’écran pendant", "Display dimmen für", "屏幕调暗持续时间"],
+  "Run screen saver for":["Wyświetlaj wygaszacz przez", "Mostrar el protector durante", "Afficher l’économiseur pendant", "Bildschirmschoner anzeigen für", "屏幕保护运行时长"],
+  "Turn off the display":["Wyłącz ekran", "Apagar la pantalla", "Éteindre l’écran", "Display ausschalten", "关闭屏幕"],
+  "Automatically":["Automatycznie", "Automáticamente", "Automatiquement", "Automatisch", "自动"],
+  "Not used":["Nieaktywne", "No se usa", "Inactif", "Nicht aktiv", "未启用"],
+  "Skip":["Pomiń", "Omitir", "Ignorer", "Überspringen", "跳过"],
+  "Until wake-up":["Do wybudzenia", "Hasta despertar", "Jusqu’au réveil", "Bis zum Aufwecken", "直到唤醒"],
+  "Each step starts when the previous one ends.":["Każdy etap rozpoczyna się po zakończeniu poprzedniego.", "Cada paso empieza cuando termina el anterior.", "Chaque étape commence à la fin de la précédente.", "Jeder Schritt beginnt, wenn der vorherige endet.", "每个阶段在前一阶段结束后开始。"],
+  "Automatic adjusts to your normal brightness. Also applies to the screen saver.":["Tryb automatyczny dobiera poziom do zwykłej jasności ekranu. Dotyczy również wygaszacza.", "El modo automático se adapta al brillo habitual. También se aplica al protector de pantalla.", "Le mode automatique s’adapte à votre luminosité habituelle. S’applique aussi à l’économiseur d’écran.", "Automatisch passt den Wert an deine normale Helligkeit an. Gilt auch für den Bildschirmschoner.", "自动模式会根据正常亮度调整。此设置也适用于屏幕保护。"],
+  "Shut down PrintDeck after the display turns off":["Wyłącz PrintDeck po zgaszeniu ekranu", "Apagar PrintDeck después de apagarse la pantalla", "Arrêter PrintDeck après l’extinction de l’écran", "PrintDeck nach dem Ausschalten des Displays herunterfahren", "屏幕关闭后关闭 PrintDeck"],
+  "On battery only. PrintDeck stays on while a print is active.":["Tylko na baterii. PrintDeck pozostaje włączony podczas druku.", "Solo con batería. PrintDeck permanece encendido mientras hay una impresión activa.", "Sur batterie uniquement. PrintDeck reste allumé pendant une impression.", "Nur im Akkubetrieb. Während eines Drucks bleibt PrintDeck eingeschaltet.", "仅限电池供电。打印期间 PrintDeck 保持开启。"],
+  "While dimmed or showing a screen saver":["Po przyciemnieniu lub podczas wygaszacza", "Al atenuar o mostrar el protector", "Pendant l’atténuation ou l’économiseur", "Beim Dimmen oder Anzeigen des Bildschirmschoners", "屏幕调暗或显示屏幕保护时"],
+  "Touch always wakes this display.":["Dotyk zawsze wybudza ten ekran.", "El toque siempre despierta esta pantalla.", "Le toucher réveille toujours cet écran.", "Berührung weckt dieses Display immer auf.", "触摸始终可以唤醒此屏幕。"],
+
+  "Printer state":["Stan drukarki","Estado de la impresora","État de l’imprimante","Druckerstatus","打印机状态"],
   "Screen saver animation":["Animacja wygaszacza","Animación del protector de pantalla","Animation de l’économiseur d’écran","Bildschirmschoner-Animation","屏幕保护动画"],
   "Circles":["Kręgi","Círculos","Cercles","Kreise","圆环"],
   "Going to sleep":["Pora spać","Hora de dormir","Au dodo","Schlafenszeit","准备入睡"],
@@ -37,7 +66,7 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   "12 hours":["12 godzin", "12 horas", "12 heures", "12 Stunden", "12 小时"],
   "24 hours":["24 godziny", "24 horas", "24 heures", "24 Stunden", "24 小时"],
   "15 minutes":["15 minut", "15 minutos", "15 minutes", "15 Minuten", "15 分钟"],
-  "Uses these settings instead. Includes paused prints.":["Podczas druku obowiązują te ustawienia, również po wstrzymaniu wydruku.", "Durante la impresión se usan estos ajustes, también si está pausada.", "Ces réglages s’appliquent pendant l’impression, même en pause.", "Während eines Drucks gelten diese Einstellungen, auch bei pausierten Drucken.", "打印期间改用以下设置，也包括已暂停的打印。"],
+  "All times count from your last interaction with PrintDeck. Includes paused prints.":["Wszystkie czasy są liczone od ostatniej interakcji z PrintDeck. Dotyczy również wstrzymanego druku.","Todos los tiempos se cuentan desde la última interacción con PrintDeck. También se aplica a las impresiones en pausa.","Tous les délais sont mesurés depuis votre dernière interaction avec PrintDeck. S’applique aussi aux impressions en pause.","Alle Zeiten werden ab deiner letzten Interaktion mit PrintDeck gemessen. Gilt auch für pausierte Drucke.","所有计时器均从您上次操作 PrintDeck 时开始计时，也适用于已暂停的打印。"],
   "Wake the display":["Wybudzanie ekranu", "Activar la pantalla", "Réveiller l’écran", "Display aufwecken", "唤醒屏幕"],
   "Turn or tilt PrintDeck. Also works when screen rotation is locked.":["Obróć lub przechyl PrintDeck. Działa również przy zablokowanym obrocie ekranu.", "Gira o inclina PrintDeck. También funciona con la rotación bloqueada.", "Tournez ou inclinez PrintDeck. Fonctionne aussi lorsque la rotation est verrouillée.", "Drehe oder neige PrintDeck. Funktioniert auch bei gesperrter Bildschirmdrehung.", "转动或倾斜 PrintDeck。锁定屏幕旋转时也可唤醒。"],
   "Wake on touch":["Wybudzaj dotykiem", "Activar al tocar", "Réveiller au toucher", "Durch Berührung aufwecken", "触摸唤醒"],
@@ -947,6 +976,225 @@ Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
     "Garder l’écran allumé",
     "Eingeschaltet lassen",
     "保持屏幕开启"
+  ]
+});
+Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
+  "Unified API": [
+    "Ujednolicone API",
+    "API unificada",
+    "API unifiée",
+    "Einheitliche API",
+    "统一 API"
+  ],
+  "Unified API token": [
+    "Token ujednoliconego API",
+    "Token de la API unificada",
+    "Jeton de l’API unifiée",
+    "Token der einheitlichen API",
+    "统一 API 令牌"
+  ],
+  "Choose a valid Unified API action.": [
+    "Wybierz prawidłową czynność ujednoliconego API.",
+    "Elige una acción válida para la API unificada.",
+    "Choisissez une action valide pour l’API unifiée.",
+    "Wähle eine gültige Aktion für die einheitliche API.",
+    "请选择有效的统一 API 操作。"
+  ],
+  "Unified API token is invalid": [
+    "Token ujednoliconego API jest nieprawidłowy",
+    "El token de la API unificada no es válido",
+    "Le jeton de l’API unifiée est invalide",
+    "Der Token der einheitlichen API ist ungültig",
+    "统一 API 令牌无效"
+  ],
+  "Ask about your print. Your voice stays on PrintDeck.": [
+    "Zapytaj o wydruk. Twój głos pozostaje w PrintDeck.",
+    "Pregunta por tu impresión. Tu voz se queda en PrintDeck.",
+    "Posez des questions sur votre impression. Votre voix reste sur PrintDeck.",
+    "Frage nach deinem Druck. Deine Stimme bleibt auf PrintDeck.",
+    "询问打印进度。你的语音只在 PrintDeck 上处理。"
+  ],
+  "Listen for “Hi ESP!”": [
+    "Nasłuchuj „Hi ESP!”",
+    "Escuchar «Hi ESP!»",
+    "Écouter «Hi ESP!»",
+    "Auf „Hi ESP!“ hören",
+    "监听“Hi ESP!”"
+  ],
+  "When enabled, the microphone continuously listens for the wake phrase, even during the screen saver or with the display off.": [
+    "Po włączeniu mikrofon stale nasłuchuje frazy wybudzającej, także podczas wygaszacza i przy wyłączonym ekranie.",
+    "Al activarlo, el micrófono escucha continuamente la frase de activación, incluso con el protector de pantalla o la pantalla apagada.",
+    "Une fois activé, le microphone écoute en continu la phrase d’activation, même avec l’économiseur d’écran ou l’écran éteint.",
+    "Wenn aktiviert, hört das Mikrofon ständig auf das Aktivierungswort, auch beim Bildschirmschoner oder ausgeschaltetem Display.",
+    "启用后，麦克风会持续监听唤醒词，即使正在显示屏保或屏幕已关闭。"
+  ],
+  "Enable Hi ESP!": [
+    "Włącz Hi ESP!",
+    "Activar Hi ESP!",
+    "Activer Hi ESP!",
+    "Hi ESP! aktivieren",
+    "启用 Hi ESP!"
+  ],
+  "Disable Hi ESP!": [
+    "Wyłącz Hi ESP!",
+    "Desactivar Hi ESP!",
+    "Désactiver Hi ESP!",
+    "Hi ESP! deaktivieren",
+    "停用 Hi ESP!"
+  ],
+  "Hi ESP! enabled": [
+    "Hi ESP! włączone",
+    "Hi ESP! activado",
+    "Hi ESP! activé",
+    "Hi ESP! aktiviert",
+    "Hi ESP! 已启用"
+  ],
+  "Saving Hi ESP! settings…": [
+    "Zapisywanie ustawień Hi ESP!…",
+    "Guardando los ajustes de Hi ESP!…",
+    "Enregistrement des réglages Hi ESP!…",
+    "Hi ESP!-Einstellungen werden gespeichert…",
+    "正在保存 Hi ESP! 设置…"
+  ],
+  "How it works": [
+    "Jak to działa",
+    "Cómo funciona",
+    "Comment ça marche",
+    "So funktioniert es",
+    "使用方法"
+  ],
+  "Say “Hi ESP!”": [
+    "Powiedz „Hi ESP!”",
+    "Di «Hi ESP!»",
+    "Dites «Hi ESP!»",
+    "Sage „Hi ESP!“",
+    "说出“Hi ESP!”"
+  ],
+  "PrintDeck wakes the display and restarts the screen saver countdown.": [
+    "PrintDeck wybudza ekran i zaczyna od nowa odliczanie wygaszacza.",
+    "PrintDeck enciende la pantalla y reinicia la cuenta atrás del protector de pantalla.",
+    "PrintDeck réveille l’écran et relance le délai de l’économiseur d’écran.",
+    "PrintDeck weckt das Display und startet die Wartezeit für den Bildschirmschoner neu.",
+    "PrintDeck 会唤醒屏幕，并重新开始屏保倒计时。"
+  ],
+  "Wait for “Yes”": [
+    "Poczekaj na „Yes”",
+    "Espera a oír «Yes»",
+    "Attendez «Yes»",
+    "Warte auf „Yes“",
+    "等待听到“Yes”"
+  ],
+  "Then say a command in English within 7 seconds.": [
+    "Następnie wypowiedz komendę po angielsku w ciągu 7 sekund.",
+    "Después, di un comando en inglés en un plazo de 7 segundos.",
+    "Puis prononcez une commande en anglais dans les 7 secondes.",
+    "Sage dann innerhalb von 7 Sekunden einen Befehl auf Englisch.",
+    "然后在 7 秒内说出一条英语指令。"
+  ],
+  "Hear the answer": [
+    "Usłysz odpowiedź",
+    "Escucha la respuesta",
+    "Écoutez la réponse",
+    "Höre die Antwort",
+    "听取回答"
+  ],
+  "PrintDeck answers in English, then listens for “Hi ESP!” again. If no command is recognized, simply start again.": [
+    "PrintDeck odpowiada po angielsku i ponownie nasłuchuje „Hi ESP!”. Jeśli nie rozpozna komendy, po prostu zacznij od nowa.",
+    "PrintDeck responde en inglés y vuelve a escuchar «Hi ESP!». Si no reconoce el comando, vuelve a empezar.",
+    "PrintDeck répond en anglais, puis écoute à nouveau «Hi ESP!». Si aucune commande n’est reconnue, recommencez simplement.",
+    "PrintDeck antwortet auf Englisch und hört wieder auf „Hi ESP!“. Wird kein Befehl erkannt, beginne einfach erneut.",
+    "PrintDeck 用英语回答，然后继续监听“Hi ESP!”。如果没有识别到指令，请重新开始。"
+  ],
+  "What you can ask": [
+    "O co możesz zapytać",
+    "Qué puedes preguntar",
+    "Ce que vous pouvez demander",
+    "Das kannst du fragen",
+    "可以询问什么"
+  ],
+  "Answers use the active/selected printer.": [
+    "Odpowiedzi dotyczą aktywnej/wybranej drukarki.",
+    "Las respuestas se refieren a la impresora activa o seleccionada.",
+    "Les réponses concernent l’imprimante active ou sélectionnée.",
+    "Die Antworten beziehen sich auf den aktiven/ausgewählten Drucker.",
+    "回答基于当前使用或选中的打印机。"
+  ],
+  "Reports print progress as a percentage.": [
+    "Podaje procentowy postęp wydruku.",
+    "Indica el progreso de impresión en porcentaje.",
+    "Indique la progression de l’impression en pourcentage.",
+    "Nennt den Druckfortschritt in Prozent.",
+    "报告打印进度百分比。"
+  ],
+  "Reports the estimated remaining time.": [
+    "Podaje szacowany pozostały czas.",
+    "Indica el tiempo restante estimado.",
+    "Indique le temps restant estimé.",
+    "Nennt die geschätzte verbleibende Zeit.",
+    "报告预计剩余时间。"
+  ],
+  "Reports the estimated finish time in your time zone.": [
+    "Podaje przewidywaną godzinę zakończenia w Twojej strefie czasowej.",
+    "Indica la hora de finalización estimada en tu zona horaria.",
+    "Indique l’heure de fin estimée dans votre fuseau horaire.",
+    "Nennt die geschätzte Endzeit in deiner Zeitzone.",
+    "报告你所在时区的预计完成时间。"
+  ],
+  "PrintDeck tells you when the printer is unavailable, no print is active or timing is unavailable.": [
+    "PrintDeck poinformuje, gdy drukarka jest niedostępna, nie trwa wydruk lub brakuje danych o czasie.",
+    "PrintDeck te avisa si la impresora no está disponible, no hay una impresión activa o faltan datos de tiempo.",
+    "PrintDeck vous signale si l’imprimante est indisponible, si aucune impression n’est en cours ou si les durées sont inconnues.",
+    "PrintDeck meldet, wenn der Drucker nicht verfügbar ist, kein Druck läuft oder Zeitangaben fehlen.",
+    "当打印机不可用、没有正在进行的打印或缺少时间数据时，PrintDeck 会告知你。"
+  ],
+  "Private by design": [
+    "Prywatność od podstaw",
+    "Privacidad desde el diseño",
+    "La confidentialité avant tout",
+    "Privatsphäre von Anfang an",
+    "注重隐私的设计"
+  ],
+  "Speech is processed only on this device. No audio recordings are saved, sent or shared. No cloud service or account is used.": [
+    "Mowa jest przetwarzana wyłącznie na tym urządzeniu. Żadne nagrania nie są zapisywane, wysyłane ani udostępniane. Funkcja nie korzysta z chmury ani konta.",
+    "La voz se procesa solo en este dispositivo. No se guardan, envían ni comparten grabaciones. No se usa ningún servicio en la nube ni cuenta.",
+    "La voix est traitée uniquement sur cet appareil. Aucun enregistrement n’est conservé, envoyé ou partagé. Aucun service cloud ni compte n’est utilisé.",
+    "Sprache wird nur auf diesem Gerät verarbeitet. Es werden keine Audioaufnahmen gespeichert, gesendet oder geteilt. Es wird kein Cloud-Dienst oder Konto verwendet.",
+    "语音仅在本设备上处理。不会保存、发送或分享录音，也不使用云服务或账号。"
+  ],
+  "Disabled by default. Turning it off stops microphone listening.": [
+    "Domyślnie wyłączone. Wyłączenie zatrzymuje nasłuch mikrofonu.",
+    "Desactivado por defecto. Al desactivarlo, se detiene la escucha del micrófono.",
+    "Désactivé par défaut. La désactivation arrête l’écoute du microphone.",
+    "Standardmäßig deaktiviert. Das Ausschalten beendet das Mithören des Mikrofons.",
+    "默认停用。停用后，麦克风停止监听。"
+  ],
+  "Keep sound enabled and the volume above zero to hear “Yes” and spoken answers.": [
+    "Aby usłyszeć „Yes” i odpowiedzi, pozostaw dźwięk włączony i głośność powyżej zera.",
+    "Mantén el sonido activado y el volumen por encima de cero para oír «Yes» y las respuestas.",
+    "Laissez le son activé avec un volume supérieur à zéro pour entendre «Yes» et les réponses.",
+    "Lass den Ton eingeschaltet und die Lautstärke über null, um „Yes“ und die Antworten zu hören.",
+    "请开启声音并将音量设为大于零，以听到“Yes”和语音回答。"
+  ],
+  "Choose a valid Hi ESP! action.": [
+    "Wybierz prawidłową czynność Hi ESP!.",
+    "Elige una acción válida para Hi ESP!.",
+    "Choisissez une action valide pour Hi ESP!.",
+    "Wähle eine gültige Hi ESP!-Aktion.",
+    "请选择有效的 Hi ESP! 操作。"
+  ],
+  "Hi ESP! is not available on this device.": [
+    "Hi ESP! nie jest dostępne na tym urządzeniu.",
+    "Hi ESP! no está disponible en este dispositivo.",
+    "Hi ESP! n’est pas disponible sur cet appareil.",
+    "Hi ESP! ist auf diesem Gerät nicht verfügbar.",
+    "此设备不支持 Hi ESP!。"
+  ],
+  "PrintDeck could not save the Hi ESP! setting. Please try again.": [
+    "PrintDeck nie mógł zapisać ustawienia Hi ESP!. Spróbuj ponownie.",
+    "PrintDeck no pudo guardar el ajuste de Hi ESP!. Inténtalo de nuevo.",
+    "PrintDeck n’a pas pu enregistrer le réglage Hi ESP!. Réessayez.",
+    "PrintDeck konnte die Hi ESP!-Einstellung nicht speichern. Bitte versuche es erneut.",
+    "PrintDeck 无法保存 Hi ESP! 设置。请重试。"
   ]
 });
 for(const [source,values] of Object.entries(PRINTDECK_EXTRA_TRANSLATIONS)){

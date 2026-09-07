@@ -55,6 +55,7 @@ class WebConfig {
                   BambuCompatibilityProbe& compatibility_probe,
                   const InactivePrinterPoller& inactive_printer_poller,
                   DisplayShell& display);
+  void set_voice_ready(bool ready) { voice_ready_.store(ready); }
   void set_settings_changed_callback(SettingsChangedCallback callback, void* context);
   void set_audio_test_callback(AudioTestCallback callback, void* context);
   void set_configuration_backup_activity_callback(
@@ -106,6 +107,7 @@ class WebConfig {
   static esp_err_t factory_reset_entry(httpd_req_t* request);
   static esp_err_t settings_get_entry(httpd_req_t* request);
   static esp_err_t settings_post_entry(httpd_req_t* request);
+  static esp_err_t voice_settings_entry(httpd_req_t* request);
   static esp_err_t unified_api_settings_get_entry(httpd_req_t* request);
   static esp_err_t unified_api_settings_post_entry(httpd_req_t* request);
   static esp_err_t unified_api_info_entry(httpd_req_t* request);
@@ -176,6 +178,7 @@ class WebConfig {
   esp_err_t factory_reset(httpd_req_t* request);
   esp_err_t serve_settings(httpd_req_t* request) const;
   esp_err_t save_settings(httpd_req_t* request);
+  esp_err_t voice_settings(httpd_req_t* request);
   esp_err_t serve_unified_api_settings(httpd_req_t* request) const;
   esp_err_t save_unified_api_settings(httpd_req_t* request);
   esp_err_t serve_unified_api_info(httpd_req_t* request) const;
@@ -237,6 +240,7 @@ class WebConfig {
   core::JobPhase selected_phase_ = core::JobPhase::unknown;
   float selected_completion_ = 0.0F;
   PowerSnapshot power_status_;
+  std::atomic<bool> voice_ready_{false};
   struct PrinterLightState {
     bool supported = false;
     bool on = false;

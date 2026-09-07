@@ -15,10 +15,12 @@ namespace printdeck::platform {
 // samples never leave the device and no network service is used by this class.
 class VoiceService {
  public:
-  esp_err_t start(AudioService& audio);
+  using WakeCallback = void (*)(void*);
+  esp_err_t start(AudioService& audio, WakeCallback wake, void* context);
+  void request_stop() { stop_requested_.store(true); ready_.store(false); }
+  bool running() const { return running_.load(); }
   void update_status(const AudioService::SpokenPrintStatus& status);
-  void set_power_suspended(bool suspended) { power_suspended_.store(suspended); }
-  bool ready() const { return ready_.load(); }
+  bool ready() const { return ready_.load() && !stop_requested_.load(); }
 
  private:
   enum class ListenState : std::uint8_t {
@@ -30,6 +32,7 @@ class VoiceService {
 
   static void task_entry(void* context);
   void task_loop();
+  esp_err_t initialize_resources();
   bool activate_wakenet();
   bool activate_multinet();
   void deactivate_multinet();
@@ -47,7 +50,9 @@ class VoiceService {
   void* multinet_data_ = nullptr;
   int frame_samples_ = 0;
   TaskHandle_t task_ = nullptr;
-  std::atomic<bool> power_suspended_{false};
+  WakeCallback wake_callback_ = nullptr;
+  void* wake_context_ = nullptr;
+  std::atomic<bool> stop_requested_{false};
   std::atomic<bool> running_{false};
   std::atomic<bool> ready_{false};
   std::mutex status_mutex_;

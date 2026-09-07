@@ -118,6 +118,7 @@ class Runtime {
   AudioService audio_;
 #if defined(PRINTDECK_LOCAL_VOICE)
   VoiceService voice_;
+  std::uint64_t voice_retry_after_ms_ = 0;
 #endif
   PowerService power_;
   UsbDeveloperService usb_developer_;

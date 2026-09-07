@@ -585,6 +585,10 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/factory-reset", .method = HTTP_POST, .handler = factory_reset_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_GET, .handler = settings_get_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_POST, .handler = settings_post_entry, .user_ctx = this},
+#if defined(PRINTDECK_LOCAL_VOICE)
+      {.uri = "/api/voice", .method = HTTP_GET, .handler = voice_settings_entry, .user_ctx = this},
+      {.uri = "/api/voice", .method = HTTP_POST, .handler = voice_settings_entry, .user_ctx = this},
+#endif
       {.uri = "/api/unified-printer-api", .method = HTTP_GET, .handler = unified_api_settings_get_entry, .user_ctx = this},
       {.uri = "/api/unified-printer-api", .method = HTTP_POST, .handler = unified_api_settings_post_entry, .user_ctx = this},
       {.uri = "/api/configuration-backup/export", .method = HTTP_POST, .handler = configuration_backup_export_entry, .user_ctx = this},
@@ -1024,6 +1028,10 @@ esp_err_t WebConfig::settings_post_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->save_settings(request);
 }
 
+esp_err_t WebConfig::voice_settings_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->voice_settings(request);
+}
+
 esp_err_t WebConfig::unified_api_settings_get_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_unified_api_settings(request);
 }
@@ -1420,6 +1428,12 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   body += current.reaction_progress_bar_enabled ? "true" : "false";
   body += ",\"reaction_progress_percent_enabled\":";
   body += current.reaction_progress_percent_enabled ? "true" : "false";
+  body += ",\"voice_available\":";
+  body += kBoardHasLocalVoice ? "true" : "false";
+  body += ",\"voice_enabled\":";
+  body += kBoardHasLocalVoice && current.voice_enabled ? "true" : "false";
+  body += ",\"voice_ready\":";
+  body += kBoardHasLocalVoice && current.voice_enabled && voice_ready_.load() ? "true" : "false";
   body += ",\"audio_enabled\":";
   body += kBoardHasAudio && current.audio_enabled ? "true" : "false";
   body += ",\"audio_volume\":" +
@@ -1428,27 +1442,21 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   append_json_string(body, current.audio_preset);
   body += ",\"audio_muted_events\":" +
           std::to_string(current.audio_muted_events);
-  body += ",\"dim_enabled\":";
-  body += current.display_power.dim_enabled ? "true" : "false";
   body += ",\"dim_brightness\":" +
           std::to_string(current.display_power.dim_brightness_percent);
-  body += ",\"off_enabled\":";
-  body += current.display_power.screen_off_enabled ? "true" : "false";
-  body += ",\"dim_idle\":" + std::to_string(current.display_power.dim_timeout_idle_s);
-  body += ",\"dim_active\":" + std::to_string(current.display_power.dim_timeout_active_s);
-  body += ",\"off_idle\":" + std::to_string(current.display_power.off_timeout_idle_s);
-  body += ",\"off_active\":" + std::to_string(current.display_power.off_timeout_active_s);
+  body += ",\"start_idle\":" + std::to_string(current.display_power.start_timeout_idle_s);
+  body += ",\"start_active\":" + std::to_string(current.display_power.start_timeout_active_s);
+  body += ",\"dim_for_idle\":" + std::to_string(current.display_power.dim_duration_idle_s);
+  body += ",\"dim_for_active\":" + std::to_string(current.display_power.dim_duration_active_s);
   body += ",\"usb_power_save\":";
   body += current.display_power.usb_power_save_enabled ? "true" : "false";
   body += ",\"wake_on_orientation_change\":";
   body += current.display_power.wake_on_orientation_change ? "true" : "false";
-  body += ",\"saver_idle\":" + std::to_string(current.display_power.screen_saver_timeout_idle_s);
-  body += ",\"saver_active\":" + std::to_string(current.display_power.screen_saver_timeout_active_s);
+  body += ",\"saver_for_idle\":" + std::to_string(current.display_power.saver_duration_idle_s);
+  body += ",\"saver_for_active\":" + std::to_string(current.display_power.saver_duration_active_s);
   body += ",\"saver_animation\":" + std::to_string(current.display_power.screen_saver_animation);
-  body += ",\"usb_power_save_active\":";
-  body += current.display_power.usb_power_save_active_enabled ? "true" : "false";
   body += ",\"wake_on_touch\":";
-  body += current.display_power.wake_on_touch ? "true" : "false";
+  body += (!kBoardHasPowerButton || current.display_power.wake_on_touch) ? "true" : "false";
   body += ",\"dim_audio\":" + std::to_string(current.display_power.dim_audio_percent);
   body += ",\"off_audio\":" + std::to_string(current.display_power.off_audio_percent);
   body += ",\"shutdown_s\":" + std::to_string(current.display_power.shutdown_timeout_s);
@@ -1731,6 +1739,12 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   body += current.reaction_progress_bar_enabled ? "true" : "false";
   body += ",\"reaction_progress_percent_enabled\":";
   body += current.reaction_progress_percent_enabled ? "true" : "false";
+  body += ",\"voice_available\":";
+  body += kBoardHasLocalVoice ? "true" : "false";
+  body += ",\"voice_enabled\":";
+  body += kBoardHasLocalVoice && current.voice_enabled ? "true" : "false";
+  body += ",\"voice_ready\":";
+  body += kBoardHasLocalVoice && current.voice_enabled && voice_ready_.load() ? "true" : "false";
   body += ",\"audio_enabled\":";
   body += kBoardHasAudio && current.audio_enabled ? "true" : "false";
   body += ",\"audio_volume\":" +
@@ -1745,27 +1759,21 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   append_json_string(body, current.camera_mode);
   body += ",\"camera_snapshot_fps\":" +
           std::to_string(current.camera_snapshot_fps);
-  body += ",\"dim_enabled\":";
-  body += current.display_power.dim_enabled ? "true" : "false";
   body += ",\"dim_brightness\":" +
           std::to_string(current.display_power.dim_brightness_percent);
-  body += ",\"off_enabled\":";
-  body += current.display_power.screen_off_enabled ? "true" : "false";
-  body += ",\"dim_idle\":" + std::to_string(current.display_power.dim_timeout_idle_s);
-  body += ",\"dim_active\":" + std::to_string(current.display_power.dim_timeout_active_s);
-  body += ",\"off_idle\":" + std::to_string(current.display_power.off_timeout_idle_s);
-  body += ",\"off_active\":" + std::to_string(current.display_power.off_timeout_active_s);
+  body += ",\"start_idle\":" + std::to_string(current.display_power.start_timeout_idle_s);
+  body += ",\"start_active\":" + std::to_string(current.display_power.start_timeout_active_s);
+  body += ",\"dim_for_idle\":" + std::to_string(current.display_power.dim_duration_idle_s);
+  body += ",\"dim_for_active\":" + std::to_string(current.display_power.dim_duration_active_s);
   body += ",\"usb_power_save\":";
   body += current.display_power.usb_power_save_enabled ? "true" : "false";
   body += ",\"wake_on_orientation_change\":";
   body += current.display_power.wake_on_orientation_change ? "true" : "false";
-  body += ",\"saver_idle\":" + std::to_string(current.display_power.screen_saver_timeout_idle_s);
-  body += ",\"saver_active\":" + std::to_string(current.display_power.screen_saver_timeout_active_s);
+  body += ",\"saver_for_idle\":" + std::to_string(current.display_power.saver_duration_idle_s);
+  body += ",\"saver_for_active\":" + std::to_string(current.display_power.saver_duration_active_s);
   body += ",\"saver_animation\":" + std::to_string(current.display_power.screen_saver_animation);
-  body += ",\"usb_power_save_active\":";
-  body += current.display_power.usb_power_save_active_enabled ? "true" : "false";
   body += ",\"wake_on_touch\":";
-  body += current.display_power.wake_on_touch ? "true" : "false";
+  body += (!kBoardHasPowerButton || current.display_power.wake_on_touch) ? "true" : "false";
   body += ",\"dim_audio\":" + std::to_string(current.display_power.dim_audio_percent);
   body += ",\"off_audio\":" + std::to_string(current.display_power.off_audio_percent);
   body += ",\"shutdown_s\":" + std::to_string(current.display_power.shutdown_timeout_s);
@@ -1789,6 +1797,47 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   body += ",\"wifi_setup_active\":";
   body += network_->status().recovery_ap_active ? "true" : "false";
   body.push_back('}');
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::voice_settings(httpd_req_t* request) {
+  const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+  core::DeviceSettings candidate;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    candidate = settings_;
+  }
+  if (request->method == HTTP_POST) {
+    std::string body;
+    std::string action;
+    if (!receive_form(request, body) || !form_value(body, "action", action) ||
+        (action != "enable" && action != "disable")) {
+      return send_json(request, "400 Bad Request",
+                       "{\"error\":\"Choose a valid Hi ESP! action.\"}");
+    }
+    if (action == "enable" && !kBoardHasLocalVoice) {
+      return send_json(request, "409 Conflict",
+                       "{\"error\":\"Hi ESP! is not available on this device.\"}");
+    }
+    candidate.voice_enabled = action == "enable";
+    if (store_->save(candidate) != ESP_OK) {
+      return send_json(request, "500 Internal Server Error",
+                       "{\"error\":\"PrintDeck could not save the Hi ESP! setting. Please try again.\"}");
+    }
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      settings_ = candidate;
+    }
+    notify_settings_changed(candidate, true);
+  }
+  const bool enabled = kBoardHasLocalVoice && candidate.voice_enabled;
+  std::string body = "{\"available\":";
+  body += kBoardHasLocalVoice ? "true" : "false";
+  body += ",\"enabled\":";
+  body += enabled ? "true" : "false";
+  body += ",\"ready\":";
+  body += enabled && voice_ready_.load() ? "true" : "false";
+  body += "}";
   return send_json(request, "200 OK", body.c_str());
 }
 
@@ -1816,7 +1865,7 @@ esp_err_t WebConfig::save_unified_api_settings(httpd_req_t* request) {
   if (!receive_form(request, body) || !form_value(body, "action", action) ||
       (action != "enable" && action != "disable" && action != "regenerate")) {
     return send_json(request, "400 Bad Request",
-                     "{\"error\":\"Choose a valid Unified Printer API action.\"}");
+                     "{\"error\":\"Choose a valid Unified API action.\"}");
   }
   core::DeviceSettings candidate;
   {
@@ -2419,13 +2468,11 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
   std::string printer_list_poll_text;
   std::string camera_mode;
   std::string camera_snapshot_fps_text;
-  std::string dim_enabled_text;
   std::string dim_brightness_text;
-  std::string off_enabled_text;
-  std::string dim_idle_text;
-  std::string dim_active_text;
-  std::string off_idle_text;
-  std::string off_active_text;
+  std::string start_idle_text;
+  std::string start_active_text;
+  std::string dim_for_idle_text;
+  std::string dim_for_active_text;
   std::string usb_power_save_text;
   std::string wake_on_orientation_change_text;
   std::string theme;
@@ -2438,10 +2485,10 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
   int printer_list_poll = 0;
   int camera_snapshot_fps = 0;
   int dim_brightness = 0;
-  int dim_idle = 0;
-  int dim_active = 0;
-  int off_idle = 0;
-  int off_active = 0;
+  int start_idle = 0;
+  int start_active = 0;
+  int dim_for_idle = 0;
+  int dim_for_active = 0;
   if (!form_value(body, "device_name", device_name) ||
       !core::valid_device_name(device_name) ||
       !form_value(body, "brightness", brightness_text) ||
@@ -2476,18 +2523,14 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
       !form_value(body, "camera_snapshot_fps", camera_snapshot_fps_text) ||
       !parse_int(camera_snapshot_fps_text, camera_snapshot_fps) ||
       (camera_snapshot_fps != 1 && camera_snapshot_fps != 2 && camera_snapshot_fps != 5) ||
-      !form_value(body, "dim_enabled", dim_enabled_text) ||
-      (dim_enabled_text != "0" && dim_enabled_text != "1") ||
       !form_value(body, "dim_brightness", dim_brightness_text) ||
       !parse_int(dim_brightness_text, dim_brightness) ||
-      !form_value(body, "off_enabled", off_enabled_text) ||
-      (off_enabled_text != "0" && off_enabled_text != "1") ||
-      !form_value(body, "dim_idle", dim_idle_text) || !parse_int(dim_idle_text, dim_idle) ||
-      !form_value(body, "dim_active", dim_active_text) ||
-      !parse_int(dim_active_text, dim_active) ||
-      !form_value(body, "off_idle", off_idle_text) || !parse_int(off_idle_text, off_idle) ||
-      !form_value(body, "off_active", off_active_text) ||
-      !parse_int(off_active_text, off_active) ||
+      !form_value(body, "start_idle", start_idle_text) || !parse_int(start_idle_text, start_idle) ||
+      !form_value(body, "start_active", start_active_text) ||
+      !parse_int(start_active_text, start_active) ||
+      !form_value(body, "dim_for_idle", dim_for_idle_text) || !parse_int(dim_for_idle_text, dim_for_idle) ||
+      !form_value(body, "dim_for_active", dim_for_active_text) ||
+      !parse_int(dim_for_active_text, dim_for_active) ||
       !form_value(body, "usb_power_save", usb_power_save_text) ||
       (usb_power_save_text != "0" && usb_power_save_text != "1") ||
       !form_value(body, "wake_on_orientation_change", wake_on_orientation_change_text) ||
@@ -2518,14 +2561,12 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
       printer_list_poll < 0 ? UINT32_MAX : static_cast<std::uint32_t>(printer_list_poll);
   candidate.camera_mode = std::move(camera_mode);
   candidate.camera_snapshot_fps = static_cast<std::uint8_t>(camera_snapshot_fps);
-  candidate.display_power.dim_enabled = dim_enabled_text == "1";
   candidate.display_power.dim_brightness_percent =
       static_cast<std::uint8_t>(std::clamp(dim_brightness, 0, 100));
-  candidate.display_power.screen_off_enabled = off_enabled_text == "1";
-  candidate.display_power.dim_timeout_idle_s = static_cast<std::uint32_t>(dim_idle);
-  candidate.display_power.dim_timeout_active_s = static_cast<std::uint32_t>(dim_active);
-  candidate.display_power.off_timeout_idle_s = static_cast<std::uint32_t>(off_idle);
-  candidate.display_power.off_timeout_active_s = static_cast<std::uint32_t>(off_active);
+  candidate.display_power.start_timeout_idle_s = static_cast<std::uint32_t>(start_idle);
+  candidate.display_power.start_timeout_active_s = static_cast<std::uint32_t>(start_active);
+  candidate.display_power.dim_duration_idle_s = static_cast<std::uint32_t>(dim_for_idle);
+  candidate.display_power.dim_duration_active_s = static_cast<std::uint32_t>(dim_for_active);
   candidate.display_power.usb_power_save_enabled = usb_power_save_text == "1";
   candidate.display_power.wake_on_orientation_change =
       wake_on_orientation_change_text == "1";
@@ -2543,31 +2584,23 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
   {
     std::string text;
     int value = 0;
-    if (form_value(body, "saver_idle", text)) {
-      if (!parse_int(text, value) || value < 0 || value > 300)
+    if (form_value(body, "saver_for_idle", text)) {
+      if (!parse_int(text, value) || value < 0 ||
+          (value > 3610 && value != core::kDisplayDurationUntilWake))
         return send_json(request, "400 Bad Request",
                          "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
-      candidate.display_power.screen_saver_timeout_idle_s = static_cast<std::uint32_t>(value);
+      candidate.display_power.saver_duration_idle_s = static_cast<std::uint32_t>(value);
     }
   }
   {
     std::string text;
     int value = 0;
-    if (form_value(body, "saver_active", text)) {
-      if (!parse_int(text, value) || value < 0 || value > 300)
+    if (form_value(body, "saver_for_active", text)) {
+      if (!parse_int(text, value) || value < 0 ||
+          (value > 3610 && value != core::kDisplayDurationUntilWake))
         return send_json(request, "400 Bad Request",
                          "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
-      candidate.display_power.screen_saver_timeout_active_s = static_cast<std::uint32_t>(value);
-    }
-  }
-  {
-    std::string text;
-    int value = 0;
-    if (form_value(body, "usb_power_save_active", text)) {
-      if (!parse_int(text, value) || value < 0 || value > 1)
-        return send_json(request, "400 Bad Request",
-                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
-      candidate.display_power.usb_power_save_active_enabled = value != 0;
+      candidate.display_power.saver_duration_active_s = static_cast<std::uint32_t>(value);
     }
   }
   {
@@ -2577,7 +2610,7 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
       if (!parse_int(text, value) || value < 0 || value > 1)
         return send_json(request, "400 Bad Request",
                          "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
-      candidate.display_power.wake_on_touch = value != 0;
+      candidate.display_power.wake_on_touch = !kBoardHasPowerButton || value != 0;
     }
   }
   {
@@ -2604,7 +2637,7 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
     std::string text;
     int value = 0;
     if (form_value(body, "shutdown_s", text)) {
-      if (!parse_int(text, value) || value < 0 || value > 86400)
+      if (!parse_int(text, value) || value < 0 || value > 604800)
         return send_json(request, "400 Bad Request",
                          "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
       candidate.display_power.shutdown_timeout_s = static_cast<std::uint32_t>(value);

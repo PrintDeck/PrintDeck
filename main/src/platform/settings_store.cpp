@@ -77,6 +77,7 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   std::uint8_t reaction_progress_bar_enabled = 1;
   std::uint8_t reaction_progress_percent_enabled = 1;
   std::uint8_t unified_api_enabled = 0;
+  std::uint8_t voice_enabled = 0;
   result = nvs_get_u8(handle, "schema", &schema);
   if (result == ESP_ERR_NVS_NOT_FOUND) result = ESP_OK;
   if (result == ESP_OK && schema > core::kSettingsSchemaVersion) result = ESP_ERR_INVALID_VERSION;
@@ -153,6 +154,11 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     result = read_text(handle, "api_token", loaded.unified_api_token);
   }
   loaded.unified_api_enabled = unified_api_enabled != 0;
+  if (result == ESP_OK && schema >= 15) {
+    result = read_optional_u8(handle, "voice_enabled", voice_enabled);
+    if (result == ESP_OK && voice_enabled > 1) result = ESP_ERR_INVALID_ARG;
+  }
+  loaded.voice_enabled = voice_enabled == 1;
   if (result == ESP_OK && schema >= 4) {
     result = read_text(handle, "audio_set", loaded.audio_preset);
   }
@@ -217,6 +223,18 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     result = read_optional_u8(handle, "off_audio", loaded.display_power.off_audio_percent);
   if (result == ESP_OK && schema >= 12)
     result = read_optional_u32(handle, "shutdown_s", loaded.display_power.shutdown_timeout_s);
+  if (result == ESP_OK && schema >= 14)
+    result = read_optional_u32(handle, "start_idle", loaded.display_power.start_timeout_idle_s);
+  if (result == ESP_OK && schema >= 14)
+    result = read_optional_u32(handle, "start_active", loaded.display_power.start_timeout_active_s);
+  if (result == ESP_OK && schema >= 14)
+    result = read_optional_u32(handle, "dim_for_idle", loaded.display_power.dim_duration_idle_s);
+  if (result == ESP_OK && schema >= 14)
+    result = read_optional_u32(handle, "dim_for_active", loaded.display_power.dim_duration_active_s);
+  if (result == ESP_OK && schema >= 14)
+    result = read_optional_u32(handle, "saver_for_idle", loaded.display_power.saver_duration_idle_s);
+  if (result == ESP_OK && schema >= 14)
+    result = read_optional_u32(handle, "saver_for_act", loaded.display_power.saver_duration_active_s);
   loaded.display_power.dim_enabled = dim_enabled != 0;
   loaded.display_power.screen_off_enabled = screen_off_enabled != 0;
   loaded.display_power.usb_power_save_enabled = usb_power_save_enabled != 0;
@@ -298,6 +316,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   write(nvs_set_u8(handle, "react_bar", settings.reaction_progress_bar_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "react_percent",
                    settings.reaction_progress_percent_enabled ? 1 : 0));
+  write(nvs_set_u8(handle, "voice_enabled", settings.voice_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "api_enabled", settings.unified_api_enabled ? 1 : 0));
   write(write_text(handle, "api_token", settings.unified_api_token));
   write(nvs_erase_key(handle, "protected"));
@@ -309,6 +328,12 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
                     settings.inactive_printer_poll_interval_s));
   write(write_text(handle, "cam_mode", settings.camera_mode));
   write(nvs_set_u8(handle, "cam_snap_fps", settings.camera_snapshot_fps));
+  write(nvs_set_u32(handle, "start_idle", settings.display_power.start_timeout_idle_s));
+  write(nvs_set_u32(handle, "start_active", settings.display_power.start_timeout_active_s));
+  write(nvs_set_u32(handle, "dim_for_idle", settings.display_power.dim_duration_idle_s));
+  write(nvs_set_u32(handle, "dim_for_active", settings.display_power.dim_duration_active_s));
+  write(nvs_set_u32(handle, "saver_for_idle", settings.display_power.saver_duration_idle_s));
+  write(nvs_set_u32(handle, "saver_for_act", settings.display_power.saver_duration_active_s));
   write(nvs_set_u8(handle, "dim_enable", settings.display_power.dim_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "dim_level", settings.display_power.dim_brightness_percent));
   write(nvs_set_u8(handle, "off_enable", settings.display_power.screen_off_enabled ? 1 : 0));

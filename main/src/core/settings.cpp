@@ -243,6 +243,8 @@ bool valid_device_name(std::string_view name) {
 
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
+  // Microphone listening requires an explicit choice, including after upgrade.
+  if (source_schema < 15) settings.voice_enabled = false;
   if (settings.theme == "blue") settings.theme = "banana";
   if (source_schema < 2 || settings.language.empty()) settings.language = "en";
   if (source_schema < 3) settings.custom_theme.background = ThemeColors{}.background;
@@ -301,6 +303,30 @@ bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   }
   if (source_schema < 13)
     settings.display_power.screen_saver_animation = kScreenSaverCircles;
+  if (source_schema < 14) {
+    auto& p = settings.display_power;
+    const auto convert = [&](std::uint32_t dim, std::uint32_t saver, std::uint32_t off,
+                             std::uint32_t& start, std::uint32_t& dim_for,
+                             std::uint32_t& saver_for) {
+      if (!p.dim_enabled) dim = 0;
+      if (!p.screen_off_enabled) off = 0;
+      // Match the old priority: off, then animation, then dimming.
+      if (off > 0 && saver >= off) saver = 0;
+      if ((off > 0 && dim >= off) || (saver > 0 && dim >= saver)) dim = 0;
+      start = dim ? dim : saver ? saver : off;
+      if (start == 0) { dim_for = 60; saver_for = 120; return; }
+      const auto after_dim = saver ? saver : off;
+      dim_for = dim ? (after_dim ? after_dim - dim : kDisplayDurationUntilWake) : 0;
+      saver_for = saver ? (off ? off - saver : kDisplayDurationUntilWake) : 0;
+    };
+    convert(p.dim_timeout_idle_s, p.screen_saver_timeout_idle_s, p.off_timeout_idle_s,
+            p.start_timeout_idle_s, p.dim_duration_idle_s, p.saver_duration_idle_s);
+    convert(p.dim_timeout_active_s, p.screen_saver_timeout_active_s, p.off_timeout_active_s,
+            p.start_timeout_active_s, p.dim_duration_active_s, p.saver_duration_active_s);
+    // A single shared switch must not newly enable sleep in either USB context.
+    p.usb_power_save_enabled = p.usb_power_save_enabled && p.usb_power_save_active_enabled;
+    p.usb_power_save_active_enabled = p.usb_power_save_enabled;
+  }
   return true;
 }
 
@@ -355,7 +381,7 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
   if ((!settings.unified_api_token.empty() &&
        !valid_unified_api_token(settings.unified_api_token)) ||
       (settings.unified_api_enabled && settings.unified_api_token.empty())) {
-    issues.push_back({"unified_api_token", "Unified Printer API token is invalid"});
+    issues.push_back({"unified_api_token", "Unified API token is invalid"});
   }
   const std::uint32_t poll_interval = settings.inactive_printer_poll_interval_s;
   if (poll_interval != 0 && poll_interval != 30 && poll_interval != 60 &&
@@ -372,33 +398,21 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
     issues.push_back({"display_power.dim_brightness_percent",
                       "Dim brightness must be automatic or between 1 and 100"});
   }
-  const auto valid_timeout = [](std::uint32_t seconds) {
-    return seconds <= 3600;
+  const auto valid_duration = [](std::uint32_t seconds) {
+    return seconds <= 3610 || seconds == kDisplayDurationUntilWake;
   };
-  if (!valid_timeout(power.dim_timeout_idle_s) ||
-      !valid_timeout(power.dim_timeout_active_s) ||
-      power.off_timeout_idle_s > 3610 ||
-      power.off_timeout_active_s > 3610 ||
-      power.screen_saver_timeout_idle_s > 300 ||
-      power.screen_saver_timeout_active_s > 300 ||
+  if (power.start_timeout_idle_s > 3610 || power.start_timeout_active_s > 3610 ||
+      !valid_duration(power.dim_duration_idle_s) ||
+      !valid_duration(power.dim_duration_active_s) ||
+      !valid_duration(power.saver_duration_idle_s) ||
+      !valid_duration(power.saver_duration_active_s) ||
       power.dim_audio_percent > 100 || power.off_audio_percent > 100) {
     issues.push_back({"display_power", "Screen saver settings are outside the supported range"});
   }
-  const auto ordered = [&](std::uint32_t dim, std::uint32_t saver, std::uint32_t off) {
-    if (!power.dim_enabled) dim = 0;
-    if (!power.screen_off_enabled) off = 0;
-    return (saver == 0 || dim == 0 || saver > dim) &&
-           (off == 0 || ((dim == 0 || off > dim) && (saver == 0 || off > saver)));
-  };
-  if (!ordered(power.dim_timeout_idle_s, power.screen_saver_timeout_idle_s,
-               power.off_timeout_idle_s) ||
-      !ordered(power.dim_timeout_active_s, power.screen_saver_timeout_active_s,
-               power.off_timeout_active_s)) {
-    issues.push_back({"display_power", "Each display timer must be later than the previous enabled stage"});
-  }
   const auto shutdown = power.shutdown_timeout_s;
   if (shutdown != 0 && shutdown != 3600 && shutdown != 7200 && shutdown != 10800 &&
-      shutdown != 18000 && shutdown != 28800 && shutdown != 43200 && shutdown != 86400) {
+      shutdown != 18000 && shutdown != 28800 && shutdown != 43200 && shutdown != 86400 &&
+      shutdown != 172800 && shutdown != 259200 && shutdown != 432000 && shutdown != 604800) {
     issues.push_back({"display_power", "Choose a supported automatic shutdown time"});
   }
 

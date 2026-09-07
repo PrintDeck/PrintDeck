@@ -118,7 +118,14 @@ bool read_theme(const cJSON* settings_object, ThemeColors& colors, bool required
 
 bool add_display_power(cJSON* settings_object, const DisplayPowerPolicy& power) {
   cJSON* object = cJSON_AddObjectToObject(settings_object, "display_power");
-  return object && add_bool(object, "dim_enabled", power.dim_enabled) &&
+  return object &&
+         add_number(object, "start_timeout_idle_s", power.start_timeout_idle_s) &&
+         add_number(object, "start_timeout_active_s", power.start_timeout_active_s) &&
+         add_number(object, "dim_duration_idle_s", power.dim_duration_idle_s) &&
+         add_number(object, "dim_duration_active_s", power.dim_duration_active_s) &&
+         add_number(object, "saver_duration_idle_s", power.saver_duration_idle_s) &&
+         add_number(object, "saver_duration_active_s", power.saver_duration_active_s) &&
+         add_bool(object, "dim_enabled", power.dim_enabled) &&
          add_number(object, "dim_brightness_percent", power.dim_brightness_percent) &&
          add_bool(object, "screen_off_enabled", power.screen_off_enabled) &&
          add_number(object, "dim_timeout_idle_s", power.dim_timeout_idle_s) &&
@@ -138,11 +145,23 @@ bool add_display_power(cJSON* settings_object, const DisplayPowerPolicy& power) 
 }
 
 bool read_display_power(const cJSON* settings_object, DisplayPowerPolicy& power,
-                        bool required, bool extended_required, bool animation_required) {
+                        bool required, bool extended_required, bool animation_required, bool sequence_required) {
   const cJSON* object = item(settings_object, "display_power");
   if (!object) return !required;
   if (!cJSON_IsObject(object)) return false;
-  return read_bool(object, "dim_enabled", power.dim_enabled, required) &&
+  return read_unsigned(object, "start_timeout_idle_s", power.start_timeout_idle_s,
+                       3610, sequence_required) &&
+         read_unsigned(object, "start_timeout_active_s", power.start_timeout_active_s,
+                       3610, sequence_required) &&
+         read_unsigned(object, "dim_duration_idle_s", power.dim_duration_idle_s,
+                       kDisplayDurationUntilWake, sequence_required) &&
+         read_unsigned(object, "dim_duration_active_s", power.dim_duration_active_s,
+                       kDisplayDurationUntilWake, sequence_required) &&
+         read_unsigned(object, "saver_duration_idle_s", power.saver_duration_idle_s,
+                       kDisplayDurationUntilWake, sequence_required) &&
+         read_unsigned(object, "saver_duration_active_s", power.saver_duration_active_s,
+                       kDisplayDurationUntilWake, sequence_required) &&
+         read_bool(object, "dim_enabled", power.dim_enabled, required) &&
          read_unsigned(object, "dim_brightness_percent", power.dim_brightness_percent,
                        100, required) &&
          read_bool(object, "screen_off_enabled", power.screen_off_enabled, required) &&
@@ -164,7 +183,7 @@ bool read_display_power(const cJSON* settings_object, DisplayPowerPolicy& power,
          read_bool(object, "wake_on_touch", power.wake_on_touch, extended_required) &&
          read_unsigned(object, "dim_audio_percent", power.dim_audio_percent, 100, extended_required) &&
          read_unsigned(object, "off_audio_percent", power.off_audio_percent, 100, extended_required) &&
-         read_unsigned(object, "shutdown_timeout_s", power.shutdown_timeout_s, 86400, extended_required) &&
+         read_unsigned(object, "shutdown_timeout_s", power.shutdown_timeout_s, 604800, extended_required) &&
          read_bool(object, "wake_on_orientation_change", power.wake_on_orientation_change,
                    required);
 }
@@ -330,6 +349,7 @@ bool add_settings(cJSON* root, const DeviceSettings& settings) {
                     settings.inactive_printer_poll_interval_s) &&
          add_string(object, "camera_mode", settings.camera_mode) &&
          add_number(object, "camera_snapshot_fps", settings.camera_snapshot_fps) &&
+         add_bool(object, "voice_enabled", settings.voice_enabled) &&
          add_bool(object, "unified_api_enabled", settings.unified_api_enabled) &&
          add_string(object, "unified_api_token", settings.unified_api_token) &&
          add_display_power(object, settings.display_power);
@@ -370,12 +390,13 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
          read_string(object, "camera_mode", settings.camera_mode, 16, required) &&
          read_unsigned(object, "camera_snapshot_fps", settings.camera_snapshot_fps, 5,
                        required) &&
+         read_bool(object, "voice_enabled", settings.voice_enabled, source_schema >= 15) &&
          read_bool(object, "unified_api_enabled", settings.unified_api_enabled,
                    source_schema >= 9) &&
          read_string(object, "unified_api_token", settings.unified_api_token,
                      kUnifiedApiTokenLength, source_schema >= 9) &&
          read_display_power(object, settings.display_power, required, source_schema >= 12,
-                            source_schema >= 13);
+                            source_schema >= 13, source_schema >= 14);
 }
 
 }  // namespace
