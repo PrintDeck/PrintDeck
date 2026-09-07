@@ -2,6 +2,7 @@
 
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_random.h"
 #include "esp_lv_adapter.h"
 #include "lvgl.h"
 #include "src/misc/cache/instance/lv_image_cache.h"
@@ -3487,6 +3488,7 @@ void DisplayShell::printer_animation_tick(lv_timer_t* timer) {
       !lv_obj_is_valid(shell->printer_animation_root_)) {
     return;
   }
+  if (shell->content_hidden()) { lv_timer_pause(timer); return; }
   shell->printer_animation_frame_ = (shell->printer_animation_frame_ + 1U) % 240U;
   shell->render_printer_animation_frame();
 }
@@ -3664,6 +3666,10 @@ void DisplayShell::printer_animation_source_async(void* context) {
   shell->printer_animation_source_pending_ = false;
   if (shell->printer_animation_gif_ == nullptr ||
       !lv_obj_is_valid(shell->printer_animation_gif_)) return;
+  if (shell->content_hidden()) {
+    shell->printer_animation_asset_generation_ = 0xffffffffU;
+    return;
+  }
   lv_gif_set_src(shell->printer_animation_gif_,
                  shell->printer_animation_gif_path_.empty()
                      ? nullptr : shell->printer_animation_gif_path_.c_str());
@@ -5685,7 +5691,20 @@ esp_err_t DisplayShell::touch_read(esp_lcd_touch_handle_t touch,
   if (read_result != ESP_OK) return read_result;
   const esp_err_t data_result =
       esp_lcd_touch_get_data(touch, points, count, maximum_count);
+  if (data_result == ESP_OK && *count == 0) shell->consume_wake_touch_ = false;
   if (data_result == ESP_OK && *count > 0) {
+    if (shell->content_hidden() || shell->consume_wake_touch_) {
+      bool wake = true;
+      { const std::lock_guard<std::mutex> lock(shell->power_policy_mutex_);
+        wake = shell->power_policy_.wake_on_touch; }
+      shell->consume_wake_touch_ = true;
+      *count = 0;
+      if (wake) shell->note_activity(true);
+      // Continue reading until the physical release even though this waking
+      // gesture is intentionally never delivered to the covered controls.
+      esp_lv_adapter_touch_notify_interrupt(shell->touch_input_);
+      return data_result;
+    }
     shell->defer_background_render(kTouchBackgroundRenderQuietMs);
     shell->note_activity(true);
   }
@@ -6653,6 +6672,8 @@ void DisplayShell::request_wake() {
     return;
   }
   screen_power_mode_ = 0;
+  set_screen_saver_visible(false);
+  suspend_visual_updates(false);
   board_display_brightness_set(applied_brightness_);
   board_display_unlock();
 }
@@ -6677,42 +6698,150 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
     request_wake();
   }
   last_on_battery_ = on_battery;
-  if (screen_power_mode_ == 2 && board_touch_interrupt_active()) {
-    note_activity(true);
-    return;
-  }
-  if (keep_awake || (!on_battery && !policy.usb_power_save_enabled)) {
+  if (print_active || keep_awake) last_print_activity_ms_ = now;
+  if (keep_awake || !policy.timers_allowed(on_battery,
+                                          kBoardHasPowerSourceDetection, print_active)) {
     request_wake();
     return;
   }
-  const std::uint64_t idle = now - last_activity_ms_;
+  const std::uint64_t last_activity = last_activity_ms_.load();
+  const std::uint64_t idle = now >= last_activity ? now - last_activity : 0;
   const int target = policy.mode_after_inactivity(idle, print_active);
   if (target == screen_power_mode_) return;
-  const int previous = screen_power_mode_;
-  if (previous != 2 && esp_lv_adapter_pause(1000) != ESP_OK) {
-    last_activity_ms_ = now;
-    return;
+  if (esp_lv_adapter_pause(1000) != ESP_OK) return;
+  if (board_display_lock(1000) != ESP_OK) { esp_lv_adapter_resume(); return; }
+  // A physical interaction can arrive while waiting for the display lock.
+  if (last_activity_ms_.load() != last_activity) {
+    board_display_unlock(); esp_lv_adapter_resume(); return;
   }
+  const int previous = screen_power_mode_.load();
   screen_power_mode_ = target;
+  set_screen_saver_visible(target == 3);
+  suspend_visual_updates(target == 2 || target == 3);
   const int dim_brightness = policy.dim_brightness_percent == 0
       ? std::max(8, std::min(18, applied_brightness_ / 3))
       : policy.dim_brightness_percent;
-  board_display_brightness_set(target == 2 ? 0 : target == 1
+  board_display_brightness_set(target == 2 ? 0 : target == 1 || target == 3
       ? std::min(applied_brightness_, dim_brightness) : applied_brightness_);
-  // Keep LVGL and its touch reader running even at zero brightness. Otherwise
-  // a tap or swipe cannot be observed while the OLED is fully dark.
+  // LVGL input remains alive. Only rendering/decoding timers are suspended.
+  board_display_unlock();
   esp_lv_adapter_resume();
   ESP_LOGI(kLogTag, "Display power mode %d -> %d", previous, target);
 }
 
+bool DisplayShell::background_content_needed() const {
+  if (!content_hidden()) return true;
+  return screen_fully_off() && esp_timer_get_time() < live_render_until_us_.load();
+}
+
+bool DisplayShell::automatic_shutdown_due(bool on_battery, bool keep_awake,
+                                           bool print_active) const {
+  if (!on_battery || keep_awake || print_active) return false;
+  const std::lock_guard<std::mutex> lock(power_policy_mutex_);
+  const std::uint64_t delay = 1000ULL * power_policy_.shutdown_timeout_s;
+  const std::uint64_t since = std::max(last_activity_ms_.load(), last_print_activity_ms_.load());
+  return delay > 0 && static_cast<std::uint64_t>(esp_timer_get_time() / 1000) - since >= delay;
+}
+
+void DisplayShell::suspend_visual_updates(bool suspended) {
+  if (printer_animation_timer_ != nullptr) {
+    if (suspended) lv_timer_pause(printer_animation_timer_);
+    else lv_timer_resume(printer_animation_timer_);
+  }
+  if (printer_animation_gif_ != nullptr && lv_gif_is_loaded(printer_animation_gif_)) {
+    if (suspended) lv_gif_pause(printer_animation_gif_);
+    else lv_gif_resume(printer_animation_gif_);
+  }
+}
+
+void DisplayShell::set_screen_saver_visible(bool visible) {
+  if (!visible) {
+    if (screen_saver_timer_ != nullptr) lv_timer_delete(screen_saver_timer_);
+    screen_saver_timer_ = nullptr;
+    if (screen_saver_root_ != nullptr) lv_obj_delete(screen_saver_root_);
+    screen_saver_root_ = nullptr;
+    screen_saver_rings_.fill(nullptr);
+    screen_saver_sheep_shapes_.fill(nullptr);
+    return;
+  }
+  if (screen_saver_root_ != nullptr) return;
+  const int width = lv_display_get_horizontal_resolution(lv_display_get_default());
+  const int height = lv_display_get_vertical_resolution(lv_display_get_default());
+  {
+    const std::lock_guard<std::mutex> lock(power_policy_mutex_);
+    active_screen_saver_animation_ = power_policy_.screen_saver_animation;
+  }
+  screen_saver_root_ = lv_obj_create(lv_layer_top());
+  lv_obj_remove_style_all(screen_saver_root_);
+  lv_obj_set_size(screen_saver_root_, width, height);
+  lv_obj_set_style_bg_color(screen_saver_root_, lv_color_black(), 0);
+  lv_obj_set_style_bg_opa(screen_saver_root_, LV_OPA_COVER, 0);
+  lv_obj_remove_flag(screen_saver_root_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
+  if (active_screen_saver_animation_ == core::kScreenSaverGoingToSleep) {
+    screen_saver_sheep_.reset(esp_random(), std::min(width, height));
+    for (auto& shape : screen_saver_sheep_shapes_) {
+      shape = lv_obj_create(screen_saver_root_);
+      lv_obj_remove_style_all(shape);
+      lv_obj_remove_flag(shape, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
+    }
+  } else {
+    screen_saver_ripples_.reset(esp_random(), std::min(width, height));
+    for (auto& ring : screen_saver_rings_) {
+      ring = lv_obj_create(screen_saver_root_);
+      lv_obj_remove_style_all(ring);
+      lv_obj_remove_flag(ring, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
+      lv_obj_set_style_radius(ring, LV_RADIUS_CIRCLE, 0);
+      lv_obj_set_style_bg_opa(ring, LV_OPA_TRANSP, 0);
+      lv_obj_set_style_border_opa(ring, LV_OPA_TRANSP, 0);
+    }
+  }
+  screen_saver_timer_ = lv_timer_create(screen_saver_tick,
+      active_screen_saver_animation_ == core::kScreenSaverGoingToSleep ? 80 : 100, this);
+  if (screen_saver_timer_ != nullptr) screen_saver_tick(screen_saver_timer_);
+}
+
+void DisplayShell::screen_saver_tick(lv_timer_t* timer) {
+  auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
+  if (shell->screen_power_mode_ != 3 || shell->screen_saver_root_ == nullptr) return;
+  if (shell->active_screen_saver_animation_ == core::kScreenSaverGoingToSleep) {
+    const auto shapes = shell->screen_saver_sheep_.tick();
+    for (unsigned i = 0; i < shapes.size(); ++i) {
+      const auto& frame = shapes[i];
+      auto* object = shell->screen_saver_sheep_shapes_[i];
+      lv_obj_set_pos(object, frame.x, frame.y);
+      lv_obj_set_size(object, frame.width, frame.height);
+      lv_obj_set_style_radius(object, frame.radius, 0);
+      lv_obj_set_style_bg_color(object, lv_color_hex(frame.color), 0);
+      lv_obj_set_style_bg_opa(object, frame.opacity, 0);
+    }
+    return;
+  }
+  constexpr std::uint32_t colors[] = {0x4BE3C1, 0x469ADD, 0x9D78DB, 0x62CACE};
+  const auto ripples = shell->screen_saver_ripples_.tick();
+  const int scale = lv_obj_get_width(shell->screen_saver_root_) >= 400 ? 2 : 1;
+  for (unsigned i = 0; i < ripples.size(); ++i) {
+    const auto& ripple = ripples[i];
+    for (unsigned halo = 0; halo < 2; ++halo) {
+      lv_obj_t* ring = shell->screen_saver_rings_[i * 2 + halo];
+      const int radius = ripple.radius + (halo == 0 ? 2 * scale : 0);
+      lv_obj_set_pos(ring, ripple.x - radius, ripple.y - radius);
+      lv_obj_set_size(ring, radius * 2, radius * 2);
+      lv_obj_set_style_border_width(ring, halo == 0 ? 5 * scale : scale, 0);
+      lv_obj_set_style_border_color(ring, lv_color_hex(colors[ripple.color]), 0);
+      lv_obj_set_style_border_opa(ring, halo == 0 ? ripple.opacity / 5 : ripple.opacity, 0);
+    }
+  }
+}
+
 esp_err_t DisplayShell::capture_png(std::vector<std::uint8_t>& png,
                                     std::string& screen_name) const {
+  live_render_until_us_ = esp_timer_get_time() + 6'000'000;
   png.clear();
   screen_name.clear();
   if (board_display_lock(2000) != ESP_OK) return ESP_ERR_TIMEOUT;
 
-  screen_name = capture_overlay_name_.empty() ? capture_screen_name_
-                                              : capture_overlay_name_;
+  screen_name = screen_power_mode_ == 3 ? "screen-saver" :
+      capture_overlay_name_.empty() ? capture_screen_name_ : capture_overlay_name_;
 
   lv_display_t* display = lv_display_get_default();
   const int width = display == nullptr ? 0 : lv_display_get_horizontal_resolution(display);

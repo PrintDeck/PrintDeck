@@ -981,7 +981,10 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   // A Web Config save is remote user activity. Apply the complete new state
   // first, then restore the display exactly as a local touch would so the
   // result is visible even when battery power saving made the screen dark.
-  if (play_feedback) display_.reset_inactivity_and_wake();
+  if (play_feedback) {
+    display_.reset_inactivity_and_wake();
+    audio_.set_display_volume_scale(100);
+  }
   if ((audio_changed || play_feedback) && settings.audio_enabled &&
       settings.audio_volume_percent > 0) {
     audio_.play(AudioService::Event::test);
@@ -1333,7 +1336,7 @@ void Runtime::monitor_loop() {
     bambu_a1_preview_.set_network_ready(network.station_connected);
     bambu_a1_camera_.set_network_ready(network.station_connected);
     moonraker_camera_.set_network_ready(network.station_connected);
-    const bool screen_visible = !display_.screen_fully_off();
+    const bool screen_visible = !display_.content_hidden();
     const bool printer_detail_active = selected != nullptr &&
         (!display_.printer_list_visible() || pending_dashboard_profile_ == selected->id);
     const bool selected_is_bambu = selected != nullptr &&
@@ -1357,6 +1360,9 @@ void Runtime::monitor_loop() {
         selected->protocol == core::PrinterProtocol::elegoo_sdcp;
     const bool want_elegoo_cc2_connection = full_connection_active &&
         selected->protocol == core::PrinterProtocol::elegoo_cc2;
+    moonraker_.set_preview_requested(want_moonraker_connection &&
+        display_.background_content_needed() && display_.page() == 0 &&
+        printer_detail_active && !display_.camera_page_active());
     const bool camera_page_visible = display_.camera_page_active() && screen_visible;
     const bool bambu_print_active = selected_is_bambu &&
         active_phase(bambu_lan_.snapshot().job.phase);
@@ -1643,6 +1649,7 @@ void Runtime::monitor_loop() {
       }
       const int rendered_page = display_.page();
       const bool rendered_printer_list = display_.printer_list_visible();
+      if (display_.background_content_needed() || wake_after_snapshot) {
       switch (rendered_page) {
         case 0:
           if (selected == nullptr || display_.printer_list_visible()) {
@@ -1681,6 +1688,7 @@ void Runtime::monitor_loop() {
       display_.finish_horizontal_transition(rendered_page, rendered_printer_list,
                                             selected != nullptr && selected_snapshot_ready
                                                 ? selected->id : 0);
+      }
       if (wake_after_snapshot) {
         // Reveal the already-updated dashboard in one wake transition. Waking
         // before rebuilding the active-print view can overlap AMOLED resume
@@ -1742,9 +1750,23 @@ void Runtime::monitor_loop() {
         static_cast<int>(core::ConfigurationBackupActivity::idle);
     const bool keep_awake = provisioning || update_installing ||
                             configuration_backup_active;
+    const bool was_content_hidden = display_.content_hidden();
     display_.update_power_save(power.available && !power.usb_present && !power.charging,
                                keep_awake, print_active);
-    if (display_.screen_fully_off()) {
+    const bool content_hidden = display_.content_hidden();
+    if (content_hidden && !was_content_hidden) display_.release_printer_preview();
+    const int power_mode = display_.power_mode();
+    audio_.set_display_volume_scale(power_mode == 2 ? settings_.display_power.off_audio_percent :
+        power_mode == 1 || power_mode == 3 ? settings_.display_power.dim_audio_percent : 100);
+    orientation_.set_power_suspended(content_hidden &&
+        !settings_.display_power.wake_on_orientation_change);
+#if defined(PRINTDECK_LOCAL_VOICE)
+    // Voice currently answers while awake; it is not a physical display wake source.
+    voice_.set_power_suspended(content_hidden);
+#endif
+    if (display_.automatic_shutdown_due(power.available && !power.usb_present &&
+        !power.charging, keep_awake, print_active)) perform_shutdown();
+    if (content_hidden) {
       // Keep the selected camera page in place, but release its network and
       // decoder work while the user cannot see it. Touch or POWER restores the
       // display first; the next bounded monitor pass resumes the same camera

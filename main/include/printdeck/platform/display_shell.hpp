@@ -13,6 +13,7 @@
 #include "printdeck/core/device_state.hpp"
 #include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/core/settings.hpp"
+#include "printdeck/core/screen_saver.hpp"
 #include "printdeck/core/theme.hpp"
 #include "printdeck/core/timezone.hpp"
 #include "printdeck/platform/inactive_printer_poller.hpp"
@@ -69,6 +70,10 @@ class DisplayShell {
   std::uint32_t background_render_delay_ms() const;
   void release_camera_frame();
   void release_printer_preview();
+  bool content_hidden() const { const int mode = screen_power_mode_.load(); return mode == 2 || mode == 3; }
+  int power_mode() const { return screen_power_mode_.load(); }
+  bool background_content_needed() const;
+  bool automatic_shutdown_due(bool on_battery, bool keep_awake, bool print_active) const;
   bool screen_fully_off() const { return screen_power_mode_.load() == 2; }
   bool set_rotation(int degrees);
   void set_brightness(int percent);
@@ -483,7 +488,20 @@ class DisplayShell {
   int square_gesture_peak_dx_ = 0;
   int square_gesture_peak_dy_ = 0;
   std::atomic<std::int64_t> background_render_quiet_until_us_{0};
-  std::uint64_t last_activity_ms_ = 0;
+  std::atomic<std::uint64_t> last_activity_ms_{0};
+  std::atomic<std::uint64_t> last_print_activity_ms_{0};
+  mutable std::atomic<std::int64_t> live_render_until_us_{0};
+  bool consume_wake_touch_ = false;
+  lv_obj_t* screen_saver_root_ = nullptr;
+  lv_timer_t* screen_saver_timer_ = nullptr;
+  std::array<lv_obj_t*, core::ScreenSaverRipples::kCount * 2> screen_saver_rings_{};
+  core::ScreenSaverRipples screen_saver_ripples_;
+  std::array<lv_obj_t*, core::ScreenSaverSheep::kCount> screen_saver_sheep_shapes_{};
+  core::ScreenSaverSheep screen_saver_sheep_;
+  std::uint8_t active_screen_saver_animation_ = core::kScreenSaverCircles;
+  void set_screen_saver_visible(bool visible);
+  void suspend_visual_updates(bool suspended);
+  static void screen_saver_tick(lv_timer_t* timer);
   std::atomic<int> screen_power_mode_{0};
   bool power_source_known_ = false;
   bool last_on_battery_ = false;
@@ -505,7 +523,7 @@ class DisplayShell {
   bool printer_animation_source_pending_ = false;
   int printer_animation_native_width_ = 0;
   int printer_animation_native_height_ = 0;
-  std::mutex power_policy_mutex_;
+  mutable std::mutex power_policy_mutex_;
   core::DisplayPowerPolicy power_policy_;
   bool audio_enabled_ = true;
   int audio_volume_ = 60;

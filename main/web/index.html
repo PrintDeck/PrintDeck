@@ -151,36 +151,227 @@
       </section>
 
       <section class="panel" data-panel="power" hidden>
-        <article class="card screen-saver-settings">
-          <h2>Screen Saver</h2>
-          <p class="micro">Choose what the screen does when you are not using PrintDeck. Every change is saved automatically.</p>
-          <div class="power-settings power-basic"><section class="power-group">
-            <div class="power-setting"><label class="power-setting-copy" for="off-idle"><strong>Turn off when no print is running</strong></label><div class="field"><select id="off-idle"></select></div></div>
-            <div class="power-setting"><label class="power-setting-copy" for="off-active"><strong>Turn off during a print</strong></label><div class="field"><select id="off-active"></select></div></div>
-          </section></div>
-          <details class="power-advanced" id="power-advanced">
-            <summary><span>Advanced settings</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
-            <div class="power-settings">
-            <section class="power-group"><h3>Screen behavior</h3><span class="micro">Choose whether the screen dims, turns fully black, and follows these rules on USB power.</span>
-              <div class="power-setting" data-power-setting="dim"><div class="power-setting-copy"><strong>Dim the screen first</strong><span class="micro">Reduces brightness before the screen turns fully off.</span></div><div class="field"><label class="sr-only" for="dim-enabled">Dim the screen first</label><select id="dim-enabled"><option value="1">On</option><option value="0">Off</option></select></div></div>
-              <div class="power-setting" data-power-setting="dim-brightness"><div class="power-setting-copy"><strong>Brightness while dimmed</strong><span class="micro">Automatic chooses a comfortable low level based on normal brightness.</span></div><div class="field"><label class="sr-only" for="dim-brightness">Brightness while dimmed</label><select id="dim-brightness"><option value="0">Automatic</option><option value="8">8%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="30">30%</option></select></div></div>
-              <div class="power-setting"><div class="power-setting-copy"><strong>Use these timers on USB power</strong><span class="micro">When off, the screen stays awake while PrintDeck is connected to USB.</span></div><div class="field"><label class="sr-only" for="usb-power-save">Use these timers on USB power</label><select id="usb-power-save"><option value="0">Off — stay awake</option><option value="1">On</option></select></div></div>
-            </section>
-            <section class="power-group"><h3>When no print is running</h3><span class="micro">These timers start after the last touch, swipe, or button press.</span>
-              <div class="power-setting" data-power-setting="dim-time"><div class="power-setting-copy"><strong>Dim after</strong><span class="micro">How long PrintDeck waits before lowering brightness.</span></div><div class="field"><label class="sr-only" for="dim-idle">Dim after when no print is running</label><select id="dim-idle"></select></div></div>
-            </section>
-            <section class="power-group"><h3>During a print</h3><span class="micro">Use longer times if you want to glance at progress without touching the screen.</span>
-              <div class="power-setting" data-power-setting="dim-time"><div class="power-setting-copy"><strong>Dim after</strong><span class="micro">How long PrintDeck waits before lowering brightness during a print.</span></div><div class="field"><label class="sr-only" for="dim-active">Dim after during a print</label><select id="dim-active"></select></div></div>
-            </section>
-            <section class="power-group"><h3>Wake options</h3><span class="micro">Choose an additional way to wake a fully black screen.</span>
-              <div class="power-setting" data-power-setting="orientation-wake"><div class="power-setting-copy"><strong>Wake when orientation changes</strong><span class="micro">Lifting or turning PrintDeck wakes the screen. Requires Rotate automatically in Display &amp; Brightness.</span></div><div class="field"><label class="sr-only" for="orientation-wake">Wake when orientation changes</label><select id="orientation-wake"><option value="0">Off</option><option value="1">On</option></select></div></div>
-            </section>
-            </div>
-          </details>
-          <p class="power-note">Setup, camera view, and firmware updates always keep the screen awake.</p>
-          <p class="status pane-status"></p>
-        </article>
-      </section>
+<div id="power-controls">
+  <style>
+    #power-controls {
+      --pd-bg: light-dark(#ffffff, #1c1f1e);
+      --pd-section: light-dark(#f6f7f7, #232725);
+      --pd-text: light-dark(#19201e, #f0f3f1);
+      --pd-muted: light-dark(#5c6863, #afb9b4);
+      --pd-line: light-dark(#e1e6e3, #3d4541);
+      --pd-input: light-dark(#ffffff, #1c211e);
+      --pd-accent: light-dark(#087562, #82d8c2);
+      --pd-note: light-dark(#eff7f4, #21372f);
+      --pd-note-text: light-dark(#285447, #bbe2d1);
+      --pd-track: light-dark(#bac5bf, #606d65);
+      --pd-knob: light-dark(#ffffff, #11251f);
+      --pd-space: 17px;
+      color: var(--pd-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px; line-height: 1.45; width: 100%;
+    }
+    #power-controls * { box-sizing: border-box; }
+    #power-controls [hidden] { display: none !important; }
+    #power-controls .pd-surface { background: var(--pd-bg); border: 1px solid var(--pd-line); border-radius: 22px; padding: 26px; }
+    #power-controls h2, #power-controls h3, #power-controls p { margin: 0; }
+    #power-controls h2 { font-size: 24px; line-height: 1.2; letter-spacing: -.65px; font-weight: 650; }
+    #power-controls h3 { font-size: 16px; line-height: 1.4; font-weight: 650; letter-spacing: -.15px; }
+    #power-controls .pd-head { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; flex-wrap: wrap; }
+    #power-controls .pd-autosave { font-size: 12px; color: var(--pd-muted); display: inline-flex; align-items: center; gap: 5px; }
+    #power-controls .pd-intro { margin-top: 9px; color: var(--pd-muted); }
+    #power-controls .pd-basic { margin-top: 23px; }
+    #power-controls .pd-section { background: var(--pd-section); padding: 18px 20px; border: 1px solid var(--pd-line); border-radius: 14px; }
+    #power-controls .pd-section-intro { color: var(--pd-muted); font-size: 12px; margin-top: 5px; }
+    #power-controls .pd-row { display: grid; grid-template-columns: minmax(0, 1fr) 176px; align-items: center; gap: 14px 22px; padding: var(--pd-space) 0; border-bottom: 1px solid var(--pd-line); }
+    #power-controls .pd-row:last-child, #power-controls .pd-row:has(+ [hidden]:last-child) { padding-bottom: 2px; border-bottom: 0; }
+    #power-controls .pd-label { font-weight: 550; display: block; color: var(--pd-text); }
+    #power-controls .pd-help { display: block; margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--pd-muted); }
+    #power-controls select { appearance: none; -webkit-appearance: none; width: 100%; min-width: 0; min-height: 44px; font: inherit; color: var(--pd-text); border: 1px solid var(--pd-line); border-radius: 9px; background-color: var(--pd-input); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23748a81' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 18px 18px; padding: 9px 46px 9px 12px; cursor: pointer; }
+    #power-controls select:disabled { opacity: .55; cursor: default; }
+    #power-controls .pd-switch-wrap { justify-self: end; display: flex; align-items: center; gap: 10px; }
+    #power-controls .pd-switch-label { display: flex; align-items: center; min-height: 44px; cursor: pointer; }
+    #power-controls .pd-switch { appearance: none; width: 78px; height: 36px; border: 0; border-radius: 20px; background: var(--pd-track); margin: 0; position: relative; cursor: pointer; }
+    #power-controls .pd-switch::after { content: attr(data-state-label); position: absolute; top: 3px; left: 3px; width: 40px; height: 30px; display: grid; place-items: center; color: var(--pd-text); background: var(--pd-knob); border-radius: 20px; font-size: 11px; font-weight: 700; line-height: 1; }
+    #power-controls .pd-switch:checked { background: var(--pd-accent); }
+    #power-controls .pd-switch:checked::after { left: 35px; color: var(--pd-accent); }
+    #power-controls .pd-switch:focus-visible { outline: 2px solid var(--pd-accent); outline-offset: 4px; }
+    #power-controls details { margin-top: 16px; }
+    #power-controls summary { list-style: none; cursor: pointer; padding: 15px 2px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--pd-line); }
+    #power-controls summary::-webkit-details-marker { display: none; }
+    #power-controls .pd-summary-copy { display: grid; gap: 3px; }
+    #power-controls .pd-summary-copy strong { font-weight: 600; }
+    #power-controls .pd-chevron { flex-shrink: 0; }
+    #power-controls .pd-chevron svg { display: block; width: 18px; height: 18px; }
+    #power-controls details[open] .pd-chevron svg { transform: rotate(180deg); }
+    #power-controls .pd-advanced-sections { display: grid; gap: 12px; padding: 2px 0 5px; }
+    #power-controls .pd-note { display: flex; align-items: flex-start; gap: 9px; margin-top: 13px; padding: 12px 14px; background: var(--pd-note); color: var(--pd-note-text); border-radius: 9px; font-size: 12px; }
+    #power-controls .pd-note svg { flex-shrink: 0; margin-top: 1px; }
+    #power-controls .pd-rule-note { grid-column: 1 / -1; font-size: 12px; color: var(--pd-note-text); background: var(--pd-note); padding: 9px 11px; border-radius: 7px; margin-top: -5px; }
+    #power-controls .pd-audio-control { display: grid; gap: 3px; }
+    #power-controls .pd-audio-control output { text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 550; }
+    #power-controls input[type=range] { width: 100%; margin: 0; accent-color: var(--pd-accent); min-height: 24px; cursor: pointer; }
+    #power-controls .pd-muted-caption { margin-top: 15px; color: var(--pd-muted); font-size: 12px; }
+    #power-controls[data-sections=plain] .pd-advanced-sections .pd-section { background: var(--pd-bg); border-radius: 0; border-width: 0 0 1px; padding-left: 2px; padding-right: 2px; }
+    #power-controls[data-layout=columns] .pd-advanced-sections { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+    #power-controls[data-layout=columns] .pd-advanced-sections .pd-row { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+    #power-controls[data-layout=columns] .pd-advanced-sections .pd-toggle-row { grid-template-columns: minmax(0, 1fr) auto; }
+    #power-controls[data-layout=columns] .pd-advanced-sections .pd-row .pd-audio-control { grid-template-columns: minmax(0, 1fr) 38px; align-items: center; }
+    #power-controls[data-layout=columns] .pd-advanced-sections .pd-audio-control output { grid-column: 2; grid-row: 1; }
+    #power-controls[data-layout=columns] .pd-advanced-sections .pd-audio-control input { grid-column: 1; grid-row: 1; }
+    @media (max-width: 570px) {
+      #power-controls .pd-surface { padding: 20px 16px; border-radius: 16px; }
+      #power-controls .pd-section { padding: 16px; }
+      #power-controls .pd-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+      #power-controls .pd-toggle-row { grid-template-columns: minmax(0, 1fr) auto; gap: 14px; }
+      #power-controls .pd-switch-wrap { gap: 6px; }
+      #power-controls select { font-size: 16px; }
+      #power-controls[data-layout=columns] .pd-advanced-sections { grid-template-columns: minmax(0, 1fr); }
+      #power-controls .pd-audio-control { grid-template-columns: minmax(0, 1fr) 40px; align-items: center; gap: 12px; }
+      #power-controls .pd-audio-control output { grid-column: 2; grid-row: 1; }
+      #power-controls .pd-audio-control input { grid-column: 1; grid-row: 1; min-height: 44px; }
+    }
+
+    #power-controls .pd-steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 34px; padding: 20px 0 22px; border-bottom: 1px solid var(--pd-line); }
+    #power-controls .pd-steps:has(+ .pd-usb-row[hidden]) { padding-bottom: 0; border-bottom: 0; }
+    #power-controls .pd-steps .pd-row { position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; gap: 11px; padding: 0; border: 0; }
+    #power-controls .pd-steps .pd-row > select, #power-controls .pd-steps .pd-row > .pd-label { width: 100%; max-width: 240px; align-self: center; }
+    #power-controls .pd-steps .pd-row + .pd-row::before { content: '→'; position: absolute; left: -27px; bottom: 10px; font-size: 20px; color: var(--pd-muted); }
+    #power-controls .pd-usb-row { display: flex; justify-content: flex-end; gap: 16px; }
+    #power-controls .pd-usb-row > div:first-child { text-align: right; }
+    #power-controls .pd-steps .pd-label { min-height: 2.9em; display: flex; align-items: flex-end; }
+    @media (max-width: 680px) {
+      #power-controls .pd-steps { grid-template-columns: minmax(0,1fr); gap: 20px; }
+      #power-controls .pd-steps .pd-row + .pd-row::before { display: none; }
+      #power-controls .pd-steps .pd-label { min-height: 0; }
+      #power-controls .pd-steps .pd-row > select, #power-controls .pd-steps .pd-row > .pd-label { max-width: none; }
+    }
+
+    #power-controls .pd-settings-card { margin-top: 23px; background: var(--pd-section); border: 1px solid var(--pd-line); border-radius: 14px; overflow: hidden; }
+    #power-controls .pd-basic { margin-top: 0; border: 0; border-radius: 0; background: transparent; }
+    #power-controls details { margin-top: 0; border-top: 1px solid var(--pd-line); }
+    #power-controls summary { padding: 15px 20px; border: 0; background: light-dark(#ecf1ee,#2c3530); }
+    #power-controls summary:hover { background: light-dark(#e2ebe6,#35433b); }
+    #power-controls summary:focus-visible { outline: 2px solid var(--pd-accent); outline-offset: -3px; }
+    #power-controls .pd-expand-action { display: flex; align-items: center; gap: 12px; color: var(--pd-accent); font-size: 13px; font-weight: 600; flex-shrink: 0; }
+    #power-controls .pd-chevron { display: grid; place-items: center; width: 32px; height: 32px; background: var(--pd-input); border: 1px solid var(--pd-line); border-radius: 7px; }
+    #power-controls .pd-advanced-sections { padding: 0 20px 8px; gap: 0; }
+    #power-controls .pd-advanced-sections > .pd-section { background: transparent; border: 0; border-radius: 0; padding: 22px 0; }
+    #power-controls .pd-advanced-sections > .pd-section + .pd-section { border-top: 1px solid var(--pd-line); }
+    #power-controls .pd-group-heading { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 12px; }
+    #power-controls .pd-group-heading > svg { width: 21px; height: 21px; flex-shrink: 0; margin-top: 2px; color: var(--pd-accent); }
+    #power-controls .pd-group-heading h3 { color: var(--pd-accent); font-size: 18px; font-weight: 700; }
+    #power-controls .pd-group-heading .pd-section-intro { margin-top: 5px; }
+    #power-controls .pd-group-section > .pd-row { margin-left: 32px; padding: 15px 0; border-bottom: 0; }
+    #power-controls .pd-group-section .pd-label { font-weight: 550; }
+    #power-controls .pd-group-section .pd-help { max-width: 64ch; margin-top: 6px; }
+    #power-controls .pd-group-section > .pd-muted-caption { margin: 12px 0 0 32px; padding-top: 12px; border-top: 1px solid var(--pd-line); }
+    #power-controls .pd-group-section .pd-audio-control { grid-template-columns: minmax(0,1fr) 42px; align-items: center; gap: 12px; }
+    #power-controls .pd-group-section .pd-audio-control output { grid-column: 2; grid-row: 1; color: var(--pd-accent); font-weight: 650; }
+    #power-controls .pd-group-section .pd-audio-control input { grid-column: 1; grid-row: 1; }
+    @media (max-width: 570px) {
+      #power-controls summary { padding: 14px 16px; }
+      #power-controls .pd-expand-action { gap: 7px; font-size: 12px; }
+      #power-controls .pd-expand-action > span { max-width: 95px; text-align: right; }
+      #power-controls .pd-summary-copy { min-width: 0; }
+      #power-controls .pd-advanced-sections { padding: 0 16px 4px; }
+      #power-controls .pd-group-section > .pd-row { margin-left: 0; }
+      #power-controls .pd-group-section > .pd-muted-caption { margin-left: 0; }
+    }
+  </style>
+  <article class="pd-surface screen-saver-settings">
+    <header>
+      <div class="pd-head"><h2>Screen Saver</h2><span class="pd-autosave"><i data-lucide="check" aria-hidden="true"></i>Changes save automatically</span></div>
+      <p class="pd-intro">Choose when the display dims, shows a screen saver, or turns off.</p>
+    </header>
+    <div class="pd-settings-card">
+    <section class="pd-section pd-basic" aria-labelledby="pd-idle-title">
+      <h3 id="pd-idle-title">When no print is running</h3>
+      <p class="pd-section-intro">All times count from your last interaction with PrintDeck.</p>
+      <div class="pd-steps"><div class="pd-row">
+        <label class="pd-label" for="dim-idle">Dim the display after</label>
+        <select id="dim-idle" data-timer="20"></select>
+      </div>
+      <div class="pd-row">
+        <label class="pd-label" for="saver-idle">Start screen saver after</label>
+        <select id="saver-idle" data-timer="60"></select>
+      </div>
+      <div class="pd-row">
+        <label class="pd-label" for="off-idle">Turn off the display after</label>
+        <select id="off-idle" data-timer="120"></select>
+      </div></div>
+      <div class="pd-row pd-toggle-row pd-usb-row">
+        <div><label class="pd-label" for="usb-power-save">Also apply on USB power</label><span class="pd-help" id="usb-power-save-help">Off: the display stays awake on USB.</span></div>
+        <div class="pd-switch-wrap"><label class="pd-switch-label"><input class="pd-switch" type="checkbox" role="switch" id="usb-power-save" aria-describedby="usb-power-save-help"></label></div>
+      </div>
+    </section>
+    <details id="pd-advanced">
+      <summary><span class="pd-summary-copy"><strong>Advanced settings</strong></span><span class="pd-expand-action"><span id="power-expand-label">Show options</span><span class="pd-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></span></summary>
+      <div class="pd-advanced-sections">
+        <section class="pd-section">
+          <div class="pd-row">
+            <div><label class="pd-label" for="dim-brightness">Brightness while dimmed</label><span class="pd-help" id="pd-brightness-help">Automatic adjusts to your normal brightness.</span></div>
+            <select id="dim-brightness" aria-describedby="pd-brightness-help"><option value="0">Automatic</option><option value="8">8%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="30">30%</option></select>
+          </div>
+          <div class="pd-row">
+            <label class="pd-label" for="saver-animation">Screen saver animation</label>
+            <select id="saver-animation"><option value="0">Circles</option><option value="1">Going to sleep</option></select>
+          </div>
+          <div class="pd-row" data-power-shutdown>
+            <div><label class="pd-label" for="shutdown-time">Turn off PrintDeck after</label><span class="pd-help" id="shutdown-time-help">On battery, after this long without a print or interaction. Press Power to turn it on again.</span></div>
+            <select id="shutdown-time" aria-describedby="shutdown-time-help"><option value="0">Never</option><option value="3600">1 hour</option><option value="7200">2 hours</option><option value="10800">3 hours</option><option value="18000">5 hours</option><option value="28800">8 hours</option><option value="43200">12 hours</option><option value="86400">24 hours</option></select>
+          </div>
+        </section>
+        <section class="pd-section" aria-labelledby="pd-print-title">
+          <h3 id="pd-print-title">During a print on active/selected printer</h3>
+          <p class="pd-section-intro">Uses these settings instead. Includes paused prints.</p>
+          <div class="pd-steps"><div class="pd-row">
+            <label class="pd-label" for="dim-active">Dim the display after</label>
+            <select id="dim-active" data-timer="0"></select>
+          </div>
+          <div class="pd-row">
+            <label class="pd-label" for="saver-active">Start screen saver after</label>
+            <select id="saver-active" data-timer="0"></select>
+          </div>
+          <div class="pd-row">
+            <label class="pd-label" for="off-active">Turn off the display after</label>
+            <select id="off-active" data-timer="0"></select>
+          </div></div>
+          <div class="pd-row pd-toggle-row pd-usb-row">
+            <div><label class="pd-label" for="usb-power-save-active">Also apply on USB power</label><span class="pd-help" id="usb-power-save-active-help">Off: the display stays awake on USB.</span></div>
+            <div class="pd-switch-wrap"><label class="pd-switch-label"><input class="pd-switch" type="checkbox" role="switch" id="usb-power-save-active" aria-describedby="usb-power-save-active-help"></label></div>
+          </div>
+        </section>
+        <section class="pd-section pd-group-section" aria-labelledby="pd-wake-title">
+          <div class="pd-group-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><h3 id="pd-wake-title">Wake the display</h3></div>
+          <div class="pd-row pd-toggle-row" data-power-setting="orientation-wake">
+            <div><label class="pd-label" for="orientation-wake">Wake when orientation changes</label><span class="pd-help">Lifting or turning PrintDeck wakes the screen. Requires Rotate automatically in Display &amp; Brightness.</span></div>
+            <div class="pd-switch-wrap"><label class="pd-switch-label"><input class="pd-switch" type="checkbox" role="switch" id="orientation-wake" checked></label></div>
+          </div>
+          <div class="pd-row pd-toggle-row">
+            <div><label class="pd-label" for="touch-wake">Wake on touch</label><span class="pd-help">Tap or swipe the physical screen to wake it.</span></div>
+            <div class="pd-switch-wrap"><label class="pd-switch-label"><input class="pd-switch" type="checkbox" role="switch" id="touch-wake" checked></label></div>
+          </div>
+          <p class="pd-muted-caption" id="pd-wake-fallback">The Power button always wakes the display.</p>
+        </section>
+        <section class="pd-section pd-group-section" data-power-audio aria-labelledby="pd-audio-title">
+          <div class="pd-group-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 5-6 4H2v6h3l6 4V5Zm4 3a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg><div><h3 id="pd-audio-title">Sound while the display sleeps</h3><p class="pd-section-intro">Percentage of your normal sound level. 0% mutes sound.</p></div></div>
+          <div class="pd-row">
+            <label class="pd-label" for="dim-audio">While dimmed</label>
+            <div class="pd-audio-control"><output for="dim-audio" id="dim-audio-output">80%</output><input id="dim-audio" type="range" min="0" max="80" step="10" value="80" aria-describedby="dim-audio-output"></div>
+          </div>
+          <div class="pd-row">
+            <label class="pd-label" for="off-audio">While the display is off</label>
+            <div class="pd-audio-control"><output for="off-audio" id="off-audio-output">20%</output><input id="off-audio" type="range" min="0" max="20" step="5" value="20" aria-describedby="off-audio-output"></div>
+          </div>
+        </section>
+      </div>
+    </details>
+    </div>
+    <p class="pd-note"><i data-lucide="info" aria-hidden="true"></i><span>Setup and firmware updates always keep the screen awake.</span></p>
+  <p class="status pane-status" aria-live="polite"></p></article>
+
+</div>
+
+</section>
 
       <section class="panel" data-panel="device" hidden>
         <div class="device-layout"><nav class="side-nav" aria-label="Device settings sections"><button class="side-tab" data-section="device" aria-selected="true">Device</button><button class="side-tab" data-section="wifi">Wi-Fi</button><button class="side-tab" data-section="camera">Camera</button><button class="side-tab" data-section="live-view">Live View</button><button class="side-tab" data-section="time">Time Zone</button><button class="side-tab" data-section="unified-api">Unified Printer API</button><button class="side-tab" data-section="backup">Backup &amp; Restore</button><button class="side-tab" data-section="firmware">Firmware<span class="update-indicator" data-update-indicator role="status" aria-label="Update available" hidden></span></button></nav><div>
@@ -290,7 +481,7 @@
     let currentLanguage=browserLanguage();
     function translated(source){return PRINTDECK_TRANSLATIONS[currentLanguage]?.[source]||source}
     function paintFactoryResetConfirmationDescription(){const description=$('#factory-reset-confirm-description');if(!description)return;const marker='{reset}',copy=translated('Enter {reset} below to confirm this cannot be undone.'),position=copy.indexOf(marker);if(position<0){description.textContent=copy;return}const reset=document.createElement('code');reset.textContent='reset';description.replaceChildren(copy.slice(0,position),reset,copy.slice(position+marker.length))}
-    function applyLanguage(){document.documentElement.lang=currentLanguage;const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);while(walker.nextNode()){const node=walker.currentNode;if(node.parentElement?.closest('script,style'))continue;if(!originalText.has(node))originalText.set(node,node.nodeValue);const source=originalText.get(node),trimmed=source.trim();if(trimmed)node.nodeValue=source.replace(trimmed,translated(trimmed))}$$('[placeholder],[title],[aria-label],[label]').forEach(element=>{let originals=originalAttributes.get(element);if(!originals){originals={};for(const name of ['placeholder','title','aria-label','label'])if(element.hasAttribute(name))originals[name]=element.getAttribute(name);originalAttributes.set(element,originals)}for(const [name,source] of Object.entries(originals))element.setAttribute(name,translated(source))});$$('[data-i18n]').forEach(element=>{element.textContent=translated(element.dataset.i18n)});$$('.language-select').forEach(selector=>selector.value=currentLanguage);$$('.backup-password-reveal').forEach(paintBackupPasswordReveal);paintFactoryResetConfirmationDescription()}
+    function applyLanguage(){document.documentElement.lang=currentLanguage;const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);while(walker.nextNode()){const node=walker.currentNode;if(node.parentElement?.closest('script,style'))continue;if(!originalText.has(node))originalText.set(node,node.nodeValue);const source=originalText.get(node),trimmed=source.trim();if(trimmed)node.nodeValue=source.replace(trimmed,translated(trimmed))}$$('[placeholder],[title],[aria-label],[label]').forEach(element=>{let originals=originalAttributes.get(element);if(!originals){originals={};for(const name of ['placeholder','title','aria-label','label'])if(element.hasAttribute(name))originals[name]=element.getAttribute(name);originalAttributes.set(element,originals)}for(const [name,source] of Object.entries(originals))element.setAttribute(name,translated(source))});$$('[data-i18n]').forEach(element=>{element.textContent=translated(element.dataset.i18n)});$$('.language-select').forEach(selector=>selector.value=currentLanguage);$$('.backup-password-reveal').forEach(paintBackupPasswordReveal);paintFactoryResetConfirmationDescription();paintPowerSwitches()}
     let localizationMutation=false;function localizeDynamicNode(root){if(localizationMutation||currentLanguage==='en')return;localizationMutation=true;const nodes=[];if(root.nodeType===Node.TEXT_NODE)nodes.push(root);else if(root.nodeType===Node.ELEMENT_NODE){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(walker.nextNode())nodes.push(walker.currentNode)}for(const node of nodes){if(node.parentElement?.closest('script,style'))continue;const source=node.nodeValue,trimmed=source.trim(),next=translated(trimmed);if(trimmed&&next!==trimmed){originalText.set(node,source);node.nodeValue=source.replace(trimmed,next)}}localizationMutation=false}new MutationObserver(mutations=>{if(localizationMutation)return;for(const mutation of mutations){if(mutation.type==='characterData')localizeDynamicNode(mutation.target);else mutation.addedNodes.forEach(localizeDynamicNode)}}).observe(document.body,{subtree:true,childList:true,characterData:true});
     async function jsonFetch(url,options={}){const response=await fetch(url,{cache:'no-store',...options});let body={};try{body=await response.json()}catch(_){}if(!response.ok){const source=body.error||'PrintDeck could not complete this request.',error=new Error(translated(source));error.translationSource=source;throw error}return body}
     const appearanceStorageKey='printdeck-appearance',appearanceSystemDark=matchMedia('(prefers-color-scheme:dark)');
@@ -834,7 +1025,7 @@
 
     function optionRange(select,values,suffix='%'){select.replaceChildren(...values.map(v=>new Option(v+suffix,String(v))))}function timeOptions(select,values){select.replaceChildren(...values.map(([v,l])=>new Option(translated(l),String(v))))}
     function buildSoundMuteControls(){const card=$('.sound-event-card');$('h2',card).textContent='Notification sounds';$('.micro',card).textContent='Mute any event you do not want to hear. Test sound always plays a preview, even when that event is muted.';$$('.sound-event',card).forEach((row,bit)=>{const button=$('.sound-test',row),actions=document.createElement('div'),label=document.createElement('label'),input=document.createElement('input'),caption=document.createElement('span');actions.className='sound-event-actions';label.className='sound-event-mute';input.type='checkbox';input.dataset.audioMuteBit=String(bit);caption.textContent='Mute';label.append(input,caption);button.replaceWith(actions);actions.append(label,button);input.addEventListener('change',()=>{settingsDirty=true;saveSoundSettings()})})}
-    function buildControls(){const times=[[10,'10 seconds'],[20,'20 seconds'],[30,'30 seconds'],[45,'45 seconds'],[60,'1 minute'],[90,'90 seconds'],[120,'2 minutes'],[180,'3 minutes'],[300,'5 minutes'],[600,'10 minutes']];['#dim-idle','#dim-active','#off-idle','#off-active'].forEach(id=>timeOptions($(id),id.startsWith('#off-')?[...times,[0,'Never']]:times));decorateTimezoneOptions();buildSoundMuteControls()}
+    function buildControls(){decorateTimezoneOptions();buildSoundMuteControls()}
     function paintBrightness(){const input=$('#brightness'),value=Math.min(100,Math.max(10,Number(input.value)||10));$('#brightness-value').value=value+'%';input.style.setProperty('--range-fill',((value-10)/90*100)+'%');input.setAttribute('aria-valuetext',value+'%')}
     let previousAudioVolume=80;function paintAudio(){const input=$('#audio-volume');if(!input)return;const value=Math.min(100,Math.max(0,Number(input.value)||0));if(value>0)previousAudioVolume=value;$('#audio-volume-value').value=value===0?translated('Muted'):value+'%';input.style.setProperty('--range-fill',value+'%');input.setAttribute('aria-valuetext',value===0?translated('Muted'):value+'%');const mute=$('#audio-mute'),muted=value===0;mute.setAttribute('aria-pressed',String(muted));mute.setAttribute('aria-label',translated(muted?'Restore sound':'Mute sound'));mute.title=translated(muted?'Restore sound':'Mute sound')}
     function timezoneOffset(zone){try{const part=new Intl.DateTimeFormat('en',{timeZone:zone,timeZoneName:'shortOffset',hour:'2-digit'}).formatToParts(new Date).find(p=>p.type==='timeZoneName')?.value||'';const offset=part.replace('GMT','UTC');return offset==='UTC'?'UTC+0':offset}catch(_){return''}}
@@ -857,7 +1048,7 @@
         screenOffDialog.showModal();return;
       }
       screenSaverRevision++;
-      if(offTimer){screenSaverOffEdited=true;input.dataset.confirmedValue=input.value}
+      if(offTimer)input.dataset.confirmedValue=input.value;
       paintScreenSaverSettings();saveScreenSaverSettings();
     }
     function closeScreenOffDialog(confirm=false){const input=pendingScreenOffControl;pendingScreenOffControl=null;screenOffDialog.close();input?.focus();if(confirm&&input){input.value='0';changeScreenSaverSetting(input,true)}}
@@ -865,18 +1056,63 @@
     $('#screen-off-confirm').addEventListener('click',()=>closeScreenOffDialog(true));
     screenOffDialog.addEventListener('cancel',event=>{event.preventDefault();closeScreenOffDialog()});
 
-    function fillScreenSaverSettings(b){$('#dim-enabled').value=b.dim_enabled?'1':'0';$('#dim-brightness').value=b.dim_brightness;$('#dim-idle').value=b.dim_idle;$('#dim-active').value=b.dim_active;$('#off-idle').value=b.off_enabled?b.off_idle:0;$('#off-active').value=b.off_enabled?b.off_active:0;screenSaverOffEdited=false;['#off-idle','#off-active'].forEach(id=>$(id).dataset.confirmedValue=$(id).value);$('#usb-power-save').value=b.usb_power_save?'1':'0';$('#orientation-wake').value=b.wake_on_orientation_change?'1':'0';paintScreenSaverSettings();}
-    function paintScreenSaverSettings(){const dim=$('#dim-enabled').value==='1',automaticRotation=$('#rotation').value==='auto';const setAvailability=(selector,enabled)=>{$$(selector).forEach(row=>{row.classList.toggle('is-disabled',!enabled);const control=$('select,input',row);if(control)control.disabled=!enabled})};setAvailability('[data-power-setting=dim-brightness]',dim);setAvailability('[data-power-setting=dim-time]',dim);setAvailability('[data-power-setting=orientation-wake]',automaticRotation)}
+    $('#pd-advanced').addEventListener('toggle',()=>{const label=$('#power-expand-label');label.dataset.i18n=$('#pd-advanced').open?'Hide options':'Show options';label.textContent=translated(label.dataset.i18n)});
+    const powerNumbers = {'saver-animation':'saver_animation','dim-brightness':'dim_brightness','dim-idle':'dim_idle','dim-active':'dim_active','saver-idle':'saver_idle','saver-active':'saver_active','off-idle':'off_idle','off-active':'off_active','shutdown-time':'shutdown_s','dim-audio':'dim_audio','off-audio':'off_audio'};
+    const powerSwitches = {'usb-power-save':'usb_power_save','usb-power-save-active':'usb_power_save_active','orientation-wake':'wake_on_orientation_change','touch-wake':'wake_on_touch'};
+    const powerTimes = [[10,'10 seconds'],[20,'20 seconds'],[30,'30 seconds'],[45,'45 seconds'],[60,'1 minute'],[90,'90 seconds'],[120,'2 minutes'],[180,'3 minutes'],[300,'5 minutes'],[600,'10 minutes'],[900,'15 minutes'],[1800,'30 minutes'],[3600,'1 hour'],[0,'Never']];
+    function powerChoices(input,limit,previous=0,adjust=false){
+      const selected=Number(input.dataset.current??input.value)||0;
+      let choices=powerTimes.filter(([value])=>value===0||(value<=limit&&value>previous));
+      const maximum=input.id.startsWith('saver-')?300:input.id.startsWith('off-')?3610:3600;
+      if(limit===3610&&previous>=3600)choices.splice(-1,0,[3610,'3610 s']);
+      if(selected>previous&&selected<=maximum&&!choices.some(([value])=>value===selected))choices.splice(-1,0,[selected,selected+' s']);
+      if(!adjust&&selected>0&&!choices.some(([value])=>value===selected))choices.splice(-1,0,[selected,selected+' s']);
+      choices.sort((a,b)=>a[0]===0?1:b[0]===0?-1:a[0]-b[0]);
+      timeOptions(input,choices);
+      input.value=String(choices.some(([value])=>value===selected)?selected:choices[0][0]);
+      delete input.dataset.current;
+    }
+    function fillScreenSaverSettings(b){
+      Object.entries(powerNumbers).forEach(([id,key])=>{const input=$('#'+id),value=b[key]??(id==='touch-wake'?1:0);
+        if(input.hasAttribute('data-timer'))input.dataset.current=String((id.startsWith('dim-')&&!b.dim_enabled||id.startsWith('off-')&&!b.off_enabled)?0:value);
+        else {if(input.tagName==='SELECT'&&![...input.options].some(o=>Number(o.value)===Number(value)))input.add(new Option(value+'%',value));if(input.type==='range')input.max=String(Math.max(Number(input.max),Number(value)));input.value=String(value);}
+      });
+      Object.entries(powerSwitches).forEach(([id,key])=>$('#'+id).checked=Boolean(b[key]??(key==='wake_on_touch')));
+      paintScreenSaverSettings(false);
+      ['#off-idle','#off-active'].forEach(id=>$(id).dataset.confirmedValue=$(id).value);
+    }
+    function paintScreenSaverSettings(adjust=true){
+      const knomi2=(health.hardware||settings.hardware)==='knomi2';
+      ['idle','active'].forEach(context=>{const dim=$('#dim-'+context),saver=$('#saver-'+context),off=$('#off-'+context);
+        powerChoices(dim,600,0,adjust);powerChoices(saver,300,Number(dim.value),adjust);powerChoices(off,3610,Math.max(Number(dim.value),Number(saver.value)),adjust);
+      });
+      $('#dim-brightness').disabled=!Number($('#dim-idle').value)&&!Number($('#dim-active').value)&&!Number($('#saver-idle').value)&&!Number($('#saver-active').value);
+      $('#orientation-wake').disabled=$('#rotation').value!=='auto';
+      $('#power-controls [data-power-setting="orientation-wake"]').hidden=knomi2;
+      $('#power-controls [data-power-audio]').hidden=!(health.audio_available??settings.audio_available??true);
+      $('#power-controls [data-power-shutdown]').hidden=knomi2;
+      $$('#power-controls .pd-usb-row').forEach(row=>row.hidden=knomi2);
+      paintPowerSwitches();
+      ['dim','off'].forEach(mode=>{const input=$('#'+mode+'-audio'),value=Number(input.value);$('#'+mode+'-audio-output').value=value?value+'%':translated('Mute');input.setAttribute('aria-valuetext',value?value+'%':translated('Muted'));});
+    }
+    function paintPowerSwitches(){
+      $$('#power-controls .pd-switch').forEach(input=>input.dataset.stateLabel=translated(input.checked?'ON':'OFF'));
+    }
+    function readPowerSettings(){
+      Object.entries(powerNumbers).forEach(([id,key])=>settings[key]=Number($('#'+id).value));
+      Object.entries(powerSwitches).forEach(([id,key])=>settings[key]=$('#'+id).checked);
+      settings.dim_enabled=true;settings.off_enabled=true;
+    }
     function fillSettings(b){settings=b;applyLanguage();$('#device-name').value=b.device_name||'';paintDeviceNameAddress();$('#brightness').value=b.brightness;paintBrightness();$('#rotation').value=b.rotation;$('#printer-animations-enabled').checked=Boolean(b.printer_animations_enabled);$('#reaction_progress_bar_enabled').checked=b.reaction_progress_bar_enabled!==false;$('#reaction_progress_percent_enabled').checked=b.reaction_progress_percent_enabled!==false;paintReactionAvailability();const audioVolume=$('#audio-volume');if(audioVolume){const preset=$(`input[name="audio-preset"][value="${b.audio_preset||'modern'}"]`)||$('input[name="audio-preset"][value="modern"]');if(preset)preset.checked=true;const mutedEvents=Number(b.audio_muted_events)||0;$$('[data-audio-mute-bit]').forEach(input=>input.checked=Boolean(mutedEvents&(1<<Number(input.dataset.audioMuteBit))));const savedVolume=b.audio_enabled?b.audio_volume:0;if(b.audio_volume>0)previousAudioVolume=b.audio_volume;audioVolume.value=savedVolume;paintAudio()}applyHardwareSettings();$('#printer-list-poll').value=b.printer_list_poll_s;$('#camera-mode').value=b.camera_mode||'snapshots';$('#camera-snapshot-fps').value=String(b.camera_snapshot_fps||1);paintCameraSettings();fillScreenSaverSettings(b);const timezone=$('#timezone'),savedTimezone=b.timezone==='Etc/UTC'?'UTC':b.timezone;timezone.value=[...timezone.options].some(option=>option.value===savedTimezone)?savedTimezone:'UTC';renderThemeCards();renderColors()}
-    function readSettings(){settings.device_name=$('#device-name').value.trim();settings.brightness=Number($('#brightness').value);settings.rotation=$('#rotation').value;settings.printer_animations_enabled=$('#printer-animations-enabled').checked;settings.reaction_progress_bar_enabled=$('#reaction_progress_bar_enabled').checked;settings.reaction_progress_percent_enabled=$('#reaction_progress_percent_enabled').checked;const audioVolume=$('#audio-volume');if(audioVolume){settings.audio_volume=Number(audioVolume.value);settings.audio_enabled=settings.audio_volume>0;settings.audio_preset=$('input[name="audio-preset"]:checked')?.value||'modern';settings.audio_muted_events=$$('[data-audio-mute-bit]').reduce((mask,input)=>input.checked?mask|(1<<Number(input.dataset.audioMuteBit)):mask,0)}else{settings.audio_volume=0;settings.audio_enabled=false;settings.audio_preset=settings.audio_preset||'modern';settings.audio_muted_events=Number(settings.audio_muted_events)||0}settings.printer_list_poll_s=Number($('#printer-list-poll').value);settings.camera_mode=$('#camera-mode').value;settings.camera_snapshot_fps=Number($('#camera-snapshot-fps').value);settings.dim_enabled=$('#dim-enabled').value==='1';settings.dim_brightness=Number($('#dim-brightness').value);settings.dim_idle=Number($('#dim-idle').value);settings.dim_active=Number($('#dim-active').value);if(screenSaverOffEdited){settings.off_enabled=true;settings.off_idle=Number($('#off-idle').value);settings.off_active=Number($('#off-active').value);}settings.usb_power_save=$('#usb-power-save').value==='1';settings.wake_on_orientation_change=$('#orientation-wake').value==='1';settings.timezone=$('#timezone').value}
-    function settingsParams(){readSettings();const p=new URLSearchParams({device_name:settings.device_name,brightness:settings.brightness,printer_animations_enabled:settings.printer_animations_enabled?'1':'0',reaction_progress_bar_enabled:settings.reaction_progress_bar_enabled?'1':'0',reaction_progress_percent_enabled:settings.reaction_progress_percent_enabled?'1':'0',theme:settings.theme,timezone:settings.timezone,language:settings.language||currentLanguage,rotation:settings.rotation,audio_enabled:settings.audio_enabled?'1':'0',audio_volume:settings.audio_volume,audio_preset:settings.audio_preset,audio_muted_events:settings.audio_muted_events,printer_list_poll_s:settings.printer_list_poll_s,camera_mode:settings.camera_mode,camera_snapshot_fps:settings.camera_snapshot_fps,dim_enabled:settings.dim_enabled?'1':'0',dim_brightness:settings.dim_brightness,off_enabled:settings.off_enabled?'1':'0',dim_idle:settings.dim_idle,dim_active:settings.dim_active,off_idle:settings.off_idle,off_active:settings.off_active,usb_power_save:settings.usb_power_save?'1':'0',wake_on_orientation_change:settings.wake_on_orientation_change?'1':'0'});Object.entries(settings.custom_theme||{}).forEach(([k,v])=>p.set('color_'+k,hex(v)));return p}
+    function readSettings(){settings.device_name=$('#device-name').value.trim();settings.brightness=Number($('#brightness').value);settings.rotation=$('#rotation').value;settings.printer_animations_enabled=$('#printer-animations-enabled').checked;settings.reaction_progress_bar_enabled=$('#reaction_progress_bar_enabled').checked;settings.reaction_progress_percent_enabled=$('#reaction_progress_percent_enabled').checked;const audioVolume=$('#audio-volume');if(audioVolume){settings.audio_volume=Number(audioVolume.value);settings.audio_enabled=settings.audio_volume>0;settings.audio_preset=$('input[name="audio-preset"]:checked')?.value||'modern';settings.audio_muted_events=$$('[data-audio-mute-bit]').reduce((mask,input)=>input.checked?mask|(1<<Number(input.dataset.audioMuteBit)):mask,0)}else{settings.audio_volume=0;settings.audio_enabled=false;settings.audio_preset=settings.audio_preset||'modern';settings.audio_muted_events=Number(settings.audio_muted_events)||0}settings.printer_list_poll_s=Number($('#printer-list-poll').value);settings.camera_mode=$('#camera-mode').value;settings.camera_snapshot_fps=Number($('#camera-snapshot-fps').value);readPowerSettings();settings.timezone=$('#timezone').value}
+    function settingsParams(){readSettings();const p=new URLSearchParams({device_name:settings.device_name,brightness:settings.brightness,printer_animations_enabled:settings.printer_animations_enabled?'1':'0',reaction_progress_bar_enabled:settings.reaction_progress_bar_enabled?'1':'0',reaction_progress_percent_enabled:settings.reaction_progress_percent_enabled?'1':'0',theme:settings.theme,timezone:settings.timezone,language:settings.language||currentLanguage,rotation:settings.rotation,audio_enabled:settings.audio_enabled?'1':'0',audio_volume:settings.audio_volume,audio_preset:settings.audio_preset,audio_muted_events:settings.audio_muted_events,printer_list_poll_s:settings.printer_list_poll_s,camera_mode:settings.camera_mode,camera_snapshot_fps:settings.camera_snapshot_fps,dim_enabled:settings.dim_enabled?'1':'0',dim_brightness:settings.dim_brightness,off_enabled:settings.off_enabled?'1':'0',dim_idle:settings.dim_idle,dim_active:settings.dim_active,off_idle:settings.off_idle,off_active:settings.off_active,usb_power_save:settings.usb_power_save?'1':'0',wake_on_orientation_change:settings.wake_on_orientation_change?'1':'0'});Object.values(powerNumbers).forEach(key=>p.set(key,String(settings[key])));Object.values(powerSwitches).forEach(key=>p.set(key,settings[key]?'1':'0'));Object.entries(settings.custom_theme||{}).forEach(([k,v])=>p.set('color_'+k,hex(v)));return p}
     async function saveAllSettings(status,silent=false){status.classList.remove('error');if(!silent)status.textContent=translated('Saving your changes…');settingsWrites++;try{const result=await jsonFetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:settingsParams()});settingsDirty=false;if(!silent)status.textContent=result.restart_required?translated('Saved. PrintDeck is restarting to apply this change…'):'';else status.textContent='';return result}catch(e){status.textContent=e.message;status.classList.add('error');return false}finally{settingsWrites--}}
     $$('.language-select').forEach(selector=>selector.addEventListener('change',async event=>{currentLanguage=event.target.value;settings.language=currentLanguage;applyLanguage();wifiForms.forEach(renderWifiScanState);if(reactionData){delete $('#reaction-set-grid').dataset.catalog;paintReactionState()}if('wifi_connected'in health){paintHeaderStatus();paintDeviceHealth()}await saveAllSettings($('#'+event.target.dataset.statusTarget),true)}));
     const deviceNameSlug=value=>value.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[łŁ]/g,'l').replace(/[ß]/g,'ss').replace(/[œŒ]/g,'oe').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     function paintDeviceNameAddress(){const input=$('#device-name'),slug=deviceNameSlug(input?.value.trim()||''),stable=String(health.stable_hostname||health.hostname||'');$('#device-friendly-hostname').textContent=slug?'printdeck-'+slug+'.local':stable||'—';$('#device-ipv4').textContent=health.ipv4||'—'}
     async function saveDeviceName(){const status=$('#device-name-status'),button=$('#device-name-save'),previous=String(settings.device_name||''),name=$('#device-name').value.trim();status.classList.remove('error');if([...name].length>16||new TextEncoder().encode(name).length>64){status.textContent=translated('The device name is too long.');status.classList.add('error');return}button.disabled=true;status.textContent=translated('Saving device name…');settings.device_name=name;const result=await saveAllSettings(status,true);if(!result){settings.device_name=previous;button.disabled=false;return}try{let latest=null;for(let attempt=0;attempt<12;attempt++){latest=await jsonFetch('/api/health');Object.assign(health,latest);if(latest.device_name===name||!name)break;await new Promise(resolve=>setTimeout(resolve,200))}paintDeviceIdentity();paintDeviceNameAddress();status.textContent=translated('Device name saved.');const target=String(latest?.friendly_hostname||''),same=target.replace(/\.$/,'').toLowerCase()===location.hostname.replace(/\.$/,'').toLowerCase();if(target&&!same&&!result.preview){for(let attempt=0;attempt<8;attempt++){try{await fetch('http://'+target+'/api/health',{cache:'no-store',mode:'no-cors'});location.assign('http://'+target+'/'+currentPageHash());return}catch(_){await new Promise(resolve=>setTimeout(resolve,300))}}status.textContent=translated('Device name saved. Use the local address shown above when it becomes available.')}}finally{button.disabled=false}}
     $('#device-name').addEventListener('input',paintDeviceNameAddress);$('#device-name-save').addEventListener('click',saveDeviceName);
-    let reactionSaveQueue=Promise.resolve();function saveReactionSettings(){const status=$('.pane-status',$('.reaction-settings'));reactionSaveQueue=reactionSaveQueue.then(()=>saveAllSettings(status,true));return reactionSaveQueue}let displaySaveQueue=Promise.resolve();function saveDisplaySettings(){const status=$('.pane-status',$('.display-settings'));displaySaveQueue=displaySaveQueue.then(()=>saveAllSettings(status,true));return displaySaveQueue}let soundSaveQueue=Promise.resolve();function saveSoundSettings(){const status=$('.pane-status',$('.sound-settings'));soundSaveQueue=soundSaveQueue.then(()=>saveAllSettings(status,true));return soundSaveQueue}let screenSaverSaveQueue=Promise.resolve();function saveScreenSaverSettings(){const status=$('.pane-status',$('.screen-saver-settings'));screenSaverSaveQueue=screenSaverSaveQueue.then(async()=>{const previous={...settings},revision=screenSaverRevision;const result=await saveAllSettings(status,true);if(!result&&revision===screenSaverRevision){Object.assign(settings,previous);fillScreenSaverSettings(previous)}return result});return screenSaverSaveQueue}$('#brightness').addEventListener('input',paintBrightness);$('#brightness').addEventListener('change',saveDisplaySettings);$('#rotation').addEventListener('change',()=>{paintScreenSaverSettings();saveDisplaySettings()});$('#printer-animations-enabled').addEventListener('change',()=>{paintReactionAvailability();saveReactionSettings()});$('#reaction_progress_bar_enabled').addEventListener('change',saveReactionSettings);$('#reaction_progress_percent_enabled').addEventListener('change',saveReactionSettings);$('#camera-mode').addEventListener('change',paintCameraSettings);$('#audio-volume').addEventListener('input',paintAudio);$('#audio-volume').addEventListener('change',saveSoundSettings);$$('input[name="audio-preset"]').forEach(input=>input.addEventListener('change',saveSoundSettings));$('#audio-mute').addEventListener('click',()=>{const input=$('#audio-volume'),value=Number(input.value)||0;if(value>0){previousAudioVolume=value;input.value=0}else input.value=previousAudioVolume||80;paintAudio();settingsDirty=true;saveSoundSettings()});$$('.screen-saver-settings input,.screen-saver-settings select').forEach(input=>input.addEventListener('change',()=>changeScreenSaverSetting(input)));$('#printer-list-poll').addEventListener('change',()=>saveAllSettings($('#printer-list-status')));$$('.save-settings').forEach(b=>b.addEventListener('click',()=>{const section=b.closest('.settings-pane,.reaction-settings,.display-settings,.sound-settings,.screen-saver-settings');saveAllSettings($('.pane-status',section))}));document.querySelectorAll('.settings-pane input,.settings-pane select,.reaction-settings input,.reaction-settings select,.display-settings input,.display-settings select,.sound-settings input,.sound-settings select,.screen-saver-settings input,.screen-saver-settings select').forEach(el=>el.addEventListener('input',()=>{if(!el.closest('[data-settings-pane=firmware]'))settingsDirty=true}));
+    let reactionSaveQueue=Promise.resolve();function saveReactionSettings(){const status=$('.pane-status',$('.reaction-settings'));reactionSaveQueue=reactionSaveQueue.then(()=>saveAllSettings(status,true));return reactionSaveQueue}let displaySaveQueue=Promise.resolve();function saveDisplaySettings(){const status=$('.pane-status',$('.display-settings'));displaySaveQueue=displaySaveQueue.then(()=>saveAllSettings(status,true));return displaySaveQueue}let soundSaveQueue=Promise.resolve();function saveSoundSettings(){const status=$('.pane-status',$('.sound-settings'));soundSaveQueue=soundSaveQueue.then(()=>saveAllSettings(status,true));return soundSaveQueue}let screenSaverSaveQueue=Promise.resolve();function saveScreenSaverSettings(){const status=$('.pane-status',$('.screen-saver-settings'));screenSaverSaveQueue=screenSaverSaveQueue.then(async()=>{const previous={...settings},revision=screenSaverRevision;const result=await saveAllSettings(status,true);if(!result&&revision===screenSaverRevision){Object.assign(settings,previous);fillScreenSaverSettings(previous)}return result});return screenSaverSaveQueue}['dim','off'].forEach(mode=>$('#'+mode+'-audio').addEventListener('input',()=>paintScreenSaverSettings(false)));$('#brightness').addEventListener('input',paintBrightness);$('#brightness').addEventListener('change',saveDisplaySettings);$('#rotation').addEventListener('change',()=>{paintScreenSaverSettings();saveDisplaySettings()});$('#printer-animations-enabled').addEventListener('change',()=>{paintReactionAvailability();saveReactionSettings()});$('#reaction_progress_bar_enabled').addEventListener('change',saveReactionSettings);$('#reaction_progress_percent_enabled').addEventListener('change',saveReactionSettings);$('#camera-mode').addEventListener('change',paintCameraSettings);$('#audio-volume').addEventListener('input',paintAudio);$('#audio-volume').addEventListener('change',saveSoundSettings);$$('input[name="audio-preset"]').forEach(input=>input.addEventListener('change',saveSoundSettings));$('#audio-mute').addEventListener('click',()=>{const input=$('#audio-volume'),value=Number(input.value)||0;if(value>0){previousAudioVolume=value;input.value=0}else input.value=previousAudioVolume||80;paintAudio();settingsDirty=true;saveSoundSettings()});$$('.screen-saver-settings input,.screen-saver-settings select').forEach(input=>input.addEventListener('change',()=>changeScreenSaverSetting(input)));$('#printer-list-poll').addEventListener('change',()=>saveAllSettings($('#printer-list-status')));$$('.save-settings').forEach(b=>b.addEventListener('click',()=>{const section=b.closest('.settings-pane,.reaction-settings,.display-settings,.sound-settings,.screen-saver-settings');saveAllSettings($('.pane-status',section))}));document.querySelectorAll('.settings-pane input,.settings-pane select,.reaction-settings input,.reaction-settings select,.display-settings input,.display-settings select,.sound-settings input,.sound-settings select,.screen-saver-settings input,.screen-saver-settings select').forEach(el=>el.addEventListener('input',()=>{if(!el.closest('[data-settings-pane=firmware]'))settingsDirty=true}));
     const voiceTestLockMs={startup:2420,print_started:2220,progress_25:5440,progress_50:4960,progress_75:6060,print_paused:2190,print_finished:5060,print_error:3830,hms_alert:3220,filament_attention:2610,shutdown:1470};let audioTestBusy=false;
     async function testAudio(button){if(audioTestBusy)return;const status=$('#audio-test-status'),volume=Number($('#audio-volume').value)||0,preset=$('input[name="audio-preset"]:checked')?.value||'modern';status.classList.remove('error');if(volume<=0){status.textContent=translated('Turn up the sound volume and try again.');status.classList.add('error');return}const buttons=$$('[data-audio-event]'),event=button.dataset.audioEvent,lockMs=preset==='clean'?(voiceTestLockMs[event]||1200):1200,started=performance.now();audioTestBusy=true;buttons.forEach(item=>item.disabled=true);button.classList.add('busy');button.setAttribute('aria-busy','true');status.textContent=translated('Playing sound…');try{await jsonFetch('/api/audio/test',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({preset,event,volume})});const remaining=lockMs-(performance.now()-started);if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));status.textContent=''}catch(e){status.textContent=translated(e.message);status.classList.add('error')}finally{audioTestBusy=false;buttons.forEach(item=>item.disabled=false);button.classList.remove('busy');button.setAttribute('aria-busy','false')}}$$('[data-audio-event]').forEach(button=>button.addEventListener('click',()=>testAudio(button)));
 
@@ -933,7 +1169,7 @@
     }
     function paintConnectedNetwork(){const row=$('#connected-network'),name=$('#connected-network-name'),connected=Boolean(health.wifi_connected&&health.wifi_name);row.hidden=!connected;name.textContent=connected?health.wifi_name:''}
     async function loadDeviceInfo(){clearTimeout(deviceInfoTimer);const pane=$('[data-settings-pane=device]');if(!pane||pane.hidden)return;try{Object.assign(health,await jsonFetch('/api/device'));paintDeviceHealth()}finally{if(!pane.hidden)deviceInfoTimer=setTimeout(()=>loadDeviceInfo().catch(()=>{}),5000)}}
-    async function loadHealth(){clearTimeout(healthTimer);try{const nextHealth=await jsonFetch('/api/health');Object.assign(health,nextHealth);if(settingsWrites===0&&document.activeElement!==$('#device-name')&&health.configured_device_name!==undefined&&settings.device_name!==health.configured_device_name){settings.device_name=health.configured_device_name;$('#device-name').value=settings.device_name}paintDeviceIdentity();paintDeviceNameAddress();applyHardwareSettings();paintScreenSaverSettings();paintDeviceHealth();paintLiveViewDevice();$('#version').textContent='v'+health.version;paintHeaderStatus();paintConnectedNetwork();if(settingsWrites===0&&health.theme!==undefined&&settings.theme!==health.theme){settings.theme=health.theme;paintActiveTheme()}if(settingsWrites===0&&!settingsDirty&&!document.activeElement?.matches('input,select')){let changed=false;for(const k of ['brightness','printer_animations_enabled','reaction_progress_bar_enabled','reaction_progress_percent_enabled','audio_enabled','audio_volume','audio_preset','audio_muted_events','rotation'])if(health[k]!==undefined&&settings[k]!==health[k]){settings[k]=health[k];changed=true}if(changed)fillSettings(settings)}}finally{healthTimer=setTimeout(()=>loadHealth().catch(()=>{}),2000)}}
+    async function loadHealth(){clearTimeout(healthTimer);try{const nextHealth=await jsonFetch('/api/health');Object.assign(health,nextHealth);if(settingsWrites===0&&document.activeElement!==$('#device-name')&&health.configured_device_name!==undefined&&settings.device_name!==health.configured_device_name){settings.device_name=health.configured_device_name;$('#device-name').value=settings.device_name}paintDeviceIdentity();paintDeviceNameAddress();applyHardwareSettings();paintDeviceHealth();paintLiveViewDevice();$('#version').textContent='v'+health.version;paintHeaderStatus();paintConnectedNetwork();if(settingsWrites===0&&health.theme!==undefined&&settings.theme!==health.theme){settings.theme=health.theme;paintActiveTheme()}if(settingsWrites===0&&!settingsDirty&&!document.activeElement?.matches('input,select')){let changed=false;for(const k of [...Object.values(powerNumbers),...Object.values(powerSwitches),'dim_enabled','off_enabled','brightness','printer_animations_enabled','reaction_progress_bar_enabled','reaction_progress_percent_enabled','audio_enabled','audio_volume','audio_preset','audio_muted_events','rotation'])if(health[k]!==undefined&&settings[k]!==health[k]){settings[k]=health[k];changed=true}if(changed)fillSettings(settings)}}finally{healthTimer=setTimeout(()=>loadHealth().catch(()=>{}),2000)}}
 
 
     // Device discovery is only entered by an explicit click. GET polls read the

@@ -129,7 +129,7 @@ void OrientationService::task_loop() {
   std::uint64_t last_recovery_ms = 0;
   std::uint64_t last_read_error_log_ms = 0;
   while (true) {
-    if (mode_.load(std::memory_order_acquire) != kAutomaticMode) {
+    if (power_suspended_.load() || mode_.load(std::memory_order_acquire) != kAutomaticMode) {
       candidate = applied_.load(std::memory_order_acquire);
       candidate_since_ms = now_ms();
       vTaskDelay(pdMS_TO_TICKS(250));

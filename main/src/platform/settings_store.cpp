@@ -195,6 +195,28 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   if (result == ESP_OK) {
     result = read_optional_u8(handle, "orient_wake", wake_on_orientation_change);
   }
+  if (result == ESP_OK && schema >= 12)
+    result = read_optional_u32(handle, "saver_idle", loaded.display_power.screen_saver_timeout_idle_s);
+  if (result == ESP_OK && schema >= 12)
+    result = read_optional_u32(handle, "saver_active", loaded.display_power.screen_saver_timeout_active_s);
+  if (result == ESP_OK && schema >= 13)
+    result = read_optional_u8(handle, "saver_anim", loaded.display_power.screen_saver_animation);
+  if (result == ESP_OK && schema >= 12) {
+    std::uint8_t value = loaded.display_power.usb_power_save_active_enabled ? 1 : 0;
+    result = read_optional_u8(handle, "usb_save_print", value);
+    loaded.display_power.usb_power_save_active_enabled = value != 0;
+  }
+  if (result == ESP_OK && schema >= 12) {
+    std::uint8_t value = loaded.display_power.wake_on_touch ? 1 : 0;
+    result = read_optional_u8(handle, "touch_wake", value);
+    loaded.display_power.wake_on_touch = value != 0;
+  }
+  if (result == ESP_OK && schema >= 12)
+    result = read_optional_u8(handle, "dim_audio", loaded.display_power.dim_audio_percent);
+  if (result == ESP_OK && schema >= 12)
+    result = read_optional_u8(handle, "off_audio", loaded.display_power.off_audio_percent);
+  if (result == ESP_OK && schema >= 12)
+    result = read_optional_u32(handle, "shutdown_s", loaded.display_power.shutdown_timeout_s);
   loaded.display_power.dim_enabled = dim_enabled != 0;
   loaded.display_power.screen_off_enabled = screen_off_enabled != 0;
   loaded.display_power.usb_power_save_enabled = usb_power_save_enabled != 0;
@@ -297,6 +319,14 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   write(nvs_set_u8(handle, "usb_save", settings.display_power.usb_power_save_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "orient_wake",
                    settings.display_power.wake_on_orientation_change ? 1 : 0));
+  write(nvs_set_u32(handle, "saver_idle", settings.display_power.screen_saver_timeout_idle_s));
+  write(nvs_set_u32(handle, "saver_active", settings.display_power.screen_saver_timeout_active_s));
+  write(nvs_set_u8(handle, "saver_anim", settings.display_power.screen_saver_animation));
+  write(nvs_set_u8(handle, "usb_save_print", settings.display_power.usb_power_save_active_enabled ? 1 : 0));
+  write(nvs_set_u8(handle, "touch_wake", settings.display_power.wake_on_touch ? 1 : 0));
+  write(nvs_set_u8(handle, "dim_audio", settings.display_power.dim_audio_percent));
+  write(nvs_set_u8(handle, "off_audio", settings.display_power.off_audio_percent));
+  write(nvs_set_u32(handle, "shutdown_s", settings.display_power.shutdown_timeout_s));
   write(nvs_set_u8(handle, "profiles", static_cast<std::uint8_t>(settings.profiles.size())));
 
   for (std::size_t index = 0; index < settings.profiles.size(); ++index) {

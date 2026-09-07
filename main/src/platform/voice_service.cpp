@@ -314,6 +314,30 @@ void VoiceService::task_loop() {
   bool suppressed_for_playback = false;
   unsigned consecutive_errors = 0;
   while (running_.load()) {
+    if (power_suspended_.load()) {
+      ready_.store(false);
+      esp_codec_dev_close(microphone);
+      deactivate_multinet();
+      if (wakenet_data_ != nullptr) {
+        wakenet->destroy(static_cast<model_iface_data_t*>(wakenet_data_));
+        wakenet_data_ = nullptr;
+      }
+      close_voice_models();
+      while (running_.load() && power_suspended_.load()) vTaskDelay(pdMS_TO_TICKS(250));
+      if (!running_.load()) break;
+      esp_codec_dev_sample_info_t sample{};
+      sample.bits_per_sample = 16;
+      sample.channel = 1;
+      sample.sample_rate = kSampleRate;
+      if (esp_codec_dev_open(microphone, &sample) != ESP_CODEC_DEV_OK ||
+          open_voice_models() != ESP_OK ||
+          !activate_wakenet()) break;
+      esp_codec_dev_set_in_gain(microphone, kMicrophoneGainDb);
+      state = ListenState::wake_word;
+      suppressed_for_playback = false;
+      consecutive_errors = 0;
+      ready_.store(true);
+    }
     const int read_result = esp_codec_dev_read(
         microphone, input, samples * static_cast<int>(sizeof(std::int16_t)));
     if (read_result != ESP_CODEC_DEV_OK) {

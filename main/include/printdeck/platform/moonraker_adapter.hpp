@@ -22,6 +22,7 @@ class MoonrakerAdapter {
   void stop();
   bool running() const { return running_.load(std::memory_order_acquire); }
   void configure(const core::PrinterProfile* selected_profile);
+  void set_preview_requested(bool requested) { preview_requested_.store(requested); }
   core::PrinterSnapshot snapshot() const;
   void snapshot_into(core::PrinterSnapshot& destination) const;
   bool request_chamber_light(bool enabled);
@@ -37,6 +38,10 @@ class MoonrakerAdapter {
   void refresh_job_metadata(const core::PrinterProfile& profile,
                             const std::string& filename);
 
+  void refresh_job_preview(const core::PrinterProfile& profile);
+  std::atomic<bool> preview_requested_{false};
+  bool preview_pending_ = false;
+  std::string cached_thumbnail_path_;
   mutable std::mutex profile_mutex_;
   core::PrinterProfile profile_;
   core::SnapshotStore snapshots_;

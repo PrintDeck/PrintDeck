@@ -17,6 +17,7 @@ class VoiceService {
  public:
   esp_err_t start(AudioService& audio);
   void update_status(const AudioService::SpokenPrintStatus& status);
+  void set_power_suspended(bool suspended) { power_suspended_.store(suspended); }
   bool ready() const { return ready_.load(); }
 
  private:
@@ -46,6 +47,7 @@ class VoiceService {
   void* multinet_data_ = nullptr;
   int frame_samples_ = 0;
   TaskHandle_t task_ = nullptr;
+  std::atomic<bool> power_suspended_{false};
   std::atomic<bool> running_{false};
   std::atomic<bool> ready_{false};
   std::mutex status_mutex_;

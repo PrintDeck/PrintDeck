@@ -1428,6 +1428,30 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   append_json_string(body, current.audio_preset);
   body += ",\"audio_muted_events\":" +
           std::to_string(current.audio_muted_events);
+  body += ",\"dim_enabled\":";
+  body += current.display_power.dim_enabled ? "true" : "false";
+  body += ",\"dim_brightness\":" +
+          std::to_string(current.display_power.dim_brightness_percent);
+  body += ",\"off_enabled\":";
+  body += current.display_power.screen_off_enabled ? "true" : "false";
+  body += ",\"dim_idle\":" + std::to_string(current.display_power.dim_timeout_idle_s);
+  body += ",\"dim_active\":" + std::to_string(current.display_power.dim_timeout_active_s);
+  body += ",\"off_idle\":" + std::to_string(current.display_power.off_timeout_idle_s);
+  body += ",\"off_active\":" + std::to_string(current.display_power.off_timeout_active_s);
+  body += ",\"usb_power_save\":";
+  body += current.display_power.usb_power_save_enabled ? "true" : "false";
+  body += ",\"wake_on_orientation_change\":";
+  body += current.display_power.wake_on_orientation_change ? "true" : "false";
+  body += ",\"saver_idle\":" + std::to_string(current.display_power.screen_saver_timeout_idle_s);
+  body += ",\"saver_active\":" + std::to_string(current.display_power.screen_saver_timeout_active_s);
+  body += ",\"saver_animation\":" + std::to_string(current.display_power.screen_saver_animation);
+  body += ",\"usb_power_save_active\":";
+  body += current.display_power.usb_power_save_active_enabled ? "true" : "false";
+  body += ",\"wake_on_touch\":";
+  body += current.display_power.wake_on_touch ? "true" : "false";
+  body += ",\"dim_audio\":" + std::to_string(current.display_power.dim_audio_percent);
+  body += ",\"off_audio\":" + std::to_string(current.display_power.off_audio_percent);
+  body += ",\"shutdown_s\":" + std::to_string(current.display_power.shutdown_timeout_s);
   body += ",\"power_available\":";
   body += power.available ? "true" : "false";
   body += ",\"battery_present\":";
@@ -1735,6 +1759,16 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   body += current.display_power.usb_power_save_enabled ? "true" : "false";
   body += ",\"wake_on_orientation_change\":";
   body += current.display_power.wake_on_orientation_change ? "true" : "false";
+  body += ",\"saver_idle\":" + std::to_string(current.display_power.screen_saver_timeout_idle_s);
+  body += ",\"saver_active\":" + std::to_string(current.display_power.screen_saver_timeout_active_s);
+  body += ",\"saver_animation\":" + std::to_string(current.display_power.screen_saver_animation);
+  body += ",\"usb_power_save_active\":";
+  body += current.display_power.usb_power_save_active_enabled ? "true" : "false";
+  body += ",\"wake_on_touch\":";
+  body += current.display_power.wake_on_touch ? "true" : "false";
+  body += ",\"dim_audio\":" + std::to_string(current.display_power.dim_audio_percent);
+  body += ",\"off_audio\":" + std::to_string(current.display_power.off_audio_percent);
+  body += ",\"shutdown_s\":" + std::to_string(current.display_power.shutdown_timeout_s);
   body += ",\"custom_theme\":{";
   body += "\"printing\":" + std::to_string(current.custom_theme.printing);
   body += ",\"done\":" + std::to_string(current.custom_theme.done);
@@ -2495,6 +2529,87 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
   candidate.display_power.usb_power_save_enabled = usb_power_save_text == "1";
   candidate.display_power.wake_on_orientation_change =
       wake_on_orientation_change_text == "1";
+  {
+    std::string text;
+    int value = 0;
+    if (form_value(body, "saver_animation", text)) {
+      if (!parse_int(text, value) || value < core::kScreenSaverCircles ||
+          value > core::kScreenSaverGoingToSleep)
+        return send_json(request, "400 Bad Request",
+                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+      candidate.display_power.screen_saver_animation = static_cast<std::uint8_t>(value);
+    }
+  }
+  {
+    std::string text;
+    int value = 0;
+    if (form_value(body, "saver_idle", text)) {
+      if (!parse_int(text, value) || value < 0 || value > 300)
+        return send_json(request, "400 Bad Request",
+                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+      candidate.display_power.screen_saver_timeout_idle_s = static_cast<std::uint32_t>(value);
+    }
+  }
+  {
+    std::string text;
+    int value = 0;
+    if (form_value(body, "saver_active", text)) {
+      if (!parse_int(text, value) || value < 0 || value > 300)
+        return send_json(request, "400 Bad Request",
+                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+      candidate.display_power.screen_saver_timeout_active_s = static_cast<std::uint32_t>(value);
+    }
+  }
+  {
+    std::string text;
+    int value = 0;
+    if (form_value(body, "usb_power_save_active", text)) {
+      if (!parse_int(text, value) || value < 0 || value > 1)
+        return send_json(request, "400 Bad Request",
+                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+      candidate.display_power.usb_power_save_active_enabled = value != 0;
+    }
+  }
+  {
+    std::string text;
+    int value = 0;
+    if (form_value(body, "wake_on_touch", text)) {
+      if (!parse_int(text, value) || value < 0 || value > 1)
+        return send_json(request, "400 Bad Request",
+                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+      candidate.display_power.wake_on_touch = value != 0;
+    }
+  }
+  {
+    std::string text;
+    int value = 0;
+    if (form_value(body, "dim_audio", text)) {
+      if (!parse_int(text, value) || value < 0 || value > 100)
+        return send_json(request, "400 Bad Request",
+                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+      candidate.display_power.dim_audio_percent = static_cast<std::uint8_t>(value);
+    }
+  }
+  {
+    std::string text;
+    int value = 0;
+    if (form_value(body, "off_audio", text)) {
+      if (!parse_int(text, value) || value < 0 || value > 100)
+        return send_json(request, "400 Bad Request",
+                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+      candidate.display_power.off_audio_percent = static_cast<std::uint8_t>(value);
+    }
+  }
+  {
+    std::string text;
+    int value = 0;
+    if (form_value(body, "shutdown_s", text)) {
+      if (!parse_int(text, value) || value < 0 || value > 86400)
+        return send_json(request, "400 Bad Request",
+                         "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+      candidate.display_power.shutdown_timeout_s = static_cast<std::uint32_t>(value);
+    }
+  }
   candidate.theme = std::move(theme);
   candidate.timezone = std::move(timezone);
   candidate.language = std::move(language);

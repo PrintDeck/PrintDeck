@@ -126,11 +126,19 @@ bool add_display_power(cJSON* settings_object, const DisplayPowerPolicy& power) 
          add_number(object, "off_timeout_idle_s", power.off_timeout_idle_s) &&
          add_number(object, "off_timeout_active_s", power.off_timeout_active_s) &&
          add_bool(object, "usb_power_save_enabled", power.usb_power_save_enabled) &&
+         add_number(object, "screen_saver_timeout_idle_s", power.screen_saver_timeout_idle_s) &&
+         add_number(object, "screen_saver_timeout_active_s", power.screen_saver_timeout_active_s) &&
+         add_number(object, "screen_saver_animation", power.screen_saver_animation) &&
+         add_bool(object, "usb_power_save_active_enabled", power.usb_power_save_active_enabled) &&
+         add_bool(object, "wake_on_touch", power.wake_on_touch) &&
+         add_number(object, "dim_audio_percent", power.dim_audio_percent) &&
+         add_number(object, "off_audio_percent", power.off_audio_percent) &&
+         add_number(object, "shutdown_timeout_s", power.shutdown_timeout_s) &&
          add_bool(object, "wake_on_orientation_change", power.wake_on_orientation_change);
 }
 
 bool read_display_power(const cJSON* settings_object, DisplayPowerPolicy& power,
-                        bool required) {
+                        bool required, bool extended_required, bool animation_required) {
   const cJSON* object = item(settings_object, "display_power");
   if (!object) return !required;
   if (!cJSON_IsObject(object)) return false;
@@ -142,12 +150,21 @@ bool read_display_power(const cJSON* settings_object, DisplayPowerPolicy& power,
                        required) &&
          read_unsigned(object, "dim_timeout_active_s", power.dim_timeout_active_s, 3600,
                        required) &&
-         read_unsigned(object, "off_timeout_idle_s", power.off_timeout_idle_s, 3600,
+         read_unsigned(object, "off_timeout_idle_s", power.off_timeout_idle_s, 3610,
                        required) &&
-         read_unsigned(object, "off_timeout_active_s", power.off_timeout_active_s, 3600,
+         read_unsigned(object, "off_timeout_active_s", power.off_timeout_active_s, 3610,
                        required) &&
          read_bool(object, "usb_power_save_enabled", power.usb_power_save_enabled,
                    required) &&
+         read_unsigned(object, "screen_saver_timeout_idle_s", power.screen_saver_timeout_idle_s, 300, extended_required) &&
+         read_unsigned(object, "screen_saver_timeout_active_s", power.screen_saver_timeout_active_s, 300, extended_required) &&
+         read_unsigned(object, "screen_saver_animation", power.screen_saver_animation,
+                       kScreenSaverGoingToSleep, animation_required) &&
+         read_bool(object, "usb_power_save_active_enabled", power.usb_power_save_active_enabled, extended_required) &&
+         read_bool(object, "wake_on_touch", power.wake_on_touch, extended_required) &&
+         read_unsigned(object, "dim_audio_percent", power.dim_audio_percent, 100, extended_required) &&
+         read_unsigned(object, "off_audio_percent", power.off_audio_percent, 100, extended_required) &&
+         read_unsigned(object, "shutdown_timeout_s", power.shutdown_timeout_s, 86400, extended_required) &&
          read_bool(object, "wake_on_orientation_change", power.wake_on_orientation_change,
                    required);
 }
@@ -321,7 +338,7 @@ bool add_settings(cJSON* root, const DeviceSettings& settings) {
 bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings& settings) {
   const cJSON* object = item(root, "settings");
   if (!cJSON_IsObject(object)) return false;
-  const bool required = source_schema >= kSettingsSchemaVersion;
+  const bool required = source_schema >= 11;
   return read_string(object, "wifi_name", settings.wifi_name, 32, required) &&
          read_string(object, "wifi_password", settings.wifi_password, 64, required) &&
          read_profiles(object, settings.profiles, source_schema) &&
@@ -357,7 +374,8 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
                    source_schema >= 9) &&
          read_string(object, "unified_api_token", settings.unified_api_token,
                      kUnifiedApiTokenLength, source_schema >= 9) &&
-         read_display_power(object, settings.display_power, required);
+         read_display_power(object, settings.display_power, required, source_schema >= 12,
+                            source_schema >= 13);
 }
 
 }  // namespace

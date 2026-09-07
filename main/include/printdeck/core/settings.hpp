@@ -11,7 +11,9 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 11;
+constexpr std::uint8_t kSettingsSchemaVersion = 13;
+constexpr std::uint8_t kScreenSaverCircles = 0;
+constexpr std::uint8_t kScreenSaverGoingToSleep = 1;
 constexpr std::size_t kUnifiedApiTokenLength = 67;
 constexpr std::size_t kMaximumDeviceNameCharacters = 16;
 constexpr std::size_t kMaximumDeviceNameBytes = kMaximumDeviceNameCharacters * 4;
@@ -20,28 +22,45 @@ constexpr std::uint16_t kAudioEventMuteMask = (1U << 14U) - 1U;
 struct DisplayPowerPolicy {
   bool dim_enabled = true;
   std::uint8_t dim_brightness_percent = 0;
+  std::uint8_t screen_saver_animation = kScreenSaverCircles;
   bool screen_off_enabled = true;
   std::uint32_t dim_timeout_idle_s = 20;
-  std::uint32_t dim_timeout_active_s = 30;
+  std::uint32_t dim_timeout_active_s = 0;
+  std::uint32_t screen_saver_timeout_idle_s = 60;
+  std::uint32_t screen_saver_timeout_active_s = 0;
   // A zero off timeout keeps the display on in that print state; dimming is independent.
-  std::uint32_t off_timeout_idle_s = 60;
-  std::uint32_t off_timeout_active_s = 120;
+  std::uint32_t off_timeout_idle_s = 120;
+  std::uint32_t off_timeout_active_s = 0;
   bool usb_power_save_enabled = false;
+  bool usb_power_save_active_enabled = false;
   bool wake_on_orientation_change = true;
+  bool wake_on_touch = true;
+  std::uint8_t dim_audio_percent = 80;
+  std::uint8_t off_audio_percent = 20;
+  std::uint32_t shutdown_timeout_s = 0;
 
-  // 0 = normal brightness, 1 = dimmed, 2 = fully off.
+  // Every enabled stage is timed from the same last interaction. Zero skips it.
+  // 0 = normal brightness, 1 = dimmed, 2 = fully off, 3 = screen saver.
   int mode_after_inactivity(std::uint64_t idle_ms, bool print_active) const {
     const std::uint64_t dim_at = 1000ULL *
         (print_active ? dim_timeout_active_s : dim_timeout_idle_s);
-    std::uint64_t off_at = 1000ULL *
+    const std::uint64_t saver_at = 1000ULL *
+        (print_active ? screen_saver_timeout_active_s : screen_saver_timeout_idle_s);
+    const std::uint64_t off_at = 1000ULL *
         (print_active ? off_timeout_active_s : off_timeout_idle_s);
     const bool off_enabled = screen_off_enabled && off_at > 0;
-    if (dim_enabled && off_enabled && off_at <= dim_at) {
-      off_at = dim_at + 10'000;
-    }
     if (off_enabled && idle_ms >= off_at) return 2;
-    if (dim_enabled && idle_ms >= dim_at) return 1;
+    if (saver_at > 0 && idle_ms >= saver_at) return 3;
+    if (dim_enabled && dim_at > 0 && idle_ms >= dim_at) return 1;
     return 0;
+  }
+  bool apply_on_usb(bool print_active) const {
+    return print_active ? usb_power_save_active_enabled : usb_power_save_enabled;
+  }
+  bool timers_allowed(bool on_battery, bool detects_power_source,
+                      bool print_active) const {
+    // Boards without source detection apply their timers on any supply.
+    return !detects_power_source || on_battery || apply_on_usb(print_active);
   }
 };
 

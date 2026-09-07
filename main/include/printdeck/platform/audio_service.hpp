@@ -68,6 +68,7 @@ class AudioService {
                   std::uint16_t muted_events);
   void set_enabled(bool enabled);
   void set_volume(int percent);
+  void set_display_volume_scale(int percent) { display_volume_scale_.store(percent); }
   void set_preset(Preset preset);
   void set_muted_events(std::uint16_t muted_events);
   void set_language(std::string_view language);
@@ -122,6 +123,7 @@ class AudioService {
 
   std::atomic<bool> enabled_{true};
   std::atomic<int> volume_{60};
+  std::atomic<int> display_volume_scale_{100};
   std::atomic<Preset> preset_{Preset::modern};
   std::atomic<std::uint16_t> muted_events_{0};
   std::atomic<std::uint8_t> language_{0};

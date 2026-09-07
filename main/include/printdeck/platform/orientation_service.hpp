@@ -19,6 +19,7 @@ class OrientationService {
                   int initial_auto_rotation,
                   RotationFeedback feedback = nullptr, void* feedback_context = nullptr);
   esp_err_t configure(const std::string& mode);
+  void set_power_suspended(bool suspended) { power_suspended_.store(suspended); }
 
  private:
   static void task_entry(void* context);
@@ -28,6 +29,7 @@ class OrientationService {
   DisplayShell* display_ = nullptr;
   void* sensor_ = nullptr;
   TaskHandle_t task_ = nullptr;
+  std::atomic<bool> power_suspended_{false};
   std::atomic<int> mode_{0};
   std::atomic<int> applied_{0};
   std::mutex mode_mutex_;

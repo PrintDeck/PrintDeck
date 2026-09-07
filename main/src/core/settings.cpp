@@ -271,6 +271,36 @@ bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
       profile.http_password.clear();
     }
   }
+  if (source_schema < 12) {
+    auto& power = settings.display_power;
+    // Existing installations keep their selected timers and USB behaviour.
+    // The new animation is opt-in for migrated settings, enabled on first setup.
+    power.screen_saver_timeout_idle_s = 0;
+    power.screen_saver_timeout_active_s = 0;
+    power.usb_power_save_active_enabled = power.usb_power_save_enabled;
+    power.wake_on_touch = true;
+    power.dim_audio_percent = 100;
+    power.off_audio_percent = 100;
+    power.shutdown_timeout_s = 0;
+    if (!power.dim_enabled) {
+      power.dim_timeout_idle_s = 0;
+      power.dim_timeout_active_s = 0;
+    }
+    if (!power.screen_off_enabled) {
+      power.off_timeout_idle_s = 0;
+      power.off_timeout_active_s = 0;
+    }
+    // Earlier firmware silently delayed off by ten seconds when dim >= off.
+    // Persist that effective value once instead of retaining hidden arithmetic.
+    const auto preserve_off = [&](std::uint32_t dim, std::uint32_t& off) {
+      if (power.dim_enabled && dim > 0 && off > 0 && off <= dim)
+        off = dim + 10;
+    };
+    preserve_off(power.dim_timeout_idle_s, power.off_timeout_idle_s);
+    preserve_off(power.dim_timeout_active_s, power.off_timeout_active_s);
+  }
+  if (source_schema < 13)
+    settings.display_power.screen_saver_animation = kScreenSaverCircles;
   return true;
 }
 
@@ -334,18 +364,42 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
                       "Inactive printer refresh must be off or 30, 60, 180 or 300 seconds"});
   }
   const DisplayPowerPolicy& power = settings.display_power;
+  if (power.screen_saver_animation > kScreenSaverGoingToSleep) {
+    issues.push_back({"display_power.screen_saver_animation",
+                      "Unsupported screen saver animation"});
+  }
   if (power.dim_brightness_percent > 100) {
     issues.push_back({"display_power.dim_brightness_percent",
                       "Dim brightness must be automatic or between 1 and 100"});
   }
   const auto valid_timeout = [](std::uint32_t seconds) {
-    return seconds > 0 && seconds <= 3600;
+    return seconds <= 3600;
   };
   if (!valid_timeout(power.dim_timeout_idle_s) ||
       !valid_timeout(power.dim_timeout_active_s) ||
-      power.off_timeout_idle_s > 3600 ||
-      power.off_timeout_active_s > 3600) {
-    issues.push_back({"display_power", "Dim timeouts must be 1 to 3600 seconds; off timeouts must be 0 to 3600 seconds"});
+      power.off_timeout_idle_s > 3610 ||
+      power.off_timeout_active_s > 3610 ||
+      power.screen_saver_timeout_idle_s > 300 ||
+      power.screen_saver_timeout_active_s > 300 ||
+      power.dim_audio_percent > 100 || power.off_audio_percent > 100) {
+    issues.push_back({"display_power", "Screen saver settings are outside the supported range"});
+  }
+  const auto ordered = [&](std::uint32_t dim, std::uint32_t saver, std::uint32_t off) {
+    if (!power.dim_enabled) dim = 0;
+    if (!power.screen_off_enabled) off = 0;
+    return (saver == 0 || dim == 0 || saver > dim) &&
+           (off == 0 || ((dim == 0 || off > dim) && (saver == 0 || off > saver)));
+  };
+  if (!ordered(power.dim_timeout_idle_s, power.screen_saver_timeout_idle_s,
+               power.off_timeout_idle_s) ||
+      !ordered(power.dim_timeout_active_s, power.screen_saver_timeout_active_s,
+               power.off_timeout_active_s)) {
+    issues.push_back({"display_power", "Each display timer must be later than the previous enabled stage"});
+  }
+  const auto shutdown = power.shutdown_timeout_s;
+  if (shutdown != 0 && shutdown != 3600 && shutdown != 7200 && shutdown != 10800 &&
+      shutdown != 18000 && shutdown != 28800 && shutdown != 43200 && shutdown != 86400) {
+    issues.push_back({"display_power", "Choose a supported automatic shutdown time"});
   }
 
   std::unordered_set<std::uint32_t> ids;

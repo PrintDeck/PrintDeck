@@ -538,6 +538,10 @@ bool MoonrakerAdapter::poll(const core::PrinterProfile& profile) {
     return false;
   }
 
+  if (!preview_requested_.load() && cached_preview_) {
+    cached_preview_.reset();
+    preview_pending_ = !cached_metadata_filename_.empty();
+  }
   const auto context = [this]() {
     const core::PrinterSnapshot previous = snapshots_.read();
     return MoonrakerStatusParseContext{
@@ -565,6 +569,10 @@ bool MoonrakerAdapter::poll(const core::PrinterProfile& profile) {
       publish(core::LinkState::failed, "Klipper status could not be decoded");
       return false;
     }
+  }
+  if (preview_requested_.load() && preview_pending_) {
+    refresh_job_preview(profile);
+    parsed.snapshot.job.preview = cached_preview_;
   }
   if (parsed.snapshot.job.chamber_light_supported &&
       !parsed.snapshot.job.chamber_light_pending) {
@@ -596,6 +604,8 @@ bool MoonrakerAdapter::send_chamber_light(const core::PrinterProfile& profile,
 
 void MoonrakerAdapter::refresh_job_metadata(const core::PrinterProfile& profile,
                                             const std::string& filename) {
+  cached_thumbnail_path_.clear();
+  preview_pending_ = !filename.empty();
   cached_metadata_filename_ = filename;
   cached_preview_.reset();
   cached_estimated_seconds_ = 0;
@@ -633,15 +643,24 @@ void MoonrakerAdapter::refresh_job_metadata(const core::PrinterProfile& profile,
     }
   }
 
+  cached_thumbnail_path_ = std::move(thumbnail_path);
+}
+
+void MoonrakerAdapter::refresh_job_preview(const core::PrinterProfile& profile) {
+  if (!preview_requested_.load()) return;
+  preview_pending_ = false;
+  const auto& thumbnail_path = cached_thumbnail_path_;
+  const auto& filename = cached_metadata_filename_;
+  if (filename.empty()) return;
   if (!thumbnail_path.empty()) {
     std::string image;
     const std::string image_path =
         "/server/files/gcodes/" + url_encode(thumbnail_path, true);
     if (http_request(profile, image_path.c_str(), HTTP_METHOD_GET, &image,
                      kMaximumThumbnailBytes, nullptr, "image/png") &&
-        is_png(image)) {
+        preview_requested_.load() && is_png(image)) {
       cached_preview_ = std::make_shared<std::vector<std::uint8_t>>(image.begin(), image.end());
-      ESP_LOGI(kLogTag, "Loaded Moonraker thumbnail (%u px, %u bytes)", best_width,
+      ESP_LOGI(kLogTag, "Loaded Moonraker thumbnail (%u bytes)",
                static_cast<unsigned>(cached_preview_->size()));
     }
     return;
@@ -653,6 +672,7 @@ void MoonrakerAdapter::refresh_job_metadata(const core::PrinterProfile& profile,
   const std::string gcode_path = "/server/files/gcodes/" + url_encode(filename, true);
   if (http_request(profile, gcode_path.c_str(), HTTP_METHOD_GET, &header,
                    kMaximumGcodeHeaderBytes, "bytes=0-262143", "application/octet-stream")) {
+    if (!preview_requested_.load()) return;
     cached_preview_ = extract_embedded_png(header);
     if (cached_preview_) {
       ESP_LOGI(kLogTag, "Loaded embedded Moonraker thumbnail (%u bytes)",

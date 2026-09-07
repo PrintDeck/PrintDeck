@@ -18,6 +18,7 @@ inline constexpr bool kDisplayIsRound = true;
 inline constexpr bool kDisplayUsesCompactLayout = true;
 inline constexpr bool kDisplayRequiresEvenInvalidation = false;
 inline constexpr bool kBoardHasAudio = false;
+inline constexpr bool kBoardHasPowerSourceDetection = false;
 inline constexpr char kBoardVariant[] = "knomi2";
 inline constexpr char kFirmwareStableChannel[] = "knomi2";
 inline constexpr char kFirmwareOtaAssetPrefix[] = "printdeck_knomi2_ota-";
@@ -31,6 +32,7 @@ inline constexpr bool kDisplayIsRound = false;
 inline constexpr bool kDisplayUsesCompactLayout = true;
 inline constexpr bool kDisplayRequiresEvenInvalidation = false;
 inline constexpr bool kBoardHasAudio = true;
+inline constexpr bool kBoardHasPowerSourceDetection = true;
 inline constexpr char kBoardVariant[] = "lcd_1_54";
 // Keep this flash layout on its own update channel and release asset family so
 // an application-only image is never offered to an incompatible partition map.
@@ -47,6 +49,7 @@ inline constexpr bool kDisplayIsRound = true;
 inline constexpr bool kDisplayUsesCompactLayout = false;
 inline constexpr bool kDisplayRequiresEvenInvalidation = true;
 inline constexpr bool kBoardHasAudio = true;
+inline constexpr bool kBoardHasPowerSourceDetection = true;
 inline constexpr char kBoardVariant[] = "amoled_1_75";
 // Keep this flash layout on its own update channel and release asset family so
 // an application-only image is never offered to an incompatible partition map.

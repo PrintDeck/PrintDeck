@@ -714,6 +714,7 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   const PlaybackControl control{playback_generation_, generation};
   if (control.cancelled()) return;
   if (!force && !enabled_.load()) return;
+  if (!force) requested_volume = requested_volume * display_volume_scale_.load() / 100;
   auto codec = static_cast<esp_codec_dev_handle_t>(codec_);
   if (requested_volume <= 0) return;
   write_silence(codec, 320);
@@ -775,6 +776,7 @@ void AudioService::play_voice_now(RequestKind kind, const SpokenPrintStatus& sta
 #if defined(PRINTDECK_LOCAL_VOICE)
   const PlaybackControl control{playback_generation_, generation};
   if (control.cancelled() || !enabled_.load()) return;
+  volume = volume * display_volume_scale_.load() / 100;
   auto codec = static_cast<esp_codec_dev_handle_t>(codec_);
   if (codec == nullptr || volume <= 0) return;
   const auto say = [&](const std::uint8_t* begin, const std::uint8_t* end) {
