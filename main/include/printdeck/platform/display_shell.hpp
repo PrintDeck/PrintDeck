@@ -75,7 +75,6 @@ class DisplayShell {
   void set_printer_animations_enabled(bool enabled);
   void set_reaction_progress_visibility(bool bar_enabled, bool percent_enabled);
   void set_reaction_asset_service(ReactionAssetService* service);
-  void focus_printer_reactions_if_dashboard_visible();
   void set_power_save_policy(const core::DisplayPowerPolicy& policy);
   void set_theme(std::string_view theme, const core::ThemeColors& custom);
   void set_brightness_changed_callback(BrightnessChanged callback, void* context);
@@ -447,6 +446,7 @@ class DisplayShell {
   std::string update_detail_;
   int update_progress_percent_ = 0;
   int update_state_ = 0;
+  bool update_factory_required_ = false;
   bool update_available_ = false;
   bool update_busy_ = false;
   bool update_overlay_manually_opened_ = false;

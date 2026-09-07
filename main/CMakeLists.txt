@@ -1,7 +1,10 @@
 # Clear the retired private test option from persistent development caches.
 unset(PRINTDECK_ANYCUBIC_TEST_CONFIG CACHE)
 
+include("${CMAKE_CURRENT_LIST_DIR}/generated/compressed-montserrat/manifest.cmake")
+
 set(PRINTDECK_SRCS
+        ${PRINTDECK_COMPRESSED_FONT_SRCS}
         "app_main.cpp"
         "src/core/configuration_backup.cpp"
         "src/core/compressed_resource.cpp"
@@ -44,6 +47,8 @@ set(PRINTDECK_SRCS
         "src/platform/inactive_printer_poller.cpp"
         "src/platform/printer_discovery_service.cpp"
         "src/platform/firmware_update_service.cpp"
+        "src/platform/firmware_identity.cpp"
+        "src/platform/compressed_font.cpp"
         "src/platform/bambu_lan_adapter.cpp"
         "src/platform/bambu_model.cpp"
         "src/platform/bambu_report_parser.cpp"
@@ -98,6 +103,15 @@ else()
     list(APPEND PRINTDECK_BOARD_REQUIRES
         waveshare__esp32_s3_touch_amoled_1_75
     )
+endif()
+
+# Share one speech implementation, model binding and compressed audio bank.
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+    list(APPEND PRINTDECK_SRCS
+        "src/platform/voice_service.cpp"
+        "src/platform/voice_model_store.cpp")
+    list(APPEND PRINTDECK_BOARD_REQUIRES espressif__esp-sr)
+    include("${CMAKE_CURRENT_LIST_DIR}/audio/voice_en/compressed/manifest.cmake")
 endif()
 
 # KNOMI2 has no speaker; keep audio settings but omit playback and its assets.
@@ -156,6 +170,7 @@ idf_component_register(
     SRCS ${PRINTDECK_SRCS}
     INCLUDE_DIRS "include"
     EMBED_FILES
+        ${PRINTDECK_VOICE_ASSETS}
         ${PRINTDECK_COMPRESSED_DEVICE_FILES}
         ${PRINTDECK_COMPRESSED_AUDIO_FILES}
         ${PRINTDECK_COMPRESSED_WEB_FILES}
@@ -195,6 +210,18 @@ idf_component_register(
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE PRINTDECK_VERSION="${PROJECT_VER}")
+idf_build_get_property(build_dir BUILD_DIR)
+set(layout_header "${CMAKE_CURRENT_BINARY_DIR}/printdeck_layout.hpp")
+add_custom_command(OUTPUT "${layout_header}"
+    COMMAND ${CMAKE_COMMAND}
+        "-DPARTITION_TABLE=${build_dir}/partition_table/partition-table.bin"
+        "-DOUTPUT=${layout_header}" -P "${CMAKE_CURRENT_LIST_DIR}/firmware_layout.cmake"
+    DEPENDS partition_table "${build_dir}/partition_table/partition-table.bin"
+        "${CMAKE_CURRENT_LIST_DIR}/firmware_layout.cmake")
+target_sources(${COMPONENT_LIB} PRIVATE "${layout_header}")
+target_include_directories(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+target_compile_definitions(${COMPONENT_LIB} PRIVATE PRINTDECK_IDENTITY_TARGET="${PRINTDECK_HW_VARIANT}")
+target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,-u,printdeck_firmware_identity")
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_KNOMI2=1)
 elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
@@ -202,4 +229,14 @@ elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
 else()
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_AMOLED_1_75=1)
 endif()
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_LOCAL_VOICE=1)
+    target_link_libraries(${COMPONENT_LIB} INTERFACE
+        "-Wl,--wrap=esp_mn_handle_from_name"
+        "-Wl,--wrap=get_static_srmodels"
+        "-Wl,--wrap=get_model_base_path")
+endif()
+foreach(font_size 12 14 16 24 32)
+    target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=lv_font_montserrat_${font_size}")
+endforeach()
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Wpedantic)

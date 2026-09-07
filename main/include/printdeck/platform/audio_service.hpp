@@ -24,6 +24,27 @@ class AudioService {
     clean,
   };
 
+#if defined(PRINTDECK_LOCAL_VOICE)
+  enum class SpokenResponse : std::uint8_t {
+    status,
+    remaining_time,
+    completion_time,
+  };
+
+  struct SpokenPrintStatus {
+    bool printer_available = false;
+    bool print_active = false;
+    bool timing_available = false;
+    bool eta_available = false;
+    std::uint8_t completion_percent = 0;
+    std::uint8_t eta_hour = 0;
+    std::uint8_t eta_minute = 0;
+    std::uint32_t elapsed_seconds = 0;
+    std::uint32_t remaining_seconds = 0;
+  };
+
+#endif
+
   enum class Event : std::uint8_t {
     startup,
     navigation,
@@ -58,9 +79,26 @@ class AudioService {
   bool play(Event event, CompletionCallback completion, void* context);
   bool play(Event event, Preset preset);
   bool preview(Event event, Preset preset, int volume_percent);
+#if defined(PRINTDECK_LOCAL_VOICE)
+  std::uint32_t acknowledge_voice_command();
+  std::uint32_t speak_print_status(const SpokenPrintStatus& status,
+                                   SpokenResponse response);
+  bool voice_request_complete(std::uint32_t ticket) const;
+  bool playback_active() const { return playback_active_.load(); }
+#endif
   static bool preset_from_id(std::string_view id, Preset& preset);
 
  private:
+#if defined(PRINTDECK_LOCAL_VOICE)
+  enum class RequestKind : std::uint8_t {
+    event,
+    voice_acknowledgement,
+    voice_status,
+    voice_remaining_time,
+    voice_completion_time,
+  };
+
+#endif
   struct Request {
     Event event;
     Preset preset;
@@ -70,6 +108,11 @@ class AudioService {
     CompletionCallback completion;
     void* completion_context;
     std::uint32_t generation;
+#if defined(PRINTDECK_LOCAL_VOICE)
+    RequestKind kind = RequestKind::event;
+    std::uint32_t ticket = 0;
+    SpokenPrintStatus status{};
+#endif
   };
 
   static void task_entry(void* context);
@@ -84,6 +127,14 @@ class AudioService {
   std::atomic<std::uint8_t> language_{0};
   std::atomic<bool> preview_busy_{false};
   std::atomic<std::uint32_t> playback_generation_{0};
+#if defined(PRINTDECK_LOCAL_VOICE)
+  void play_voice_now(RequestKind kind, const SpokenPrintStatus& status, int volume,
+                      std::uint32_t generation);
+  std::uint32_t queue_voice(RequestKind kind, const SpokenPrintStatus& status);
+  std::atomic<std::uint32_t> next_voice_ticket_{1};
+  std::atomic<std::uint32_t> completed_voice_ticket_{0};
+  std::atomic<bool> playback_active_{false};
+#endif
   QueueHandle_t queue_ = nullptr;
   TaskHandle_t task_ = nullptr;
   void* codec_ = nullptr;

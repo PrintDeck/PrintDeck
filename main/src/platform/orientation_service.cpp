@@ -3,6 +3,7 @@
 
 #include <cmath>
 
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "printdeck/platform/board.hpp"
@@ -98,8 +99,15 @@ esp_err_t OrientationService::start_auto_tracking() {
   }
   qmi8658_set_accel_unit_mps2(sensor, true);
   sensor_ = sensor;
-  if (xTaskCreatePinnedToCore(task_entry, "orientation", 3072, this, 3, &task_,
-                              kServiceCore) != pdPASS) {
+#if defined(PRINTDECK_LOCAL_VOICE)
+  const BaseType_t task_result = xTaskCreatePinnedToCoreWithCaps(
+      task_entry, "orientation", 3072, this, 3, &task_, kServiceCore,
+      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+#else
+  const BaseType_t task_result = xTaskCreatePinnedToCore(
+      task_entry, "orientation", 3072, this, 3, &task_, kServiceCore);
+#endif
+  if (task_result != pdPASS) {
     delete sensor;
     sensor_ = nullptr;
     return ESP_ERR_NO_MEM;

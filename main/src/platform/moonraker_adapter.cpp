@@ -371,6 +371,7 @@ void MoonrakerAdapter::task_loop() {
       chamber_light_deadline_ms_.store(0);
       has_print_task_config_ = false;
       has_machine_state_manager_ = false;
+      has_bed_mesh_ = false;
       core::PrinterSnapshot fresh;
       fresh.profile_id = current.id;
       fresh.link = current.id == 0 ? core::LinkState::stopped : core::LinkState::connecting;
@@ -419,6 +420,7 @@ void MoonrakerAdapter::task_loop() {
   active_profile_id_ = 0;
   has_print_task_config_ = false;
   has_machine_state_manager_ = false;
+  has_bed_mesh_ = false;
   {
     const std::lock_guard<std::mutex> lock(profile_mutex_);
     profile_ = {};
@@ -442,6 +444,7 @@ bool MoonrakerAdapter::discover_printer(const core::PrinterProfile& profile) {
   chamber_light_channels_ = 0;
   has_print_task_config_ = false;
   has_machine_state_manager_ = false;
+  has_bed_mesh_ = false;
   std::vector<std::string> object_names;
   const int count = cJSON_GetArraySize(objects);
   for (int index = 0; index < count; ++index) {
@@ -461,6 +464,7 @@ bool MoonrakerAdapter::discover_printer(const core::PrinterProfile& profile) {
     }
     if (name == "print_task_config") has_print_task_config_ = true;
     if (name == "machine_state_manager") has_machine_state_manager_ = true;
+    if (name == "bed_mesh") has_bed_mesh_ = true;
   }
   chamber_light_ = discover_moonraker_light(object_names);
   if (chamber_light_.kind == MoonrakerLightKind::led) {
@@ -524,6 +528,7 @@ bool MoonrakerAdapter::poll(const core::PrinterProfile& profile) {
   }
   if (has_print_task_config_) query += "&print_task_config";
   if (has_machine_state_manager_) query += "&machine_state_manager";
+  if (has_machine_state_manager_ && has_bed_mesh_) query += "&bed_mesh=progress";
   if (chamber_light_.kind != MoonrakerLightKind::none) {
     query += "&" + url_encode(chamber_light_.object_name, false);
   }

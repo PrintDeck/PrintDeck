@@ -529,12 +529,14 @@ int board_display_brightness_get() { return s_brightness; }
 
 bool board_touch_interrupt_active() { return gpio_get_level(kTouchInterrupt) == 0; }
 
-esp_codec_dev_handle_t board_audio_codec_speaker_init() {
+namespace {
+
+bool audio_data_init() {
   if (s_audio_data == nullptr) {
-    if (board_i2c_init() != ESP_OK) return nullptr;
+    if (board_i2c_init() != ESP_OK) return false;
     i2s_chan_config_t channel_config = I2S_CHANNEL_DEFAULT_CONFIG(kI2sPort, I2S_ROLE_MASTER);
     channel_config.auto_clear = true;
-    if (i2s_new_channel(&channel_config, &s_i2s_tx, &s_i2s_rx) != ESP_OK) return nullptr;
+    if (i2s_new_channel(&channel_config, &s_i2s_tx, &s_i2s_rx) != ESP_OK) return false;
     const i2s_std_config_t i2s_config = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(16000),
         .slot_cfg = I2S_STD_PHILIP_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
@@ -552,7 +554,7 @@ esp_codec_dev_handle_t board_audio_codec_speaker_init() {
         i2s_channel_init_std_mode(s_i2s_rx, &i2s_config) != ESP_OK ||
         i2s_channel_enable(s_i2s_tx) != ESP_OK ||
         i2s_channel_enable(s_i2s_rx) != ESP_OK) {
-      return nullptr;
+      return false;
     }
     audio_codec_i2s_cfg_t data_config = {
         .port = kI2sPort,
@@ -560,8 +562,16 @@ esp_codec_dev_handle_t board_audio_codec_speaker_init() {
         .tx_handle = s_i2s_tx,
     };
     s_audio_data = audio_codec_new_i2s_data(&data_config);
-    if (s_audio_data == nullptr) return nullptr;
+    if (s_audio_data == nullptr) return false;
   }
+
+  return true;
+}
+
+}  // namespace
+
+esp_codec_dev_handle_t board_audio_codec_speaker_init() {
+  if (!audio_data_init()) return nullptr;
 
   const audio_codec_gpio_if_t* gpio = audio_codec_new_gpio();
   audio_codec_i2c_cfg_t control_config = {
@@ -596,6 +606,38 @@ esp_codec_dev_handle_t board_audio_codec_speaker_init() {
       .data_if = s_audio_data,
   };
   return esp_codec_dev_new(&device_config);
+}
+
+esp_codec_dev_handle_t board_audio_codec_microphone_init() {
+  if (!audio_data_init()) return nullptr;
+  // The LCD board uses ES7210 for input and ES8311 for output on the same
+  // duplex I2S bus. Match the Waveshare reference's default MIC1/MIC2 selection;
+  // the voice worker opens the input as 16 kHz, 16-bit mono.
+  audio_codec_i2c_cfg_t control_config = {
+      .port = kI2cPort,
+      .addr = ES7210_CODEC_DEFAULT_ADDR,
+      .bus_handle = s_i2c,
+  };
+  const audio_codec_ctrl_if_t* control = audio_codec_new_i2c_ctrl(&control_config);
+  if (control == nullptr) return nullptr;
+  es7210_codec_cfg_t codec_config{};
+  codec_config.ctrl_if = control;
+  const audio_codec_if_t* codec = es7210_codec_new(&codec_config);
+  if (codec == nullptr) {
+    audio_codec_delete_ctrl_if(control);
+    return nullptr;
+  }
+  esp_codec_dev_cfg_t device_config = {
+      .dev_type = ESP_CODEC_DEV_TYPE_IN,
+      .codec_if = codec,
+      .data_if = s_audio_data,
+  };
+  esp_codec_dev_handle_t microphone = esp_codec_dev_new(&device_config);
+  if (microphone == nullptr) {
+    audio_codec_delete_codec_if(codec);
+    audio_codec_delete_ctrl_if(control);
+  }
+  return microphone;
 }
 
 }  // namespace printdeck::platform

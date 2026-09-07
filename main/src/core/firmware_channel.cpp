@@ -120,4 +120,93 @@ std::optional<FirmwareChannel> parse_firmware_channel(
   return result;
 }
 
+
+std::optional<FirmwareOffer> select_firmware_offer(
+    std::string_view json, std::string_view target,
+    std::string_view installed_version, std::string_view installed_layout) {
+  const auto current = parse_firmware_version(installed_version);
+  if (!current || json.size() > 16384) return std::nullopt;
+  // Bound parser recursion before cJSON allocates or uses the OTA worker stack.
+  int depth = 0;
+  bool quoted = false, escaped = false;
+  for (const char c : json) {
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (c == '\\') escaped = true;
+      else if (c == '"') quoted = false;
+    } else if (c == '"') quoted = true;
+    else if (c == '{' || c == '[') { if (++depth > 4) return std::nullopt; }
+    else if (c == '}' || c == ']') { if (--depth < 0) return std::nullopt; }
+  }
+  if (depth != 0 || quoted) return std::nullopt;
+  const char* end = nullptr;
+  cJSON* root = cJSON_ParseWithLengthOpts(json.data(), json.size(), &end, false);
+  struct Cleanup { cJSON* root; ~Cleanup() { cJSON_Delete(root); } } cleanup{root};
+  auto field = [](const cJSON* object, const char* key) {
+    return cJSON_GetObjectItemCaseSensitive(object, key);
+  };
+  auto string = [&](const cJSON* object, const char* key) -> std::string_view {
+    const auto* value = field(object, key);
+    return cJSON_IsString(value) ? value->valuestring : "";
+  };
+  auto digest = [](std::string_view value) {
+    if (value.size() != 64) return false;
+    for (char c : value) if (hex_value(c) < 0) return false;
+    return true;
+  };
+  auto unique_fields = [](const cJSON* object) {
+    if (!cJSON_IsObject(object)) return false;
+    for (const cJSON* a = object->child; a; a = a->next)
+      for (const cJSON* b = a->next; b; b = b->next)
+        if (std::string_view(a->string) == b->string) return false;
+    return true;
+  };
+  const auto* schema = field(root, "schema");
+  const auto* latest = field(root, "latest");
+  const auto* boundaries = field(root, "factory_releases");
+  const auto latest_version = parse_firmware_version(string(latest, "version"));
+  if (!unique_fields(root) || !unique_fields(latest) || !only_trailing_whitespace(end, json.data() + json.size()) ||
+      !cJSON_IsNumber(schema) || schema->valuedouble != 2 ||
+      string(root, "target") != target || !latest_version ||
+      !digest(string(latest, "layout")) || !digest(string(latest, "sha256")) ||
+      !valid_https_url(field(latest, "url")) || !cJSON_IsArray(boundaries) ||
+      cJSON_GetArraySize(boundaries) > 32) return std::nullopt;
+  FirmwareOffer offer;
+  offer.release.version = string(latest, "version");
+  offer.release.url = string(latest, "url");
+  offer.layout = string(latest, "layout");
+  const auto hash = string(latest, "sha256");
+  for (std::size_t i = 0; i < 32; ++i)
+    offer.release.sha256[i] = (hex_value(hash[i * 2]) << 4) | hex_value(hash[i * 2 + 1]);
+  const cJSON* selected = nullptr;
+  const cJSON* last_boundary = nullptr;
+  std::optional<FirmwareVersion> previous;
+  const cJSON* item = nullptr;
+  cJSON_ArrayForEach(item, boundaries) {
+    const auto version = parse_firmware_version(string(item, "version"));
+    if (!unique_fields(item) || !version || *version > *latest_version || (previous && *version <= *previous) ||
+        !digest(string(item, "layout")) ||
+        !valid_https_url(field(item, "install_manifest"))) return std::nullopt;
+    previous = version;
+    last_boundary = item;
+    if (*version > *current) selected = item;
+  }
+  if (last_boundary && string(last_boundary, "layout") != offer.layout)
+    return std::nullopt;
+  // A development/newer installed build must never be offered a downgrade.
+  if (*current > *latest_version) return offer;
+  if (!selected && offer.layout != installed_layout) selected = last_boundary;
+  if (selected) {
+    offer.release.version = string(selected, "version");
+    offer.layout = string(selected, "layout");
+    offer.release.url.clear();
+    offer.release.sha256 = {};
+    offer.factory_required = true;
+  } else if (offer.layout != installed_layout) {
+    // Incomplete migration metadata must never enable OTA.
+    return std::nullopt;
+  }
+  return offer;
+}
+
 }  // namespace printdeck::core

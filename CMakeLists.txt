@@ -57,6 +57,12 @@ endif()
 message(STATUS "PrintDeck ${PRINTDECK_HW_VARIANT} version: ${PROJECT_VER}")
 message(STATUS "PrintDeck reaction seed: ${PRINTDECK_REACTION_SEED_DIR}")
 
+# The two Waveshare targets share local speech models and their flash layout.
+# KNOMI2 has no audio hardware and keeps the original asset partition.
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+    list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.defaults.voice")
+endif()
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(printdeck)
 
@@ -64,6 +70,22 @@ project(printdeck)
 # the existing LittleFS partition, so user overrides and the selected set are
 # not replaced by an application update.
 littlefs_create_partition_image(assets ${PRINTDECK_REACTION_SEED_DIR} FLASH_IN_PROJECT)
+
+if(NOT CONFIG_LV_USE_FONT_COMPRESSED)
+    message(FATAL_ERROR "PrintDeck requires CONFIG_LV_USE_FONT_COMPRESSED=y for lossless Montserrat glyphs")
+endif()
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+    include("${CMAKE_CURRENT_LIST_DIR}/main/generated/voice-models/manifest.cmake")
+    set(voice_model_image "${CMAKE_CURRENT_LIST_DIR}/main/generated/voice-models/models.bin")
+    partition_table_get_partition_info(voice_model_size "--partition-name voice_models" "size")
+    file(SIZE "${voice_model_image}" voice_model_image_size)
+    if(NOT voice_model_size OR voice_model_image_size GREATER voice_model_size)
+        message(FATAL_ERROR "Compressed speech models do not fit voice_models partition")
+    endif()
+    add_custom_target(voice_models_bin DEPENDS "${voice_model_image}")
+    add_dependencies(flash voice_models_bin)
+    esptool_py_flash_to_partition(flash "voice_models" "${voice_model_image}")
+endif()
 
 if(NOT CONFIG_MQTT_TASK_STACK_ON_EXTERNAL_MEMORY)
     message(FATAL_ERROR

@@ -115,18 +115,109 @@ bool led_is_on(const cJSON* object) {
   return false;
 }
 
-core::PrinterActivity snapmaker_activity(const cJSON* status) {
-  constexpr int kBedLeveling = 256;
-  constexpr int kBedPreheating = 257;
-  constexpr int kBedPrescanning = 258;
+void apply_snapmaker_activity(const cJSON* status, core::JobState& job,
+                              const std::vector<std::string>& tool_objects) {
+  using Activity = core::PrinterActivity;
+  using Detail = core::JobState::ActivityDetail;
+  if (job.phase != core::JobPhase::printing &&
+      job.phase != core::JobPhase::preparing && job.phase != core::JobPhase::idle) return;
   const cJSON* manager = member(status, "machine_state_manager");
   const cJSON* action = member(manager, "action_code");
-  if (!cJSON_IsNumber(action)) return core::PrinterActivity::unknown;
+  if (!cJSON_IsNumber(action) || !std::isfinite(action->valuedouble) ||
+      action->valuedouble < 0 || action->valuedouble > 65535 ||
+      action->valuedouble != action->valueint) return;
+  if (job.phase == core::JobPhase::idle && number_member(manager, "main_state", -1) == 0) return;
+  job.activity_status_available = true;
   switch (action->valueint) {
-    case kBedPreheating: return core::PrinterActivity::bed_heating;
-    case kBedLeveling:
-    case kBedPrescanning: return core::PrinterActivity::bed_leveling;
-    default: return core::PrinterActivity::unknown;
+    case 2:
+    case 136:
+      job.activity = Activity::preparing;
+      job.activity_detail = Detail::bed_detection;
+      break;
+    case 132:
+      job.activity = Activity::filament_changing;
+      job.activity_detail = Detail::tool_check;
+      break;
+    case 134:
+      // PRINT_PREEXTRUDING follows activation; it is not the mechanical swap.
+      job.activity = Activity::filament_purging;
+      job.activity_toolhead = job.active_toolhead;
+      break;
+    case 320:
+    case 321:
+    case 322:
+    case 323:
+      job.activity = Activity::calibrating;
+      job.activity_detail = Detail::flow_calibration;
+      job.activity_toolhead = action->valueint - 320;
+      break;
+    case 257:
+      job.activity = Activity::bed_heating;
+      job.activity_detail = Detail::bed_preheat;
+      break;
+    case 258:
+      job.activity = Activity::bed_leveling;
+      job.activity_detail = Detail::bed_prescan;
+      break;
+    case 256: job.activity = Activity::bed_leveling; break;
+    case 0: {
+      if (job.phase != core::JobPhase::printing) break;
+      const cJSON* layer = member(member(member(status, "print_stats"), "info"), "current_layer");
+      // A reported layer zero identifies preparation in U1 start macros.
+      // Neither elapsed time nor the global PRINTING state identifies the model.
+      if (cJSON_IsNumber(layer) && layer->valuedouble == 0) {
+        job.activity = Activity::preparing;
+        const auto& temperatures = job.temperatures;
+        if (temperatures.bed_known && temperatures.bed_target_known &&
+            temperatures.bed_target_c > temperatures.bed_c + 2.0F) {
+          job.activity = Activity::bed_heating;
+        } else if (temperatures.nozzle_known && temperatures.nozzle_target_known &&
+                   temperatures.nozzle_target_c > temperatures.nozzle_c + 2.0F) {
+          job.activity = Activity::nozzle_heating;
+        }
+      } else if (job.current_layer > 0) {
+        bool has_attachment_state = false;
+        for (const auto& tool : job.toolheads) {
+          has_attachment_state |= tool.present && !tool.state.empty();
+        }
+        const std::string logical_tool = string_member(member(status, "toolhead"), "extruder");
+        const std::string attached_tool = job.active_toolhead < 0 ? "" :
+            tool_objects[job.active_toolhead];
+        if (has_attachment_state && (job.active_toolhead < 0 ||
+            logical_tool != attached_tool ||
+            job.toolheads[job.active_toolhead].state == "UNKNOWN")) {
+          job.activity = Activity::filament_changing;
+          job.activity_toolhead = job.active_toolhead;
+        }
+      }
+      break;
+    }
+    default: break;
+  }
+  const cJSON* progress = member(member(status, "bed_mesh"), "progress");
+  const std::string probe_state = string_member(progress, "probe_state");
+  if (action->valueint == 256 && probe_state == "probing") {
+    const double current = number_member(progress, "current_point", -1);
+    const double total = number_member(progress, "total_points", -1);
+    if (current >= 0 && current <= total && total > 0 && total <= 65535 &&
+        std::floor(current) == current && std::floor(total) == total) {
+      job.activity_current = static_cast<std::uint16_t>(current);
+      job.activity_total = static_cast<std::uint16_t>(total);
+    }
+  }
+  if (action->valueint == 257 && probe_state == "preheating") {
+    const double remaining = number_member(progress, "preheat_remaining_time", -1);
+    const double total = number_member(progress, "preheat_total_duration", -1);
+    if (remaining >= 0 && remaining <= total && total <= 3600 &&
+        std::floor(remaining) == remaining) {
+      job.activity_remaining_seconds = static_cast<int>(remaining);
+    }
+  }
+  if (job.phase == core::JobPhase::idle && job.activity != Activity::unknown) {
+    job.condition = core::PrinterCondition::busy;
+    if (job.activity == Activity::bed_leveling || job.activity == Activity::calibrating) {
+      job.kind = core::JobKind::calibration;
+    }
   }
 }
 
@@ -212,14 +303,6 @@ MoonrakerStatusParseResult parse_moonraker_status(
   next.job.name = display_job_name(next.job.gcode_file);
   next.job.preview = context.preview;
   next.job.detail = string_member(stats, "message");
-  next.job.activity = snapmaker_activity(status);
-  if (next.job.activity != core::PrinterActivity::unknown &&
-      next.job.phase == core::JobPhase::idle) {
-    next.job.condition = core::PrinterCondition::busy;
-    if (next.job.activity == core::PrinterActivity::bed_leveling) {
-      next.job.kind = core::JobKind::calibration;
-    }
-  }
   const double progress = std::clamp(
       number_member(display, "progress", number_member(virtual_sd, "progress")), 0.0, 1.0);
   const double elapsed = std::max(0.0, number_member(stats, "print_duration"));
@@ -250,12 +333,23 @@ MoonrakerStatusParseResult parse_moonraker_status(
   const cJSON* filament_types = member(task_config, "filament_type");
   const cJSON* filament_colors = member(task_config, "filament_color_rgba");
   const cJSON* filament_exists = member(task_config, "filament_exist");
+  int logical_toolhead = -1;
+  int attached_toolhead = -1;
+  int attachment_count = 0;
+  bool attachment_known = false;
   for (std::size_t index = 0; index < next.job.toolhead_count; ++index) {
     const std::string& object_name = context.tool_objects[index];
     const cJSON* tool = member(status, object_name.c_str());
     core::ToolheadState& info = next.job.toolheads[index];
     info.present = cJSON_IsObject(tool);
-    info.active = object_name == active_extruder || bool_member(tool, "active_pin");
+    if (info.present && object_name == active_extruder) logical_toolhead = static_cast<int>(index);
+    if (cJSON_IsBool(member(tool, "active_pin"))) {
+      attachment_known = true;
+      if (bool_member(tool, "active_pin")) {
+        attached_toolhead = static_cast<int>(index);
+        ++attachment_count;
+      }
+    }
     info.temperature_known = cJSON_IsNumber(member(tool, "temperature"));
     info.target_known = cJSON_IsNumber(member(tool, "target"));
     info.temperature_c = static_cast<float>(number_member(tool, "temperature"));
@@ -284,16 +378,27 @@ MoonrakerStatusParseResult parse_moonraker_status(
     info.material_rgba = info.filament_detected
                              ? rgba_from_array(filament_colors, static_cast<int>(index))
                              : 0;
-    if (info.active) next.job.active_toolhead = static_cast<int>(index);
   }
-  if (next.job.active_toolhead < 0 && next.job.toolhead_count > 0) {
-    next.job.active_toolhead = 0;
-    next.job.toolheads[0].active = true;
+  // Physical attachment wins over the delayed logical selection. During an
+  // exchange every tool can be parked; never invent an active first tool.
+  next.job.active_toolhead = attachment_known
+                                ? (attachment_count == 1 ? attached_toolhead : -1)
+                                : logical_toolhead;
+  if (!attachment_known && next.job.active_toolhead < 0) {
+    for (std::size_t index = 0; index < next.job.toolhead_count; ++index) {
+      if (next.job.toolheads[index].present) {
+        next.job.active_toolhead = static_cast<int>(index);
+        break;
+      }
+    }
+  }
+  for (std::size_t index = 0; index < next.job.toolhead_count; ++index) {
+    next.job.toolheads[index].active = static_cast<int>(index) == next.job.active_toolhead;
   }
 
   const cJSON* extruder = next.job.active_toolhead >= 0
                               ? member(status, context.tool_objects[next.job.active_toolhead].c_str())
-                              : member(status, "extruder");
+                              : attachment_known ? nullptr : member(status, "extruder");
   const cJSON* bed = member(status, "heater_bed");
   next.job.temperatures.nozzle_c = static_cast<float>(number_member(extruder, "temperature"));
   next.job.temperatures.nozzle_target_c = static_cast<float>(number_member(extruder, "target"));
@@ -352,6 +457,7 @@ MoonrakerStatusParseResult parse_moonraker_status(
   next.job.motion.extrusion_multiplier_known = cJSON_IsNumber(member(movement, "extrude_factor"));
   next.job.motion.fan_percent = static_cast<float>(number_member(member(status, "fan"), "speed") * 100.0);
   next.job.motion.fan_percent_known = cJSON_IsNumber(member(member(status, "fan"), "speed"));
+  apply_snapmaker_activity(status, next.job, context.tool_objects);
   return result;
 }
 

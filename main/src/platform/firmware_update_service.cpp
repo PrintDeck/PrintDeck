@@ -18,6 +18,8 @@
 #include "mbedtls/sha256.h"
 #include "nvs.h"
 #include "printdeck/core/firmware_channel.hpp"
+#include "printdeck/core/firmware_image.hpp"
+#include "printdeck/platform/firmware_identity.hpp"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 
@@ -28,7 +30,7 @@ constexpr char kStableChannelBase[] =
     "https://printdeck.xyz/ota/";
 constexpr char kOfficialReleasePrefix[] =
     "https://github.com/PrintDeck/PrintDeck/releases/download/";
-constexpr std::size_t kMaximumManifestBytes = 4 * 1024;
+constexpr std::size_t kMaximumManifestBytes = 16 * 1024;
 constexpr std::uint64_t kCheckIntervalSeconds = 24ULL * 60ULL * 60ULL;
 constexpr std::uint64_t kCheckIntervalMs = kCheckIntervalSeconds * 1000ULL;
 constexpr std::uint64_t kManualCheckCooldownMs = 30'000;
@@ -271,6 +273,10 @@ bool FirmwareUpdateService::request_check(bool manual_request) {
       automatic_check_requested_.store(false, std::memory_order_release);
       return false;
     }
+    snapshot_.update_available = false;
+    snapshot_.factory_required = false;
+    firmware_url_.clear();
+    firmware_sha256_.reset();
     snapshot_.state = FirmwareUpdateState::checking;
     snapshot_.busy = true;
     snapshot_.detail = "Checking for a newer PrintDeck release...";
@@ -282,6 +288,7 @@ bool FirmwareUpdateService::request_check(bool manual_request) {
 bool FirmwareUpdateService::begin_manual_install() {
   const std::lock_guard<std::mutex> lock(mutex_);
   if (snapshot_.busy) return false;
+  snapshot_.factory_required = false;
   snapshot_.state = FirmwareUpdateState::downloading;
   snapshot_.busy = true;
   snapshot_.progress_percent = 0;
@@ -295,6 +302,18 @@ void FirmwareUpdateService::update_manual_progress(int percent) {
 void FirmwareUpdateService::fail_manual_install(std::string detail) {
   fail(std::move(detail));
 }
+void FirmwareUpdateService::require_factory_install(std::string version) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  firmware_url_.clear();
+  firmware_sha256_.reset();
+  snapshot_.state = FirmwareUpdateState::available;
+  snapshot_.factory_required = true;
+  snapshot_.latest_version = std::move(version);
+  snapshot_.update_available = true;
+  snapshot_.busy = false;
+  snapshot_.progress_percent = 0;
+  snapshot_.detail = kFactoryInstallDetail;
+}
 void FirmwareUpdateService::finish_manual_install() {
   const std::lock_guard<std::mutex> lock(mutex_);
   snapshot_.state = FirmwareUpdateState::rebooting;
@@ -305,7 +324,7 @@ void FirmwareUpdateService::finish_manual_install() {
 bool FirmwareUpdateService::request_install() {
   if (scheduler_task_ == nullptr) return false;
   const std::lock_guard<std::mutex> lock(mutex_);
-  if (!snapshot_.update_available || firmware_url_.empty() || snapshot_.busy) return false;
+  if (!snapshot_.update_available || snapshot_.factory_required || firmware_url_.empty() || snapshot_.busy) return false;
   snapshot_.state = FirmwareUpdateState::downloading; snapshot_.busy = true;
   snapshot_.progress_percent = 0; snapshot_.detail = "Preparing the firmware update...";
   install_requested_ = true;
@@ -324,6 +343,9 @@ bool FirmwareUpdateService::request_url_install(std::string url) {
     const std::size_t filename = url.find_last_of('/');
     if (filename == std::string::npos) return false;
     const std::size_t name_offset = filename + 1;
+    const std::string family_prefix = "printdeck_" + firmware_asset_family();
+    const std::string ota_prefix = family_prefix + "_ota-";
+    map_full_asset_to_ota(url, name_offset, family_prefix + "_full-", ota_prefix);
     map_full_asset_to_ota(url, name_offset, kFirmwareFullAssetPrefix,
                           kFirmwareOtaAssetPrefix);
     map_full_asset_to_ota(url, name_offset, kLegacyFirmwareFullAssetPrefix,
@@ -331,7 +353,8 @@ bool FirmwareUpdateService::request_url_install(std::string url) {
     // Official release assets are hardware-specific. Rejecting another
     // PrintDeck target here prevents an accidental cross-flash from the
     // release picker or a pasted official download link.
-    if (!matches_prefix(url, name_offset, kFirmwareOtaAssetPrefix) &&
+    if (!matches_prefix(url, name_offset, ota_prefix) &&
+        !matches_prefix(url, name_offset, kFirmwareOtaAssetPrefix) &&
         !matches_prefix(url, name_offset, kLegacyFirmwareOtaAssetPrefix)) {
       return false;
     }
@@ -340,6 +363,7 @@ bool FirmwareUpdateService::request_url_install(std::string url) {
   if (snapshot_.busy) return false;
   firmware_url_ = std::move(url);
   firmware_sha256_.reset();
+  snapshot_.factory_required = false;
   snapshot_.state = FirmwareUpdateState::downloading;
   snapshot_.busy = true;
   snapshot_.progress_percent = 0;
@@ -395,7 +419,7 @@ void FirmwareUpdateService::task_loop() {
 void FirmwareUpdateService::check_release() {
   Response response;
   const std::string manifest_url = std::string(kStableChannelBase) +
-                                   kFirmwareStableChannel + "/stable.json";
+                                   kBoardVariant + "/releases.json";
   esp_http_client_config_t config{}; config.url = manifest_url.c_str(); config.event_handler = receive;
   config.user_data = &response; config.crt_bundle_attach = esp_crt_bundle_attach;
   const std::string user_agent = std::string("PrintDeck/") + PRINTDECK_VERSION +
@@ -407,39 +431,61 @@ void FirmwareUpdateService::check_release() {
   if (client == nullptr) { fail("PrintDeck could not create the update request."); return; }
   esp_http_client_set_header(client, "Accept", "application/json");
   esp_http_client_set_header(client, "Cache-Control", "no-cache");
-  const esp_err_t result = esp_http_client_perform(client);
-  const int status = result == ESP_OK ? esp_http_client_get_status_code(client) : 0;
+  esp_err_t result = esp_http_client_perform(client);
+  int status = result == ESP_OK ? esp_http_client_get_status_code(client) : 0;
   esp_http_client_cleanup(client);
+  bool legacy_channel = false;
+  if (result == ESP_OK && status == 404) {
+    response = {};
+    const std::string legacy_url = std::string(kStableChannelBase) + kFirmwareStableChannel + "/stable.json";
+    config.url = legacy_url.c_str();
+    client = esp_http_client_init(&config);
+    if (client == nullptr) { fail("PrintDeck could not create the update request."); return; }
+    esp_http_client_set_header(client, "Accept", "application/json");
+    result = esp_http_client_perform(client);
+    status = result == ESP_OK ? esp_http_client_get_status_code(client) : 0;
+    esp_http_client_cleanup(client);
+    legacy_channel = true;
+  }
   if (result != ESP_OK || status != 200 || response.too_large) { fail(response.too_large ? "The update response was too large." : "PrintDeck could not reach the update service."); return; }
-  const auto channel = core::parse_firmware_channel(response.body, kBoardVariant);
+  auto offer = core::select_firmware_offer(
+      response.body, kBoardVariant, PRINTDECK_VERSION, firmware_layout());
+  if (legacy_channel) {
+    const auto channel = core::parse_firmware_channel(response.body, kBoardVariant);
+    if (channel) offer = core::FirmwareOffer{*channel, std::string(firmware_layout()), false};
+  }
   const auto current_version = core::parse_firmware_version(PRINTDECK_VERSION);
-  if (!channel || !current_version) {
+  if (!offer || !current_version) {
     fail("The release does not contain a valid PrintDeck version.");
     return;
   }
+  const auto* channel = &offer->release;
   const auto latest_version = core::parse_firmware_version(channel->version);
   const bool newer = latest_version && *latest_version > *current_version;
   record_successful_check();
-  if (!newer) {
+  if (!newer && !offer->factory_required) {
     const std::lock_guard<std::mutex> lock(mutex_);
     firmware_url_.clear(); firmware_sha256_.reset();
+    snapshot_.factory_required = false;
     snapshot_.latest_version = channel->version;
     snapshot_.update_available = false; snapshot_.busy = false; snapshot_.progress_percent = 0;
     snapshot_.state = FirmwareUpdateState::current;
     snapshot_.detail = "PrintDeck is up to date.";
     return;
   }
-  if (channel->url.empty()) {
+  if (channel->url.empty() && !offer->factory_required) {
     fail("PrintDeck could not reach the update service.");
     return;
   }
   const std::lock_guard<std::mutex> lock(mutex_);
   firmware_url_ = channel->url;
   firmware_sha256_ = channel->sha256;
+  snapshot_.factory_required = offer->factory_required;
   snapshot_.latest_version = channel->version;
   snapshot_.update_available = true; snapshot_.busy = false; snapshot_.progress_percent = 0;
   snapshot_.state = FirmwareUpdateState::available;
-  snapshot_.detail = "A newer PrintDeck release is ready.";
+  snapshot_.detail = offer->factory_required ? kFactoryInstallDetail :
+      "A newer PrintDeck release is ready.";
 }
 void FirmwareUpdateService::install_release() {
   std::string url;
@@ -463,7 +509,15 @@ void FirmwareUpdateService::install_release() {
     fail("The firmware update could not start.");
     return;
   }
-  while ((result = esp_https_ota_perform(handle)) == ESP_ERR_HTTPS_OTA_IN_PROGRESS) { const int read = esp_https_ota_get_image_len_read(handle), total = esp_https_ota_get_image_size(handle); if (total > 0) { const std::lock_guard<std::mutex> lock(mutex_); snapshot_.progress_percent = std::clamp(read * 100 / total, 0, 99); } }
+  while ((result = esp_https_ota_perform(handle)) == ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
+    const int read = esp_https_ota_get_image_len_read(handle);
+    const int total = esp_https_ota_get_image_size(handle);
+    if (total > 0) {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      snapshot_.progress_percent = std::clamp(read * 100 / total, 0, 99);
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
   if (result != ESP_OK || !esp_https_ota_is_complete_data_received(handle)) { esp_https_ota_abort(handle); fail("The firmware download was incomplete."); return; }
   const int image_size = esp_https_ota_get_image_len_read(handle);
   if (expected_sha256 &&
@@ -473,6 +527,16 @@ void FirmwareUpdateService::install_release() {
                                  *expected_sha256))) {
     esp_https_ota_abort(handle);
     fail("The downloaded firmware did not pass validation.");
+    return;
+  }
+  std::array<std::uint8_t, core::kFirmwareIdentityHeaderBytes> identity_header{};
+  if (update_partition == nullptr ||
+      esp_partition_read(update_partition, 0, identity_header.data(), identity_header.size()) != ESP_OK ||
+      !compatible_firmware_image(identity_header)) {
+    esp_https_ota_abort(handle);
+    const auto version = firmware_image_version(identity_header);
+    if (version.empty()) fail("The downloaded firmware did not pass validation.");
+    else require_factory_install(version);
     return;
   }
   if (esp_https_ota_finish(handle) != ESP_OK) { fail("The downloaded firmware did not pass validation."); return; }
@@ -499,5 +563,5 @@ void FirmwareUpdateService::record_successful_check() {
     nvs_close(handle);
   }
 }
-void FirmwareUpdateService::fail(std::string detail) { const std::lock_guard<std::mutex> lock(mutex_); firmware_url_.clear(); firmware_sha256_.reset(); snapshot_.state = FirmwareUpdateState::failed; snapshot_.update_available = false; snapshot_.busy = false; snapshot_.progress_percent = 0; snapshot_.detail = std::move(detail); ESP_LOGW(kTag, "%s", snapshot_.detail.c_str()); }
+void FirmwareUpdateService::fail(std::string detail) { const std::lock_guard<std::mutex> lock(mutex_); firmware_url_.clear(); firmware_sha256_.reset(); snapshot_.update_available = snapshot_.state == FirmwareUpdateState::downloading; snapshot_.state = FirmwareUpdateState::failed; snapshot_.busy = false; snapshot_.progress_percent = 0; snapshot_.detail = std::move(detail); ESP_LOGW(kTag, "%s", snapshot_.detail.c_str()); }
 }  // namespace printdeck::platform

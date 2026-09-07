@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <string>
 #include <string_view>
 
 namespace printdeck::core {
@@ -22,5 +23,8 @@ inline constexpr std::array<Language, 6> kLanguages{{
 bool supported_language(std::string_view code);
 std::string_view normalize_language(std::string_view browser_language);
 const char* localized_text(std::string_view language, std::string_view english);
+struct JobState;
+std::string localized_activity_text(std::string_view language, const JobState& job);
+std::string localized_job_status(std::string_view language, const JobState& job);
 
 }  // namespace printdeck::core

@@ -31,6 +31,7 @@ struct FirmwareUpdateSnapshot {
   std::string latest_version;
   std::string detail = "Ready to check for updates.";
   int progress_percent = 0;
+  bool factory_required = false;
   bool update_available = false;
   bool busy = false;
 };
@@ -49,6 +50,7 @@ class FirmwareUpdateService {
   bool begin_manual_install();
   void update_manual_progress(int percent);
   void fail_manual_install(std::string detail);
+  void require_factory_install(std::string version);
   void finish_manual_install();
   FirmwareUpdateSnapshot snapshot() const;
 

@@ -1446,7 +1446,7 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
                                        : display_job_name.empty()
                                              ? tr(snapshot.job.phase == core::JobPhase::idle ? "No active print" : core::job_status_label(snapshot.job))
                                              : display_job_name.c_str());
-  lv_label_set_text(status_label_, tr(core::job_status_label(snapshot.job)));
+  lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   lv_obj_set_style_text_color(status_label_, lv_color_hex(color), LV_PART_MAIN);
   lv_label_set_text(remaining_label_, active && snapshot.job.remaining_known ? short_duration(snapshot.job.remaining_seconds).c_str()
                                              : "--");
@@ -1481,8 +1481,7 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
     prepare_active_screen("nozzles");
     square_create_printer_chrome(profile, snapshot, &power);
     nozzle_scroll_ = lv_obj_create(lv_screen_active());
-    lv_obj_set_size(nozzle_scroll_, kDisplayUsesCompactRoundLayout ? 204 : 210,
-                                    kDisplayUsesCompactRoundLayout ? 142 : 158);
+    lv_obj_set_size(nozzle_scroll_, kDisplayUsesCompactRoundLayout ? 204 : 210, 158);
     lv_obj_align(nozzle_scroll_, LV_ALIGN_TOP_MID, 0,
                  kDisplayUsesCompactRoundLayout ? 53 : 43);
     lv_obj_set_scroll_dir(nozzle_scroll_, LV_DIR_HOR);
@@ -1502,14 +1501,12 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
     // Only this viewport scrolls. Keeping the row and every card static avoids
     // nested card scrollbars and lets vertical screen gestures bubble through.
     nozzle_row_ = square_layout_box(nozzle_scroll_,
-                                    kDisplayUsesCompactRoundLayout ? 204 : 210,
-                                    kDisplayUsesCompactRoundLayout ? 128 : 144);
+                                    kDisplayUsesCompactRoundLayout ? 204 : 210, 144);
     lv_obj_set_pos(nozzle_row_, 0, 0);
     for (std::size_t index = 0; index < core::kMaximumToolheads; ++index) {
       nozzle_cards_[index] = lv_obj_create(nozzle_row_);
       lv_obj_set_size(nozzle_cards_[index],
-                      kDisplayUsesCompactRoundLayout ? 60 : 64,
-                      kDisplayUsesCompactRoundLayout ? 128 : 144);
+                      kDisplayUsesCompactRoundLayout ? 60 : 64, 144);
       lv_obj_set_pos(nozzle_cards_[index],
                      static_cast<int>(index) *
                          (kDisplayUsesCompactRoundLayout ? 66 : 70),
@@ -1548,15 +1545,21 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
         square_route_screen_gestures(label);
       }
       lv_obj_align(nozzle_tool_labels_[index], LV_ALIGN_TOP_MID, 0, 3);
+      // Narrow multi-tool cards need a caption and value on separate lines.
+      // Reserve both lines before placing the nozzle icon below them.
+      lv_obj_set_height(nozzle_target_labels_[index], 30);
+      lv_obj_set_style_text_line_space(nozzle_target_labels_[index], 0, LV_PART_MAIN);
       lv_obj_align(nozzle_target_labels_[index], LV_ALIGN_TOP_MID, 0,
-                   kDisplayUsesCompactRoundLayout ? 22 : 25);
+                   kDisplayUsesCompactRoundLayout ? 21 : 25);
       lv_obj_align(nozzle_icon_slot, LV_ALIGN_TOP_MID, 0,
-                   kDisplayUsesCompactRoundLayout ? 39 : 43);
+                   kDisplayUsesCompactRoundLayout ? 56 : 60);
+      lv_obj_set_height(nozzle_temperature_labels_[index], 18);
+      lv_label_set_long_mode(nozzle_temperature_labels_[index], LV_LABEL_LONG_CLIP);
       lv_obj_align(nozzle_temperature_labels_[index], LV_ALIGN_TOP_MID, 0,
-                   kDisplayUsesCompactRoundLayout ? 64 : 72);
+                   kDisplayUsesCompactRoundLayout ? 82 : 86);
       lv_label_set_long_mode(nozzle_material_labels_[index], LV_LABEL_LONG_DOT);
       lv_obj_align(nozzle_material_labels_[index], LV_ALIGN_TOP_MID, 0,
-                   kDisplayUsesCompactRoundLayout ? 88 : 99);
+                   kDisplayUsesCompactRoundLayout ? 105 : 109);
 
       nozzle_material_dots_[index] = lv_obj_create(nozzle_cards_[index]);
       lv_obj_set_size(nozzle_material_dots_[index], 10, 10);
@@ -1567,8 +1570,7 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
       lv_obj_set_style_bg_opa(nozzle_material_dots_[index], LV_OPA_COVER, LV_PART_MAIN);
       lv_obj_set_style_border_width(nozzle_material_dots_[index], 0, LV_PART_MAIN);
       lv_obj_set_style_pad_all(nozzle_material_dots_[index], 0, LV_PART_MAIN);
-      lv_obj_align(nozzle_material_dots_[index], LV_ALIGN_BOTTOM_MID, 0,
-                   kDisplayUsesCompactRoundLayout ? -7 : -8);
+      lv_obj_align(nozzle_material_dots_[index], LV_ALIGN_BOTTOM_MID, 0, -8);
       square_route_screen_gestures(nozzle_material_dots_[index]);
     }
     view_ = 19;
@@ -1641,8 +1643,8 @@ void DisplayShell::square_show_printer_nozzles(const core::PrinterProfile& profi
       lv_label_set_text(nozzle_temperature_labels_[index], "--°C");
     }
     if (tool->target_known)
-      lv_label_set_text_fmt(nozzle_target_labels_[index], "%s %.0f°", tr("Target"), tool->target_c);
-    else lv_label_set_text_fmt(nozzle_target_labels_[index], "%s --°", tr("Target"));
+      lv_label_set_text_fmt(nozzle_target_labels_[index], "%s\n%.0f°", tr("Target"), tool->target_c);
+    else lv_label_set_text_fmt(nozzle_target_labels_[index], "%s\n--°", tr("Target"));
     const bool empty = tool->filament_state_known && !tool->filament_detected;
     lv_label_set_text(nozzle_material_labels_[index],
                       empty ? "---" : (tool->material.empty() ? "--"
@@ -1996,7 +1998,7 @@ void DisplayShell::square_show_printer_compact(const core::PrinterProfile& profi
       snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
   lv_label_set_text(metrics_label_, snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0
         ? short_duration(total_seconds).c_str() : "--");
-  lv_label_set_text(status_label_, tr(core::job_status_label(snapshot.job)));
+  lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
   const int progress = std::clamp(static_cast<int>(snapshot.job.completion), 0, 100);
   lv_bar_set_value(progress_arc_, progress, LV_ANIM_OFF);
@@ -2215,7 +2217,7 @@ void DisplayShell::square_show_printer_telemetry(const core::PrinterProfile& pro
     lv_label_set_text_fmt(layer_label_, "%s: %s", tr("HOMED"),
                           homed.empty() ? "--" : homed.c_str());
   }
-  lv_label_set_text(status_label_, tr(core::job_status_label(snapshot.job)));
+  lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   const std::uint32_t state_color =
       core::phase_color(theme_colors_, snapshot.job.phase, snapshot.job.reachable);
   lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
@@ -2613,6 +2615,7 @@ void DisplayShell::square_show_printer_light(const core::PrinterProfile& profile
     lv_obj_set_style_radius(chamber_light_button_, themed_radius(18), LV_PART_MAIN);
     lv_obj_set_style_border_width(chamber_light_button_, 2, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(chamber_light_button_, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(chamber_light_button_, 0, LV_PART_MAIN);
     lv_obj_add_flag(chamber_light_button_, LV_OBJ_FLAG_CHECKABLE);
     square_route_screen_gestures(chamber_light_button_, true);
 
@@ -2631,7 +2634,7 @@ void DisplayShell::square_show_printer_light(const core::PrinterProfile& profile
     lv_obj_set_style_arc_color(chamber_light_spinner_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
     lv_obj_set_style_arc_color(chamber_light_spinner_, lv_color_hex(theme_style_.surface),
                                LV_PART_INDICATOR);
-    lv_obj_align(chamber_light_spinner_, LV_ALIGN_LEFT_MID, 14, 0);
+    lv_obj_align(chamber_light_spinner_, LV_ALIGN_LEFT_MID, 8, 0);
     lv_obj_add_flag(chamber_light_spinner_, LV_OBJ_FLAG_HIDDEN);
     square_route_screen_gestures(chamber_light_spinner_);
 
@@ -2677,7 +2680,9 @@ void DisplayShell::square_show_printer_light(const core::PrinterProfile& profile
     lv_label_set_text(chamber_light_button_label_, tr(snapshot.job.chamber_light_target_on
                                                            ? "TURNING ON"
                                                            : "TURNING OFF"));
-    lv_obj_align(chamber_light_button_label_, LV_ALIGN_CENTER, 13, 0);
+    // Reserve separate space for the spinner, including translated labels.
+    lv_obj_set_width(chamber_light_button_label_, 102);
+    lv_obj_align(chamber_light_button_label_, LV_ALIGN_CENTER, 17, 0);
   } else {
     lv_obj_add_flag(chamber_light_spinner_, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text(detail_label_, tr(supported
@@ -2686,6 +2691,7 @@ void DisplayShell::square_show_printer_light(const core::PrinterProfile& profile
     lv_label_set_text(chamber_light_button_label_, tr(supported
                                                            ? (enabled ? "TURN OFF" : "TURN ON")
                                                            : "UNAVAILABLE"));
+    lv_obj_set_width(chamber_light_button_label_, 112);
     lv_obj_center(chamber_light_button_label_);
   }
   board_display_unlock();

@@ -13,6 +13,10 @@ locked directly to git.
 | `espressif/button` 4.2.0 | Input-driver dependency | Apache-2.0 |
 | `espressif/cjson` 1.7.19~2 | JSON parser | MIT |
 | `espressif/cmake_utilities` 0.5.3 | Component build utilities | Apache-2.0 |
+| `espressif/dl_fft` 0.6.0 | Local speech FFT dependency | MIT |
+| `espressif/esp-dl` 3.3.10 | Local speech inference dependency | MIT |
+| `espressif/esp-dsp` 1.8.0 | Local speech signal processing | Apache-2.0 |
+| `espressif/esp-sr` 2.5.1 | AMOLED/LCD local Hi ESP wake word and English commands | ESPRESSIF MIT License; use is restricted to Espressif Systems products |
 | `espressif/esp_codec_dev` 1.5.11 | ES8311 audio-codec support | Apache-2.0 |
 | `espressif/esp_h264` 1.3.8 | Baseline H.264 camera decoder | Apache-2.0 |
 | `espressif/esp_io_expander` 1.2.1 | Board I/O-expander abstraction | Apache-2.0 |
@@ -63,6 +67,13 @@ The enabled LVGL build links the following bundled third-party code and fonts:
 | Tiny TTF modifications by honey the codewitch | LVGL Tiny TTF integration | MIT |
 | Montserrat Medium | Glyph source for LVGL's built-in Montserrat fonts | SIL Open Font License 1.1 |
 | Font Awesome 5 Free font | Icon glyph source for LVGL's built-in Montserrat fonts | SIL Open Font License 1.1; Reserved Font Name `Font Awesome` |
+
+The five PrintDeck Montserrat resources retain LVGL's glyph coverage, metrics,
+kerning and exact pixel values in native LVGL compressed storage. Reviewed font
+tables and their MIT/OFL notices are in `main/generated/compressed-montserrat/`;
+the managed LVGL sources remain unchanged. AMOLED/LCD speech-model data retains the
+ESP-SR 2.5.1 license in `main/generated/voice-models/LICENSE-ESP-SR.txt`; lossless
+storage does not alter model weights or change the dependency's license.
 
 PrintDeck also distributes the following vendored browser code, fonts, audio or
 local decoder code in the tagged source and public Web Config/installer:
@@ -131,7 +142,7 @@ uses the public Waveshare ESP32-S3 Touch LCD 1.54 examples as its hardware
 reference, pinned during development to upstream commit
 `5157db7c888e476fd57f8a95020800377447478f`. PrintDeck does not vendor that
 example project or link its application code; it uses ESP-IDF drivers and the
-managed CST816S, QMI8658 and ES8311 components directly. The upstream reference
+managed CST816S, QMI8658 and ES8311/ES7210 components directly. The upstream reference
 is licensed under Apache-2.0.
 
 ## BIGTREETECH KNOMI2 hardware reference

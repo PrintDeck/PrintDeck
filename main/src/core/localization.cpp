@@ -1,4 +1,5 @@
 #include "printdeck/core/localization.hpp"
+#include "printdeck/core/job_state.hpp"
 
 #include <array>
 #include <cctype>
@@ -30,6 +31,12 @@ std::string_view normalize_language(std::string_view browser_language) {
 const char* localized_text(std::string_view language, std::string_view english) {
   struct Entry { const char* en; const char* pl; const char* es; const char* fr; const char* de; const char* zh; };
   static constexpr Entry entries[]{
+      {"Cancel", "Anuluj", "Cancelar", "Annuler", "Abbrechen", "取消"},
+      {"Required", "Wymagana", "Requerida", "Requise", "Erforderlich", "所需"},
+      {"USB INSTALL", "INSTALACJA USB", "INSTALAR POR USB", "INSTALLATION USB", "USB-INSTALLATION", "USB 安装"},
+      {"Back up settings.\nFactory install via USB:\nprintdeck.xyz/firmware/\nSettings and images are erased.", "Zrób kopię ustawień.\nInstalacja fabryczna USB:\nprintdeck.xyz/firmware/\nUsuwa ustawienia i obrazy.", "Guarda los ajustes.\nInstalación de fábrica USB:\nprintdeck.xyz/firmware/\nBorra ajustes e imágenes.", "Sauvegardez les réglages.\nInstallation d’usine USB :\nprintdeck.xyz/firmware/\nRéglages et images effacés.", "Einstellungen sichern.\nUSB-Werksinstallation:\nprintdeck.xyz/firmware/\nLöscht Einstellungen und Bilder.", "请备份设置。\n通过 USB 进行出厂安装：\nprintdeck.xyz/firmware/\n设置和自定义图片将被清除。"},
+      {"A USB factory installation is required. Back up your configuration and follow the instructions at printdeck.xyz/firmware/. Saved settings and custom images will be erased.", "Wymagana jest instalacja fabryczna przez USB. Zrób kopię konfiguracji i postępuj według instrukcji na printdeck.xyz/firmware/. Zapisane ustawienia i własne obrazy zostaną usunięte.", "Se requiere una instalación de fábrica por USB. Guarda una copia de la configuración y sigue las instrucciones en printdeck.xyz/firmware/. Se borrarán los ajustes y las imágenes personalizadas.", "Une installation d’usine par USB est requise. Sauvegardez la configuration et suivez les instructions sur printdeck.xyz/firmware/. Les réglages et images personnalisées seront effacés.", "Eine USB-Werksinstallation ist erforderlich. Sichere die Konfiguration und folge der Anleitung auf printdeck.xyz/firmware/. Gespeicherte Einstellungen und eigene Bilder werden gelöscht.", "需要通过 USB 进行出厂安装。请备份配置并按照 printdeck.xyz/firmware/ 上的说明操作。已保存的设置和自定义图片将被清除。"},
+
       {"Experimental", "Eksperymentalne", "Experimental", "Expérimental", "Experimentell", "实验性"},
       {"Add Prusa printer", "Dodaj drukarkę Prusa", "Añadir impresora Prusa", "Ajouter une imprimante Prusa", "Prusa-Drucker hinzufügen", "添加 Prusa 打印机"},
       {"Authentication", "Uwierzytelnianie", "Autenticación", "Authentification", "Authentifizierung", "身份验证"},
@@ -158,6 +165,7 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"Printer ready", "Drukarka gotowa", "Impresora lista", "Imprimante prête", "Drucker bereit", "打印机已就绪"},
       {"Layer", "Warstwa", "Capa", "Couche", "Schicht", "层"},
       {"SET", "CEL", "OBJ.", "CIBLE", "SOLL", "目标"},
+      {"Target", "Cel", "Objetivo", "Cible", "Soll", "目标"},
       {"LEFT", "POZOSTAŁO", "RESTANTE", "RESTANT", "RESTZEIT", "剩余"},
       {"PRINT", "WYDRUK", "IMPRESIÓN", "IMPRESSION", "DRUCK", "打印"},
       {"TOTAL", "ŁĄCZNIE", "TOTAL", "TOTAL", "GESAMT", "总计"},
@@ -227,6 +235,12 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"Leveling the bed", "Poziomowanie stołu", "Nivelando la cama", "Nivellement du plateau", "Druckbett wird nivelliert", "正在调平热床"},
       {"Cleaning nozzle", "Czyszczenie dyszy", "Limpiando la boquilla", "Nettoyage de la buse", "Düse wird gereinigt", "正在清洁喷嘴"},
       {"Calibrating", "Kalibracja", "Calibrando", "Étalonnage", "Kalibrierung", "正在校准"},
+      {"Flow calibration", "Kalibracja przepływu", "Calibrando flujo", "Étalonnage du débit", "Flusskalibrierung", "流量校准"},
+      {"Checking tools", "Test głowic", "Comprobando cabezales", "Test des têtes", "Werkzeugprüfung", "检查工具头"},
+      {"Checking bed", "Sprawdzanie stołu", "Comprobando cama", "Vérification du plateau", "Druckbettprüfung", "检查热床"},
+      {"Preheating", "Wygrzewanie", "Precalentando", "Préchauffage", "Vorheizen", "预热"},
+      {"Scanning bed", "Skanowanie stołu", "Escaneando cama", "Analyse du plateau", "Druckbett-Vorscan", "预扫描热床"},
+      {"Leveling", "Poziomowanie", "Nivelando", "Nivellement", "Nivellierung", "调平"},
       {"Changing filament", "Zmiana filamentu", "Cambiando filamento", "Changement de filament", "Filamentwechsel", "正在更换耗材"},
       {"Unloading filament", "Wycofywanie filamentu", "Descargando filamento", "Retrait du filament", "Filament wird entladen", "正在退料"},
       {"Loading filament", "Ładowanie filamentu", "Cargando filamento", "Chargement du filament", "Filament wird geladen", "正在进料"},
@@ -314,6 +328,39 @@ const char* localized_text(std::string_view language, std::string_view english) 
     }
   }
   return english.data();
+}
+
+std::string localized_activity_text(std::string_view language, const JobState& job) {
+  const auto activity = effective_printer_activity(job);
+  const char* label = printer_activity_label(activity);
+  using Detail = JobState::ActivityDetail;
+  switch (job.activity_detail) {
+    case Detail::bed_detection: label = "Checking bed"; break;
+    case Detail::tool_check: label = "Checking tools"; break;
+    case Detail::flow_calibration: label = "Flow calibration"; break;
+    case Detail::bed_preheat: label = "Preheating"; break;
+    case Detail::bed_prescan: label = "Scanning bed"; break;
+    case Detail::none: break;
+  }
+  if (activity == PrinterActivity::bed_leveling && job.activity_total > 0) label = "Leveling";
+  std::string text = localized_text(language, label);
+  if (activity == PrinterActivity::bed_leveling && job.activity_total > 0) {
+    text += ": " + std::to_string(job.activity_current) + "/" + std::to_string(job.activity_total);
+  } else if (job.activity_detail == Detail::bed_preheat && job.activity_remaining_seconds >= 0) {
+    text += ": " + std::to_string(job.activity_remaining_seconds) + " s";
+  } else if (job.activity_toolhead >= 0 && job.activity_toolhead < static_cast<int>(kMaximumToolheads)) {
+    text += " / T" + std::to_string(job.activity_toolhead + 1);
+  }
+  return text;
+}
+
+std::string localized_job_status(std::string_view language, const JobState& job) {
+  const bool active = job.phase == JobPhase::printing || job.phase == JobPhase::preparing;
+  if (active && job.activity_status_available && job.activity != PrinterActivity::unknown &&
+      (job.condition == PrinterCondition::normal || job.condition == PrinterCondition::ready)) {
+    return localized_activity_text(language, job);
+  }
+  return localized_text(language, job_status_label(job));
 }
 
 }  // namespace printdeck::core

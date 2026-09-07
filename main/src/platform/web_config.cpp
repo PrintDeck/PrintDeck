@@ -1,5 +1,7 @@
 #include "printdeck/platform/web_config.hpp"
 
+#include "printdeck/core/firmware_image.hpp"
+#include "printdeck/platform/firmware_identity.hpp"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -3298,6 +3300,9 @@ esp_err_t WebConfig::serve_update_status(httpd_req_t* request) const {
   std::string body = "{\"state\":\""; body += state; body += "\",\"busy\":";
   body += snapshot.busy ? "true" : "false";
   body += ",\"available\":"; body += snapshot.update_available ? "true" : "false";
+  body += ",\"factory_required\":"; body += snapshot.factory_required ? "true" : "false";
+  body += ",\"layout\":"; append_json_string(body, firmware_layout());
+  body += ",\"hardware\":"; append_json_string(body, kBoardVariant);
   body += ",\"progress\":" + std::to_string(snapshot.progress_percent) + ",\"current\":";
   append_json_string(body, snapshot.current_version); body += ",\"latest\":";
   append_json_string(body, snapshot.latest_version); body += ",\"detail\":";
@@ -3352,8 +3357,35 @@ esp_err_t WebConfig::upload_update(httpd_req_t* request) {
                      "{\"error\":\"Another firmware update task is already in progress.\"}");
   }
 
+  std::array<std::uint8_t, core::kFirmwareIdentityHeaderBytes> identity_header{};
+  const std::uint64_t deadline =
+      static_cast<std::uint64_t>(esp_timer_get_time() / 1000ULL) + kOtaReceiveDeadlineMs;
+  std::size_t header_received = 0;
+  while (total >= static_cast<int>(identity_header.size()) &&
+         header_received < identity_header.size()) {
+    if (static_cast<std::uint64_t>(esp_timer_get_time() / 1000ULL) >= deadline) break;
+    const int count = httpd_req_recv(request,
+        reinterpret_cast<char*>(identity_header.data() + header_received),
+        identity_header.size() - header_received);
+    if (count == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (count <= 0) break;
+    header_received += count;
+  }
+  if (header_received != identity_header.size() || !compatible_firmware_image(identity_header)) {
+    const auto version = firmware_image_version(identity_header);
+    const char* detail = version.empty() ? "The uploaded file is not a valid firmware image." : kFactoryInstallDetail;
+    if (version.empty()) firmware_update_->fail_manual_install(detail);
+    else firmware_update_->require_factory_install(version);
+    std::string error = "{\"error\":";
+    append_json_string(error, localized(detail));
+    error += "}";
+    send_json(request, "409 Conflict", error.c_str());
+    return ESP_FAIL;  // Close a request whose rejected image body is unread.
+  }
   esp_ota_handle_t handle = 0;
-  esp_err_t result = esp_ota_begin(partition, static_cast<std::size_t>(total), &handle);
+  // Erase incrementally as chunks arrive. Bulk-erasing a full application
+  // can starve core 0 long enough to trigger its task watchdog.
+  esp_err_t result = esp_ota_begin(partition, OTA_WITH_SEQUENTIAL_WRITES, &handle);
   if (result != ESP_OK) {
     firmware_update_->fail_manual_install("The manual firmware update could not start.");
     return send_json(request, "500 Internal Server Error",
@@ -3372,10 +3404,19 @@ esp_err_t WebConfig::upload_update(httpd_req_t* request) {
                      "{\"error\":\"PrintDeck could not reserve the update buffer.\"}");
   }
 
-  int received = 0;
-  const std::uint64_t deadline =
-      static_cast<std::uint64_t>(esp_timer_get_time() / 1000ULL) + kOtaReceiveDeadlineMs;
+  result = esp_ota_write(handle, identity_header.data(), identity_header.size());
+  if (result != ESP_OK) {
+    esp_ota_abort(handle);
+    firmware_update_->fail_manual_install("The firmware image could not be written safely.");
+    return ESP_FAIL;
+  }
+  int received = static_cast<int>(identity_header.size());
   while (received < total) {
+    if (static_cast<std::uint64_t>(esp_timer_get_time() / 1000ULL) >= deadline) {
+      esp_ota_abort(handle);
+      firmware_update_->fail_manual_install("The firmware upload was interrupted.");
+      return ESP_FAIL;
+    }
     const int wanted = std::min<int>(kOtaReceiveBufferBytes, total - received);
     const int count = httpd_req_recv(request, reinterpret_cast<char*>(buffer.get()), wanted);
     if (count == HTTPD_SOCK_ERR_TIMEOUT &&
@@ -3396,6 +3437,10 @@ esp_err_t WebConfig::upload_update(httpd_req_t* request) {
     }
     received += count;
     firmware_update_->update_manual_progress(received * 100 / total);
+    // A buffered upload can keep HTTPD runnable throughout flash writes. Give
+    // core 0 idle/network work time after flash suspends both cores. One tick
+    // can be consumed by newly runnable workers before the idle task runs.
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 
   result = esp_ota_end(handle);

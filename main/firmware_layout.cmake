@@ -1,0 +1,8 @@
+file(SIZE "${PARTITION_TABLE}" table_size)
+if(NOT table_size EQUAL 3072)
+    message(FATAL_ERROR "Unexpected PrintDeck partition table size")
+endif()
+file(SHA256 "${PARTITION_TABLE}" layout_hash)
+file(WRITE "${OUTPUT}.tmp" "#pragma once\n#define PRINTDECK_LAYOUT_SHA256 \"${layout_hash}\"\n")
+configure_file("${OUTPUT}.tmp" "${OUTPUT}" COPYONLY)
+file(REMOVE "${OUTPUT}.tmp")

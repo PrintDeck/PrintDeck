@@ -27,6 +27,9 @@
 #include "printdeck/platform/bambu_compatibility_probe.hpp"
 #include "printdeck/platform/orientation_service.hpp"
 #include "printdeck/platform/audio_service.hpp"
+#if defined(PRINTDECK_LOCAL_VOICE)
+#include "printdeck/platform/voice_service.hpp"
+#endif
 #include "printdeck/platform/power_service.hpp"
 #include "printdeck/platform/usb_developer_service.hpp"
 #include "freertos/FreeRTOS.h"
@@ -113,6 +116,9 @@ class Runtime {
   BambuCompatibilityProbe bambu_compatibility_;
   OrientationService orientation_;
   AudioService audio_;
+#if defined(PRINTDECK_LOCAL_VOICE)
+  VoiceService voice_;
+#endif
   PowerService power_;
   UsbDeveloperService usb_developer_;
   TaskHandle_t monitor_task_ = nullptr;

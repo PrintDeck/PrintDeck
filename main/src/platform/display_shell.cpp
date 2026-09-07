@@ -3302,13 +3302,16 @@ void DisplayShell::create_printer_animation(lv_obj_t* parent) {
 
   printer_animation_label_ = lv_label_create(printer_animation_root_);
   apply_text_style(printer_animation_label_, lv_color_hex(theme_colors_.idle),
-                   printer_animation_compact_ ? &lv_font_montserrat_14
-                                              : &lv_font_montserrat_16);
-  lv_obj_set_width(printer_animation_label_, printer_animation_compact_ ? 210 : 330);
+                   kDisplayUsesLargeLayout ? &lv_font_montserrat_16 : &lv_font_montserrat_12);
+  lv_obj_set_width(printer_animation_label_, kDisplayUsesLargeLayout ? 330 : 190);
   lv_obj_set_style_text_align(printer_animation_label_, LV_TEXT_ALIGN_CENTER,
                               LV_PART_MAIN);
-  lv_obj_align(printer_animation_label_, LV_ALIGN_TOP_MID, 0,
-               printer_animation_compact_ ? 5 : 12);
+  lv_obj_align(printer_animation_label_, LV_ALIGN_BOTTOM_MID, 0,
+               kDisplayUsesLargeLayout ? -64 : -40);
+  lv_obj_set_style_bg_color(printer_animation_label_, lv_color_black(), LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(printer_animation_label_, LV_OPA_80, LV_PART_MAIN);
+  lv_obj_set_style_radius(printer_animation_label_, 5, LV_PART_MAIN);
+  lv_obj_set_style_pad_ver(printer_animation_label_, 3, LV_PART_MAIN);
   make_gesture_passthrough(printer_animation_label_);
 
   printer_animation_gif_ = lv_gif_create(printer_animation_root_);
@@ -3434,9 +3437,8 @@ void DisplayShell::show_printer_reactions(const core::PrinterProfile& profile,
                    kDisplayUsesLargeLayout ? kPrinterProgressTopOffsetPx : 7);
     }
     create_printer_animation(lv_screen_active());
-    // The dedicated reactions page is intentionally visual-only: the progress
-    // percentage stays above the animation, while the activity is conveyed by
-    // the animation itself without a second textual status label.
+    // Ordinary reactions remain visual. Reported preparation details can add
+    // a compact caption without replacing the selected reaction image.
     if (printer_animation_label_ != nullptr) {
       lv_obj_add_flag(printer_animation_label_, LV_OBJ_FLAG_HIDDEN);
     }
@@ -3553,8 +3555,18 @@ void DisplayShell::update_printer_animation(const core::JobState& job) {
   }
   if (!found_color) use_slot_color(job.materials.external_spool);
 
-  lv_label_set_text(printer_animation_label_,
-                    tr(core::printer_activity_label(printer_animation_activity_)));
+  const bool show_activity_detail = !capture_animation_override_active_ &&
+      job.activity_status_available && next != core::PrinterActivity::unknown &&
+      next != core::PrinterActivity::printing;
+  if (show_activity_detail) {
+    const std::string text = core::localized_activity_text(language_, job);
+    lv_label_set_text(printer_animation_label_, text.c_str());
+    lv_obj_remove_flag(printer_animation_label_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_text_color(printer_animation_label_, lv_color_white(), LV_PART_MAIN);
+    lv_obj_move_foreground(printer_animation_label_);
+  } else {
+    lv_obj_add_flag(printer_animation_label_, LV_OBJ_FLAG_HIDDEN);
+  }
   render_printer_animation_frame();
 }
 
@@ -3675,7 +3687,7 @@ void DisplayShell::render_printer_animation_frame() {
   if (!ensure_printer_animation_canvas()) return;
 
   lv_obj_set_style_text_color(printer_animation_label_,
-                              lv_color_hex(printer_animation_primary_color_),
+                              lv_color_white(),
                               LV_PART_MAIN);
   const PrinterAnimationPalette palette{
       .background = theme_style_.background,
@@ -3965,7 +3977,7 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
                                : link_label(snapshot.link);
   lv_label_set_text(metrics_label_, active_job ? "" : tr(ready_text));
   lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
-  lv_label_set_text(status_label_, tr(core::job_status_label(snapshot.job)));
+  lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   update_power_header(power);
   board_display_unlock();
 }
@@ -4474,7 +4486,7 @@ void DisplayShell::show_printer_compact(const core::PrinterProfile& profile,
   lv_label_set_text(remaining_label_, remaining.c_str());
   lv_label_set_text_fmt(total_time_label_, "%s                         %s\n%s                         %s",
                         tr("PRINT"), tr("TOTAL"), elapsed.c_str(), total.c_str());
-  lv_label_set_text(status_label_, tr(core::job_status_label(snapshot.job)));
+  lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
   update_printer_progress(snapshot);
   update_power_header(power);
@@ -4680,7 +4692,7 @@ void DisplayShell::show_printer_telemetry(const core::PrinterProfile& profile,
     }
     lv_label_set_text_fmt(layer_label_, "%s: %s", tr("HOMED"), homed.empty() ? "--" : homed.c_str());
   }
-  lv_label_set_text(status_label_, tr(core::job_status_label(snapshot.job)));
+  lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   const std::uint32_t state_color =
       core::phase_color(theme_colors_, snapshot.job.phase, snapshot.job.reachable);
   lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
@@ -5061,10 +5073,13 @@ void DisplayShell::show_printer_light(const core::PrinterProfile& profile,
     lv_obj_set_ext_click_area(chamber_light_button_, 12);
     lv_obj_set_style_radius(chamber_light_button_, themed_radius(22), LV_PART_MAIN);
     lv_obj_set_style_border_width(chamber_light_button_, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(chamber_light_button_, 0, LV_PART_MAIN);
     lv_obj_add_flag(chamber_light_button_, LV_OBJ_FLAG_CHECKABLE);
     chamber_light_button_label_ = lv_label_create(chamber_light_button_);
     apply_text_style(chamber_light_button_label_, lv_color_hex(theme_style_.surface),
                      &lv_font_montserrat_16);
+    lv_obj_set_width(chamber_light_button_label_, 160);
+    lv_label_set_long_mode(chamber_light_button_label_, LV_LABEL_LONG_DOT);
     lv_obj_center(chamber_light_button_label_);
     lv_obj_add_flag(chamber_light_button_label_, LV_OBJ_FLAG_EVENT_BUBBLE);
     chamber_light_spinner_ = lv_spinner_create(chamber_light_button_);
@@ -5074,7 +5089,7 @@ void DisplayShell::show_printer_light(const core::PrinterProfile& profile,
     lv_obj_set_style_arc_color(chamber_light_spinner_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
     lv_obj_set_style_arc_color(chamber_light_spinner_, lv_color_hex(theme_style_.surface),
                                LV_PART_INDICATOR);
-    lv_obj_align(chamber_light_spinner_, LV_ALIGN_LEFT_MID, 18, 0);
+    lv_obj_align(chamber_light_spinner_, LV_ALIGN_LEFT_MID, 12, 0);
     lv_obj_add_flag(chamber_light_spinner_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(chamber_light_button_, [](lv_event_t* event) {
       auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
@@ -5118,13 +5133,15 @@ void DisplayShell::show_printer_light(const core::PrinterProfile& profile,
     lv_label_set_text(chamber_light_button_label_, tr(snapshot.job.chamber_light_target_on
                                                  ? "TURNING ON"
                                                  : "TURNING OFF"));
-    lv_obj_align(chamber_light_button_label_, LV_ALIGN_CENTER, 18, 0);
+    lv_obj_set_width(chamber_light_button_label_, 128);
+    lv_obj_align(chamber_light_button_label_, LV_ALIGN_CENTER, 22, 0);
   } else {
     lv_obj_add_flag(chamber_light_spinner_, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text(detail_label_, tr(supported ? (enabled ? "Light is on" : "Light is off")
                                                : "Light status unavailable"));
     lv_label_set_text(chamber_light_button_label_, tr(supported ? (enabled ? "TURN OFF" : "TURN ON")
                                                             : "UNAVAILABLE"));
+    lv_obj_set_width(chamber_light_button_label_, 160);
     lv_obj_center(chamber_light_button_label_);
   }
   board_display_unlock();
@@ -5751,19 +5768,6 @@ void DisplayShell::apply_reaction_progress_visibility() {
   apply(progress_label_, reaction_progress_percent_enabled_);
 }
 
-void DisplayShell::focus_printer_reactions_if_dashboard_visible() {
-  const bool ready = display_ready_.load(std::memory_order_acquire);
-  if (ready && board_display_lock(1000) != ESP_OK) {
-    ESP_LOGW(kLogTag, "Printer reaction focus deferred because the LVGL lock is busy");
-    return;
-  }
-  if (printer_animations_enabled_ && horizontal_depth_.load() == 1) {
-    printer_subpage_.store(0);
-    view_ = -1;
-  }
-  if (ready) board_display_unlock();
-}
-
 void DisplayShell::set_theme(std::string_view theme, const core::ThemeColors& custom) {
   const core::ThemeColors resolved = core::resolved_theme(theme, custom);
   const std::uint32_t next = resolved.printing;
@@ -6186,19 +6190,20 @@ void DisplayShell::handle_update_version_click() {
   if (update_busy_) return;
   update_overlay_manually_opened_ = true;
   if (update_available_) {
-    set_capture_overlay_name("update-available");
+    set_capture_overlay_name(update_factory_required_ ? "update-factory-required" : "update-available");
     ensure_update_overlay();
     // An automatic background check may have populated the cached snapshot
     // before the overlay existed.  Fill it here as well so a later tap never
     // opens an empty decision screen merely because the snapshot is unchanged.
-    lv_label_set_text(update_overlay_title_, tr("UPDATE AVAILABLE"));
+    lv_label_set_text(update_overlay_title_, tr(update_factory_required_ ? "USB INSTALL" : "UPDATE AVAILABLE"));
     lv_obj_set_style_text_color(update_overlay_title_, lv_color_hex(theme_style_.accent),
                                 LV_PART_MAIN);
-    lv_label_set_text_fmt(update_overlay_versions_, "%s: %s\n%s: %s", tr("New"),
+    lv_label_set_text_fmt(update_overlay_versions_, "%s: %s\n%s: %s", tr(update_factory_required_ ? "Required" : "New"),
                               update_latest_version_.empty()
                                   ? "--" : update_latest_version_.c_str(),
                               tr("Installed"), PRINTDECK_VERSION);
-    lv_label_set_text(update_overlay_detail_, tr(
+    lv_label_set_text(update_overlay_detail_, tr(update_factory_required_ ?
+        "Back up settings.\nFactory install via USB:\nprintdeck.xyz/firmware/\nSettings and images are erased." :
         "Install the new firmware securely over Wi-Fi.\n"
         "Keep PrintDeck powered until it restarts."));
     lv_obj_add_flag(update_overlay_progress_, LV_OBJ_FLAG_HIDDEN);
@@ -6420,6 +6425,14 @@ void DisplayShell::align_update_overlay_content_below_title() {
     return;
   }
 
+  const bool factory = update_factory_required_ &&
+      update_state_ == static_cast<int>(FirmwareUpdateState::available);
+  lv_obj_align(update_dismiss_button_, LV_ALIGN_BOTTOM_MID,
+      factory ? 0 : (kDisplayUsesLargeLayout ? 74 : kDisplayUsesCompactRoundLayout ? 45 : 56),
+      kDisplayUsesLargeLayout ? -79 : kDisplayUsesCompactRoundLayout ? -18 : -8);
+  lv_label_set_text(lv_obj_get_child(update_dismiss_button_, 0), tr(factory ? "Cancel" : "NOT NOW"));
+  if (factory) lv_obj_add_flag(update_install_button_, LV_OBJ_FLAG_HIDDEN);
+
   constexpr lv_coord_t versions_top = kDisplayUsesLargeLayout
                                           ? 116
                                           : (kDisplayUsesCompactRoundLayout ? 52 : 48);
@@ -6505,17 +6518,24 @@ void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
       update_latest_version_ != update.latest_version || update_detail_ != update.detail ||
       update_progress_percent_ != update.progress_percent ||
       update_state_ != static_cast<int>(update.state) ||
+      update_factory_required_ != update.factory_required ||
       update_available_ != update.update_available || update_busy_ != update.busy;
   if (!changed) return;
+  // Cache only after acquiring the display lock. Otherwise a busy frame can
+  // consume the only state transition and leave a factory notice invisible.
+  if (board_display_lock(250) != ESP_OK) return;
+  const bool new_factory_notice = update.factory_required &&
+      (!update_factory_required_ || update_latest_version_ != update.latest_version);
+  if (new_factory_notice) update_overlay_manually_opened_ = true;
   update_version_text_ = std::move(text);
   update_version_color_ = color;
   update_latest_version_ = update.latest_version;
   update_detail_ = update.detail;
   update_progress_percent_ = update.progress_percent;
   update_state_ = static_cast<int>(update.state);
+  update_factory_required_ = update.factory_required;
   update_available_ = update.update_available;
   update_busy_ = update.busy;
-  if (board_display_lock(250) != ESP_OK) return;
   if (version_label_ != nullptr && lv_obj_is_valid(version_label_)) {
     if constexpr (kDisplayUsesLargeLayout) {
       lv_label_set_text(version_label_, update_version_text_.c_str());
@@ -6546,7 +6566,8 @@ void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
   const bool installing = update.state == FirmwareUpdateState::downloading ||
                           update.state == FirmwareUpdateState::rebooting;
   const bool failed_install = update.state == FirmwareUpdateState::failed &&
-                              update.update_available && update_overlay_manually_opened_;
+                              update.update_available;
+  if (installing) update_overlay_manually_opened_ = true;
   const bool show_overlay = installing || failed_install ||
       (update_overlay_manually_opened_ && update.state == FirmwareUpdateState::available);
   if (show_overlay) {
@@ -6557,21 +6578,22 @@ void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
     } else if (update.state == FirmwareUpdateState::downloading) {
       set_capture_overlay_name("update-downloading");
     } else {
-      set_capture_overlay_name("update-available");
+      set_capture_overlay_name(update.factory_required ? "update-factory-required" : "update-available");
     }
     ensure_update_overlay();
     lv_obj_remove_flag(update_overlay_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(update_overlay_);
     const bool failed = update.state == FirmwareUpdateState::failed;
     lv_label_set_text(update_overlay_title_, failed ? tr("UPDATE FAILED") :
-                      installing ? tr("INSTALLING UPDATE") : tr("UPDATE AVAILABLE"));
+                      installing ? tr("INSTALLING UPDATE") : update.factory_required ? tr("USB INSTALL") : tr("UPDATE AVAILABLE"));
     lv_obj_set_style_text_color(update_overlay_title_,
         lv_color_hex(failed ? theme_colors_.error : theme_style_.accent), LV_PART_MAIN);
-    lv_label_set_text_fmt(update_overlay_versions_, "%s: %s\n%s: %s", tr("New"),
+    lv_label_set_text_fmt(update_overlay_versions_, "%s: %s\n%s: %s", tr(update_factory_required_ ? "Required" : "New"),
                           update.latest_version.empty() ? "--" : update.latest_version.c_str(),
                           tr("Installed"), update.current_version.c_str());
     lv_label_set_text(update_overlay_detail_, tr(
-        installing || failed ? update.detail.c_str() :
+        installing || failed ? update.detail.c_str() : update.factory_required ?
+        "Back up settings.\nFactory install via USB:\nprintdeck.xyz/firmware/\nSettings and images are erased." :
         "Install the new firmware securely over Wi-Fi.\n"
         "Keep PrintDeck powered until it restarts."));
     if (update.state == FirmwareUpdateState::rebooting) {
@@ -6594,6 +6616,7 @@ void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
       lv_obj_remove_flag(update_install_button_, LV_OBJ_FLAG_HIDDEN);
       lv_obj_remove_flag(update_dismiss_button_, LV_OBJ_FLAG_HIDDEN);
       lv_label_set_text(update_install_button_label_, failed ? tr("RETRY") : tr("UPDATE NOW"));
+      align_update_overlay_content_below_title();
     }
   } else if (update_overlay_ != nullptr && lv_obj_is_valid(update_overlay_)) {
     lv_obj_add_flag(update_overlay_, LV_OBJ_FLAG_HIDDEN);

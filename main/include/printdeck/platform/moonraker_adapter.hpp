@@ -58,6 +58,7 @@ class MoonrakerAdapter {
   std::atomic<std::uint64_t> chamber_light_deadline_ms_{0};
   bool has_print_task_config_ = false;
   bool has_machine_state_manager_ = false;
+  bool has_bed_mesh_ = false;
 };
 
 }  // namespace printdeck::platform

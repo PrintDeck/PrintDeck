@@ -15,6 +15,63 @@
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 
+extern "C" {
+#if defined(PRINTDECK_LOCAL_VOICE)
+#define PRINTDECK_VOICE_ASSET(name)                                                \
+  extern const std::uint8_t voice_##name##_start[]                                \
+      asm("_binary_voice_" #name "_adpcm_gz_start");                                \
+  extern const std::uint8_t voice_##name##_end[]                                  \
+      asm("_binary_voice_" #name "_adpcm_gz_end")
+PRINTDECK_VOICE_ASSET(yes);
+PRINTDECK_VOICE_ASSET(print_is);
+PRINTDECK_VOICE_ASSET(percent_complete);
+PRINTDECK_VOICE_ASSET(printing_for);
+PRINTDECK_VOICE_ASSET(remaining);
+PRINTDECK_VOICE_ASSET(estimated_completion);
+PRINTDECK_VOICE_ASSET(no_active_print);
+PRINTDECK_VOICE_ASSET(printer_unavailable);
+PRINTDECK_VOICE_ASSET(timing_unavailable);
+PRINTDECK_VOICE_ASSET(and);
+PRINTDECK_VOICE_ASSET(hour);
+PRINTDECK_VOICE_ASSET(hours);
+PRINTDECK_VOICE_ASSET(minute);
+PRINTDECK_VOICE_ASSET(minutes);
+PRINTDECK_VOICE_ASSET(am);
+PRINTDECK_VOICE_ASSET(pm);
+PRINTDECK_VOICE_ASSET(oh);
+PRINTDECK_VOICE_ASSET(zero);
+PRINTDECK_VOICE_ASSET(one);
+PRINTDECK_VOICE_ASSET(two);
+PRINTDECK_VOICE_ASSET(three);
+PRINTDECK_VOICE_ASSET(four);
+PRINTDECK_VOICE_ASSET(five);
+PRINTDECK_VOICE_ASSET(six);
+PRINTDECK_VOICE_ASSET(seven);
+PRINTDECK_VOICE_ASSET(eight);
+PRINTDECK_VOICE_ASSET(nine);
+PRINTDECK_VOICE_ASSET(ten);
+PRINTDECK_VOICE_ASSET(eleven);
+PRINTDECK_VOICE_ASSET(twelve);
+PRINTDECK_VOICE_ASSET(thirteen);
+PRINTDECK_VOICE_ASSET(fourteen);
+PRINTDECK_VOICE_ASSET(fifteen);
+PRINTDECK_VOICE_ASSET(sixteen);
+PRINTDECK_VOICE_ASSET(seventeen);
+PRINTDECK_VOICE_ASSET(eighteen);
+PRINTDECK_VOICE_ASSET(nineteen);
+PRINTDECK_VOICE_ASSET(twenty);
+PRINTDECK_VOICE_ASSET(thirty);
+PRINTDECK_VOICE_ASSET(forty);
+PRINTDECK_VOICE_ASSET(fifty);
+PRINTDECK_VOICE_ASSET(sixty);
+PRINTDECK_VOICE_ASSET(seventy);
+PRINTDECK_VOICE_ASSET(eighty);
+PRINTDECK_VOICE_ASSET(ninety);
+PRINTDECK_VOICE_ASSET(hundred);
+#undef PRINTDECK_VOICE_ASSET
+#endif
+}
+
 namespace printdeck::platform {
 namespace {
 
@@ -50,6 +107,46 @@ struct PlaybackControl {
   std::uint32_t expected;
   bool cancelled() const { return generation.load() != expected; }
 };
+
+#if defined(PRINTDECK_LOCAL_VOICE)
+struct VoiceSample {
+  const std::uint8_t* begin;
+  const std::uint8_t* end;
+};
+
+#define PRINTDECK_VOICE_SAMPLE(name) VoiceSample{voice_##name##_start, voice_##name##_end}
+constexpr std::array<int, 8> kImaIndexTable{-1, -1, -1, -1, 2, 4, 6, 8};
+constexpr std::array<int, 89> kImaStepTable{
+    7,     8,     9,     10,    11,    12,    13,    14,    16,    17,    19,
+    21,    23,    25,    28,    31,    34,    37,    41,    45,    50,    55,
+    60,    66,    73,    80,    88,    97,    107,   118,   130,   143,   157,
+    173,   190,   209,   230,   253,   279,   307,   337,   371,   408,   449,
+    494,   544,   598,   658,   724,   796,   876,   963,   1060,  1166,  1282,
+    1411,  1552,  1707,  1878,  2066,  2272,  2499,  2749,  3024,  3327,  3660,
+    4026,  4428,  4871,  5358,  5894,  6484,  7132,  7845,  8630,  9493,  10442,
+    11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
+    32767};
+
+constexpr std::array<VoiceSample, 20> kSmallNumbers{
+    PRINTDECK_VOICE_SAMPLE(zero),      PRINTDECK_VOICE_SAMPLE(one),
+    PRINTDECK_VOICE_SAMPLE(two),       PRINTDECK_VOICE_SAMPLE(three),
+    PRINTDECK_VOICE_SAMPLE(four),      PRINTDECK_VOICE_SAMPLE(five),
+    PRINTDECK_VOICE_SAMPLE(six),       PRINTDECK_VOICE_SAMPLE(seven),
+    PRINTDECK_VOICE_SAMPLE(eight),     PRINTDECK_VOICE_SAMPLE(nine),
+    PRINTDECK_VOICE_SAMPLE(ten),       PRINTDECK_VOICE_SAMPLE(eleven),
+    PRINTDECK_VOICE_SAMPLE(twelve),    PRINTDECK_VOICE_SAMPLE(thirteen),
+    PRINTDECK_VOICE_SAMPLE(fourteen),  PRINTDECK_VOICE_SAMPLE(fifteen),
+    PRINTDECK_VOICE_SAMPLE(sixteen),   PRINTDECK_VOICE_SAMPLE(seventeen),
+    PRINTDECK_VOICE_SAMPLE(eighteen),  PRINTDECK_VOICE_SAMPLE(nineteen)};
+
+constexpr std::array<VoiceSample, 8> kTens{
+    PRINTDECK_VOICE_SAMPLE(twenty), PRINTDECK_VOICE_SAMPLE(thirty),
+    PRINTDECK_VOICE_SAMPLE(forty),  PRINTDECK_VOICE_SAMPLE(fifty),
+    PRINTDECK_VOICE_SAMPLE(sixty),  PRINTDECK_VOICE_SAMPLE(seventy),
+    PRINTDECK_VOICE_SAMPLE(eighty), PRINTDECK_VOICE_SAMPLE(ninety)};
+#undef PRINTDECK_VOICE_SAMPLE
+#endif
+
 
 void* allocate_audio_resource(std::size_t size) {
   return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -336,6 +433,92 @@ bool write_adpcm_sample(esp_codec_dev_handle_t codec, AdpcmSample sample, int vo
   return true;
 }
 
+#if defined(PRINTDECK_LOCAL_VOICE)
+void write_voice_sample(esp_codec_dev_handle_t codec, VoiceSample sample, int volume, const PlaybackControl& control) {
+  if (control.cancelled()) return;
+  const std::size_t packed_size = static_cast<std::size_t>(sample.end - sample.begin);
+  if (packed_size < 18 || packed_size > core::kMaximumAudioSampleBytes + 1024) return;
+  const auto* trailer = sample.end - 4;
+  const std::size_t raw_size = static_cast<std::uint32_t>(trailer[0]) |
+      static_cast<std::uint32_t>(trailer[1]) << 8U |
+      static_cast<std::uint32_t>(trailer[2]) << 16U |
+      static_cast<std::uint32_t>(trailer[3]) << 24U;
+  if (raw_size == 0 || raw_size > core::kMaximumAudioSampleBytes) return;
+  std::unique_ptr<std::uint8_t, decltype(&heap_caps_free)> decoded(
+      static_cast<std::uint8_t*>(allocate_audio_resource(raw_size)), &heap_caps_free);
+  if (!decoded || !core::decompress_gzip_exact(sample.begin, packed_size,
+          decoded.get(), raw_size, allocate_audio_resource, heap_caps_free)) return;
+  if (control.cancelled()) return;
+  sample = {decoded.get(), decoded.get() + raw_size};
+  std::array<std::int16_t, kChunkSamples> output{};
+  std::size_t output_count = 0;
+  int predictor = 0;
+  int step_index = 0;
+  const auto flush = [&]() {
+    if (output_count == 0) return;
+    esp_codec_dev_write(codec, output.data(), output_count * sizeof(output[0]));
+    output_count = 0;
+  };
+  for (const std::uint8_t* input = sample.begin; input < sample.end; ++input) {
+    if (control.cancelled()) return;
+    for (int shift : {4, 0}) {
+      const int code = (*input >> shift) & 0x0f;
+      const int step = kImaStepTable[static_cast<std::size_t>(step_index)];
+      int delta = step >> 3;
+      if ((code & 4) != 0) delta += step;
+      if ((code & 2) != 0) delta += step >> 1;
+      if ((code & 1) != 0) delta += step >> 2;
+      predictor += (code & 8) != 0 ? -delta : delta;
+      predictor = std::clamp(predictor, -32768, 32767);
+      step_index += kImaIndexTable[static_cast<std::size_t>(code & 7)];
+      step_index = std::clamp(step_index, 0, 88);
+      output[output_count++] = static_cast<std::int16_t>(
+          predictor * std::clamp(volume, 0, 100) / 100);
+      if (output_count == output.size()) flush();
+    }
+  }
+  flush();
+}
+
+void write_voice_number(esp_codec_dev_handle_t codec, unsigned value, int volume, const PlaybackControl& control) {
+  value = std::min(value, 999U);
+  if (value >= 100) {
+    write_voice_sample(codec, kSmallNumbers[value / 100], volume, control);
+    write_voice_sample(codec, {voice_hundred_start, voice_hundred_end}, volume, control);
+    value %= 100;
+    if (value == 0) return;
+  }
+  if (value < kSmallNumbers.size()) {
+    write_voice_sample(codec, kSmallNumbers[value], volume, control);
+    return;
+  }
+  write_voice_sample(codec, kTens[value / 10 - 2], volume, control);
+  if (value % 10 != 0) write_voice_sample(codec, kSmallNumbers[value % 10], volume, control);
+}
+
+void write_voice_duration(esp_codec_dev_handle_t codec, std::uint32_t seconds, int volume, const PlaybackControl& control) {
+  const unsigned total_minutes = std::min<std::uint32_t>(seconds / 60U + (seconds % 60U >= 30U ? 1U : 0U), 59999U);
+  const unsigned hours = total_minutes / 60U;
+  const unsigned minutes = total_minutes % 60U;
+  if (hours > 0) {
+    write_voice_number(codec, hours, volume, control);
+    write_voice_sample(codec, hours == 1 ? VoiceSample{voice_hour_start, voice_hour_end}
+                                         : VoiceSample{voice_hours_start, voice_hours_end},
+                       volume, control);
+    if (minutes > 0) {
+      write_voice_sample(codec, {voice_and_start, voice_and_end}, volume, control);
+    }
+  }
+  if (minutes > 0 || hours == 0) {
+    write_voice_number(codec, minutes, volume, control);
+    write_voice_sample(codec, minutes == 1 ? VoiceSample{voice_minute_start, voice_minute_end}
+                                           : VoiceSample{voice_minutes_start, voice_minutes_end},
+                       volume, control);
+  }
+}
+#endif
+
+
 void write_note(esp_codec_dev_handle_t codec, Note note, int volume,
                 const SoundStyle& style, const PlaybackControl& control) {
   const int milliseconds = std::max(
@@ -458,14 +641,66 @@ bool AudioService::preview(Event event, Preset preset, int volume_percent) {
   return false;
 }
 
+#if defined(PRINTDECK_LOCAL_VOICE)
+std::uint32_t AudioService::acknowledge_voice_command() {
+  return queue_voice(RequestKind::voice_acknowledgement, {});
+}
+
+std::uint32_t AudioService::speak_print_status(const SpokenPrintStatus& status,
+                                               SpokenResponse response) {
+  RequestKind kind = RequestKind::voice_status;
+  if (response == SpokenResponse::remaining_time) {
+    kind = RequestKind::voice_remaining_time;
+  } else if (response == SpokenResponse::completion_time) {
+    kind = RequestKind::voice_completion_time;
+  }
+  return queue_voice(kind, status);
+}
+
+bool AudioService::voice_request_complete(std::uint32_t ticket) const {
+  return ticket != 0 && completed_voice_ticket_.load() == ticket;
+}
+
+std::uint32_t AudioService::queue_voice(RequestKind kind, const SpokenPrintStatus& status) {
+#if defined(PRINTDECK_LOCAL_VOICE)
+  if (!enabled_.load() || volume_.load() == 0 || queue_ == nullptr) return 0;
+  std::uint32_t ticket = next_voice_ticket_.fetch_add(1);
+  if (ticket == 0) ticket = next_voice_ticket_.fetch_add(1);
+  Request request{Event::test, preset_.load(), volume_.load(), false, language_.load(),
+                  nullptr, nullptr, playback_generation_.load()};
+  request.kind = kind;
+  request.ticket = ticket;
+  request.status = status;
+  return xQueueSend(queue_, &request, 0) == pdTRUE ? ticket : 0;
+#else
+  (void)kind;
+  (void)status;
+  return 0;
+#endif
+}
+
+#endif
+
 void AudioService::task_entry(void* context) { static_cast<AudioService*>(context)->task_loop(); }
 
 void AudioService::task_loop() {
   Request request{};
   while (true) {
     if (xQueueReceive(queue_, &request, pdMS_TO_TICKS(250)) == pdTRUE) {
-      play_now(request.event, request.preset, request.volume, request.force,
-               request.language, request.generation);
+#if defined(PRINTDECK_LOCAL_VOICE)
+      playback_active_.store(true);
+      if (request.kind != RequestKind::event) {
+        play_voice_now(request.kind, request.status, request.volume, request.generation);
+      } else
+#endif
+      {
+        play_now(request.event, request.preset, request.volume, request.force,
+                 request.language, request.generation);
+      }
+#if defined(PRINTDECK_LOCAL_VOICE)
+      playback_active_.store(false);
+      if (request.ticket != 0) completed_voice_ticket_.store(request.ticket);
+#endif
       if (request.force) preview_busy_.store(false);
       if (request.completion != nullptr) {
         request.completion(request.completion_context);
@@ -533,5 +768,80 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   }
   write_silence(codec, 1024);
 }
+
+#if defined(PRINTDECK_LOCAL_VOICE)
+void AudioService::play_voice_now(RequestKind kind, const SpokenPrintStatus& status, int volume,
+                                  std::uint32_t generation) {
+#if defined(PRINTDECK_LOCAL_VOICE)
+  const PlaybackControl control{playback_generation_, generation};
+  if (control.cancelled() || !enabled_.load()) return;
+  auto codec = static_cast<esp_codec_dev_handle_t>(codec_);
+  if (codec == nullptr || volume <= 0) return;
+  const auto say = [&](const std::uint8_t* begin, const std::uint8_t* end) {
+    write_voice_sample(codec, {begin, end}, volume, control);
+  };
+  write_silence(codec, 320);
+  if (kind == RequestKind::voice_acknowledgement) {
+    say(voice_yes_start, voice_yes_end);
+    write_silence(codec, 640);
+    return;
+  }
+  if (!status.printer_available) {
+    say(voice_printer_unavailable_start, voice_printer_unavailable_end);
+    write_silence(codec, 1024);
+    return;
+  }
+  if (!status.print_active) {
+    say(voice_no_active_print_start, voice_no_active_print_end);
+    write_silence(codec, 1024);
+    return;
+  }
+  if (kind == RequestKind::voice_status) {
+    say(voice_print_is_start, voice_print_is_end);
+    write_voice_number(codec, status.completion_percent, volume, control);
+    say(voice_percent_complete_start, voice_percent_complete_end);
+    write_silence(codec, 1024);
+    return;
+  }
+  if (kind == RequestKind::voice_remaining_time) {
+    if (!status.timing_available || status.remaining_seconds == 0) {
+      say(voice_timing_unavailable_start, voice_timing_unavailable_end);
+      write_silence(codec, 1024);
+      return;
+    }
+    write_voice_duration(codec, status.remaining_seconds, volume, control);
+    say(voice_remaining_start, voice_remaining_end);
+    write_silence(codec, 1024);
+    return;
+  }
+  if (kind == RequestKind::voice_completion_time) {
+    if (!status.eta_available) {
+      say(voice_timing_unavailable_start, voice_timing_unavailable_end);
+      write_silence(codec, 1024);
+      return;
+    }
+    say(voice_estimated_completion_start, voice_estimated_completion_end);
+    unsigned hour = status.eta_hour % 12U;
+    if (hour == 0) hour = 12;
+    write_voice_number(codec, hour, volume, control);
+    if (status.eta_minute > 0) {
+      if (status.eta_minute < 10) say(voice_oh_start, voice_oh_end);
+      write_voice_number(codec, status.eta_minute, volume, control);
+    }
+    if (status.eta_hour < 12) say(voice_am_start, voice_am_end);
+    else say(voice_pm_start, voice_pm_end);
+    write_silence(codec, 1024);
+    return;
+  }
+  // Every voice request kind is handled above. Keep malformed requests silent.
+  write_silence(codec, 1024);
+#else
+  (void)kind;
+  (void)status;
+  (void)volume;
+#endif
+}
+
+#endif
 
 }  // namespace printdeck::platform

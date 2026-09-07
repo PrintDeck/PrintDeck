@@ -15,6 +15,7 @@
 #include "printdeck/platform/task_affinity.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -177,11 +178,28 @@ void Runtime::start() {
     ESP_LOGW(kLogTag, "Audio service is unavailable: %s", esp_err_to_name(audio_result));
   }
   verify_heap("audio startup");
+#if defined(PRINTDECK_LOCAL_VOICE)
+  if (audio_result == ESP_OK) {
+    const esp_err_t voice_result = voice_.start(audio_);
+    if (voice_result != ESP_OK) {
+      ESP_LOGW(kLogTag, "Local voice service is unavailable: %s",
+               esp_err_to_name(voice_result));
+    }
+    verify_heap("voice startup");
+  }
+#endif
   const esp_err_t power_result = power_.start();
   if (power_result != ESP_OK) {
     ESP_LOGW(kLogTag, "Power service is unavailable: %s", esp_err_to_name(power_result));
-  } else if (xTaskCreatePinnedToCore(power_entry, "power_key", 4096, this, 6, &power_task_,
-                                     kServiceCore) != pdPASS) {
+  }
+#if defined(PRINTDECK_LOCAL_VOICE)
+  else if (xTaskCreatePinnedToCoreWithCaps(power_entry, "power_key", 4096, this, 6,
+                                           &power_task_, kServiceCore,
+                                           MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
+#else
+  else if (xTaskCreatePinnedToCore(power_entry, "power_key", 4096, this, 6, &power_task_,
+                                   kServiceCore) != pdPASS) {
+#endif
     power_task_ = nullptr;
     ESP_LOGE(kLogTag, "Power-key task could not be started");
   }
@@ -1592,7 +1610,6 @@ void Runtime::monitor_loop() {
         connection_failure_since_ms_ = now_ms;
       }
       bool wake_after_snapshot = false;
-      bool focus_reaction_after_snapshot = false;
       if (selected != nullptr && selected_snapshot_ready && full_connection_active) {
         const core::JobPhase phase = selected_snapshot.job.phase;
         const core::PrinterActivity activity =
@@ -1616,15 +1633,13 @@ void Runtime::monitor_loop() {
           const bool animation_changed = settings_.printer_animations_enabled &&
               core::animation_wake_transition(last_display_activity_, activity);
           if (animation_changed) mark_reset_checkpoint(ResetCheckpoint::kPrintWake);
+          // Refresh and wake the current page without changing the user's
+          // navigation. Animations belong to the reactions page only.
           wake_after_snapshot = wake_after_snapshot || animation_changed;
-          focus_reaction_after_snapshot = animation_changed;
           if (activity != core::PrinterActivity::unknown) {
             last_display_activity_ = activity;
           }
         }
-      }
-      if (focus_reaction_after_snapshot) {
-        display_.focus_printer_reactions_if_dashboard_visible();
       }
       const int rendered_page = display_.page();
       const bool rendered_printer_list = display_.printer_list_visible();
@@ -1680,6 +1695,34 @@ void Runtime::monitor_loop() {
       display_.show_wifi_setup(network.setup_network_name.c_str(),
                                network.local_hostname.c_str());
     }
+#if defined(PRINTDECK_LOCAL_VOICE)
+    AudioService::SpokenPrintStatus voice_status;
+    voice_status.printer_available =
+        selected != nullptr && selected_snapshot_ready &&
+        selected_snapshot.link == core::LinkState::online;
+    if (voice_status.printer_available) {
+      voice_status.print_active = active_phase(selected_snapshot.job.phase);
+      voice_status.completion_percent = static_cast<std::uint8_t>(std::lround(
+          std::clamp(std::isfinite(selected_snapshot.job.completion)
+                         ? selected_snapshot.job.completion : 0.0F, 0.0F, 100.0F)));
+      voice_status.elapsed_seconds = selected_snapshot.job.elapsed_seconds;
+      voice_status.remaining_seconds = selected_snapshot.job.remaining_seconds;
+      voice_status.timing_available = voice_status.print_active &&
+          (voice_status.elapsed_seconds > 0 || voice_status.remaining_seconds > 0);
+      const std::time_t now = std::time(nullptr);
+      if (voice_status.remaining_seconds > 0 && now >= 1'577'836'800) {
+        const std::time_t completion =
+            now + static_cast<std::time_t>(voice_status.remaining_seconds);
+        std::tm local_completion{};
+        if (localtime_r(&completion, &local_completion) != nullptr) {
+          voice_status.eta_available = true;
+          voice_status.eta_hour = static_cast<std::uint8_t>(local_completion.tm_hour);
+          voice_status.eta_minute = static_cast<std::uint8_t>(local_completion.tm_min);
+        }
+      }
+    }
+    voice_.update_status(voice_status);
+#endif
     const bool print_active = selected != nullptr && selected_snapshot_ready &&
                               active_phase(selected_snapshot.job.phase);
     const bool update_installing = update.state == FirmwareUpdateState::downloading ||

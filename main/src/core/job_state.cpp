@@ -91,6 +91,11 @@ void JobState::normalize() {
   if (!reachable) {
     phase = JobPhase::unknown;
     activity = PrinterActivity::unknown;
+    activity_detail = ActivityDetail::none;
+    activity_status_available = false;
+    activity_toolhead = -1;
+    activity_current = activity_total = 0;
+    activity_remaining_seconds = -1;
     detail = "Printer unavailable";
     return;
   }
@@ -127,6 +132,14 @@ void JobState::normalize() {
     remaining_known = false;
     current_layer = 0;
     total_layers = 0;
+  }
+  if (activity == PrinterActivity::unknown || phase == JobPhase::paused ||
+      phase == JobPhase::completed || phase == JobPhase::failed || phase == JobPhase::cancelled) {
+    activity_detail = ActivityDetail::none;
+    activity_status_available = false;
+    activity_toolhead = -1;
+    activity_current = activity_total = 0;
+    activity_remaining_seconds = -1;
   }
 }
 

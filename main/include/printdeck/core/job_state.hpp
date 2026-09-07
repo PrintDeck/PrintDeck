@@ -124,6 +124,16 @@ struct JobState {
   JobPhase phase = JobPhase::unknown;
   JobKind kind = JobKind::print;
   PrinterActivity activity = PrinterActivity::unknown;
+  // Optional detail for the current activity; reaction IDs remain unchanged.
+  enum class ActivityDetail : std::uint8_t {
+    none, bed_detection, tool_check, flow_calibration, bed_preheat, bed_prescan,
+  };
+  ActivityDetail activity_detail = ActivityDetail::none;
+  bool activity_status_available = false;
+  int activity_toolhead = -1;
+  std::uint16_t activity_current = 0;
+  std::uint16_t activity_total = 0;
+  int activity_remaining_seconds = -1;
   PrinterCondition condition = PrinterCondition::normal;
   std::string name;
   std::string gcode_file;

@@ -34,10 +34,10 @@ inline constexpr bool kBoardHasAudio = true;
 inline constexpr char kBoardVariant[] = "lcd_1_54";
 // Keep this flash layout on its own update channel and release asset family so
 // an application-only image is never offered to an incompatible partition map.
-inline constexpr char kFirmwareStableChannel[] = "lcd_1_54_layout_2";
+inline constexpr char kFirmwareStableChannel[] = "lcd_1_54_voice";
 inline constexpr char kFirmwareOtaAssetPrefix[] =
-    "printdeck_lcd_1_54_layout_2_ota-";
-inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_lcd_1_54_full-";
+    "printdeck_lcd_1_54_voice_ota-";
+inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_lcd_1_54_voice_full-";
 inline constexpr char kLegacyFirmwareOtaAssetPrefix[] = "";
 inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
 #else
@@ -50,10 +50,10 @@ inline constexpr bool kBoardHasAudio = true;
 inline constexpr char kBoardVariant[] = "amoled_1_75";
 // Keep this flash layout on its own update channel and release asset family so
 // an application-only image is never offered to an incompatible partition map.
-inline constexpr char kFirmwareStableChannel[] = "amoled_1_75_layout_2";
+inline constexpr char kFirmwareStableChannel[] = "amoled_1_75_voice";
 inline constexpr char kFirmwareOtaAssetPrefix[] =
-    "printdeck_amoled_1_75_layout_2_ota-";
-inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_amoled_1_75_full-";
+    "printdeck_amoled_1_75_voice_ota-";
+inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_amoled_1_75_voice_full-";
 inline constexpr char kLegacyFirmwareOtaAssetPrefix[] = "";
 inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
 #endif
@@ -95,5 +95,8 @@ bool board_touch_interrupt_active();
 esp_err_t board_i2c_init();
 i2c_master_bus_handle_t board_i2c_handle();
 esp_codec_dev_handle_t board_audio_codec_speaker_init();
+#if defined(PRINTDECK_LOCAL_VOICE)
+esp_codec_dev_handle_t board_audio_codec_microphone_init();
+#endif
 
 }  // namespace printdeck::platform

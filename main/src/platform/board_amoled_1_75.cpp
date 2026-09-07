@@ -81,4 +81,8 @@ esp_codec_dev_handle_t board_audio_codec_speaker_init() {
   return bsp_audio_codec_speaker_init();
 }
 
+esp_codec_dev_handle_t board_audio_codec_microphone_init() {
+  return bsp_audio_codec_microphone_init();
+}
+
 }  // namespace printdeck::platform
