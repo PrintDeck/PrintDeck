@@ -23,7 +23,7 @@ constexpr std::uint16_t kAudioEventMuteMask = (1U << 14U) - 1U;
 struct DisplayPowerPolicy {
   // Schema 14: delay before the sequence, then durations. Zero skips a stage.
   std::uint32_t start_timeout_idle_s = 20;
-  std::uint32_t start_timeout_active_s = 0;
+  std::uint32_t start_timeout_active_s = 20;
   std::uint32_t dim_duration_idle_s = 60;
   std::uint32_t dim_duration_active_s = 60;
   std::uint32_t saver_duration_idle_s = 120;

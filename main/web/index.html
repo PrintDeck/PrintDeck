@@ -345,17 +345,17 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 <div id="power-controls">
   <style>
     #power-controls {
-      --pd-bg: light-dark(#ffffff, #1c1f1e);
-      --pd-section: light-dark(#f6f7f7, #232725);
-      --pd-text: light-dark(#19201e, #f0f3f1);
-      --pd-muted: light-dark(#5c6863, #afb9b4);
-      --pd-line: light-dark(#e1e6e3, #3d4541);
-      --pd-input: light-dark(#ffffff, #1c211e);
-      --pd-accent: light-dark(#087562, #82d8c2);
-      --pd-note: light-dark(#eff7f4, #21372f);
-      --pd-note-text: light-dark(#285447, #bbe2d1);
-      --pd-track: light-dark(#bac5bf, #606d65);
-      --pd-knob: light-dark(#ffffff, #11251f);
+      --pd-bg: var(--panel);
+      --pd-section: var(--panel-2);
+      --pd-text: var(--ink);
+      --pd-muted: var(--muted);
+      --pd-line: var(--line);
+      --pd-input: var(--bg);
+      --pd-accent: var(--accent-text);
+      --pd-note: var(--panel-2);
+      --pd-note-text: var(--muted);
+      --pd-track: var(--line);
+      --pd-knob: var(--panel);
       --pd-space: 17px;
       color: var(--pd-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 14px; line-height: 1.45; width: 100%;
@@ -376,7 +376,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     #power-controls .pd-row:last-child, #power-controls .pd-row:has(+ [hidden]:last-child) { padding-bottom: 2px; border-bottom: 0; }
     #power-controls .pd-label { font-weight: 550; display: block; color: var(--pd-text); }
     #power-controls .pd-help { display: block; margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--pd-muted); }
-    #power-controls select { appearance: none; -webkit-appearance: none; width: 100%; min-width: 0; min-height: 44px; font: inherit; color: var(--pd-text); border: 1px solid var(--pd-line); border-radius: 9px; background-color: var(--pd-input); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23748a81' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 18px 18px; padding: 9px 46px 9px 12px; cursor: pointer; }
+    #power-controls select { appearance: none; -webkit-appearance: none; width: 100%; min-width: 0; min-height: 44px; font: inherit; color: var(--pd-text); border: 1px solid var(--pd-line); border-radius: 9px; background-color: var(--pd-input); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 18px 18px; padding: 9px 46px 9px 12px; cursor: pointer; }
     #power-controls select:disabled { opacity: .55; cursor: default; }
     #power-controls .pd-switch-wrap { justify-self: end; display: flex; align-items: center; gap: 10px; }
     #power-controls .pd-switch-label { display: flex; align-items: center; min-height: 44px; cursor: pointer; }
@@ -450,15 +450,15 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     }
 
     #power-controls .pd-settings-card { margin-top: 23px; background: var(--pd-section); border: 1px solid var(--pd-line); border-radius: 14px; overflow: hidden; }
-    #power-controls .pd-state-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 8px; background: light-dark(#ecf1ee,#29342e); border-bottom: 1px solid var(--pd-line); }
+    #power-controls .pd-state-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 8px; background: var(--pd-section); border-bottom: 1px solid var(--pd-line); }
     #power-controls .pd-state-tabs button { min-width: 0; min-height: 52px; padding: 12px 20px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--pd-muted); font: inherit; font-weight: 600; line-height: 1.4; box-shadow: none; }
     #power-controls .pd-state-tabs button[aria-selected=true] { background: var(--pd-input); color: var(--pd-accent); border-color: var(--pd-line); box-shadow: 0 2px 4px #00000009; }
     #power-controls .pd-state-tabs button:not([aria-selected=true]):hover { background: var(--pd-section); color: var(--pd-text); }
     #power-controls .pd-state-tabs button:focus-visible, #power-controls .pd-context-panel:focus-visible { outline: 2px solid var(--pd-accent); outline-offset: -3px; }
     #power-controls .pd-basic { margin-top: 0; border: 0; border-radius: 0; background: transparent; }
     #power-controls details { margin-top: 20px; border: 1px solid var(--pd-line); border-radius: 14px; overflow: hidden; background: var(--pd-section); }
-    #power-controls summary { padding: 15px 20px; border: 0; background: light-dark(#ecf1ee,#2c3530); }
-    #power-controls summary:hover { background: light-dark(#e2ebe6,#35433b); }
+    #power-controls summary { padding: 15px 20px; border: 0; background: var(--pd-section); }
+    #power-controls summary:hover { background: color-mix(in srgb,var(--ink) 5%,var(--pd-section)); }
     #power-controls summary:focus-visible { outline: 2px solid var(--pd-accent); outline-offset: -3px; }
     #power-controls .pd-expand-action { display: flex; align-items: center; gap: 12px; color: var(--pd-accent); font-size: 13px; font-weight: 600; flex-shrink: 0; }
     #power-controls .pd-chevron { display: grid; place-items: center; width: 32px; height: 32px; background: var(--pd-input); border: 1px solid var(--pd-line); border-radius: 7px; }
