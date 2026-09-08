@@ -40,6 +40,9 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
 
   "Printer state":["Stan drukarki","Estado de la impresora","État de l’imprimante","Druckerstatus","打印机状态"],
   "Screen saver animation":["Animacja wygaszacza","Animación del protector de pantalla","Animation de l’économiseur d’écran","Bildschirmschoner-Animation","屏幕保护动画"],
+  "Starfield":["Gwiazdy","Estrellas","Étoiles","Sternenfeld","星空"],
+  "Fireflies":["Świetliki","Luciérnagas","Lucioles","Glühwürmchen","萤火虫"],
+  "Aquarium":["Akwarium","Acuario","Aquarium","Aquarium","水族箱"],
   "Circles":["Kręgi","Círculos","Cercles","Kreise","圆环"],
   "Going to sleep":["Pora spać","Hora de dormir","Au dodo","Schlafenszeit","准备入睡"],
   "ON":["WŁ.","SÍ","OUI","AN","开"],

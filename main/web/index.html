@@ -449,6 +449,17 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
       #power-controls .pd-steps .pd-row > select, #power-controls .pd-steps .pd-row > .pd-label { max-width: none; }
     }
 
+    #power-controls .pd-animation-row { grid-template-columns: minmax(0,1fr); }
+    #power-controls .pd-animation-cards { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 14px; width: 100%; }
+    #power-controls .pd-animation-card { --selection-accent: var(--device-theme-accent); --selection-ink: var(--device-theme-on-accent); position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 0; padding: 12px; border: 2px solid var(--pd-line); border-radius: 14px; background: var(--pd-input); color: var(--pd-text); font: inherit; cursor: pointer; box-shadow: none; }
+    #power-controls .pd-animation-card:hover { border-color: var(--pd-muted); }
+    #power-controls .pd-animation-card[aria-checked=true] { border-color: var(--pd-accent); }
+    #power-controls .pd-animation-card:focus-visible { outline: 2px solid var(--pd-accent); outline-offset: 3px; }
+    #power-controls .pd-animation-card canvas { display: block; width: 100%; max-width: 180px; height: auto; aspect-ratio: 1; background: #000; border-radius: 8px; }
+    @media(max-width:700px) { #power-controls .pd-animation-cards { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+    #power-controls .pd-animation-name { font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+    #power-controls .pd-animation-check { position: absolute; top: 12px; right: 12px; z-index: 4; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--selection-accent); color: var(--selection-ink); box-shadow: 0 0 0 3px color-mix(in srgb,var(--selection-accent) 18%,transparent),0 4px 12px #0006; font-size: 18px; font-weight: 950; line-height: 1; visibility: hidden; }
+    #power-controls .pd-animation-card[aria-checked=true] .pd-animation-check { visibility: visible; }
     #power-controls .pd-settings-card { margin-top: 23px; background: var(--pd-section); border: 1px solid var(--pd-line); border-radius: 14px; overflow: hidden; }
     #power-controls .pd-state-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 8px; background: var(--pd-section); border-bottom: 1px solid var(--pd-line); }
     #power-controls .pd-state-tabs button { min-width: 0; min-height: 52px; padding: 12px 20px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--pd-muted); font: inherit; font-weight: 600; line-height: 1.4; box-shadow: none; }
@@ -570,9 +581,16 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
             <div><label class="pd-label" for="dim-brightness">Brightness while dimmed</label><span class="pd-help" id="pd-brightness-help">Automatic adjusts to your normal brightness. Also applies to the screen saver.</span></div>
             <select id="dim-brightness" aria-describedby="pd-brightness-help"><option value="0">Automatic</option><option value="8">8%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="30">30%</option></select>
           </div>
-          <div class="pd-row">
-            <label class="pd-label" for="saver-animation">Screen saver animation</label>
-            <select id="saver-animation"><option value="0">Circles</option><option value="1">Going to sleep</option></select>
+          <div class="pd-row pd-animation-row">
+            <span class="pd-label" id="saver-animation-label">Screen saver animation</span>
+            <input type="hidden" id="saver-animation" value="1">
+            <div class="pd-animation-cards" role="radiogroup" aria-labelledby="saver-animation-label">
+              <button type="button" class="pd-animation-card" role="radio" aria-checked="false" tabindex="-1" data-saver-animation="0"><canvas width="240" height="240" aria-hidden="true"></canvas><span class="pd-animation-name">Circles</span><span class="pd-animation-check" aria-hidden="true">✓</span></button>
+              <button type="button" class="pd-animation-card" role="radio" aria-checked="true" tabindex="0" data-saver-animation="1"><canvas width="240" height="240" aria-hidden="true"></canvas><span class="pd-animation-name">Going to sleep</span><span class="pd-animation-check" aria-hidden="true">✓</span></button>
+              <button type="button" class="pd-animation-card" role="radio" aria-checked="false" tabindex="-1" data-saver-animation="2"><canvas width="240" height="240" aria-hidden="true"></canvas><span class="pd-animation-name">Starfield</span><span class="pd-animation-check" aria-hidden="true">✓</span></button>
+              <button type="button" class="pd-animation-card" role="radio" aria-checked="false" tabindex="-1" data-saver-animation="3"><canvas width="240" height="240" aria-hidden="true"></canvas><span class="pd-animation-name">Fireflies</span><span class="pd-animation-check" aria-hidden="true">✓</span></button>
+              <button type="button" class="pd-animation-card" role="radio" aria-checked="false" tabindex="-1" data-saver-animation="4"><canvas width="240" height="240" aria-hidden="true"></canvas><span class="pd-animation-name">Aquarium</span><span class="pd-animation-check" aria-hidden="true">✓</span></button>
+            </div>
           </div>
           <div class="pd-row" data-power-shutdown>
             <div><label class="pd-label" for="shutdown-time">Shut down PrintDeck after the display turns off</label><span class="pd-help" id="shutdown-time-help">On battery only. PrintDeck stays on while a print is active.</span></div>
@@ -1337,6 +1355,125 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     });
     $('#pd-advanced').addEventListener('toggle',()=>{const label=$('#power-expand-label');label.dataset.i18n=$('#pd-advanced').open?'Hide options':'Show options';label.textContent=translated(label.dataset.i18n)});
     const powerNumbers = {'saver-animation':'saver_animation','dim-brightness':'dim_brightness','start-idle':'start_idle','start-active':'start_active','dim-idle':'dim_for_idle','dim-active':'dim_for_active','saver-idle':'saver_for_idle','saver-active':'saver_for_active','shutdown-time':'shutdown_s','dim-audio':'dim_audio','off-audio':'off_audio'};
+    const saverAnimationCards=$$('[data-saver-animation]');
+    function paintSaverAnimationCards(){
+      saverAnimationCards.forEach(card=>{const selected=card.dataset.saverAnimation===$('#saver-animation').value;card.setAttribute('aria-checked',String(selected));card.tabIndex=selected?0:-1});
+    }
+    function chooseSaverAnimation(card){
+      const input=$('#saver-animation');
+      if(input.value===card.dataset.saverAnimation)return;
+      input.value=card.dataset.saverAnimation;input.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    saverAnimationCards.forEach((card,index)=>{
+      card.addEventListener('click',()=>chooseSaverAnimation(card));
+      card.addEventListener('keydown',event=>{
+        let next;
+        if(['ArrowRight','ArrowDown'].includes(event.key))next=(index+1)%saverAnimationCards.length;
+        else if(['ArrowLeft','ArrowUp'].includes(event.key))next=(index+saverAnimationCards.length-1)%saverAnimationCards.length;
+        else if(event.key==='Home')next=0;
+        else if(event.key==='End')next=saverAnimationCards.length-1;
+        else return;
+        event.preventDefault();saverAnimationCards[next].focus();chooseSaverAnimation(saverAnimationCards[next]);
+      });
+    });
+    // Browser-only previews mirror core/screen_saver.hpp at its 240 px geometry
+    // and the display shell's 80/100 ms cadence. No device frames are requested.
+    function createSaverScene(kind,seed=0x51ee9){
+      let random=seed||1,ticks=0;
+      const next=()=>{random^=random<<13;random^=random>>>17;random^=random<<5;return random>>>0};
+      const particles=Array.from({length:20},()=>({x:next()%181-90,y:next()%181-90,phase:next()%256}));
+      const div=(a,b)=>Math.trunc(a/b),wave=phase=>{const p=phase&255,x=p<128?p:p-128,h=div(x*(128-x),32);return p<128?h:-h};
+      return ()=>{
+        ticks=(ticks+1)&4095;
+        const shapes=[],add=(x,y,w,h,r,color,opacity)=>shapes.push({x,y,w,h,r,color,opacity:Math.max(0,Math.min(255,opacity))});
+        if(kind===2){
+          for(const p of particles){
+            const age=(ticks+p.phase)%192,distance=24+div(age*age,64),r=1+div(age,80);
+            const x=120+div(wave(div(ticks,2)),16)+div(p.x*distance,256),y=120+div(wave(div(ticks,3)+64),16)+div(p.y*distance,256);
+            add(x-r,y-r,r*2,r*2,r,p.phase&1?0xadbddb:0xd9e5ef,div(Math.min(age,191-age,24)*190,24));
+          }
+        }else if(kind===3){
+          particles.slice(0,8).forEach((p,i)=>{
+            const x=120+div(p.x*2,3)+div(wave(ticks+p.phase),5),y=120+div(p.y*2,3)+div(wave(div(ticks,2)+p.phase+64),5);
+            const brightness=65+div((wave(ticks*2+p.phase)+128)*150,256),r=5+div(wave(ticks+p.phase)+128,128),color=i&1?0xdde892:0xaee5b1;
+            add(x-r,y-r,r*2,r*2,r,color,div(brightness,9));add(x-2,y-2,4,4,2,color,brightness);
+          });
+        }else{
+          for(let i=0;i<2;i++){
+            const x=(ticks*(i===0?2:1)+particles[i].phase)%352-56,y=(i===0?91:157)+div(wave(ticks*2+particles[i].phase),10);
+            const opacity=Math.max(0,Math.min(190,Math.min(x+40,280-x)*8)),body=i===0?0xe2aa79:0x80bec8,fin=i===0?0xb37d68:0x6598b5;
+            const fish=(dx,dy,w,h,r,color)=>add(i===0?x+dx:240-x-dx-w,y+dy,w,h,r,color,opacity);
+            fish(-23,-8+div(wave(ticks*8),64),12,17,3,fin);fish(-10,-13,10,6,3,fin);fish(-8,6,9,6,3,fin);
+            fish(-17,-9,34,19,10,body);fish(8,-4,5,5,3,0xe7e7dd);fish(10,-3,2,2,1,0x16222a);fish(2,-2,2,8,1,fin);
+          }
+          for(let i=0;i<4;i++){
+            const age=(ticks+i*61)&255,x=44+i*48+div(wave(ticks+i*43),16),y=248-age,opacity=div(Math.min(age,255-age,32)*90,32);
+            add(x,y,7,7,4,0x76afbc,opacity);add(x+1,y+1,5,5,3,0,255);
+          }
+        }
+        return shapes;
+      };
+    }
+    function createSaverPreview(canvas,kind){
+      const ctx=canvas.getContext('2d');if(!ctx)return null;
+      const scene=kind>=2?createSaverScene(kind):null;
+      let random=0x51ee9,age=24,anchor=120,ground=156,mirrored=false;
+      const next=()=>{random^=random<<13;random^=random>>>17;random^=random<<5;return random>>>0};
+      const stars=[[70,55],[120,64],[172,52]],colors=['#4be3c1','#469add','#9d78db','#62cace'];
+      function ripple(){return {x:Math.trunc(240*(20+next()%61)/100),y:Math.trunc(240*(20+next()%61)/100),dx:Math.trunc(240*(next()%31-15)/100),dy:Math.trunc(240*(next()%31-15)/100),age:0,life:130+next()%91,color:next()%4}}
+      const ripples=Array.from({length:6},(_,i)=>({...ripple(),age:i*19}));
+      const box=(x,y,w,h,r,color,brightness=255)=>{
+        if(mirrored)x=240-x-w;
+        ctx.globalAlpha=Math.min(age,95-age,10)/10*brightness/255;
+        ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,Math.min(r,w/2,h/2));ctx.fill();
+      };
+      function draw(advance=true){
+        ctx.globalAlpha=1;ctx.fillStyle='#000';ctx.fillRect(0,0,240,240);
+        if(scene){
+          for(const s of scene()){ctx.globalAlpha=s.opacity/255;ctx.fillStyle='#'+s.color.toString(16).padStart(6,'0');ctx.beginPath();ctx.roundRect(s.x,s.y,s.w,s.h,Math.min(s.r,s.w/2,s.h/2));ctx.fill()}
+        }else if(kind===1){
+          if(advance&&++age>=96){age=0;anchor=112+next()%17;ground=142+next()%29;mirrored=Boolean(next()&1);stars.forEach(star=>{star[0]=60+next()%121;star[1]=48+next()%31})}
+          stars.forEach(([x,y],i)=>{const pulse=(age+19*i)%48;box(x,y,3,3,2,'#adbce0',70+(pulse<24?pulse:48-pulse)*5)});
+          box(anchor-13,ground-27,4,32,2,'#72958e',190);box(anchor+9,ground-27,4,32,2,'#72958e',190);
+          box(anchor-17,ground-23,34,3,1,'#91b2a4',180);box(anchor-17,ground-12,34,3,1,'#91b2a4',180);
+          const progress=Math.trunc(age*1024/95),jump=Math.max(0,Math.min(896,progress-64));
+          const lift=Math.trunc(62*4*jump*(896-jump)/(896*896)),x=anchor-64+Math.trunc(128*progress/1024),y=ground-lift,step=lift>0?0:(Math.trunc(age/4)%2?2:-2);
+          box(x-9+step,y-8,3,12,1,'#8492ae');box(x-10+step,y+2,6,3,1,'#8492ae');
+          box(x+8-step,y-8,3,12,1,'#8492ae');box(x+7-step,y+2,6,3,1,'#8492ae');
+          box(x-23,y-22,10,8,5,'#bdc8da');box(x-17,y-27,35,23,12,'#c8d2e1');
+          box(x-19,y-24,13,14,7,'#c8d2e1');box(x-13,y-32,15,15,8,'#c8d2e1');
+          box(x-2,y-34,16,16,8,'#c8d2e1');box(x+7,y-28,14,14,7,'#c8d2e1');box(x-7,y-18,17,15,8,'#c8d2e1');
+          box(x+14,y-29,14,19,7,'#8390aa');box(x+12,y-32,11,6,3,'#a8b4cb');box(x+21,y-22,4,2,1,'#182332');
+        }else{
+          ripples.forEach((p,i)=>{
+            if(advance&&++p.age>=p.life)p=ripples[i]=ripple();
+            const progress=Math.trunc(p.age*1024/p.life),envelope=progress<512?progress:1024-progress;
+            const radius=Math.trunc(240*(90+Math.trunc(progress/3))/1024),opacity=Math.trunc(envelope*envelope*115/(512*512));
+            const x=p.x+Math.trunc(p.dx*progress/1024),y=p.y+Math.trunc(p.dy*progress/1024);
+            for(let halo=0;halo<2;halo++){const width=halo===0?5:1;ctx.globalAlpha=(halo===0?Math.trunc(opacity/5):opacity)/255;ctx.strokeStyle=colors[p.color];ctx.lineWidth=width;ctx.beginPath();ctx.arc(x,y,radius+(halo===0?2:0)-width/2,0,Math.PI*2);ctx.stroke()}
+          });
+        }
+        ctx.globalAlpha=1;
+      }
+      draw(false);return {draw,interval:kind===0?100:80};
+    }
+    const saverPreviewMotion=matchMedia('(prefers-reduced-motion: reduce)');
+    const saverPreviews=saverAnimationCards.map(card=>({canvas:$('canvas',card),...createSaverPreview($('canvas',card),Number(card.dataset.saverAnimation)),visible:false,timer:null}));
+    let saverPreviewPageActive=true;
+    function syncSaverPreviews(){
+      saverPreviews.forEach(preview=>{
+        const running=preview.draw&&preview.visible&&$('#pd-advanced').open&&!document.hidden&&saverPreviewPageActive&&!saverPreviewMotion.matches;
+        if(!running&&preview.timer!==null){clearInterval(preview.timer);preview.timer=null}
+        else if(running&&preview.timer===null)preview.timer=setInterval(()=>preview.draw(),preview.interval);
+      });
+    }
+    const saverPreviewObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{saverPreviews.find(preview=>preview.canvas===entry.target).visible=entry.isIntersecting});syncSaverPreviews()},{threshold:0});
+    saverPreviews.forEach(preview=>saverPreviewObserver.observe(preview.canvas));
+    $('#pd-advanced').addEventListener('toggle',syncSaverPreviews);
+    document.addEventListener('visibilitychange',syncSaverPreviews);
+    saverPreviewMotion.addEventListener('change',syncSaverPreviews);
+    window.addEventListener('pagehide',()=>{saverPreviewPageActive=false;syncSaverPreviews()});
+    window.addEventListener('pageshow',()=>{saverPreviewPageActive=true;syncSaverPreviews()});
     const powerSwitches = {'usb-power-save':'usb_power_save','orientation-wake':'wake_on_orientation_change','touch-wake':'wake_on_touch'};
     const durationUntilWake=86401;
     const powerTimes = [[10,'10 seconds'],[20,'20 seconds'],[30,'30 seconds'],[45,'45 seconds'],[60,'1 minute'],[120,'2 minutes'],[180,'3 minutes'],[300,'5 minutes'],[600,'10 minutes']];
@@ -1359,6 +1496,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
       paintScreenSaverSettings();
     }
     function paintScreenSaverSettings(){
+      paintSaverAnimationCards();
       const knomi2=(health.hardware||settings.hardware)==='knomi2';
       let brightnessUsed=false,idleEnds=false;
       ['idle','active'].forEach(context=>{

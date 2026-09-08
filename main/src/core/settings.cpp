@@ -390,7 +390,7 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
                       "Inactive printer refresh must be off or 30, 60, 180 or 300 seconds"});
   }
   const DisplayPowerPolicy& power = settings.display_power;
-  if (power.screen_saver_animation > kScreenSaverGoingToSleep) {
+  if (power.screen_saver_animation > kScreenSaverAquarium) {
     issues.push_back({"display_power.screen_saver_animation",
                       "Unsupported screen saver animation"});
   }

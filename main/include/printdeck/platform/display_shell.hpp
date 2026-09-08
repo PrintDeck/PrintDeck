@@ -497,8 +497,9 @@ class DisplayShell {
   lv_timer_t* screen_saver_timer_ = nullptr;
   std::array<lv_obj_t*, core::ScreenSaverRipples::kCount * 2> screen_saver_rings_{};
   core::ScreenSaverRipples screen_saver_ripples_;
-  std::array<lv_obj_t*, core::ScreenSaverSheep::kCount> screen_saver_sheep_shapes_{};
+  std::array<lv_obj_t*, core::ScreenSaverScene::kCount> screen_saver_shapes_{};
   core::ScreenSaverSheep screen_saver_sheep_;
+  core::ScreenSaverScene screen_saver_scene_;
   std::uint8_t active_screen_saver_animation_ = core::kScreenSaverCircles;
   void set_screen_saver_visible(bool visible);
   void suspend_visual_updates(bool suspended);

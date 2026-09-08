@@ -145,4 +145,105 @@ class ScreenSaverSheep {
   }
 };
 
+// Small geometric scenes share one fixed shape buffer. No image assets or
+// per-frame heap allocations; coordinates use the same 240 px design space.
+class ScreenSaverScene {
+ public:
+  using Shape = ScreenSaverSheep::Shape;
+  static constexpr unsigned kCount = 22;
+  void reset(std::uint32_t seed, int size, std::uint8_t kind) {
+    random_ = seed ? seed : 1;
+    size_ = std::max(size, 1);
+    kind_ = kind;
+    ticks_ = 0;
+    for (auto& p : particles_) {
+      p = {static_cast<int>(next() % 181) - 90,
+           static_cast<int>(next() % 181) - 90,
+           static_cast<int>(next() % 256)};
+    }
+  }
+  static int wave(int phase) {
+    const int p = phase & 255;
+    const int x = p < 128 ? p : p - 128;
+    const int height = x * (128 - x) / 32;
+    return p < 128 ? height : -height;
+  }
+  std::array<Shape, kCount> tick() {
+    ticks_ = (ticks_ + 1) & 4095;
+    std::array<Shape, kCount> shapes{};
+    unsigned count = 0;
+    const auto add = [&](int x, int y, int w, int h, int radius,
+                         std::uint32_t color, int opacity) {
+      const auto scale = [&](int value) { return value * size_ / 240; };
+      shapes[count++] = {scale(x), scale(y), std::max(1, scale(w)),
+                         std::max(1, scale(h)), scale(radius), color,
+                         static_cast<std::uint8_t>(std::clamp(opacity, 0, 255))};
+    };
+    if (kind_ == 2) {
+      for (const auto& p : particles_) {
+        const int age = (ticks_ + p.phase) % 192;
+        const int distance = 24 + age * age / 64;
+        const int radius = 1 + age / 80;
+        const int x = 120 + wave(ticks_ / 2) / 16 + p.x * distance / 256;
+        const int y = 120 + wave(ticks_ / 3 + 64) / 16 + p.y * distance / 256;
+        const int opacity = std::min({age, 191 - age, 24}) * 190 / 24;
+        add(x - radius, y - radius, radius * 2, radius * 2, radius,
+            p.phase & 1 ? 0xADBDDB : 0xD9E5EF, opacity);
+      }
+    } else if (kind_ == 3) {
+      for (unsigned i = 0; i < 8; ++i) {
+        const auto& p = particles_[i];
+        const int x = 120 + p.x * 2 / 3 + wave(ticks_ + p.phase) / 5;
+        const int y = 120 + p.y * 2 / 3 + wave(ticks_ / 2 + p.phase + 64) / 5;
+        const int brightness = 65 + (wave(ticks_ * 2 + p.phase) + 128) * 150 / 256;
+        const int radius = 5 + (wave(ticks_ + p.phase) + 128) / 128;
+        const std::uint32_t color = i & 1 ? 0xDDE892 : 0xAEE5B1;
+        add(x - radius, y - radius, radius * 2, radius * 2, radius, color, brightness / 9);
+        add(x - 2, y - 2, 4, 4, 2, color, brightness);
+      }
+    } else {
+      for (unsigned i = 0; i < 2; ++i) {
+        const int x = (ticks_ * (i == 0 ? 2 : 1) + particles_[i].phase) % 352 - 56;
+        const int y = (i == 0 ? 91 : 157) + wave(ticks_ * 2 + particles_[i].phase) / 10;
+        const int opacity = std::clamp(std::min(x + 40, 280 - x) * 8, 0, 190);
+        const std::uint32_t body = i == 0 ? 0xE2AA79 : 0x80BEC8;
+        const std::uint32_t fin = i == 0 ? 0xB37D68 : 0x6598B5;
+        const auto fish = [&](int dx, int dy, int w, int h, int r, std::uint32_t color) {
+          const int left = x + dx;
+          add(i == 0 ? left : 240 - left - w, y + dy, w, h, r, color, opacity);
+        };
+        fish(-23, -8 + wave(ticks_ * 8) / 64, 12, 17, 3, fin);
+        fish(-10, -13, 10, 6, 3, fin);
+        fish(-8, 6, 9, 6, 3, fin);
+        fish(-17, -9, 34, 19, 10, body);
+        fish(8, -4, 5, 5, 3, 0xE7E7DD);
+        fish(10, -3, 2, 2, 1, 0x16222A);
+        fish(2, -2, 2, 8, 1, fin);
+      }
+      for (unsigned i = 0; i < 4; ++i) {
+        const int age = (ticks_ + i * 61) & 255;
+        const int x = 44 + i * 48 + wave(ticks_ + i * 43) / 16;
+        const int y = 248 - age;
+        const int opacity = std::min({age, 255 - age, 32}) * 90 / 32;
+        add(x, y, 7, 7, 4, 0x76AFBC, opacity);
+        add(x + 1, y + 1, 5, 5, 3, 0, 255);
+      }
+    }
+    return shapes;
+  }
+
+ private:
+  struct Particle { int x, y, phase; };
+  std::array<Particle, 20> particles_{};
+  std::uint32_t random_ = 1;
+  int size_ = 240, ticks_ = 0;
+  std::uint8_t kind_ = 2;
+  unsigned next() {
+    random_ ^= random_ << 13;
+    random_ ^= random_ >> 17;
+    random_ ^= random_ << 5;
+    return random_;
+  }
+};
+
 }  // namespace printdeck::core

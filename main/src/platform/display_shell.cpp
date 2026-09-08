@@ -6769,7 +6769,7 @@ void DisplayShell::set_screen_saver_visible(bool visible) {
     if (screen_saver_root_ != nullptr) lv_obj_delete(screen_saver_root_);
     screen_saver_root_ = nullptr;
     screen_saver_rings_.fill(nullptr);
-    screen_saver_sheep_shapes_.fill(nullptr);
+    screen_saver_shapes_.fill(nullptr);
     return;
   }
   if (screen_saver_root_ != nullptr) return;
@@ -6785,9 +6785,12 @@ void DisplayShell::set_screen_saver_visible(bool visible) {
   lv_obj_set_style_bg_color(screen_saver_root_, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(screen_saver_root_, LV_OPA_COVER, 0);
   lv_obj_remove_flag(screen_saver_root_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
-  if (active_screen_saver_animation_ == core::kScreenSaverGoingToSleep) {
-    screen_saver_sheep_.reset(esp_random(), std::min(width, height));
-    for (auto& shape : screen_saver_sheep_shapes_) {
+  if (active_screen_saver_animation_ != core::kScreenSaverCircles) {
+    if (active_screen_saver_animation_ == core::kScreenSaverGoingToSleep)
+      screen_saver_sheep_.reset(esp_random(), std::min(width, height));
+    else
+      screen_saver_scene_.reset(esp_random(), std::min(width, height), active_screen_saver_animation_);
+    for (auto& shape : screen_saver_shapes_) {
       shape = lv_obj_create(screen_saver_root_);
       lv_obj_remove_style_all(shape);
       lv_obj_remove_flag(shape, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
@@ -6804,18 +6807,24 @@ void DisplayShell::set_screen_saver_visible(bool visible) {
     }
   }
   screen_saver_timer_ = lv_timer_create(screen_saver_tick,
-      active_screen_saver_animation_ == core::kScreenSaverGoingToSleep ? 80 : 100, this);
+      active_screen_saver_animation_ == core::kScreenSaverCircles ? 100 : 80, this);
   if (screen_saver_timer_ != nullptr) screen_saver_tick(screen_saver_timer_);
 }
 
 void DisplayShell::screen_saver_tick(lv_timer_t* timer) {
   auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
   if (shell->screen_power_mode_ != 3 || shell->screen_saver_root_ == nullptr) return;
-  if (shell->active_screen_saver_animation_ == core::kScreenSaverGoingToSleep) {
-    const auto shapes = shell->screen_saver_sheep_.tick();
+  if (shell->active_screen_saver_animation_ != core::kScreenSaverCircles) {
+    std::array<core::ScreenSaverScene::Shape, core::ScreenSaverScene::kCount> shapes{};
+    if (shell->active_screen_saver_animation_ == core::kScreenSaverGoingToSleep) {
+      const auto sheep = shell->screen_saver_sheep_.tick();
+      std::copy(sheep.begin(), sheep.end(), shapes.begin());
+    } else {
+      shapes = shell->screen_saver_scene_.tick();
+    }
     for (unsigned i = 0; i < shapes.size(); ++i) {
       const auto& frame = shapes[i];
-      auto* object = shell->screen_saver_sheep_shapes_[i];
+      auto* object = shell->screen_saver_shapes_[i];
       lv_obj_set_pos(object, frame.x, frame.y);
       lv_obj_set_size(object, frame.width, frame.height);
       lv_obj_set_style_radius(object, frame.radius, 0);

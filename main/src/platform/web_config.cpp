@@ -2576,7 +2576,7 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
     int value = 0;
     if (form_value(body, "saver_animation", text)) {
       if (!parse_int(text, value) || value < core::kScreenSaverCircles ||
-          value > core::kScreenSaverGoingToSleep)
+          value > core::kScreenSaverAquarium)
         return send_json(request, "400 Bad Request",
                          "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
       candidate.display_power.screen_saver_animation = static_cast<std::uint8_t>(value);

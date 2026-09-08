@@ -178,7 +178,7 @@ bool read_display_power(const cJSON* settings_object, DisplayPowerPolicy& power,
          read_unsigned(object, "screen_saver_timeout_idle_s", power.screen_saver_timeout_idle_s, 300, extended_required) &&
          read_unsigned(object, "screen_saver_timeout_active_s", power.screen_saver_timeout_active_s, 300, extended_required) &&
          read_unsigned(object, "screen_saver_animation", power.screen_saver_animation,
-                       kScreenSaverGoingToSleep, animation_required) &&
+                       kScreenSaverAquarium, animation_required) &&
          read_bool(object, "usb_power_save_active_enabled", power.usb_power_save_active_enabled, extended_required) &&
          read_bool(object, "wake_on_touch", power.wake_on_touch, extended_required) &&
          read_unsigned(object, "dim_audio_percent", power.dim_audio_percent, 100, extended_required) &&
