@@ -32,7 +32,7 @@
     .printer-preview{padding-bottom:34px;gap:3px}.printer-avatar{width:72px;height:72px}.printer-preview .identity-meta{font-size:14px;font-weight:650;line-height:1.4}.printer-preview .endpoint-meta{font-size:13px;line-height:1.4}.printer-add-preview{padding-bottom:16px;gap:9px}
     .modal{position:fixed;inset:0;z-index:40;display:grid;place-items:center;min-height:100vh;min-height:100dvh;padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));overflow:hidden;background:#020807c7;backdrop-filter:blur(10px)}.dialog{width:min(920px,100%);max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow:auto;padding:30px;border:1px solid var(--line);border-radius:28px;background:var(--panel);box-shadow:0 28px 90px #000a;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}#printer-modal .dialog{display:flex;flex-direction:column;overflow:hidden}#printer-modal .dialog-head{flex:0 0 auto}.printer-dialog-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.dialog-head{justify-content:space-between;gap:20px;align-items:flex-start}.dialog-head h2{font-size:clamp(25px,4vw,34px);margin:0 0 5px}.icon-button{display:grid;place-items:center;flex:0 0 auto;width:48px;height:48px;padding:0;border:1px solid var(--line);border-radius:16px;background:var(--panel-2);color:var(--ink)}.icon-button svg{display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}.choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}.choice-card{min-height:210px;padding:24px;border:1px solid var(--line);border-radius:22px;background:var(--panel-2);color:var(--ink);text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:12px}.choice-card:hover{border-color:var(--accent)}.choice-card strong{font-size:23px}.choice-card small{margin-top:auto;color:var(--accent-text);font-weight:850;letter-spacing:.09em;text-transform:uppercase}.scan-launch{width:100%;min-height:88px;margin-top:24px;font-size:18px}.hint,.identity{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:17px;background:var(--panel-2)}.identity-head{display:flex;align-items:center;gap:13px;justify-content:space-between}.identity-copy{flex:1}.brand-logo{display:grid;place-items:center;width:58px;height:58px;border-radius:16px;background:color-mix(in srgb,var(--accent) 12%,var(--panel-2));border:1px solid var(--line);font-weight:900}.brand-logo img{display:block;width:88%;height:88%;object-fit:contain}.printer-avatar img{display:block;width:100%;height:100%;object-fit:contain}.dialog-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:24px}.dialog-actions .danger{margin-right:auto}.discovery-progress{margin-top:24px;padding:28px;border:1px solid var(--line);border-radius:22px;background:var(--panel-2);text-align:center}.spinner{width:52px;height:52px;margin:0 auto 16px;border:6px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .9s linear infinite}.spinner.still{animation:none}@keyframes spin{to{transform:rotate(360deg)}}.discovery-group{margin-top:20px}.discovery-group h3{margin:0 0 9px;font-size:14px;color:var(--muted);letter-spacing:.04em}.discovery-results{display:grid;gap:11px}.discovery-result{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border:1px solid var(--line);border-radius:17px;background:var(--panel-2)}.discovery-result.is-added{border-color:color-mix(in srgb,var(--accent) 42%,var(--line))}.discovery-result .pill{flex:0 0 auto;color:var(--accent-text)}.connection-status.ok,.discovery-notice{color:var(--accent-text)}
     .theme-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:22px}.theme-card{--p:#00ff66;--s:#19f7e6;--a2:#19f7e6;--b:#000;--b2:#02120a;--preview:#294d6b;--surface:#07110d;--raised:#0b1a14;--border:#23483a;--track:#335a4b;--tx:#f5fff9;--ts:#cde7d9;--tm:#7f9d8e;--on:#02120a;--corner:7px;--selection-accent:var(--p);--selection-ink:var(--on);position:relative;min-height:370px;padding:16px;border:1px solid var(--line);border-radius:22px;background:var(--panel-2);color:var(--ink);text-align:left}.theme-card.active{border-color:var(--selection-accent);box-shadow:inset 0 0 0 1px var(--selection-accent)}.theme-preview{position:relative;width:min(245px,100%);height:auto;aspect-ratio:1;margin:0 auto;overflow:hidden;border:1px solid color-mix(in srgb,var(--p) 55%,var(--border));border-radius:50%;background:radial-gradient(circle at 85% 12%,color-mix(in srgb,var(--p) 17%,transparent),transparent 22%),var(--b);color:var(--tx)}.theme-preview:before{content:"";position:absolute;inset:7px;border-radius:50%;background:conic-gradient(from 42deg,var(--p) 0 68%,var(--track) 68% 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0)}.status-pages{position:absolute;right:14px;top:50%;z-index:2;display:grid;gap:4px;transform:translateY(-50%)}.status-pages i{display:block;width:4px;height:4px;border-radius:50%;background:var(--track)}.status-pages i:nth-child(2){background:var(--p);box-shadow:0 0 7px color-mix(in srgb,var(--p) 75%,transparent)}.status-mini{position:absolute;inset:17px 25px 19px;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:800}.status-progress{height:17px;color:var(--p);font-size:12px;line-height:1}.status-power{height:14px;color:var(--tx);font-size:8px;letter-spacing:.06em}.status-printer{margin-top:1px;color:var(--ts);font-size:11px}.status-file{max-width:155px;margin-top:1px;overflow:hidden;color:var(--ts);font-size:8px;text-overflow:ellipsis;white-space:nowrap}.status-main{display:grid;grid-template-columns:66px 1fr;gap:7px;width:151px;margin-top:6px}.status-thumb{display:grid;place-items:center;height:66px;border:1px solid color-mix(in srgb,var(--s) 70%,transparent);border-radius:var(--corner);background:var(--preview);color:var(--s);font-size:17px;letter-spacing:-.08em}.status-thumb img{display:block;width:82%;height:82%;object-fit:contain}.status-stats{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;color:var(--ts);font-size:8px;line-height:1.35;text-align:left}.status-stats b{color:var(--a2);font-size:10px}.status-stats strong{margin-top:4px;color:var(--tx);font-size:9px}.status-temps{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:156px;margin-top:6px;font-size:9px}.status-temps span:nth-child(1){color:#ff7043}.status-temps span:nth-child(2){color:#ffb020}.status-temps span:nth-child(3){color:#a78bfa}.status-ready{margin-top:auto;color:var(--p);font-size:12px;text-shadow:0 0 10px color-mix(in srgb,var(--p) 70%,transparent)}.theme-card[data-terminal=true] .theme-preview,.theme-card[data-terminal=true] h3{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em}.theme-card[data-terminal=true] .theme-preview{font-weight:500}.theme-card h3{font-size:22px;margin:14px 0 2px}.color-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.color-field{display:grid;grid-template-columns:40px 1fr;align-items:center;gap:9px;color:var(--muted);font-size:12px}.color-field input{width:40px;height:40px;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2)}
-    .reaction-detail{display:grid;gap:16px;margin-top:16px}.reaction-event-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;min-width:0;padding:0;border:0;margin:20px 0 0}.reaction-event{display:grid;grid-template-columns:116px minmax(0,1fr);gap:16px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--panel-2)}.reaction-event-preview{position:relative;display:grid;place-items:center;width:116px;height:116px;overflow:hidden;border:1px solid var(--line);border-radius:18px;background:#03070a}.reaction-event-preview img{display:block;width:100%;height:100%;object-fit:contain}.reaction-event-copy{min-width:0}.reaction-event-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.reaction-event-head strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reaction-toggle{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;font-weight:750}.reaction-event .actions{margin-top:10px}.reaction-event .actions button{padding:8px 10px;font-size:12px}.reaction-event .actions button.busy{display:inline-flex;align-items:center;justify-content:center;gap:7px}.reaction-event .actions button.busy:before,.reaction-inline-status.busy:before{content:"";display:inline-block;flex:0 0 auto;width:12px;height:12px;border:2px solid color-mix(in srgb,currentColor 28%,transparent);border-top-color:currentColor;border-radius:50%;animation:spin .75s linear infinite}.reaction-inline-status{min-height:1.35em;margin-top:9px}.reaction-inline-status.busy{display:flex;align-items:center;gap:8px;color:var(--muted)}.reaction-inline-status.busy:before{border-color:var(--line);border-top-color:var(--accent)}.reaction-inline-status.error{color:var(--danger)}.reaction-candidate{margin-top:10px;padding:10px;border:1px solid color-mix(in srgb,var(--accent) 42%,var(--line));border-radius:13px}.reaction-candidate img{display:block;width:96px;height:96px;margin-bottom:8px;object-fit:contain;border-radius:10px;background:#03070a}.reaction-storage{margin-top:14px;color:var(--muted);font-size:12px}.reaction-settings.is-disabled~.reaction-detail{opacity:.58}.reaction-progress{margin-top:12px}.reaction-loading{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:12px;min-height:112px;color:var(--muted);font-weight:750}.reaction-loading-spinner{flex:0 0 auto;width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}.reaction-install-dialog{width:min(560px,100%)}.reaction-install-summary{display:grid;grid-template-columns:96px minmax(0,1fr);gap:16px;align-items:center;margin-top:22px;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--panel-2)}.reaction-install-summary img{display:block;width:96px;height:96px;object-fit:contain;border:1px solid var(--line);border-radius:14px;background:#03070a}.reaction-install-summary strong,.reaction-install-summary span{display:block}.reaction-install-summary strong{font-size:20px}.reaction-install-progress{margin-top:22px}.reaction-install-spinner{display:block;width:64px;height:64px;margin:0 auto 20px;border:7px solid var(--line);border-top-color:var(--accent);border-right-color:color-mix(in srgb,var(--accent) 46%,var(--line));border-radius:50%;box-shadow:0 8px 26px #0004;animation:spin .8s linear infinite}.reaction-install-progress .status{min-height:44px}.reaction-install-dialog .dialog-actions{align-items:center}.reaction-install-dialog .dialog-actions .danger{margin-left:auto;margin-right:0}@media(prefers-reduced-motion:reduce){.reaction-loading-spinner,.reaction-install-spinner,.reaction-event .actions button.busy:before,.reaction-inline-status.busy:before,.sound-test.busy:before{animation-duration:1.8s}}
+    .reaction-detail{display:grid;gap:16px;margin-top:16px}.reaction-event-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;min-width:0;padding:0;border:0;margin:20px 0 0}.reaction-event{display:grid;grid-template-columns:116px minmax(0,1fr);gap:16px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--panel-2)}.reaction-event-preview{position:relative;display:grid;place-items:center;width:116px;height:116px;overflow:hidden;border:1px solid var(--line);border-radius:18px;background:#03070a}.reaction-event-preview img{display:block;width:100%;height:100%;object-fit:contain}.reaction-event-copy{min-width:0}.reaction-event-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.reaction-event-head strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reaction-toggle{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;font-weight:750}.reaction-event .actions{margin-top:10px}.reaction-event .actions button{padding:8px 10px;font-size:12px}.reaction-event .actions button.busy{display:inline-flex;align-items:center;justify-content:center;gap:7px}.reaction-event .actions button.busy:before,.reaction-inline-status.busy:before{content:"";display:inline-block;flex:0 0 auto;width:12px;height:12px;border:2px solid color-mix(in srgb,currentColor 28%,transparent);border-top-color:currentColor;border-radius:50%;animation:spin .75s linear infinite}.reaction-inline-status{min-height:1.35em;margin-top:9px}.reaction-inline-status.busy{display:flex;align-items:center;gap:8px;color:var(--muted)}.reaction-inline-status.busy:before{border-color:var(--line);border-top-color:var(--accent)}.reaction-inline-status.error{color:var(--danger)}.reaction-candidate{margin-top:10px;padding:10px;border:1px solid color-mix(in srgb,var(--accent) 42%,var(--line));border-radius:13px}.reaction-candidate img{display:block;width:96px;height:96px;margin-bottom:8px;object-fit:contain;border-radius:10px;background:#03070a}.reaction-storage{margin-top:14px;color:var(--muted);font-size:12px}.reaction-settings.is-disabled .reaction-layout,.reaction-settings.is-disabled~.reaction-detail{display:none}.reaction-settings.is-disabled .reaction-header{margin-bottom:0;padding-bottom:0;border-bottom:0}.reaction-settings>.pane-status:empty{display:none}.reaction-progress{margin-top:12px}.reaction-loading{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:12px;min-height:112px;color:var(--muted);font-weight:750}.reaction-loading-spinner{flex:0 0 auto;width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}.reaction-install-dialog{width:min(560px,100%)}.reaction-install-summary{display:grid;grid-template-columns:96px minmax(0,1fr);gap:16px;align-items:center;margin-top:22px;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--panel-2)}.reaction-install-summary img{display:block;width:96px;height:96px;object-fit:contain;border:1px solid var(--line);border-radius:14px;background:#03070a}.reaction-install-summary strong,.reaction-install-summary span{display:block}.reaction-install-summary strong{font-size:20px}.reaction-install-progress{margin-top:22px}.reaction-install-spinner{display:block;width:64px;height:64px;margin:0 auto 20px;border:7px solid var(--line);border-top-color:var(--accent);border-right-color:color-mix(in srgb,var(--accent) 46%,var(--line));border-radius:50%;box-shadow:0 8px 26px #0004;animation:spin .8s linear infinite}.reaction-install-progress .status{min-height:44px}.reaction-install-dialog .dialog-actions{align-items:center}.reaction-install-dialog .dialog-actions .danger{margin-left:auto;margin-right:0}@media(prefers-reduced-motion:reduce){.reaction-loading-spinner,.reaction-install-spinner,.reaction-event .actions button.busy:before,.reaction-inline-status.busy:before,.sound-test.busy:before{animation-duration:1.8s}}
     .theme-card{--phase:var(--p);--phase-progress:68%}.theme-preview{background:var(--b);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--border) 58%,transparent),0 12px 28px color-mix(in srgb,var(--b) 48%,transparent)}.theme-preview:before{background:conic-gradient(from 42deg,var(--phase) 0 var(--phase-progress),var(--track) var(--phase-progress) 100%)}.status-pages i:nth-child(2){background:var(--phase);box-shadow:0 0 7px color-mix(in srgb,var(--phase) 75%,transparent)}.status-progress,.status-ready{color:var(--phase)}.status-ready{text-shadow:0 0 10px color-mix(in srgb,var(--phase) 70%,transparent)}.theme-card[data-terminal=true] .status-stats strong{font-size:8px;letter-spacing:0}.theme-card[data-terminal=true] h3{letter-spacing:0}.theme-card[data-theme=fluent_dark] .status-temps span{color:var(--a2)}.theme-card[data-theme=fluent_dark] .theme-preview{box-shadow:inset 0 0 0 2px var(--border),0 0 24px color-mix(in srgb,var(--p) 24%,transparent)}.theme-card[data-glass=true] .theme-preview{background:radial-gradient(circle at 82% 12%,color-mix(in srgb,var(--p) 34%,transparent),transparent 29%),radial-gradient(circle at 12% 82%,color-mix(in srgb,var(--a2) 22%,transparent),transparent 31%),var(--b);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 34%,transparent),inset 0 0 0 1px color-mix(in srgb,var(--border) 72%,transparent),0 0 26px color-mix(in srgb,var(--p) 20%,transparent)}.theme-card[data-glass=true] .status-main{padding:5px;border:1px solid color-mix(in srgb,#fff 18%,transparent);border-radius:13px;background:linear-gradient(145deg,color-mix(in srgb,#fff 13%,transparent),color-mix(in srgb,var(--p) 8%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 20%,transparent),0 8px 18px #0008}.theme-card[data-glass=true] .status-thumb{height:56px;background:linear-gradient(145deg,color-mix(in srgb,#fff 14%,var(--raised)),color-mix(in srgb,var(--p) 10%,var(--surface)))}
     html[data-appearance=light] .printer-tile{background:radial-gradient(circle at 92% 4%,color-mix(in srgb,var(--printer-accent) 13%,transparent),transparent 37%),linear-gradient(145deg,#fff,#edf5f7);box-shadow:0 6px 16px #111c190c}
     html[data-appearance=light] .printer-preview{background:radial-gradient(circle at 88% 8%,color-mix(in srgb,var(--printer-accent) 12%,transparent),transparent 34%),linear-gradient(145deg,#fff,#eaf3f5);color:#10242d;border-color:color-mix(in srgb,var(--printer-accent) 42%,#bad0d6)}
@@ -55,7 +55,7 @@
     .sound-event-mute{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;font-weight:750;cursor:pointer}
     .sound-event-mute input{width:18px;height:18px;margin:0;accent-color:var(--danger)}
     @media(max-width:680px){.sound-event-actions{width:100%;justify-content:space-between}.sound-test{width:auto}}
-    .display-settings{margin-top:16px}
+    [data-panel=themes]>.card+.card{margin-top:16px}
     .printer-row.active .printer-select-action:after,.theme-card.active:after,.sound-preset:has(input:checked):after{content:"✓";position:absolute;top:12px;right:12px;z-index:4;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--selection-accent);color:var(--selection-ink);box-shadow:0 0 0 3px color-mix(in srgb,var(--selection-accent) 18%,transparent),0 4px 12px #0006;font-size:18px;font-weight:950;line-height:1}
     .printer-row.active .printer-select-action:after{top:50%;right:12px;transform:translateY(-50%);pointer-events:none;width:24px;height:24px;font-size:16px}
     button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.theme-card:focus-visible{outline-color:var(--selection-accent)}
@@ -138,6 +138,159 @@
     .hi-esp-sound-note { margin:20px 0 0; font-size:12px; }
     #hi-esp-status:empty { display:none; }
     @media(max-width:700px) { .hi-esp-guide { grid-template-columns:1fr; gap:28px; } .hi-esp-commands { padding:24px 0 0; border-left:0; border-top:1px solid var(--line); } .hi-esp-page .api-hero-controls { flex-wrap:wrap; } }
+/* Local printer setup layout. */
+#printer-modal .dialog{width:min(900px,100%);padding:32px 32px 0}
+#printer-modal .dialog-head{padding-bottom:4px}
+#printer-choice .choice-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px;margin-bottom:30px}
+#printer-choice .choice-card{min-height:210px;padding:24px;gap:18px;border-radius:20px;transition:border-color .18s,background .18s}
+#printer-choice .choice-card:hover{background:color-mix(in srgb,var(--accent) 5%,var(--panel-2))}
+.choice-heading{display:flex;align-items:center;justify-content:space-between;width:100%;gap:14px}
+.choice-heading strong{font-size:25px;letter-spacing:-.025em;line-height:1.2}
+.choice-heading svg,.scan-launch svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.choice-heading svg{opacity:.45;width:20px}
+#printer-choice .choice-card>span:not(.choice-heading){font-size:15px;line-height:1.6;color:var(--muted);font-weight:450}
+#printer-choice .choice-card small{font-size:11px;letter-spacing:.065em;line-height:1.5}
+#printer-choice .scan-launch{display:flex;align-items:center;gap:14px;min-height:76px;padding:20px 24px;margin-top:24px;border-radius:18px;font-size:17px}
+.scan-launch .choice-arrow{margin-left:auto;opacity:.5}
+.printer-brand-footer{position:relative;flex:0 0 auto;margin:0 -32px;padding:14px 42px 12px;background:color-mix(in srgb,var(--ink) 6%,var(--panel-2));border-top:1px solid var(--line);overflow:hidden;border-radius:0 0 27px 27px}
+.brand-marquee{overflow:hidden;mask-image:linear-gradient(to right,transparent,#000 5%,#000 95%,transparent)}
+.brand-track{display:flex;width:max-content;animation:printer-brands-scroll 42s linear infinite}
+.brand-group{display:flex;align-items:center;gap:42px;padding-right:42px}
+.brand-mark{display:grid;place-items:center;width:76px;height:33px;color:var(--muted);flex-shrink:0;font-size:13px;font-weight:800}
+.brand-mark img{display:block;width:76px;height:33px;object-fit:contain;filter:grayscale(1);opacity:.6}
+.brand-mark[data-brand="prusa"] img,.brand-mark[data-brand="bambu"] img,.brand-mark[data-brand="voron"] img{max-width:49px}
+.printer-brand-footer p{text-align:center;font-size:10px;line-height:1.5;color:var(--muted);margin:10px 0 0;font-weight:450}
+.brand-motion{position:absolute;right:9px;top:19px;display:grid;place-items:center;width:28px;height:28px;padding:5px;background:transparent;color:var(--muted);border:0;border-radius:8px}
+.brand-motion svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+.printer-brand-footer[data-paused="true"] .brand-track,.printer-brand-footer:hover .brand-track,.printer-brand-footer:focus-within .brand-track{animation-play-state:paused}
+@keyframes printer-brands-scroll{to{transform:translateX(-50%)}}
+.printer-steps{display:flex;gap:15px;list-style:none;align-items:center;margin:23px 0 24px;padding:0;color:var(--muted);font-size:13px;font-weight:600}
+.printer-steps li{display:flex;align-items:center;gap:9px}
+.printer-steps li[aria-current="step"]{color:var(--ink)}
+.step-number{display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--line);border-radius:50%;font-size:12px}
+[aria-current="step"] .step-number{background:var(--accent-button);color:var(--accent-ink);border-color:var(--accent)}
+.printer-steps .step-connector{height:1px;flex:1;background:var(--line);max-width:64px}
+.detect-intro{max-width:560px;margin:0 0 25px;color:var(--muted);line-height:1.6}
+.detect-address-row{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:18px}
+.detect-help{margin:4px 0 20px;color:var(--muted)}
+#printer-modal #printer-detect-form .dialog-actions,#printer-modal #printer-form>.dialog-actions{margin:26px 0 0;padding:18px 0 28px;border-top:1px solid var(--line)}
+#detect-back,#printer-back{margin-right:auto}
+#identify-printer{min-width:170px}
+.detect-feedback{display:flex;align-items:center;gap:12px;margin:18px 0;padding:15px;border-radius:13px;background:var(--panel-2);font-size:14px;color:var(--muted)}
+.detect-spinner{width:17px;height:17px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .85s linear infinite;flex-shrink:0}
+.detect-feedback[data-state="error"]{color:var(--danger)}
+.detect-feedback[data-state="error"] .detect-spinner{display:none}
+#manual-connection{margin:24px 0 0;color:var(--muted);font-size:13px}
+#manual-connection summary,#printer-identity-details summary{cursor:pointer;padding:8px 0;font-weight:600}
+#manual-connection[open] summary{margin-bottom:12px}
+#manual-connection .field{margin-bottom:12px}
+.detected-printer{display:flex;align-items:center;gap:17px;padding:22px;background:var(--panel-2);border:1px solid var(--line);border-radius:19px;margin:0 0 24px;flex-wrap:wrap}
+.detected-printer .brand-logo{width:68px;height:60px;flex-shrink:0;background:transparent;border:0;border-radius:0}
+.detected-copy{flex:1;min-width:0}
+.detected-copy .eyebrow{font-size:10px;letter-spacing:.085em;color:var(--accent-text);font-weight:800;text-transform:uppercase;margin-bottom:5px}
+.detected-copy strong{font-size:22px;line-height:1.25;letter-spacing:-.02em;display:block;overflow-wrap:anywhere}
+.detected-copy .micro{margin-top:6px;overflow-wrap:anywhere}
+.detected-badges{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.detected-badges span{font-size:10px;color:var(--muted);background:var(--panel);border:1px solid var(--line);padding:3px 7px;border-radius:5px}
+#detected-change{border:0;background:none;padding:6px 0;color:var(--accent-text);font-size:12px;font-weight:650}
+#printer-form[data-recognized="true"] #moonraker-form>.split:first-child,#printer-form[data-recognized="true"] #moonraker-form>.identity,#printer-form[data-recognized="true"] #prusa-form>.field:first-child,#printer-form[data-recognized="true"] #elegoo-form>.field:first-child,#printer-form[data-recognized="true"] #bambu-form>.field:first-child{display:none}
+#printer-identity-details{margin-top:16px;border-top:1px solid var(--line);padding-top:8px;color:var(--muted);font-size:13px}
+#printer-identity-details[open] summary{margin-bottom:14px}
+#printer-form:not([data-recognized="true"]) #printer-identity-details{border:0;padding:0}
+#printer-discovery{padding-bottom:24px}
+#printer-modal button:focus-visible,#printer-modal summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.brand-track{animation:none}.brand-marquee{overflow-x:auto;mask-image:none}.brand-group[aria-hidden="true"]{display:none}.brand-motion{display:none}}
+@media(max-width:680px){
+ #printer-modal .dialog{height:auto;max-height:100%;padding:24px 20px 0;border-radius:23px}
+ #printer-modal .dialog-head h2{font-size:27px}
+ #printer-choice .choice-grid{grid-template-columns:1fr;gap:12px;margin-top:14px;margin-bottom:23px}
+ #printer-choice .choice-card{min-height:158px;padding:20px;gap:12px;border-radius:17px}
+ .choice-heading strong{font-size:22px}
+ #printer-choice .choice-card>span:not(.choice-heading){font-size:14px;line-height:1.5}
+ #printer-choice .scan-launch{font-size:14px;min-height:65px;padding:16px;margin-top:17px;gap:10px;border-radius:15px}
+ .scan-launch .choice-arrow{width:18px}
+ .printer-brand-footer{margin:0 -20px;padding:12px 34px 10px;border-radius:0 0 22px 22px}
+ .printer-brand-footer p{font-size:9px;margin-top:7px}
+ .brand-group{gap:28px;padding-right:28px}
+ .brand-mark,.brand-mark img{width:66px;height:28px}
+ .brand-motion{right:4px;top:13px}
+ .printer-dialog-body{padding-bottom:0}
+ .printer-steps{font-size:12px;gap:11px;margin:18px 0 22px}
+ .printer-steps .step-connector{max-width:25px}
+ .detect-intro{font-size:14px;margin-bottom:19px}
+ .detect-address-row{grid-template-columns:minmax(0,1fr) 112px;gap:12px}
+ .detect-address-row label{font-size:12px}
+ .detect-address-row input{font-size:15px;padding:12px 10px}
+ #printer-modal #printer-detect-form .dialog-actions,#printer-modal #printer-form>.dialog-actions{padding-bottom:20px;margin-top:20px}
+ .detected-printer{padding:17px;gap:12px;margin-bottom:20px}
+ .detected-printer .brand-logo{width:52px;height:48px}
+ .detected-copy strong{font-size:19px}
+ .detected-copy .micro{font-size:11px}
+}
+:root{--printer-logo-filter:brightness(0) invert(1)}
+html[data-appearance=light]{--printer-logo-filter:brightness(0)}
+@media(prefers-color-scheme:light){html[data-appearance=system]{--printer-logo-filter:brightness(0)}}
+.brand-mark img,#detected-logo img{filter:var(--printer-logo-filter)}
+.brand-mark img{opacity:.52}
+#printer-dialog-title:focus{outline:none}
+.printer-add{min-height:52px;border:3px solid var(--panel);border-radius:16px;background:var(--device-theme-accent);color:var(--device-theme-on-accent);font-weight:800;box-shadow:0 0 0 3px var(--ink),0 4px 12px color-mix(in srgb,var(--device-theme-accent) 16%,transparent);transition:filter .16s,box-shadow .16s}
+.printer-add:hover{filter:brightness(.96);box-shadow:0 0 0 3px var(--ink),0 5px 17px color-mix(in srgb,var(--device-theme-accent) 24%,transparent)}
+.printer-add:focus-visible{outline:3px solid var(--device-theme-accent);outline-offset:6px}
+#printer-choice .choice-card small{align-self:flex-end;text-align:right}
+#printer-choice .scan-launch{justify-content:center}
+#printer-choice .scan-launch .choice-arrow{margin-left:0}
+/* A single readable line of brands and models, independent of image padding. */
+.brand-group{gap:22px;padding-right:22px;min-height:32px}
+.brand-track{animation-duration:10.667s}
+.marquee-name{display:block;white-space:nowrap;line-height:1.3;color:var(--ink)}
+.marquee-brand{font-size:16px;font-weight:850;letter-spacing:.075em}
+.marquee-model{font-size:16px;font-weight:500;color:color-mix(in srgb,var(--ink) 78%,var(--panel-2))}
+.marquee-dot{font-size:19px;color:var(--muted);opacity:.45}
+.printer-brand-footer{padding-top:17px;padding-bottom:17px}
+.brand-motion{top:19px}
+@media(max-width:680px){.brand-group{gap:18px;padding-right:18px;min-height:30px}.marquee-brand{font-size:14px}.marquee-model{font-size:15px}.printer-brand-footer{padding-top:13px;padding-bottom:13px}.brand-motion{top:14px}}
+@media(max-width:680px){#detected-change{flex-basis:100%;text-align:right;margin-top:-2px}.detected-copy{min-width:160px}}
+/* Two equal steps with a quiet progress line. */
+#printer-steps{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:23px 0 25px;font-size:14px}
+#printer-steps li{position:relative;gap:11px;padding:13px 14px 15px;border-bottom:3px solid var(--line);border-radius:10px 10px 0 0;color:var(--muted)}
+#printer-steps .step-number{display:inline;width:auto;height:auto;border:0;border-radius:0;background:transparent;color:inherit;font-size:12px;font-variant-numeric:tabular-nums;opacity:.65;font-weight:750}
+#printer-steps li[aria-current="step"]{color:var(--ink);background:color-mix(in srgb,var(--accent-button) 8%,var(--panel-2));border-bottom-color:var(--accent-button)}
+#printer-steps li[data-complete="true"]{border-bottom-color:color-mix(in srgb,var(--accent-button) 42%,var(--line))}
+#printer-steps li[data-complete="true"] .step-number{color:var(--accent-text);opacity:1}
+#manual-connection.connection-choice{margin:23px 0 0;padding:0;font-size:inherit}
+#manual-connection.connection-choice label{font-size:13px}
+.detect-feedback{border:1px solid var(--line);border-radius:12px;margin:20px 0 0;padding:15px 17px;font-size:14px;line-height:1.5}
+#printer-modal{--form-error:#ff8c93}
+html[data-appearance=light] #printer-modal{--form-error:#b32635}
+@media(prefers-color-scheme:light){html[data-appearance=system] #printer-modal{--form-error:#b32635}}
+.detect-feedback[data-state="error"]{border-color:color-mix(in srgb,var(--form-error) 65%,var(--line));background:color-mix(in srgb,var(--form-error) 7%,var(--panel-2));color:var(--form-error)}
+.detect-error-icon{display:none;width:20px;height:20px;flex:0 0 20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+.detect-feedback[data-state="error"] .detect-error-icon{display:block}
+#printer-detect-form [aria-invalid="true"],#printer-detect-form [aria-invalid="true"]:focus{border-color:var(--form-error);box-shadow:0 0 0 2px color-mix(in srgb,var(--form-error) 12%,transparent)}
+@media(max-width:680px){#printer-steps{gap:12px;font-size:12px;margin:17px 0 22px}#printer-steps li{padding:11px 8px 13px;gap:8px}.detect-feedback{padding:13px;font-size:13px;align-items:flex-start}}
+#manual-connection.connection-choice{max-width:380px;margin:22px 0 0}
+#manual-connection.connection-choice summary{display:flex;width:max-content;align-items:center;gap:7px;list-style:none;padding:6px 0;font-size:13px;font-weight:650;color:var(--muted)}
+#manual-connection.connection-choice summary::-webkit-details-marker{display:none}
+#manual-connection.connection-choice summary svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s}
+#manual-connection.connection-choice[open] summary{margin-bottom:10px}
+#manual-connection.connection-choice[open] summary svg{transform:rotate(180deg)}
+#manual-connection.connection-choice select{width:100%}
+.marquee-more{font-size:16px;font-weight:600;color:var(--ink);font-style:italic;padding:0 12px}
+@media(max-width:680px){#manual-connection.connection-choice{max-width:100%}.marquee-more{font-size:15px}}
+/* Step navigation keeps the completed form available until its address changes. */
+#printer-steps li{display:block;padding:0}
+#printer-steps li button{display:flex;align-items:center;gap:11px;width:100%;min-height:48px;padding:13px 14px 15px;border:0;border-radius:10px 10px 0 0;background:transparent;color:inherit;text-align:left;font-weight:inherit;line-height:1.4;transition:background .16s,color .16s}
+#printer-steps li button:disabled{opacity:1;cursor:default}
+#printer-steps li button:not(:disabled):hover{background:color-mix(in srgb,var(--accent-button) 10%,var(--panel-2));color:var(--ink)}
+#printer-steps li:has(button:not(:disabled)){color:var(--accent-text)}
+#manual-connection.connection-choice .field{margin:0}
+@media(max-width:680px){#printer-steps li button{padding:11px 8px 13px;gap:8px}}
+.detect-port-control{position:relative}
+#clear-detect-port{position:absolute;top:-10px;right:7px;display:grid;place-items:center;width:30px;height:30px;padding:5px;border:0;border-radius:6px;background:var(--panel-2);color:var(--ink)}
+#clear-detect-port svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+#clear-detect-port:hover{color:var(--accent-text)}
+.detect-port-control:has(#clear-detect-port:not([hidden])) input{padding-right:36px}
+
   </style>
 </head>
 <body>
@@ -169,8 +322,9 @@
           <div class="reaction-layout"><section class="reaction-display-options" aria-labelledby="reaction-display-title"><h3 id="reaction-display-title">Display options</h3><div class="reaction-option-grid">
           <label class="reaction-option" data-reaction-child><span class="reaction-option-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="18" cy="24" r="11"></circle><path d="M18 13a11 11 0 0 1 11 11"></path><path d="M34 18h8M34 24h8M34 30h8"></path></svg></span><span class="reaction-option-copy"><strong>Show progress indicator</strong><span class="micro">Show a ring on round displays or a bar on square displays.</span></span><input class="reaction-switch-input" id="reaction_progress_bar_enabled" type="checkbox" role="switch"><span class="reaction-switch" aria-hidden="true"></span></label>
           <label class="reaction-option" data-reaction-child><span class="reaction-option-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="15" cy="15" r="5"></circle><circle cx="33" cy="33" r="5"></circle><path d="m34 10-20 28"></path></svg></span><span class="reaction-option-copy"><strong>Show percentage</strong><span class="micro">Show the print percentage above the reaction.</span></span><input class="reaction-switch-input" id="reaction_progress_percent_enabled" type="checkbox" role="switch"><span class="reaction-switch" aria-hidden="true"></span></label>
-          </div><p class="status pane-status" role="status" aria-live="polite"></p><div class="reaction-storage" id="reaction-storage" role="status"><div class="reaction-storage-head"><strong>Animation storage</strong><span id="reaction-storage-value"></span></div><div class="progress-track reaction-storage-track"><div class="progress-fill" id="reaction-storage-progress"></div></div><p><span class="reaction-storage-warning" id="reaction-storage-warning" hidden>Almost full</span><span id="reaction-storage-free"></span></p></div></section>
+          </div><div class="reaction-storage" id="reaction-storage" role="status"><div class="reaction-storage-head"><strong>Animation storage</strong><span id="reaction-storage-value"></span></div><div class="progress-track reaction-storage-track"><div class="progress-fill" id="reaction-storage-progress"></div></div><p><span class="reaction-storage-warning" id="reaction-storage-warning" hidden>Almost full</span><span id="reaction-storage-free"></span></p></div></section>
           <section class="reaction-set-picker" aria-labelledby="reaction-set-title"><h3 id="reaction-set-title">Reaction set</h3><div id="reaction-set-grid" aria-busy="true"><div class="reaction-loading" id="reaction-set-loading" role="status"><span class="reaction-loading-spinner" aria-hidden="true"></span><span>Loading reaction sets…</span></div></div><p class="status" id="reaction-set-status"></p></section></div>
+          <p class="status pane-status" role="status" aria-live="polite"></p>
         </article>
         <div class="reaction-detail">
           <article class="card"><div class="section-head reaction-events-head"><div><h2 id="reaction-events-heading">Reaction events</h2><p class="micro">Customize individual events in your installed set.</p></div><div class="reaction-resources" aria-label="Useful GIF resources"><span class="reaction-resources-label">Useful GIF resources</span><a class="reaction-resource-link" data-source="giphy" href="https://giphy.com/" target="_blank" rel="noopener noreferrer" aria-label="Open GIPHY"><span class="reaction-resource-mark" aria-hidden="true">G</span><span>GIPHY</span><span aria-hidden="true">↗</span></a><a class="reaction-resource-link" data-source="tenor" href="https://tenor.com/search/free-gifs" target="_blank" rel="noopener noreferrer" aria-label="Open Tenor"><span class="reaction-resource-mark" aria-hidden="true">T</span><span>Tenor</span><span aria-hidden="true">↗</span></a><small>Check reuse rights for each GIF.</small></div></div><fieldset class="reaction-event-grid" id="reaction-event-grid" aria-labelledby="reaction-events-heading" aria-busy="true" disabled><div class="reaction-loading" id="reaction-event-loading" role="status"><span class="reaction-loading-spinner" aria-hidden="true"></span><span>Loading reaction events…</span></div></fieldset><p class="micro reaction-upload-help">Replace the image shown for any printer event, or stop PrintDeck from showing a reaction for that event. Supported formats: GIF, PNG, JPEG, WebP, AVIF and BMP; HEIC and HEIF when supported by your browser. Drag and drop a file onto a reaction slot.</p><p class="status" id="reaction-event-status"></p></article>
@@ -178,8 +332,8 @@
       </section>
 
       <section class="panel" data-panel="themes" hidden>
-        <article class="card"><div class="section-head"><div><h2>Choose a Theme</h2><p class="micro">Each theme transforms the complete PrintDeck interface.</p></div></div><div class="theme-grid" id="theme-grid"></div><div id="custom-colors" hidden><h3 style="margin-top:28px">CUSTOM — Your Colors</h3><p class="micro">Color changes are applied immediately to the preview and your PrintDeck screen.</p><div class="color-grid" id="color-grid"></div></div><p class="status" id="theme-status"></p></article>
         <article class="card display-settings"><h2>Screen Settings</h2><p class="micro">Set everyday brightness and choose automatic or fixed orientation.</p><div class="split"><div class="field"><label class="range-label" for="brightness"><span>Screen brightness</span><output class="range-value" id="brightness-value" for="brightness">75%</output></label><input id="brightness" type="range" min="10" max="100" step="1" value="75" aria-describedby="brightness-value"></div><div class="field"><label for="rotation">Screen orientation</label><select id="rotation"><option value="auto">Rotate automatically</option><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></div></div><p class="status pane-status"></p></article>
+        <article class="card"><div class="section-head"><div><h2>Choose a Theme</h2><p class="micro">Each theme transforms the complete PrintDeck interface.</p></div></div><div class="theme-grid" id="theme-grid"></div><div id="custom-colors" hidden><h3 style="margin-top:28px">CUSTOM — Your Colors</h3><p class="micro">Color changes are applied immediately to the preview and your PrintDeck screen.</p><div class="color-grid" id="color-grid"></div></div><p class="status" id="theme-status"></p></article>
       </section>
 
       <section class="panel" data-panel="sounds" hidden>
@@ -336,7 +490,20 @@
       #power-controls .pd-group-section > .pd-row { margin-left: 0; }
       #power-controls .pd-group-section > .pd-muted-caption { margin-left: 0; }
     }
-  </style>
+
+    #power-controls .pd-basic { padding-top: 0; }
+    #power-controls .pd-start-row { display: flex; flex-wrap: wrap; margin: 40px 0; padding: 0; justify-content: center; gap: 6px 14px; text-align: center; }
+    #power-controls .pd-start-row > div { display: contents; }
+    #power-controls .pd-start-row .pd-label { font-size: 20px; line-height: 1.3; font-weight: 600; }
+    #power-controls .pd-start-row > select { flex: 0 1 240px; width: 240px; max-width: 100%; }
+    #power-controls .pd-start-row .pd-help { flex-basis: 100%; order: 1; margin-top: 0; }
+    #power-controls .pd-then { font-size: 17.5px; }
+    @media (max-width: 680px) {
+      #power-controls .pd-start-row { gap: 10px; }
+      #power-controls .pd-start-row .pd-label { flex-basis: 100%; }
+    }
+
+</style>
   <article class="pd-surface screen-saver-settings">
     <header>
       <div class="pd-head"><h2>Screen Saver</h2></div>
@@ -528,20 +695,25 @@
 
   <div class="modal" id="timezone-modal" hidden><section class="dialog timezone-dialog" role="dialog" aria-modal="true" aria-labelledby="timezone-dialog-title"><div class="dialog-head"><div><h2 id="timezone-dialog-title">Choose your time zone</h2></div><button class="icon-button" id="timezone-map-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button></div><div class="timezone-map" id="timezone-map"><img src="/world-map.svg?v=2" alt="" aria-hidden="true"><button class="map-zone" style="--x:6.2%;--y:38.2%" data-zone="Pacific/Honolulu" aria-label="Honolulu"></button><button class="map-zone" style="--x:8.4%;--y:16%" data-zone="America/Anchorage" aria-label="Anchorage"></button><button class="map-zone" style="--x:17.2%;--y:31.1%" data-zone="America/Los_Angeles" aria-label="Los Angeles"></button><button class="map-zone" style="--x:20.8%;--y:27.9%" data-zone="America/Denver" aria-label="Denver"></button><button class="map-zone" style="--x:25.7%;--y:26.7%" data-zone="America/Chicago" aria-label="Chicago"></button><button class="map-zone" style="--x:29.4%;--y:27.4%" data-zone="America/New_York" aria-label="New York"></button><button class="map-zone" style="--x:32.3%;--y:25.2%" data-zone="America/Halifax" aria-label="Halifax"></button><button class="map-zone" style="--x:22.5%;--y:39.2%" data-zone="America/Mexico_City" aria-label="Mexico City"></button><button class="map-zone" style="--x:29.4%;--y:47.4%" data-zone="America/Bogota" aria-label="Bogotá"></button><button class="map-zone" style="--x:30.4%;--y:68.6%" data-zone="America/Santiago" aria-label="Santiago"></button><button class="map-zone" style="--x:37%;--y:63.1%" data-zone="America/Sao_Paulo" aria-label="São Paulo"></button><button class="map-zone" style="--x:33.8%;--y:69.2%" data-zone="America/Argentina/Buenos_Aires" aria-label="Buenos Aires"></button><button class="map-zone" style="--x:42.9%;--y:29%" data-zone="Atlantic/Azores" aria-label="Azores"></button><button class="map-zone" style="--x:50%;--y:21.4%" data-zone="Europe/London" aria-label="London"></button><button class="map-zone" style="--x:55.8%;--y:21%" data-zone="Europe/Warsaw" aria-label="Warsaw"></button><button class="map-zone" style="--x:56.9%;--y:16.6%" data-zone="Europe/Helsinki" aria-label="Helsinki"></button><button class="map-zone" style="--x:58.1%;--y:27.2%" data-zone="Europe/Istanbul" aria-label="Istanbul"></button><button class="map-zone" style="--x:60.4%;--y:19%" data-zone="Europe/Moscow" aria-label="Moscow"></button><button class="map-zone" style="--x:58.7%;--y:33.3%" data-zone="Africa/Cairo" aria-label="Cairo"></button><button class="map-zone" style="--x:50.9%;--y:46.4%" data-zone="Africa/Lagos" aria-label="Lagos"></button><button class="map-zone" style="--x:57.8%;--y:64.6%" data-zone="Africa/Johannesburg" aria-label="Johannesburg"></button><button class="map-zone" style="--x:65.4%;--y:36%" data-zone="Asia/Dubai" aria-label="Dubai"></button><button class="map-zone" style="--x:68.6%;--y:36.2%" data-zone="Asia/Karachi" aria-label="Karachi"></button><button class="map-zone" style="--x:74.5%;--y:37.5%" data-zone="Asia/Kolkata" aria-label="Kolkata"></button><button class="map-zone" style="--x:77.9%;--y:42.4%" data-zone="Asia/Bangkok" aria-label="Bangkok"></button><button class="map-zone" style="--x:83.7%;--y:32.7%" data-zone="Asia/Shanghai" aria-label="Shanghai"></button><button class="map-zone" style="--x:88.8%;--y:30.2%" data-zone="Asia/Tokyo" aria-label="Tokyo"></button><button class="map-zone" style="--x:78.8%;--y:49.3%" data-zone="Asia/Singapore" aria-label="Singapore"></button><button class="map-zone" style="--x:82.2%;--y:67.8%" data-zone="Australia/Perth" aria-label="Perth"></button><button class="map-zone" style="--x:92%;--y:68.8%" data-zone="Australia/Sydney" aria-label="Sydney"></button><button class="map-zone" style="--x:98.5%;--y:70.5%" data-zone="Pacific/Auckland" aria-label="Auckland"></button></div><p class="timezone-choice" id="timezone-map-choice"></p><div class="timezone-footer"><p class="map-credit">Map shape: Natural Earth public-domain 1:110m data</p><div class="dialog-actions"><button class="secondary" id="timezone-map-cancel" type="button">Cancel</button><button class="primary" id="timezone-map-confirm" type="button">Use this time zone</button></div></div></section></div>
 
-  <div class="modal" id="printer-modal" hidden><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="printer-dialog-title"><div class="dialog-head"><div><h2 id="printer-dialog-title">Add printer</h2><p class="micro" id="printer-dialog-subtitle" hidden></p></div><button class="icon-button" id="printer-modal-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button></div><div class="printer-dialog-body">
-    <div id="printer-choice"><button class="secondary scan-launch" id="discover-launch">Find my printer on network</button><div class="choice-grid"><button class="choice-card" data-printer-type="bambu_lan"><strong>Bambu Lab</strong><span>Connect directly over local MQTT/TLS using the printer IP, serial number and LAN access code.</span><small>Local LAN only</small></button><button class="choice-card" data-printer-type="moonraker"><strong>Klipper / Moonraker</strong><span>Connect through the local Moonraker HTTP API.</span><small>Moonraker API</small></button><button class="choice-card" data-printer-type="prusalink"><strong>Prusa</strong><span>CORE One · MK4/S · XL · MINI/+</span><small>Experimental</small></button><button class="choice-card" type="button" data-printer-brand="elegoo" data-integration-stage="experimental"><strong>Elegoo</strong><span>Neptune 4 · Centauri Carbon</span><small>Experimental</small></button></div></div>
-    <div id="printer-family" hidden>
-      <p>Choose your Elegoo printer family.</p>
+  <div class="modal" id="printer-modal" hidden><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="printer-dialog-title"><div class="dialog-head"><div><h2 id="printer-dialog-title" tabindex="-1">Add printer</h2><p class="micro" id="printer-dialog-subtitle" hidden></p></div><button class="icon-button" id="printer-modal-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button></div><div class="printer-dialog-body">
+    <div id="printer-choice">
+      <button class="secondary scan-launch" id="discover-launch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><span>Find my printer on network</span><svg class="choice-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
       <div class="choice-grid">
-        <button class="secondary" type="button" data-elegoo-family="moonraker">Neptune 4 / Pro / Plus / Max</button>
-        <button class="secondary" type="button" data-elegoo-family="elegoo_sdcp">Centauri Carbon</button>
-        <button class="secondary" type="button" data-elegoo-family="elegoo_cc2">Centauri Carbon 2</button>
+        <button class="choice-card" data-printer-type="bambu_lan" type="button"><span class="choice-heading"><strong>Bambu Lab</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span><span>Connect with your printer address and LAN access code.</span><small>Local connection</small></button>
+        <button class="choice-card" id="other-printer-launch" type="button"><span class="choice-heading"><strong>Other printers</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span><span>Enter the address. PrintDeck will recognize your printer and guide you through setup.</span><small>Klipper · PrusaLink · Elegoo</small></button>
       </div>
-      <div class="dialog-actions"><button class="secondary" type="button" id="printer-family-back">Back</button></div>
     </div>
+    <ol class="printer-steps" id="printer-steps" aria-label="Printer setup" hidden><li id="address-step"><button id="address-step-button" type="button" disabled><span class="step-number">01</span><span>Printer address</span></button></li><li id="connection-step"><button id="connection-step-button" type="button" disabled><span class="step-number">02</span><span>Connection</span></button></li></ol>
+    <form id="printer-detect-form" hidden novalidate>
+      <p class="detect-intro">PrintDeck will identify the connection, brand and model before asking for access details.</p>
+      <div class="detect-address-row"><div class="field"><label for="detect-host">IP address or hostname</label><input id="detect-host" maxlength="63" placeholder="192.0.2.60" autocomplete="off" autocapitalize="none" spellcheck="false" required></div><div class="field"><label for="detect-port">Port <span class="micro">(optional)</span></label><div class="detect-port-control"><input id="detect-port" inputmode="numeric" pattern="[0-9]*" maxlength="5" spellcheck="false" autocapitalize="none" placeholder="automatic" autocomplete="off"><button id="clear-detect-port" type="button" aria-label="Clear port" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg></button></div></div></div>
+      <details id="manual-connection" class="connection-choice"><summary id="connection-type-title"><span>Connection type</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7 5 5 5-5"/></svg></summary><div class="field"><select id="manual-protocol" aria-labelledby="connection-type-title"><option value="auto" selected>Auto detect</option><option value="moonraker">Klipper / Moonraker</option><option value="prusalink">PrusaLink</option><option value="elegoo_sdcp">Elegoo Centauri Carbon</option><option value="elegoo_cc2">Elegoo Centauri Carbon 2</option><option value="bambu_lan">Bambu Lab</option></select></div></details>
+      <div class="detect-feedback" id="detect-feedback" role="status" aria-live="polite" hidden><span class="detect-spinner" aria-hidden="true"></span><svg class="detect-error-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/></svg><span id="detect-feedback-text"></span></div>
+      <div class="dialog-actions"><button class="secondary" id="detect-back" type="button">Back</button><button class="primary" id="identify-printer" type="submit">Detect printer</button></div>
+    </form>
     <div id="printer-discovery" hidden><div class="discovery-progress"><div class="spinner" id="discovery-spinner"></div><strong id="discovery-title">Scanning network</strong><div class="progress-track"><div class="progress-fill" id="discovery-progress"></div></div><p class="status" id="discovery-detail"></p></div><p class="status discovery-notice" id="discovery-notice" role="status" aria-live="polite"></p><section class="discovery-group" id="discovery-current-group" hidden><h3>Found in this scan</h3><div class="discovery-results" id="discovery-results"></div></section><section class="discovery-group" id="discovery-recent-group" hidden><h3>Recently found</h3><div class="discovery-results" id="discovery-recent-results"></div></section><div class="dialog-actions"><button class="secondary" id="discovery-back">Back</button><button class="primary" id="discovery-again" hidden>Scan again</button></div></div>
-    <form id="printer-form" hidden><input type="hidden" id="profile-id" value="0"><input type="hidden" id="printer-protocol" value="moonraker"><div class="field"><label for="printer-name">Printer name</label><input id="printer-name" maxlength="24" placeholder="My Printer" required></div>
-      <div id="moonraker-form"><div class="split"><div class="field"><label for="moonraker-host">IP address or hostname</label><input id="moonraker-host" placeholder="192.168.1.50"></div><div class="field"><label for="moonraker-port">Port</label><input id="moonraker-port" inputmode="numeric" value="7125"></div></div><div class="field"><label for="api-key">API key <span class="micro">(optional)</span></label><div class="password"><input id="api-key" type="password" autocomplete="off"><button class="secondary reveal" data-for="api-key" type="button">Show</button></div></div><div class="identity"><div class="identity-head"><span class="brand-logo" id="brand-logo" hidden>3D</span><div class="identity-copy"><strong>Printer identity</strong><div class="micro">Reads Moonraker and printer.cfg without changing the printer.</div></div><button class="secondary" id="detect-printer" type="button">Detect printer</button></div><p class="status" id="detect-status">Enter the address to detect manufacturer and model. You can correct both fields.</p></div><div class="split"><div class="field"><label for="manufacturer">Manufacturer</label><input id="manufacturer" maxlength="48" placeholder="e.g. Creality"><span class="micro">Required; filled automatically when recognized.</span></div><div class="field"><label for="printer-model">Model <span class="micro">(optional)</span></label><input id="printer-model" maxlength="48" placeholder="e.g. K2 Plus"></div></div></div>
+    <form id="printer-form" hidden><div class="detected-printer" id="detected-printer" hidden><span class="brand-logo" id="detected-logo"></span><div class="detected-copy"><div class="eyebrow" id="detected-label" hidden></div><strong id="detected-name"></strong><div class="micro" id="detected-address"></div><div class="detected-badges"><span id="detected-protocol"></span><span id="detected-experimental" hidden>Experimental</span></div></div><button id="detected-change" type="button">Change address</button></div><input type="hidden" id="profile-id" value="0"><input type="hidden" id="printer-protocol" value="moonraker"><div class="field"><label for="printer-name">Printer name</label><input id="printer-name" maxlength="24" placeholder="My Printer" required></div>
+      <div id="moonraker-form"><div class="split"><div class="field"><label for="moonraker-host">IP address or hostname</label><input id="moonraker-host" placeholder="192.168.1.50"></div><div class="field"><label for="moonraker-port">Port</label><input id="moonraker-port" inputmode="numeric" value="7125"></div></div><div class="field"><label for="api-key">API key <span class="micro">(optional)</span></label><div class="password"><input id="api-key" type="password" autocomplete="off"><button class="secondary reveal" data-for="api-key" type="button">Show</button></div></div><div class="identity"><div class="identity-head"><span class="brand-logo" id="brand-logo" hidden>3D</span><div class="identity-copy"><strong>Printer identity</strong><div class="micro">Reads Moonraker and printer.cfg without changing the printer.</div></div><button class="secondary" id="detect-printer" type="button">Detect printer</button></div><p class="status" id="detect-status">Enter the address to detect manufacturer and model. You can correct both fields.</p></div><details id="printer-identity-details"><summary>Printer details</summary><div class="split"><div class="field"><label for="manufacturer">Manufacturer</label><input id="manufacturer" maxlength="48" placeholder="e.g. Creality"></div><div class="field"><label for="printer-model">Model <span class="micro">(optional)</span></label><input id="printer-model" maxlength="48" placeholder="e.g. K2 Plus"></div></div></details></div>
       <div id="bambu-form" hidden><div class="field"><label for="bambu-host">Bambu Lab IP address or hostname</label><input id="bambu-host" placeholder="192.168.1.60"></div><div class="field"><label for="printer-serial">Printer serial number</label><input id="printer-serial" maxlength="32" placeholder="Copy from printer settings"></div><div class="field"><label for="access-code">LAN access code</label><div class="password"><input id="access-code" type="password" maxlength="32" autocomplete="off" placeholder="8-character access code"><button class="secondary reveal" data-for="access-code" type="button">Show</button></div><div class="hint">To find this code, open the LAN Only Mode or Developer Mode screen on the printer and copy the code shown there. You do not need to enable either option.</div></div><p class="micro">No Bambu Lab account or cloud connection is used. MQTT TLS stays inside your local network.</p><div class="identity"><div class="identity-head"><div class="identity-copy"><strong>Help improve PrintDeck</strong><div class="micro">Generate a compatibility report and send it to support@printdeck.xyz to help us support more Bambu Lab printers. It contains available data fields and safe numeric ranges, but no connection details or print names. Nothing is uploaded automatically.</div></div><button class="secondary" id="compatibility-check" type="button">Generate report</button></div><div class="progress-track" id="compatibility-track" hidden><div class="progress-fill" id="compatibility-progress"></div></div><p class="status" id="compatibility-status">Enter the connection details, then generate the report.</p><a class="button secondary" id="compatibility-report" href="/api/bambu/compatibility/report" hidden download>Download report</a></div></div>
       <div id="prusa-form" hidden>
         <div class="field"><label for="prusa-endpoint">IP address or hostname</label><input id="prusa-endpoint" maxlength="128" placeholder="192.168.1.70" autocomplete="off"></div>
@@ -556,6 +728,9 @@
       </div>
       <p class="status connection-status" id="printer-connection-status" role="status" aria-live="polite"></p><p class="status error" id="printer-error"></p><div class="dialog-actions"><button class="danger" id="delete-printer" type="button" hidden>Delete</button><button class="secondary" id="printer-back" type="button">Back</button><button class="secondary" id="select-printer" type="button" hidden>Make active</button><button class="primary" id="printer-save" type="submit">Save & connect</button></div>
     </form></div>
+    <footer class="printer-brand-footer" id="printer-brand-footer">
+      <div class="brand-marquee" aria-label="Printer brands and models"><div class="brand-track" id="printer-brand-track"></div></div>
+    </footer>
   </section></div>
 
   <template id="wifi-template"><form class="wifi-form"><div class="field"><div class="wifi-scan-heading" role="status" aria-live="polite">Looking for nearby Wi-Fi networks…</div><div class="wifi-select-row"><select class="networks" aria-label="Detected networks"><option value="" selected disabled>Searching nearby networks…</option><option value="__separator__" disabled>────────────</option><option value="__manual__">Other network / Hidden</option></select><button class="secondary refresh" type="button" title="Scan networks again" aria-label="Scan networks again"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M18.5 9A7 7 0 0 0 6.2 6.3L4 8M5.5 15a7 7 0 0 0 12.3 2.7L20 16"></path></svg></button></div></div><div class="field manual-ssid" hidden><label>Network name (SSID)</label><input name="ssid" maxlength="32" autocomplete="off"></div><div class="field"><label>Wi-Fi password</label><div class="password"><input name="password" type="password" maxlength="64" autocomplete="new-password"><button class="secondary icon-action reveal-inline" type="button" aria-label="Show Wi-Fi password" aria-pressed="false" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.7"></circle><path class="eye-slash" d="M4 4l16 16"></path></svg></button></div></div><div class="actions"><button class="primary" type="submit">Save Wi-Fi & restart</button></div><p class="status wifi-status"></p></form></template>
@@ -690,7 +865,7 @@
       grid.dataset.selectedFamily=selectedFamily?.id||'';
       grid.replaceChildren();
       if(!sets.length){const empty=document.createElement('p');empty.className='micro';empty.textContent=translated('No reaction sets are available.');grid.append(empty);return}
-      grid.innerHTML='<div class="reaction-family-grid" role="group" aria-labelledby="reaction-set-title"></div><div class="reaction-set-selection"><div class="reaction-preview-column"><div class="reaction-set-preview"><img id="reaction-selected-preview" alt=""><span class="micro" id="reaction-preview-error" hidden>Preview unavailable</span></div></div><div class="reaction-selection-copy"><h4 id="reaction-selected-name"></h4><p class="micro" id="reaction-selected-version"></p><div class="reaction-color-picker"><strong id="reaction-color-label">Choose a color</strong><div class="reaction-swatches" role="group" aria-labelledby="reaction-color-label"></div><p class="micro">Select a color to preview the set.</p></div><div class="reaction-selection-footer"><p class="micro reaction-installed"><span class="reaction-installed-dot" aria-hidden="true"></span><span>Installed on PrintDeck:</span> <strong id="reaction-installed-name"></strong></p><div class="reaction-install-action"><button class="primary" id="reaction-selected-install" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"></path></svg><span id="reaction-selected-install-label"></span></button><p class="micro" id="reaction-selected-install-help"></p></div></div><div class="progress-track reaction-set-progress" id="reaction-selected-progress" role="progressbar" aria-label="Reaction set installation progress" aria-valuemin="0" aria-valuemax="100" hidden><div class="progress-fill"></div></div><p class="micro" id="reaction-selected-status" role="status" aria-live="polite" hidden></p></div></div>';
+      grid.innerHTML='<div class="reaction-family-grid" role="group" aria-labelledby="reaction-set-title"></div><div class="reaction-set-selection"><div class="reaction-preview-column"><div class="reaction-set-preview"><img id="reaction-selected-preview" alt=""><span class="micro" id="reaction-preview-error" hidden>Preview unavailable</span></div></div><div class="reaction-selection-copy"><h4 id="reaction-selected-name"></h4><p class="micro" id="reaction-selected-version"></p><div class="reaction-color-picker"><strong id="reaction-color-label">Choose a color</strong><div class="reaction-swatches" role="group" aria-labelledby="reaction-color-label"></div></div><div class="reaction-selection-footer"><p class="micro reaction-installed"><span class="reaction-installed-dot" aria-hidden="true"></span><span>Installed on PrintDeck:</span> <strong id="reaction-installed-name"></strong></p><div class="reaction-install-action"><button class="primary" id="reaction-selected-install" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"></path></svg><span id="reaction-selected-install-label"></span></button><p class="micro" id="reaction-selected-install-help"></p></div></div><div class="progress-track reaction-set-progress" id="reaction-selected-progress" role="progressbar" aria-label="Reaction set installation progress" aria-valuemin="0" aria-valuemax="100" hidden><div class="progress-fill"></div></div><p class="micro" id="reaction-selected-status" role="status" aria-live="polite" hidden></p></div></div>';
       const familyGrid=$('.reaction-family-grid',grid);
       for(const family of families){const representative=family.id===selectedFamily?.id?selectedSet:family.variants.find(set=>set.id===reactionData.active_set?.id)||family.variants[0],isInstalled=family.variants.some(set=>set.id===reactionData.active_set?.id),button=document.createElement('button'),device=document.createElement('span'),cardImage=document.createElement('img'),copy=document.createElement('span'),title=document.createElement('strong'),description=document.createElement('span'),installedBadge=document.createElement('span');button.type='button';button.className='reaction-family-card';button.dataset.reactionFamily=family.id;button.dataset.installed=String(isInstalled);button.setAttribute('aria-pressed',String(family.id===selectedFamily?.id));button.setAttribute('aria-label',translated('Choose {set}').replace('{set}',translated(family.name)));device.className='reaction-family-device';cardImage.src=reactionSetPreviewUrl(representative);cardImage.alt=translated(family.name)+' · '+translated('Preview');cardImage.addEventListener('error',()=>{cardImage.hidden=true});device.append(cardImage);copy.className='reaction-family-copy';title.textContent=translated(family.name);copy.append(title);if(family.variants.length>1){description.className='micro';description.textContent=translated('{count} color variants').replace('{count}',String(family.variants.length));copy.append(description)}installedBadge.className='reaction-family-installed';installedBadge.textContent='✓ '+translated('Installed');installedBadge.hidden=!isInstalled;button.append(device,copy,installedBadge);button.addEventListener('click',()=>{if(reactionData?.busy||reactionInstallStarting)return;previewReactionSetId=(family.variants.find(set=>set.id===reactionData.active_set?.id)||family.variants[0]).id;renderReactionSets()});familyGrid.append(button)}
       const swatches=$('.reaction-swatches',grid);
@@ -1515,21 +1690,14 @@
       }catch(e){printerLightRequest=null;paintPrinters();const current=$('#printer-light-status');if(current){current.textContent=translated(e.message);current.classList.add('error')}}
     }
     document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimeout(printerPollTimer);else if(!$('[data-panel="printers"]').hidden)loadPrinters().catch(()=>{})});
-    function showModal(){printerModal.hidden=false;document.body.style.overflow='hidden'}function closeModal(){resetPrinterVerification();cancelDiscovery();clearTimeout(compatibilityTimer);printerModal.hidden=true;document.body.style.overflow=''}const printerModal=$('#printer-modal'),printerDialogBody=$('.printer-dialog-body',printerModal);
-    function showPrinterStep(step){$('#printer-choice').hidden=step!=='choice';$('#printer-discovery').hidden=step!=='discovery';$('#printer-form').hidden=step!=='form';$('#printer-family').hidden=step!=='family';printerDialogBody.scrollTop=0}function resetPrinterVerification(){cancelPrusaCheck();cancelElegooCheck();printerVerificationGeneration++;printerVerificationFingerprint='';printerVerificationPromise=null;const status=$('#printer-connection-status');status.textContent='';status.classList.remove('ok')}function openAdd(){editing=null;addingFromDiscovery=false;detectedNameSeed='';resetPrinterVerification();showModal();showPrinterStep('choice');$('#printer-dialog-title').textContent=translated('Add printer');const subtitle=$('#printer-dialog-subtitle');subtitle.hidden=true;subtitle.textContent=''}
+    function showModal(){printerModal.hidden=false;document.body.style.overflow='hidden'}function closeModal(){cancelIdentity();clearWizardIdentity();resetPrinterVerification();cancelDiscovery();clearTimeout(compatibilityTimer);printerModal.hidden=true;document.body.style.overflow='';$('.printer-add')?.focus()}const printerModal=$('#printer-modal'),printerDialogBody=$('.printer-dialog-body',printerModal);
+    function showPrinterStep(step){$('#printer-choice').hidden=step!=='choice';$('#printer-discovery').hidden=step!=='discovery';$('#printer-form').hidden=step!=='form';updatePrinterSteps(step);printerDialogBody.scrollTop=0}function resetPrinterVerification(){cancelPrusaCheck();cancelElegooCheck();printerVerificationGeneration++;printerVerificationFingerprint='';printerVerificationPromise=null;const status=$('#printer-connection-status');status.textContent='';status.classList.remove('ok')}function openAdd(){cancelIdentity();clearWizardIdentity();printerEntry='choice';editing=null;addingFromDiscovery=false;detectedNameSeed='';resetPrinterVerification();showModal();showPrinterStep('choice');$('#printer-dialog-title').textContent=translated('Add printer');const subtitle=$('#printer-dialog-subtitle');subtitle.hidden=true;subtitle.textContent='';$('#printer-dialog-title').focus()}
     function splitEndpoint(endpoint,protocol){let value=(endpoint||'').replace(/^https?:\/\//,'');if(protocol==='bambu_lan')return[value,''];const i=value.lastIndexOf(':');return i>0?[value.slice(0,i),value.slice(i+1)] :[value,defaultPrinterPort(protocol)]}
-    function openPrinter(p,type){const discovered=!!p?._discovered,saved=!!p&&!discovered;editing=saved?p:null;addingFromDiscovery=discovered;detectedNameSeed=discovered?(p?.name||translated('My Printer')):'';resetPrinterVerification();const protocol=type||p?.protocol||'moonraker';if(!['moonraker','bambu_lan','prusalink','elegoo_sdcp','elegoo_cc2'].includes(protocol)){openAdd();return}showModal();showPrinterStep('form');$('#profile-id').value=saved?(p?.id||0):0;$('#printer-protocol').value=protocol;configurePrusaForm(p,protocol,saved);configureElegooForm(p,protocol,saved);$('#printer-save').disabled=false;$('#printer-name').value=p?.name||(discovered?translated('My Printer'):'');const [host,port]=splitEndpoint(p?.endpoint,protocol);$('#moonraker-host').value=protocol==='moonraker'?host:'';$('#moonraker-port').value=port||7125;$('#api-key').value='';$('#api-key').placeholder=translated(saved?'Leave blank to keep the saved key':'Optional on a trusted LAN');$('#manufacturer').value=p?.manufacturer||'';$('#printer-model').value=p?.model||'';$('#bambu-host').value=protocol==='bambu_lan'?host:'';$('#printer-serial').value=p?.serial||'';$('#access-code').value='';$('#access-code').placeholder=translated(saved?'Leave blank to keep the saved code':'8-character access code');$('#moonraker-form').hidden=protocol!=='moonraker';$('#bambu-form').hidden=protocol!=='bambu_lan';$('#printer-dialog-title').textContent=saved?translated('Edit')+' '+(p.name||translated('printer')):translated(isElegoo(protocol)?'Add Elegoo printer':protocol==='prusalink'?'Add Prusa printer':protocol==='bambu_lan'?'Add Bambu Lab printer':'Add Moonraker printer');const subtitle=$('#printer-dialog-subtitle');subtitle.hidden=protocol==='prusalink'||isElegoo(protocol);subtitle.textContent=translated(protocol==='bambu_lan'?'Local-only MQTT connection; no cloud account is used.':'Direct connection to Klipper through the Moonraker API.');$('#delete-printer').hidden=!saved;const select=$('#select-printer'),offline=saved&&p.reachability==='offline';select.hidden=!saved||p.selected;select.disabled=offline;select.title=offline?translated('Offline printers cannot be selected'):'';$('#printer-save').textContent=translated(saved?'Save & connect':'Check & add');$('#printer-error').textContent=offline?translated('This printer is offline and cannot be made active.'):'';paintBrand(p?.brand||'')}
-    $$('[data-printer-type]').forEach(b=>b.addEventListener('click',()=>openPrinter(null,b.dataset.printerType)));$('#printer-modal-close').addEventListener('click',closeModal);$('#printer-back').addEventListener('click',()=>editing?closeModal():addingFromDiscovery?startDiscovery():openAdd());printerModal.addEventListener('click',e=>{if(e.target===printerModal)closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!printerModal.hidden){e.preventDefault();closeModal()}});$$('.reveal').forEach(b=>b.addEventListener('click',()=>{const input=$('#'+b.dataset.for),show=input.type==='password';input.type=show?'text':'password';b.textContent=translated(show?'Hide':'Show')}));
+    function openPrinter(p,type){const discovered=!!p?._discovered,saved=!!p&&!discovered;editing=saved?p:null;addingFromDiscovery=discovered;detectedNameSeed=discovered?(p?.name||translated('My Printer')):'';resetPrinterVerification();if(saved||!p)clearWizardIdentity();const protocol=type||p?.protocol||'moonraker';if(!['moonraker','bambu_lan','prusalink','elegoo_sdcp','elegoo_cc2'].includes(protocol)){openAdd();return}showModal();showPrinterStep('form');$('#profile-id').value=saved?(p?.id||0):0;$('#printer-protocol').value=protocol;configurePrusaForm(p,protocol,saved);configureElegooForm(p,protocol,saved);$('#printer-save').disabled=false;$('#printer-name').value=p?.name||(discovered?translated('My Printer'):'');const [host,port]=splitEndpoint(p?.endpoint,protocol);$('#moonraker-host').value=protocol==='moonraker'?host:'';$('#moonraker-port').value=port||7125;$('#api-key').value='';$('#api-key').placeholder=translated(saved?'Leave blank to keep the saved key':'Optional on a trusted LAN');$('#manufacturer').value=p?.manufacturer||'';$('#printer-model').value=p?.model||'';$('#bambu-host').value=protocol==='bambu_lan'?host:'';$('#printer-serial').value=p?.serial||'';$('#access-code').value='';$('#access-code').placeholder=translated(saved?'Leave blank to keep the saved code':'8-character access code');$('#moonraker-form').hidden=protocol!=='moonraker';$('#bambu-form').hidden=protocol!=='bambu_lan';$('#printer-dialog-title').textContent=saved?translated('Edit')+' '+(p.name||translated('printer')):translated(isElegoo(protocol)?'Add Elegoo printer':protocol==='prusalink'?'Add Prusa printer':protocol==='bambu_lan'?'Add Bambu Lab printer':'Add Moonraker printer');const subtitle=$('#printer-dialog-subtitle');subtitle.hidden=protocol==='prusalink'||isElegoo(protocol);subtitle.textContent=translated(protocol==='bambu_lan'?'Local-only MQTT connection; no cloud account is used.':'Direct connection to Klipper through the Moonraker API.');$('#delete-printer').hidden=!saved;const select=$('#select-printer'),offline=saved&&p.reachability==='offline';select.hidden=!saved||p.selected;select.disabled=offline;select.title=offline?translated('Offline printers cannot be selected'):'';$('#printer-save').textContent=translated(saved?'Save & connect':'Check & add');$('#printer-error').textContent=offline?translated('This printer is offline and cannot be made active.'):'';paintBrand(p?.brand||'');configureIdentifiedPrinter(p,saved)}
+    $$('[data-printer-type]').forEach(b=>b.addEventListener('click',()=>openPrinter(null,b.dataset.printerType)));$('#printer-modal-close').addEventListener('click',closeModal);$('#printer-back').addEventListener('click',()=>editing?closeModal():printerEntry==='scanner'?startDiscovery():printerEntry==='address'?openOtherPrinter(true):openAdd());printerModal.addEventListener('click',e=>{if(e.target===printerModal)closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!printerModal.hidden){e.preventDefault();closeModal()}});$$('.reveal').forEach(b=>b.addEventListener('click',()=>{const input=$('#'+b.dataset.for),show=input.type==='password';input.type=show?'text':'password';b.textContent=translated(show?'Hide':'Show')}));
     let elegooCheckId='';
     function isElegoo(protocol){return protocol==='elegoo_sdcp'||protocol==='elegoo_cc2'}
     function defaultPrinterPort(protocol){return {moonraker:'7125',prusalink:'80',elegoo_sdcp:'3030',elegoo_cc2:'1883'}[protocol]||''}
-    function openElegooFamily(){openAdd();showPrinterStep('family');$('#printer-dialog-title').textContent=translated('Add Elegoo printer')}
-    $('[data-printer-brand="elegoo"]').addEventListener('click',openElegooFamily);
-    $('#printer-family-back').addEventListener('click',openAdd);
-    $$('[data-elegoo-family]').forEach(button=>button.addEventListener('click',()=>{
-      const protocol=button.dataset.elegooFamily;openPrinter(null,protocol);
-      if(protocol==='moonraker'){$('#manufacturer').value='ELEGOO';$('#printer-dialog-title').textContent=translated('Add Elegoo printer');paintBrand('elegoo')}
-    }));
     function configureElegooForm(p,protocol,saved){
       $('#elegoo-form').hidden=!isElegoo(protocol);$('#elegoo-code-field').hidden=protocol!=='elegoo_cc2';
       $('#elegoo-endpoint').value=isElegoo(protocol)?p?.endpoint||'':'';$('#elegoo-serial').value=isElegoo(protocol)?p?.serial||'':'';
@@ -1617,7 +1785,14 @@
       }catch(error){$('#printer-error').textContent=translated(error.message)}finally{save.disabled=false}
     });
     async function managePrinter(action){if(!editing)return;try{await jsonFetch('/api/printers/manage',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id:editing.id,action})});closeModal();await loadPrinters()}catch(e){$('#printer-error').textContent=e.message}}$('#select-printer').addEventListener('click',()=>managePrinter('select'));$('#delete-printer').addEventListener('click',()=>{if(confirm('Delete '+(editing?.name||'this printer')+'?'))managePrinter('delete')});
-    async function openDiscoveredPrinter(p){const stopping=cancelDiscovery(true),discoveredName=isGenericPrinterName(p.name)?translated('My Printer'):(p.name||translated('My Printer'));openPrinter({_discovered:true,protocol:p.protocol,name:discoveredName,endpoint:p.host+(p.protocol!=='bambu_lan'&&p.port?':'+p.port:''),serial:p.serial,model:p.model},p.protocol);$('#printer-connection-status').textContent=translated('Preparing the connection test…');await stopping;if(p.protocol==='moonraker')await detectPrinter();else if(p.protocol==='bambu_lan')$('#printer-connection-status').textContent=translated('Enter the LAN access code, then choose Check & add.')}
+    async function openDiscoveredPrinter(p){
+      const generation=++identityGeneration;
+      await cancelDiscovery(true);
+      if(generation!==identityGeneration||printerModal.hidden)return;
+      const identity=await identifyMoonraker(discoveredIdentity(p),generation);
+      if(generation!==identityGeneration||printerModal.hidden)return;
+      openIdentifiedPrinter(identity,'scanner');
+    }
     function discoveredPrinterSaved(p){return printers.some(saved=>{if(saved.protocol!==p.protocol)return false;const[host,port]=splitEndpoint(saved.endpoint,saved.protocol);if(p.protocol==='bambu_lan'&&p.serial&&saved.serial)return p.serial===saved.serial;if(host!==p.host)return false;return p.protocol==='bambu_lan'||String(port||(defaultPrinterPort(p.protocol)))===String(p.port||(defaultPrinterPort(p.protocol)))})}function recentDiscoveryText(p){const minutes=Math.max(1,Math.floor((Number(p.age_seconds)||0)/60));return Number(p.age_seconds)<60?translated('Found moments ago'):translated('Found {minutes} min ago').replace('{minutes}',minutes)}
     function paintDiscoveryGroup(hostId,groupId,items,recent){const host=$(hostId);host.replaceChildren();items.forEach(p=>{const saved=discoveredPrinterSaved(p),row=document.createElement('div'),copy=document.createElement('div');row.className='discovery-result'+(saved?' is-added':'');copy.innerHTML='<strong></strong><div class="micro"></div>';$('strong',copy).textContent=p.name||translated(isElegoo(p.protocol)?'Elegoo':p.protocol==='prusalink'?'Prusa':p.protocol==='bambu_lan'?'Bambu Lab printer':'Moonraker printer');$('.micro',copy).textContent=(isElegoo(p.protocol)?'Elegoo':p.protocol==='prusalink'?'Prusa':p.protocol==='bambu_lan'?'Bambu Lab':'Moonraker')+(p.model?' · '+p.model:'')+' · '+p.host+(p.port?':'+p.port:'')+(recent?' · '+recentDiscoveryText(p):'');row.append(copy);if(saved){const badge=document.createElement('span');badge.className='pill';badge.textContent=translated('Added');row.append(badge)}else{const add=document.createElement('button');add.className='primary';add.textContent=translated('Add');add.addEventListener('click',()=>openDiscoveredPrinter(p));row.append(add)}host.append(row)});$(groupId).hidden=!items.length}function renderDiscoveredPrinters(items){paintDiscoveryGroup('#discovery-results','#discovery-current-group',items.filter(p=>p.seen_now!==false),false);paintDiscoveryGroup('#discovery-recent-results','#discovery-recent-group',items.filter(p=>p.seen_now===false),true)}function discoveryDetail(b){const items=b.printers||[],current=items.filter(p=>p.seen_now!==false).length,recent=items.length-current;if(b.running&&current===0)return translated('Looking for supported printers…');if(current===1)return translated('One printer found in this scan.');if(current>1)return translated('{count} printers found in this scan.').replace('{count}',current);if(recent>0)return translated('No new printers were found. Recent results are shown below.');return translated(b.detail||'')}
     function requestDiscoveryCancel(scanId){return fetch('/api/printers/discover/cancel',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({scan_id:scanId})})}async function waitForDiscoveryStop(scanId){for(let attempt=0;attempt<16;attempt++){await new Promise(resolve=>setTimeout(resolve,250));try{const current=await jsonFetch('/api/printers/discover');if(!current.running||Number(current.scan_id)!==scanId)return}catch(_){return}}}function cancelDiscovery(waitForStop=false){clearTimeout(discoveryTimer);discoveryGeneration++;const scanId=discoveryScanId,shouldCancel=discoveryRunning&&discoveryOwnsScan&&scanId>0;discoveryRunning=false;discoveryOwnsScan=false;discoveryScanId=0;if(!shouldCancel)return Promise.resolve();const request=requestDiscoveryCancel(scanId).catch(()=>{});return waitForStop?request.then(()=>waitForDiscoveryStop(scanId)):request}$('#discover-launch').addEventListener('click',()=>startDiscovery());$('#discovery-again').addEventListener('click',()=>startDiscovery());$('#discovery-back').addEventListener('click',()=>{cancelDiscovery();openAdd()});async function startDiscovery(preserveNotice=false){const generation=++discoveryGeneration;clearTimeout(discoveryTimer);discoveryRunning=false;discoveryOwnsScan=false;discoveryScanId=0;showPrinterStep('discovery');$('#printer-dialog-title').textContent=translated('Add printer');$('#printer-dialog-subtitle').hidden=true;if(!preserveNotice)$('#discovery-notice').textContent='';$('#discovery-again').hidden=true;$('#discovery-spinner').classList.remove('still');await loadPrinters().catch(()=>{});try{let current=await jsonFetch('/api/printers/discover');if(generation!==discoveryGeneration)return;if(!current.running){current=await jsonFetch('/api/printers/discover',{method:'POST'});if(generation!==discoveryGeneration){if(current.started===true)requestDiscoveryCancel(Number(current.scan_id)||0).catch(()=>{});return}}if(generation!==discoveryGeneration)return;discoveryRunning=!!current.running;discoveryScanId=Number(current.scan_id)||0;discoveryOwnsScan=current.started===true;pollDiscovery(generation,current)}catch(e){if(generation!==discoveryGeneration)return;discoveryRunning=false;discoveryOwnsScan=false;discoveryScanId=0;$('#discovery-detail').textContent=e.message;$('#discovery-again').hidden=false}}
@@ -1657,8 +1832,203 @@
     $('#factory-reset-open').addEventListener('click',openFactoryResetWarning);$('#factory-reset-warning-cancel').addEventListener('click',closeFactoryResetModals);$('#factory-reset-warning-confirm').addEventListener('click',openFactoryResetConfirmation);$('#factory-reset-confirm-cancel').addEventListener('click',closeFactoryResetModals);factoryResetInput.addEventListener('input',()=>{factoryResetSubmit.disabled=factoryResetInput.value!=='reset'});[factoryResetWarningModal,factoryResetConfirmModal].forEach(modal=>modal.addEventListener('click',event=>{if(event.target===modal)closeFactoryResetModals()}));document.addEventListener('keydown',event=>{if(event.key==='Escape'&&(!factoryResetWarningModal.hidden||!factoryResetConfirmModal.hidden)){event.preventDefault();closeFactoryResetModals()}});
     factoryResetSubmit.addEventListener('click',async()=>{if(factoryResetBusy||factoryResetInput.value!=='reset')return;factoryResetBusy=true;factoryResetInput.disabled=true;factoryResetSubmit.disabled=true;$('#factory-reset-confirm-cancel').disabled=true;factoryResetStatus.classList.remove('error');factoryResetStatus.classList.add('busy');factoryResetStatus.textContent=translated('Resetting PrintDeck…');try{const result=await jsonFetch('/api/factory-reset',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-PrintDeck-Confirmation':'reset'},body:new URLSearchParams({confirmation:factoryResetInput.value})});clearTimeout(healthTimer);showFactoryResetSuccess(result)}catch(error){factoryResetBusy=false;factoryResetInput.disabled=false;$('#factory-reset-confirm-cancel').disabled=false;factoryResetStatus.classList.remove('busy');factoryResetStatus.textContent=translated(error.message);factoryResetStatus.classList.add('error');factoryResetSubmit.disabled=factoryResetInput.value!=='reset'}});
 
-    async function init(){buildControls();wireLiveViewControls();settings=await jsonFetch('/api/settings');const setup=!settings.wifi_name||Boolean(settings.wifi_setup_active);currentLanguage=setup?browserLanguage():(supportedLanguages.includes(settings.language)?settings.language:'en');settings.language=currentLanguage;fillSettings(settings);wifiForms=[createWifiForm(setup?$('#setup-wifi-host'):$('#app-wifi-host'),setup)];if(!setup){$('#setup-shell').hidden=true;$('#app-shell').hidden=false;const requested=location.hash.slice(1),tabs=['printers','reactions','themes','power'];if(settings.audio_available!==false)tabs.push('sounds');setTab(tabs.includes(requested)||settingsSections.includes(requested)?requested:'printers');loadPrinters().catch(()=>{});loadUpdate()}else if(!wifiScanned)scanAllWifi();loadHealth().catch(()=>{});jsonFetch('/api/brand-logos').then(value=>{brandLogos=value;if(!setup){loadPrinters().catch(()=>{});paintThemePrinterPreview()}}).catch(()=>{})}
-    init().catch(e=>{$('#setup-wifi-host').innerHTML='<article class="card"><h2>PrintDeck needs attention</h2><p class="status error"></p></article>';$('.status',$('#setup-wifi-host')).textContent=e.message});
+let identityGeneration=0,identityScanId=0,identityBusy=false,printerEntry='choice',wizardIdentity=null,wizardAddressKey='';
+function printerAddressKey(){return JSON.stringify(['detect-host','detect-port','manual-protocol'].map(id=>$('#'+id).value))}
+function clearWizardIdentity(){wizardIdentity=null;wizardAddressKey=''}
+function canResumeConnection(){return !!wizardIdentity&&wizardAddressKey===printerAddressKey()&&!identityBusy}
+function invalidateEditedIdentity(){if(wizardAddressKey&&wizardAddressKey!==printerAddressKey()){clearWizardIdentity();updatePrinterSteps('detect')}}
+function updatePortClear(){const button=$('#clear-detect-port');button.hidden=!$('#detect-port').value;button.disabled=identityBusy}
+const protocolTitles={moonraker:'Klipper / Moonraker',prusalink:'PrusaLink',elegoo_sdcp:'SDCP',elegoo_cc2:'Elegoo LAN',bambu_lan:'Bambu Lab LAN'};
+function cancelIdentity(){identityGeneration++;if(identityScanId)requestDiscoveryCancel(identityScanId).catch(()=>{});identityScanId=0;identityBusy=false;$('#identify-printer').disabled=false;$('#detect-host').readOnly=false;$('#detect-port').readOnly=false;$('#manual-protocol').disabled=false;$('#printer-detect-form').removeAttribute('aria-busy');updatePortClear()}
+function clearIdentityFeedback(){
+  $('#detect-feedback').hidden=true;$('#detect-feedback-text').textContent='';
+  for(const id of ['detect-host','detect-port','manual-protocol']){$('#'+id).removeAttribute('aria-invalid');$('#'+id).removeAttribute('aria-describedby')}
+}
+function showIdentityFeedback(source,state='busy',fields=[]){
+  clearIdentityFeedback();const box=$('#detect-feedback');box.hidden=false;box.dataset.state=state;
+  box.setAttribute('role',state==='error'?'alert':'status');$('#detect-feedback-text').textContent=translated(source);
+  if(fields.includes('manual-protocol'))$('#manual-connection').open=true;for(const id of fields){$('#'+id).setAttribute('aria-invalid','true');$('#'+id).setAttribute('aria-describedby','detect-feedback-text')}
+}
+function updatePrinterSteps(step){
+  updatePortClear();
+  $('#printer-detect-form').hidden=step!=='detect';
+  $('#printer-steps').hidden=!(step==='detect'||(step==='form'&&!!wizardIdentity));
+  $('#printer-brand-footer').hidden=step!=='choice';
+  $('#address-step').toggleAttribute('aria-current',step==='detect');
+  $('#connection-step').toggleAttribute('aria-current',step==='form');
+  if(step==='detect')$('#address-step').setAttribute('aria-current','step');
+  if(step==='form')$('#connection-step').setAttribute('aria-current','step');$('#address-step').dataset.complete=String(step==='form');$('#address-step .step-number').textContent=step==='form'?'✓':'01';
+  $('#address-step-button').disabled=step!=='form'||!wizardIdentity;
+  $('#connection-step-button').disabled=step!=='detect'||!canResumeConnection();
+}
+function openOtherPrinter(preserve=false){
+  cancelIdentity();resetPrinterVerification();editing=null;addingFromDiscovery=false;
+  if(!preserve){clearWizardIdentity();printerEntry='address';$('#detect-host').value='';$('#detect-port').value='';$('#manual-protocol').value='auto';$('#manual-connection').open=false}
+  clearIdentityFeedback();showModal();showPrinterStep('detect');$('#printer-dialog-title').textContent=translated('Add printer');$('#printer-dialog-subtitle').hidden=true;$('#detect-feedback').hidden=true;
+  $('#detect-host').focus();
+}
+function validatedPrinterAddress(){
+  const host=$('#detect-host').value.trim(),port=$('#detect-port').value.trim();
+  const ipv4=/^\d+(\.\d+){3}$/.test(host),hostname=/^(?=.{1,63}$)[a-z\d](?:[a-z\d.-]*[a-z\d])?$/i.test(host)&&!host.split('.').some(p=>!p||p.length>63||p.startsWith('-')||p.endsWith('-'));
+  if(!host||!hostname||(/^[0-9.]+$/.test(host)&&!ipv4)||(ipv4&&host.split('.').some(n=>Number(n)>255))){showIdentityFeedback('Enter a valid IP address or hostname.','error',['detect-host']);$('#detect-host').focus();return null}
+  if(port&&(!/^\d+$/.test(port)||Number(port)<1||Number(port)>65535)){showIdentityFeedback('Enter a port from 1 to 65535.','error',['detect-port']);$('#detect-port').focus();return null}
+  return {host,port};
+}
+function discoveredIdentity(printer){
+  const manufacturer=printer.manufacturer||({bambu_lan:'Bambu Lab',prusalink:'Prusa',elegoo_sdcp:'ELEGOO',elegoo_cc2:'ELEGOO'})[printer.protocol]||'';
+  const brand=printer.brand||({bambu_lan:'bambu',prusalink:'prusa',elegoo_sdcp:'elegoo',elegoo_cc2:'elegoo'})[printer.protocol]||'';
+  return {...printer,manufacturer,brand};
+}
+async function identifyMoonraker(printer,generation){
+  if(printer.protocol!=='moonraker')return printer;
+  try{
+    await jsonFetch('/api/moonraker/check/start',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({profile_id:'0',endpoint:printer.host+':'+printer.port,api_key:''})});
+    const deadline=Date.now()+20000;
+    while(generation===identityGeneration&&!printerModal.hidden&&Date.now()<deadline){
+      const result=await jsonFetch('/api/moonraker/check/status');
+      if(!result.running){
+        if(result.state==='ready')return {...printer,manufacturer:result.manufacturer||'',model:result.model||'',brand:result.brand||''};
+        if(result.state==='authorization_required')return {...printer,requires_auth:true};
+        break;
+      }
+      await new Promise(resolve=>setTimeout(resolve,350));
+    }
+  }catch(_){/* The recognized connection can still be reviewed and checked with credentials. */}
+  return printer;
+}
+async function identifyPrinterAddress(event){
+  event.preventDefault();if(identityBusy)return;
+  const address=validatedPrinterAddress();if(!address)return;
+  const selectedProtocol=$('#manual-protocol').value;
+  const defaults={moonraker:7125,prusalink:80,elegoo_sdcp:3030,elegoo_cc2:1883,bambu_lan:8883};
+  const port=address.port||(selectedProtocol==='auto'?'':String(defaults[selectedProtocol]));
+  const generation=++identityGeneration;
+  identityBusy=true;$('#identify-printer').disabled=true;$('#detect-host').readOnly=true;$('#detect-port').readOnly=true;$('#manual-protocol').disabled=true;$('#printer-detect-form').setAttribute('aria-busy','true');
+  updatePrinterSteps('detect');showIdentityFeedback('Recognizing your printer…');
+  try{
+    let result=await jsonFetch('/api/printers/discover',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({host:address.host,port})});
+    if(generation!==identityGeneration||printerModal.hidden){if(result.started)requestDiscoveryCancel(result.scan_id).catch(()=>{});return}
+    if(!result.started)throw new Error(translated('A printer search is already in progress. Try again in a moment.'));
+    identityScanId=Number(result.scan_id);
+    const scanId=identityScanId,deadline=Date.now()+45000;
+    while(result.running&&generation===identityGeneration&&Date.now()<deadline){
+      await new Promise(resolve=>setTimeout(resolve,350));
+      if(generation!==identityGeneration)return;
+      result=await jsonFetch('/api/printers/discover');
+      if(Number(result.scan_id)!==scanId)throw new Error(translated('The printer search changed. Please try again.'));
+    }
+    if(generation!==identityGeneration||printerModal.hidden)return;
+    if(result.running){await requestDiscoveryCancel(scanId);throw new Error(translated('The printer did not respond in time. Please try again.'))}
+    identityScanId=0;
+    let identity=(result.printers||[]).find(p=>p.seen_now!==false);
+    if(identity&&selectedProtocol!=='auto'&&identity.protocol!==selectedProtocol){showIdentityFeedback('The printer uses a different connection. Choose Auto detect or check the address.','error',['manual-protocol']);return}
+    if(!identity&&selectedProtocol!=='auto')identity={host:address.host,port:Number(port),protocol:selectedProtocol,manual:true,model:''};
+    if(!identity){showIdentityFeedback('We couldn’t recognize this printer. Check the address and port, or choose the connection manually.','error',['detect-host','detect-port']);return}
+    identity=await identifyMoonraker(discoveredIdentity(identity),generation);
+    if(generation!==identityGeneration||printerModal.hidden)return;
+    openIdentifiedPrinter(identity,'address');
+  }catch(error){
+    if(generation===identityGeneration&&!printerModal.hidden)showIdentityFeedback(error.message,'error');
+  }finally{
+    if(generation===identityGeneration){
+      if(identityScanId)requestDiscoveryCancel(identityScanId).catch(()=>{});
+      identityScanId=0;identityBusy=false;$('#identify-printer').disabled=false;$('#detect-host').readOnly=false;$('#detect-port').readOnly=false;$('#manual-protocol').disabled=false;$('#printer-detect-form').removeAttribute('aria-busy');updatePortClear();
+    }
+  }
+}
+
+function openIdentifiedPrinter(identity,entry){
+  if(entry==='scanner'){$('#detect-host').value=identity.host;$('#detect-port').value=identity.port;$('#manual-protocol').value='auto';$('#manual-connection').open=false}
+  wizardIdentity=identity;printerEntry=entry;
+  wizardAddressKey=printerAddressKey();
+  const name=[identity.manufacturer,identity.model].filter(Boolean).join(' ')||translated('My Printer');
+  openPrinter({_discovered:true,...identity,name,endpoint:identity.host+(identity.protocol!=='bambu_lan'?':'+identity.port:'')},identity.protocol);
+  addingFromDiscovery=entry==='scanner';detectedNameSeed='';
+  $('#printer-name').focus();
+}
+function configureIdentifiedPrinter(p,saved){
+  const identity=!saved?wizardIdentity:null;
+  $('#printer-form').dataset.recognized=String(!!identity);
+  $('#detected-printer').hidden=!identity;
+  $('#printer-identity-details').open=!identity||!identity.manufacturer;
+  if(!identity)return;
+  $('#printer-dialog-title').textContent=translated('Add printer');$('#printer-dialog-subtitle').hidden=true;
+  $('#detected-label').hidden=!(identity.manual||identity.requires_auth);
+  $('#detected-label').textContent=identity.manual?translated('Connection selected'):identity.requires_auth?translated('Connection recognized'):'';
+  const name=[identity.manufacturer,identity.model].filter(Boolean).join(' ');
+  $('#detected-name').textContent=name||protocolTitles[identity.protocol];
+  $('#detected-address').textContent=identity.host+':'+identity.port;
+  $('#detected-protocol').textContent=protocolTitles[identity.protocol];
+  $('#detected-experimental').hidden=!(identity.protocol==='prusalink'||isElegoo(identity.protocol));
+  $('#detected-logo').hidden=!identity.brand;if(identity.brand)setBrandMark($('#detected-logo'),identity.brand);
+  $('#detected-change').hidden=printerEntry==='scanner';
+  $('#printer-connection-status').textContent=translated(identity.requires_auth?'Enter your API key to finish identifying the printer.':'Review the details, then check the connection to add your printer.');
+}
+function setupBrandMarquee(){
+  const track=$('#printer-brand-track');track.replaceChildren();
+  const names=[["brand", "CREALITY"], ["model", "K2 Plus"], ["model", "K1C"], ["brand", "ELEGOO"], ["model", "Centauri Carbon"], ["model", "Centauri Carbon 2"], ["brand", "PRUSA"], ["model", "MK4"], ["model", "CORE One"], ["brand", "SNAPMAKER"], ["model", "U1"], ["brand", "BAMBU LAB"], ["model", "P1S"], ["model", "A1 mini"], ["model", "A1"], ["model", "P2S"], ["brand", "CREALITY"], ["model", "K1"], ["model", "K1 Max"], ["model", "Ender-3 V3 KE"], ["brand", "ELEGOO"], ["model", "Neptune 4"], ["model", "Neptune 4 Pro"], ["model", "Neptune 4 Plus"], ["model", "Neptune 4 Max"], ["brand", "PRUSA"], ["model", "MK4S"], ["model", "XL"], ["model", "MINI+"], ["brand", "BAMBU LAB"], ["model", "X1 Carbon"], ["model", "H2D"], ["model", "H2S"], ["model", "H2C"], ["more", "… and much more …"]];
+  for(let copy=0;copy<2;copy++){
+    const group=document.createElement('div');group.className='brand-group';if(copy)group.setAttribute('aria-hidden','true');
+    for(const [kind,label] of names){
+      const name=document.createElement('span');name.className='marquee-name marquee-'+kind;name.textContent=kind==='more'?translated(label):label;if(kind==='more')name.dataset.i18n=label;group.append(name);
+      const separator=document.createElement('span');separator.className='marquee-dot';separator.textContent='·';separator.setAttribute('aria-hidden','true');group.append(separator);
+    }
+    track.append(group);
+  }
+  const firstGroup=track.firstElementChild;const sizeObserver=new ResizeObserver(()=>{const width=firstGroup.getBoundingClientRect().width;if(width>0)track.style.animationDuration=(width/118.2).toFixed(2)+'s'});sizeObserver.observe(firstGroup);
+}
+$('#other-printer-launch').addEventListener('click',()=>openOtherPrinter());
+$('#printer-detect-form').addEventListener('submit',identifyPrinterAddress);
+$('#detect-back').addEventListener('click',()=>{cancelIdentity();openAdd()});
+$('#detected-change').addEventListener('click',()=>openOtherPrinter(true));
+$('#address-step-button').addEventListener('click',()=>{if(wizardIdentity)openOtherPrinter(true)});
+$('#connection-step-button').addEventListener('click',()=>{
+  if(!canResumeConnection())return;
+  clearIdentityFeedback();addingFromDiscovery=printerEntry==='scanner';showPrinterStep('form');
+  $('#printer-connection-status').textContent=translated(wizardIdentity.requires_auth?'Enter your API key to finish identifying the printer.':'Review the details, then check the connection to add your printer.');
+  $('#printer-name').focus();
+});
+for(const id of ['detect-host','detect-port','manual-protocol'])$('#'+id).addEventListener('input',clearIdentityFeedback);
+$('#manual-protocol').addEventListener('input',invalidateEditedIdentity);
+$('#manual-protocol').addEventListener('change',invalidateEditedIdentity);
+// Silently reject an invalid edit as a whole, including clipboard input;
+// stripping characters could turn a mistyped address into another destination.
+for(const [id,allowed] of [
+  ['detect-port',/^[0-9]*$/],
+  ['detect-host',/^[A-Za-z0-9.-]*$/]
+]){
+  const input=$('#'+id);let lastValue=input.value;
+  const tooLong=text=>input.value.length-(input.selectionEnd-input.selectionStart)+text.length>input.maxLength;
+  input.addEventListener('focus',()=>{lastValue=input.value});
+  input.addEventListener('beforeinput',event=>{
+    if(event.data&&(!allowed.test(event.data)||tooLong(event.data)))event.preventDefault();
+  });
+  input.addEventListener('paste',event=>{
+    const text=event.clipboardData?.getData('text')||'';
+    if(!allowed.test(text)||tooLong(text))event.preventDefault();
+  });
+  input.addEventListener('input',()=>{
+    if(!allowed.test(input.value)||input.value.length>input.maxLength){input.value=lastValue;return}
+    lastValue=input.value;
+    invalidateEditedIdentity();
+  });
+}
+$('#detect-port').addEventListener('input',updatePortClear);
+$('#clear-detect-port').addEventListener('click',()=>{
+  if(identityBusy)return;
+  const input=$('#detect-port');input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();
+});
+// Keep keyboard focus inside the open setup dialog and return it on close.
+printerModal.addEventListener('keydown',event=>{
+  if(event.key!=='Tab')return;
+  const focusable=$$('button,input,select,summary,a[href]',printerModal).filter(e=>!e.disabled&&e.getClientRects().length);
+  const first=focusable[0],last=focusable[focusable.length-1];
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
+  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
+});
+
+    async function init(){buildControls();wireLiveViewControls();settings=await jsonFetch('/api/settings');const setup=!settings.wifi_name||Boolean(settings.wifi_setup_active);currentLanguage=setup?browserLanguage():(supportedLanguages.includes(settings.language)?settings.language:'en');const requestedLanguage=new URLSearchParams(location.search).get('lang');if(supportedLanguages.includes(requestedLanguage))currentLanguage=requestedLanguage;settings.language=currentLanguage;fillSettings(settings);wifiForms=[createWifiForm(setup?$('#setup-wifi-host'):$('#app-wifi-host'),setup)];if(!setup){$('#setup-shell').hidden=true;$('#app-shell').hidden=false;const requested=location.hash.slice(1),tabs=['printers','reactions','themes','power'];if(settings.audio_available!==false)tabs.push('sounds');setTab(tabs.includes(requested)||settingsSections.includes(requested)?requested:'printers');loadPrinters().catch(()=>{});loadUpdate()}else if(!wifiScanned)scanAllWifi();loadHealth().catch(()=>{});jsonFetch('/api/brand-logos').then(value=>{brandLogos=value;if(!setup){loadPrinters().catch(()=>{});paintThemePrinterPreview()}}).catch(()=>{})}
+    init().then(()=>{setupBrandMarquee();if(new URLSearchParams(location.search).get('dialog')==='add')openAdd()}).catch(e=>{$('#setup-wifi-host').innerHTML='<article class="card"><h2>PrintDeck needs attention</h2><p class="status error"></p></article>';$('.status',$('#setup-wifi-host')).textContent=e.message});
   </script>
 </body>
 </html>

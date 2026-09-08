@@ -39,7 +39,8 @@ struct PrinterDiscoverySnapshot {
 
 class PrinterDiscoveryService {
  public:
-  esp_err_t start(NetworkStatus network, const core::DeviceSettings& settings);
+  esp_err_t start(NetworkStatus network, const core::DeviceSettings& settings,
+                  std::string target_host = {}, std::uint16_t target_port = 0);
   bool cancel(std::uint32_t scan_id);
   bool running() const { return running_.load(std::memory_order_acquire); }
   PrinterDiscoverySnapshot snapshot() const;
@@ -52,6 +53,8 @@ class PrinterDiscoveryService {
 
   mutable std::mutex mutex_;
   NetworkStatus network_;
+  std::string target_host_;
+  std::uint16_t target_port_ = 0;
   std::vector<std::string> saved_ipv4_hosts_;
   std::vector<std::string> saved_prusa_origins_;
   std::string cache_network_key_;

@@ -37,6 +37,7 @@
 #include "printdeck/platform/display_shell.hpp"
 #include "printdeck/platform/reset_diagnostics.hpp"
 #include "printdeck/platform/web_assets.hpp"
+#include "printdeck/platform/printer_setup_address.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/usb_developer_service.hpp"
 #include "libs/qrcode/qrcodegen.h"
@@ -3393,6 +3394,20 @@ esp_err_t WebConfig::serve_printer_discovery(httpd_req_t* request,
 }
 
 esp_err_t WebConfig::start_printer_discovery(httpd_req_t* request) {
+  std::string target_host;
+  std::string port_text;
+  std::uint16_t target_port = 0;
+  if (request->content_len > 0) {
+    std::string form;
+    if (!receive_form(request, form) || !form_value(form, "host", target_host) ||
+        !valid_printer_setup_host(target_host)) {
+      return send_json(request, "400 Bad Request", "{\"error\":\"Enter a valid IP address or hostname.\"}");
+    }
+    form_value(form, "port", port_text);
+    const auto port = printer_setup_port(port_text);
+    if (!port) return send_json(request, "400 Bad Request", "{\"error\":\"Enter a port from 1 to 65535.\"}");
+    target_port = *port;
+  }
   const NetworkStatus network = network_->status();
   if (!network.station_connected) {
     return send_json(request, "409 Conflict",
@@ -3403,7 +3418,7 @@ esp_err_t WebConfig::start_printer_discovery(httpd_req_t* request) {
     const std::lock_guard<std::mutex> lock(mutex_);
     current = settings_;
   }
-  const esp_err_t result = printer_discovery_->start(network, current);
+  const esp_err_t result = printer_discovery_->start(network, current, std::move(target_host), target_port);
   if (result == ESP_ERR_INVALID_STATE) {
     if (printer_discovery_->snapshot().state == PrinterDiscoveryState::scanning) {
       return serve_printer_discovery(request, false);

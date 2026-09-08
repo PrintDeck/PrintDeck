@@ -15,6 +15,7 @@
 #include "esp_tls.h"
 #include "freertos/idf_additions.h"
 #include "lwip/inet.h"
+#include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "printdeck/platform/bambu_trust.hpp"
 #include "printdeck/platform/bambu_model.hpp"
@@ -26,6 +27,8 @@
 #include "printdeck/platform/prusalink_http_transport.hpp"
 #include "printdeck/platform/elegoo_sdcp_parser.hpp"
 #include "printdeck/platform/elegoo_cc2_parser.hpp"
+#include "printdeck/platform/device_discovery_policy.hpp"
+#include "printdeck/platform/printer_setup_address.hpp"
 
 namespace printdeck::platform {
 namespace {
@@ -249,7 +252,10 @@ bool bambu_tls_identity(const std::string& host, std::uint64_t deadline_ms) {
 }  // namespace
 
 esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
-                                         const core::DeviceSettings& settings) {
+                                         const core::DeviceSettings& settings,
+                                         std::string target_host, std::uint16_t target_port) {
+  if ((!target_host.empty() && !valid_printer_setup_host(target_host)) ||
+      (target_host.empty() && target_port != 0)) return ESP_ERR_INVALID_ARG;
   if (!network.station_connected || !valid_ipv4(network.ipv4)) return ESP_ERR_INVALID_STATE;
   bool expected = false;
   if (!running_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
@@ -264,7 +270,7 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
     const std::uint64_t started_at_ms = now_ms();
     const std::string network_key = discovery_network_key(network);
     std::vector<DiscoveredPrinter> recent = std::move(snapshot_.printers);
-    if (cache_network_key_ != network_key) {
+    if (!target_host.empty() || cache_network_key_ != network_key) {
       recent.clear();
     } else {
       recent.erase(
@@ -274,11 +280,14 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
           recent.end());
       for (auto& printer : recent) printer.seen_in_current_scan = false;
     }
-    cache_network_key_ = network_key;
+    cache_network_key_ = target_host.empty() ? network_key : std::string{};
     network_ = std::move(network);
+    target_host_ = std::move(target_host);
+    target_port_ = target_port;
     saved_ipv4_hosts_.clear();
     saved_prusa_origins_.clear();
     for (const auto& profile : settings.profiles) {
+      if (!target_host_.empty()) break;
       if (profile.protocol == core::PrinterProtocol::prusalink) {
         if (const auto origin = prusalink_origin(profile.endpoint)) saved_prusa_origins_.push_back(*origin);
         continue;
@@ -357,6 +366,8 @@ void PrinterDiscoveryService::publish_progress(std::size_t completed, std::size_
 
 void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
   if (!valid_ipv4(result.host)) return;
+  if (!target_host_.empty() && (result.host != target_host_ ||
+      (target_port_ != 0 && result.port != target_port_))) return;
   const std::lock_guard<std::mutex> lock(mutex_);
   result.last_seen_ms = now_ms();
   result.retain_until_ms = 0;
@@ -398,7 +409,41 @@ void PrinterDiscoveryService::run() {
     ~RunningGuard() { running.store(false, std::memory_order_release); }
   } running_guard{running_};
   const std::uint64_t started = now_ms();
-  const std::uint64_t deadline = started + kMaximumDurationMs;
+  const bool targeted = !target_host_.empty();
+  const std::uint64_t deadline = started + (targeted ? 35000 : kMaximumDurationMs);
+  // Resolve only the user-entered host, on the worker, then enforce the actual
+  // station subnet before opening printer sockets. DNS never selects a remote
+  // HTTP destination or expands a targeted request into a subnet scan.
+  if (targeted) {
+    in_addr address{};
+    if (inet_pton(AF_INET, target_host_.c_str(), &address) != 1) {
+      const auto hostname = lower(target_host_);
+      if (hostname.ends_with(".local")) {
+        esp_ip4_addr_t resolved{};
+        if (mdns_query_a(hostname.substr(0, hostname.size() - 6).c_str(), 2000, &resolved) == ESP_OK)
+          address.s_addr = resolved.addr;
+      } else {
+        addrinfo hints{}; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_STREAM;
+        addrinfo* resolved = nullptr;
+        if (getaddrinfo(hostname.c_str(), nullptr, &hints, &resolved) == 0 && resolved)
+          address = reinterpret_cast<sockaddr_in*>(resolved->ai_addr)->sin_addr;
+        if (resolved) freeaddrinfo(resolved);
+      }
+    }
+    if (cancel_requested_.load() || now_ms() >= deadline ||
+        !valid_device_peer_ipv4(ntohl(address.s_addr), ntohl(inet_addr(network_.ipv4.c_str())),
+                               ntohl(inet_addr(network_.netmask.c_str())))) {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      snapshot_.state = cancel_requested_.load() ? PrinterDiscoveryState::idle : PrinterDiscoveryState::failed;
+      snapshot_.detail = "No supported printers were found. You can still add one manually.";
+      task_ = nullptr;
+      return;
+    }
+    char host[INET_ADDRSTRLEN]{};
+    inet_ntop(AF_INET, &address, host, sizeof(host));
+    target_host_ = host;
+  }
+  const auto target_found = [&] { return targeted && !snapshot().printers.empty(); };
   ESP_LOGI(kLogTag,
            "Network search started; internal=%u, largest-internal=%u, "
            "largest-dma=%u",
@@ -442,7 +487,7 @@ void PrinterDiscoveryService::run() {
     sockaddr_in destination{};
     destination.sin_family = AF_INET;
     destination.sin_port = htons(1900);
-    destination.sin_addr.s_addr = multicast;
+    destination.sin_addr.s_addr = targeted ? inet_addr(target_host_.c_str()) : multicast;
     for (const int socket_fd : ssdp_sockets) {
       if (socket_fd >= 0) sendto(socket_fd, kSearch, sizeof(kSearch) - 1, 0,
                                  reinterpret_cast<const sockaddr*>(&destination),
@@ -452,7 +497,8 @@ void PrinterDiscoveryService::run() {
   const auto drain_ssdp = [&]() {
     for (const int socket_fd : ssdp_sockets) {
       if (socket_fd < 0) continue;
-      while (true) {
+      for (unsigned packet_index = 0; packet_index < 12 &&
+           !cancel_requested_.load() && now_ms() < deadline; ++packet_index) {
         char buffer[1537]{};
         sockaddr_in source{};
         socklen_t source_size = sizeof(source);
@@ -532,7 +578,7 @@ void PrinterDiscoveryService::run() {
   const std::uint32_t local = ntohl(station_address);
   std::uint32_t mask = netmask_address == INADDR_NONE ? 0xFFFFFF00U : ntohl(netmask_address);
   const std::uint32_t host_bits = ~mask;
-  if ((host_bits & (host_bits + 1U)) != 0 || host_bits < 2 || host_bits > 255) {
+  if ((host_bits & (host_bits + 1U)) != 0 || host_bits < 2 || (!targeted && host_bits > 255)) {
     mask = 0xFFFFFF00U;
   }
   const std::uint32_t network = local & mask;
@@ -566,7 +612,7 @@ void PrinterDiscoveryService::run() {
     if (elegoo_round < 2 && current >= elegoo_started + elegoo_round * 3000) {
       sockaddr_in destination{};
       destination.sin_family = AF_INET;
-      destination.sin_addr.s_addr = htonl(broadcast);
+      destination.sin_addr.s_addr = targeted ? inet_addr(target_host_.c_str()) : htonl(broadcast);
       const std::pair<std::uint16_t, std::string_view> requests[] = {
           {3000, "M99999"}, {52700, "{\"id\":0,\"method\":7000}"}};
       for (const auto& [port, body] : requests) {
@@ -615,7 +661,12 @@ void PrinterDiscoveryService::run() {
     PrusaLinkEspTransport transport;
     const auto budget = std::min(deadline, now_ms() + 1800);
     const auto version = transport.get({.url = origin + "/api/version", .maximum_body = 16384, .deadline_ms = budget}, cancelled);
-    if (prusalink_discovery_identity(version, nullptr, advertised)) return true;
+    if (prusalink_discovery_identity(version, nullptr, advertised)) {
+      if (const auto identity = parse_prusalink_identity(version.body))
+        add_result({.protocol = core::PrinterProtocol::prusalink, .name = "Prusa",
+                    .model = identity->model, .host = host, .port = port});
+      return true;
+    }
     if (version.status != 401 || cancelled()) return false;
     const auto root = transport.get({.url = origin + "/", .maximum_body = 65536, .deadline_ms = budget}, cancelled);
     return !cancelled() && prusalink_discovery_identity(version, &root);
@@ -636,7 +687,7 @@ void PrinterDiscoveryService::run() {
   };
   // Cover the responder's retry interval, including Wi-Fi multicast delivery.
   // The query remains bounded, and cancellation is checked before HTTP work.
-  const esp_err_t prusa_mdns_result = cancel_requested_.load() ? ESP_ERR_INVALID_STATE
+  const esp_err_t prusa_mdns_result = (targeted || cancel_requested_.load()) ? ESP_ERR_INVALID_STATE
       : mdns_query_ptr("_prusalink", "_tcp", 2400, 10, &mdns_results);
   if (prusa_mdns_result == ESP_OK) {
     for (const auto* result = mdns_results; result && !cancel_requested_.load(); result = result->next) {
@@ -664,7 +715,9 @@ void PrinterDiscoveryService::run() {
   service_elegoo();
   struct Candidate { in_addr address{}; std::string host; };
   std::vector<Candidate> candidates;
-  for (std::uint32_t address = network + 1; address < broadcast; ++address) {
+  const auto first_address = targeted ? ntohl(inet_addr(target_host_.c_str())) : network + 1;
+  const auto last_address = targeted ? first_address + 1 : broadcast;
+  for (std::uint32_t address = first_address; address < last_address; ++address) {
     if (address == local) continue;
     in_addr candidate_address{.s_addr = htonl(address)};
     char text[INET_ADDRSTRLEN]{};
@@ -679,7 +732,7 @@ void PrinterDiscoveryService::run() {
     bool verify_moonraker;
     std::uint32_t timeout_ms;
   };
-  constexpr Pass kPasses[]{
+  std::vector<Pass> passes{
       // A cold Wi-Fi ARP lookup can exceed a few hundred milliseconds. Give
       // Moonraker's primary port one full ARP window so the result does not
       // depend on an earlier failed scan having warmed the neighbor cache.
@@ -693,11 +746,20 @@ void PrinterDiscoveryService::run() {
       {4408, core::PrinterProtocol::moonraker, true, 1000},
       {4409, core::PrinterProtocol::moonraker, true, 1000},
   };
+  if (targeted && target_port_ != 0) {
+    passes = {{target_port_, target_port_ == kBambuTlsPort ? core::PrinterProtocol::bambu_lan
+                : core::PrinterProtocol::moonraker, target_port_ != kBambuTlsPort, 1200}};
+    // These two transports identify themselves through their bounded UDP
+    // discovery exchange; do not send HTTP requests to an MQTT endpoint.
+    if (target_port_ == 1883 || target_port_ == 3030) passes.clear();
+  } else if (targeted) {
+    passes.front().verify_moonraker = true;
+  }
   struct Pending { int socket_fd; std::string host; std::uint16_t port;
                    core::PrinterProtocol protocol; bool verify_moonraker; };
   std::vector<Pending> pending;
   pending.reserve(kProbeBatchSize);
-  const std::size_t total = std::max<std::size_t>(candidates.size() * std::size(kPasses), 1);
+  const std::size_t total = std::max<std::size_t>(candidates.size() * passes.size(), 1);
   std::size_t completed = 0;
   bool resource_pressure = false;
 
@@ -737,7 +799,7 @@ void PrinterDiscoveryService::run() {
                                    &error_size) == 0 && socket_error == 0;
         if (accepted && probe.verify_moonraker) {
           accepted = moonraker_signature(probe.socket_fd, probe.host, deadline);
-          if (!accepted && probe.port == 80) {
+          if (!accepted && (probe.port == 80 || targeted)) {
             close(probe.socket_fd);
             probe.socket_fd = -1;
             if (prusa_identity(probe.host, probe.port))
@@ -764,8 +826,8 @@ void PrinterDiscoveryService::run() {
     service_elegoo();
   };
 
-  for (const auto& pass : kPasses) {
-    if (cancel_requested_.load() || now_ms() >= deadline) break;
+  for (const auto& pass : passes) {
+    if (cancel_requested_.load() || now_ms() >= deadline || target_found()) break;
     for (const auto& candidate : candidates) {
       if (cancel_requested_.load() || now_ms() >= deadline) break;
       service_ssdp();
@@ -798,7 +860,7 @@ void PrinterDiscoveryService::run() {
           bool accepted = !pass.verify_moonraker;
           if (pass.verify_moonraker) {
             accepted = moonraker_signature(socket_fd, candidate.host, deadline);
-            if (!accepted && pass.port == 80) {
+            if (!accepted && (pass.port == 80 || targeted)) {
               close(socket_fd);
               socket_fd = -1;
               if (prusa_identity(candidate.host, pass.port))
@@ -831,7 +893,7 @@ void PrinterDiscoveryService::run() {
     flush(pass.timeout_ms);
   }
 
-  while (!cancel_requested_.load() && now_ms() < deadline &&
+  while (!cancel_requested_.load() && now_ms() < deadline && !target_found() &&
          (now_ms() < started + kMinimumDurationMs || ssdp_active() || elegoo_socket >= 0)) {
     service_ssdp();
     service_elegoo();
@@ -857,7 +919,7 @@ void PrinterDiscoveryService::run() {
         deduplication_complete = false;
         break;
       }
-      if (!printer.seen_in_current_scan ||
+      if (targeted || !printer.seen_in_current_scan ||
           printer.protocol != core::PrinterProtocol::moonraker) {
         deduplicated.push_back(std::move(printer));
         continue;

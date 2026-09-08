@@ -423,7 +423,6 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   "Wi-Fi · checking":["Wi‑Fi · sprawdzanie","Wi‑Fi · comprobando","Wi‑Fi · vérification","WLAN · Prüfung","Wi-Fi · 检查中"],
   "Reads Moonraker and printer.cfg without changing the printer.":["Odczytuje Moonraker i printer.cfg bez wprowadzania zmian w drukarce.","Lee Moonraker y printer.cfg sin cambiar la impresora.","Lit Moonraker et printer.cfg sans modifier l’imprimante.","Liest Moonraker und printer.cfg, ohne den Drucker zu verändern.","读取 Moonraker 和 printer.cfg，不会更改打印机。"],
   "Generate a compatibility report and send it to support@printdeck.xyz to help us support more Bambu Lab printers. It contains available data fields and safe numeric ranges, but no connection details or print names. Nothing is uploaded automatically.":["Wygeneruj raport zgodności i wyślij go na support@printdeck.xyz, aby pomóc nam obsługiwać więcej drukarek Bambu Lab. Zawiera dostępne pola danych i bezpieczne zakresy liczbowe, ale nigdy dane połączenia ani nazwy wydruków. Nic nie jest wysyłane automatycznie.","Genera un informe de compatibilidad y envíalo a support@printdeck.xyz para ayudarnos a admitir más impresoras Bambu Lab. Incluye los campos de datos disponibles y rangos numéricos seguros, pero nunca datos de conexión ni nombres de impresiones. Nada se sube automáticamente.","Générez un rapport de compatibilité et envoyez-le à support@printdeck.xyz pour nous aider à prendre en charge davantage d’imprimantes Bambu Lab. Il contient les champs de données disponibles et des plages numériques sûres, mais jamais les informations de connexion ni les noms d’impression. Rien n’est envoyé automatiquement.","Erstelle einen Kompatibilitätsbericht und sende ihn an support@printdeck.xyz, damit wir mehr Bambu-Lab-Drucker unterstützen können. Er enthält verfügbare Datenfelder und sichere Zahlenbereiche, aber niemals Verbindungsdaten oder Drucknamen. Nichts wird automatisch hochgeladen.","生成兼容性报告并将其发送至 support@printdeck.xyz，帮助我们支持更多 Bambu Lab 打印机。报告包含可用数据字段和安全数值范围，但绝不会包含连接信息或打印任务名称。任何内容都不会自动上传。"],
-  "Required; filled automatically when recognized.":["Wymagane; uzupełniane automatycznie po rozpoznaniu.","Obligatorio; se completa automáticamente al reconocerlo.","Obligatoire ; rempli automatiquement après détection.","Erforderlich; wird bei Erkennung automatisch ausgefüllt.","必填；识别后会自动填写。"],
   "e.g. Creality":["np. Creality","p. ej. Creality","p. ex. Creality","z. B. Creality","例如 Creality"],
   "e.g. K2 Plus":["np. K2 Plus","p. ej. K2 Plus","p. ex. K2 Plus","z. B. K2 Plus","例如 K2 Plus"]
   ,"1 minute":["1 minuta","1 minuto","1 minute","1 Minute","1 分钟"]
@@ -823,7 +822,6 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"Choose {set}":["Wybierz {set}","Elegir {set}","Choisir {set}","{set} auswählen","选择{set}"]
   ,"{count} color variants":["{count} wersji kolorystycznych","{count} variantes de color","{count} variantes de couleur","{count} Farbvarianten","{count} 种颜色变体"]
   ,"Choose a color":["Wybierz kolor","Elige un color","Choisissez une couleur","Farbe wählen","选择颜色"]
-  ,"Select a color to preview the set.":["Wybierz kolor, aby zobaczyć podgląd zestawu.","Selecciona un color para ver el conjunto.","Sélectionnez une couleur pour prévisualiser l’ensemble.","Wähle eine Farbe, um das Set anzusehen.","选择颜色以预览反应集。"]
   ,"Installed on PrintDeck:":["Zainstalowany na PrintDeck:","Instalado en PrintDeck:","Installé sur PrintDeck :","Auf PrintDeck installiert:","PrintDeck 上已安装："]
   ,"Installed set:":["Zainstalowany zestaw:","Conjunto instalado:","Ensemble installé :","Installiertes Set:","已安装的反应集："]
   ,"Install {set}":["Zainstaluj: {set}","Instalar {set}","Installer {set}","{set} installieren","安装{set}"]
@@ -1198,5 +1196,40 @@ Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
   ]
 });
 for(const [source,values] of Object.entries(PRINTDECK_EXTRA_TRANSLATIONS)){
+  PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]);
+}
+
+// Printer setup copy, in the maintained language order.
+const PRINTER_SETUP_TRANSLATIONS={
+"A printer search is already in progress. Try again in a moment.":["Trwa już wyszukiwanie drukarki. Spróbuj ponownie za chwilę.","Ya hay una búsqueda de impresoras en curso. Inténtalo de nuevo en un momento.","Une recherche d’imprimante est déjà en cours. Réessayez dans un instant.","Eine Druckersuche läuft bereits. Versuche es gleich erneut.","正在搜索打印机，请稍后重试。"],
+"The printer search changed. Please try again.":["Wyszukiwanie drukarki zostało zmienione. Spróbuj ponownie.","La búsqueda de impresoras ha cambiado. Inténtalo de nuevo.","La recherche d’imprimante a changé. Réessayez.","Die Druckersuche hat sich geändert. Versuche es erneut.","打印机搜索已更改，请重试。"],
+"The printer did not respond in time. Please try again.":["Drukarka nie odpowiedziała w wyznaczonym czasie. Spróbuj ponownie.","La impresora no respondió a tiempo. Inténtalo de nuevo.","L’imprimante n’a pas répondu à temps. Réessayez.","Der Drucker hat nicht rechtzeitig geantwortet. Versuche es erneut.","打印机未及时响应，请重试。"],
+"automatic":["automatycznie","automático","automatique","automatisch","自动"],
+"Clear port":["Wyczyść port","Borrar puerto","Effacer le port","Port löschen","清除端口"],
+"… and much more …":["… i wiele więcej …","… y mucho más …","… et bien plus encore …","… und vieles mehr …","… 还有更多 …"],
+"Auto detect":["Wykryj automatycznie","Detectar automáticamente","Détection automatique","Automatisch erkennen","自动检测"],
+"The printer uses a different connection. Choose Auto detect or check the address.":["Drukarka używa innego połączenia. Wybierz wykrywanie automatyczne lub sprawdź adres.","La impresora usa otra conexión. Elige la detección automática o comprueba la dirección.","L’imprimante utilise une autre connexion. Choisissez la détection automatique ou vérifiez l’adresse.","Der Drucker verwendet eine andere Verbindung. Wähle die automatische Erkennung oder prüfe die Adresse.","打印机使用其他连接类型。请选择自动检测或检查地址。"],
+"Other printers":["Inne drukarki","Otras impresoras","Autres imprimantes","Andere Drucker","其他打印机"],
+"Connect with your printer address and LAN access code.":["Połącz się, podając adres drukarki i kod dostępu LAN.","Conecta con la dirección de la impresora y el código de acceso LAN.","Connectez-vous avec l’adresse de l’imprimante et son code d’accès LAN.","Verbinde dich mit der Druckeradresse und dem LAN-Zugangscode.","使用打印机地址和局域网访问码连接。"],
+"Enter the address. PrintDeck will recognize your printer and guide you through setup.":["Podaj adres. PrintDeck rozpozna drukarkę i przeprowadzi Cię przez konfigurację.","Introduce la dirección. PrintDeck reconocerá tu impresora y te guiará en la configuración.","Saisissez l’adresse. PrintDeck reconnaîtra votre imprimante et vous guidera dans la configuration.","Gib die Adresse ein. PrintDeck erkennt deinen Drucker und führt dich durch die Einrichtung.","输入地址。PrintDeck 将识别打印机并引导你完成设置。"],
+"Local connection":["Połączenie lokalne","Conexión local","Connexion locale","Lokale Verbindung","本地连接"],
+"Printer setup":["Konfiguracja drukarki","Configuración de impresora","Configuration de l’imprimante","Druckereinrichtung","打印机设置"],
+"Printer address":["Adres drukarki","Dirección de la impresora","Adresse de l’imprimante","Druckeradresse","打印机地址"],
+"Connection":["Połączenie","Conexión","Connexion","Verbindung","连接"],
+"PrintDeck will identify the connection, brand and model before asking for access details.":["PrintDeck rozpozna rodzaj połączenia, markę i model, zanim poprosi o dane dostępu.","PrintDeck identificará la conexión, la marca y el modelo antes de pedir los datos de acceso.","PrintDeck identifiera la connexion, la marque et le modèle avant de demander les identifiants.","PrintDeck erkennt Verbindung, Marke und Modell, bevor es nach Zugangsdaten fragt.","PrintDeck 会先识别连接类型、品牌和型号，再询问访问凭据。"],
+"Connection type":["Rodzaj połączenia","Tipo de conexión","Type de connexion","Verbindungstyp","连接类型"],
+"Printer brands and models":["Marki i modele drukarek","Marcas y modelos de impresoras","Marques et modèles d’imprimantes","Druckermarken und Modelle","打印机品牌和型号"],
+"Connection recognized":["Rozpoznano połączenie","Conexión reconocida","Connexion reconnue","Verbindung erkannt","已识别连接"],
+"Connection selected":["Wybrano połączenie","Conexión seleccionada","Connexion sélectionnée","Verbindung ausgewählt","已选择连接"],
+"Change address":["Zmień adres","Cambiar dirección","Modifier l’adresse","Adresse ändern","更改地址"],
+"Printer details":["Dane drukarki","Datos de la impresora","Informations de l’imprimante","Druckerdetails","打印机信息"],
+"Enter a valid IP address or hostname.":["Podaj prawidłowy adres IP lub nazwę hosta.","Introduce una dirección IP o un nombre de host válido.","Saisissez une adresse IP ou un nom d’hôte valide.","Gib eine gültige IP-Adresse oder einen Hostnamen ein.","请输入有效的 IP 地址或主机名。"],
+"Enter a port from 1 to 65535.":["Podaj port od 1 do 65535.","Introduce un puerto entre 1 y 65535.","Saisissez un port compris entre 1 et 65535.","Gib einen Port zwischen 1 und 65535 ein.","请输入 1 到 65535 之间的端口。"],
+"Recognizing your printer…":["Rozpoznawanie drukarki…","Reconociendo tu impresora…","Reconnaissance de l’imprimante…","Drucker wird erkannt…","正在识别打印机…"],
+"We couldn’t recognize this printer. Check the address and port, or choose the connection manually.":["Nie udało się rozpoznać drukarki. Sprawdź adres i port lub wybierz połączenie ręcznie.","No pudimos reconocer esta impresora. Comprueba la dirección y el puerto o elige la conexión manualmente.","Impossible de reconnaître cette imprimante. Vérifiez l’adresse et le port ou choisissez la connexion manuellement.","Der Drucker konnte nicht erkannt werden. Prüfe Adresse und Port oder wähle die Verbindung manuell.","无法识别此打印机。请检查地址和端口，或手动选择连接。"],
+"Enter your API key to finish identifying the printer.":["Podaj klucz API, aby dokończyć rozpoznawanie drukarki.","Introduce tu clave API para terminar de identificar la impresora.","Saisissez votre clé API pour terminer l’identification de l’imprimante.","Gib deinen API-Schlüssel ein, um die Druckererkennung abzuschließen.","请输入 API 密钥以完成打印机识别。"],
+"Review the details, then check the connection to add your printer.":["Sprawdź dane, a następnie przetestuj połączenie i dodaj drukarkę.","Revisa los datos y comprueba la conexión para añadir tu impresora.","Vérifiez les informations, puis testez la connexion pour ajouter l’imprimante.","Prüfe die Angaben und teste dann die Verbindung, um deinen Drucker hinzuzufügen.","确认信息后，检查连接以添加打印机。"]
+};
+for(const [source,values] of Object.entries(PRINTER_SETUP_TRANSLATIONS)){
   PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]);
 }
