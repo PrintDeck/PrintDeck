@@ -898,6 +898,7 @@ body.site-page {
 
 .case-story-image img {
   width: 100%;
+  height: auto;
   aspect-ratio: 1;
   display: block;
   object-fit: cover;
@@ -1054,18 +1055,22 @@ body.site-page {
   gap: 14px;
 }
 
-#the-cinquefoil .case-media {
+#the-cinquefoil .case-media,
+#the-trillium .case-media {
   margin-bottom: 24px;
 }
 
 #the-cinquefoil .case-main-image,
 #the-cinquefoil .case-detail-image,
+#the-trillium .case-main-image,
+#the-trillium .case-detail-image,
 #the-scuttle .case-main-image,
 #the-scuttle .case-detail-image {
   background: #191919;
 }
 
 #the-cinquefoil .case-detail-image img,
+#the-trillium .case-detail-image img,
 #the-scuttle .case-detail-image img {
   inset: 0 auto 0 50%;
   width: auto;
@@ -2601,6 +2606,70 @@ body.site-page {
 
 /* Alternate light/dark landing hero preview at /index2.html. */
 .home-page-v2 .home-hero-benefits { display: none; }
+
+/* Local additions preserve the original workshop photograph and screen positions. */
+.home-page-v2 .home-workshop-additions {
+  position: absolute;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-page-v2 .home-workshop-additions.is-ready { opacity: 1; }
+
+.home-page-v2 .home-workshop-added-case {
+  position: absolute;
+  background-image: var(--workshop-additions-image);
+  background-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent), linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent), linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent);
+  mask-composite: intersect;
+}
+
+:root:not([data-appearance="dark"]) .home-page-v2 .home-workshop-additions {
+  --workshop-additions-image: url("marketing/home/workshop-added-cases-light.webp?v=20260908-1");
+}
+
+:root:not([data-appearance="dark"]) .home-page-v2 .home-workshop-added-cinquefoil {
+  left: 42.335766%;
+  top: 38.292683%;
+  width: 10.010428%;
+  height: 23.902439%;
+  background-size: 998.958333% 418.367347%;
+  background-position: 47.045191% 50.320513%;
+}
+
+:root:not([data-appearance="dark"]) .home-page-v2 .home-workshop-added-trillium {
+  left: 90.928050%;
+  top: 44.146341%;
+  width: 9.071950%;
+  height: 21.341463%;
+  background-size: 1102.298851% 468.571429%;
+  background-position: 100.000000% 56.124031%;
+}
+
+:root[data-appearance="dark"] .home-page-v2 .home-workshop-additions {
+  --workshop-additions-image: url("marketing/home/workshop-added-cases-dark.webp?v=20260908-1");
+}
+
+:root[data-appearance="dark"] .home-page-v2 .home-workshop-added-cinquefoil {
+  left: 40.396660%;
+  top: 35.931790%;
+  width: 9.603340%;
+  height: 23.751523%;
+  background-size: 1041.304348% 421.025641%;
+  background-position: 44.688222% 47.124601%;
+}
+
+:root[data-appearance="dark"] .home-page-v2 .home-workshop-added-trillium {
+  left: 91.544885%;
+  top: 41.900122%;
+  width: 8.455115%;
+  height: 23.751523%;
+  background-size: 1182.716049% 421.025641%;
+  background-position: 100.000000% 54.952077%;
+}
 
 .home-page-v2 .home-workshop-screen-stage {
   position: absolute;
@@ -4148,8 +4217,15 @@ body.site-page {
 .case-page .case-collection-stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 1672 / 941;
+  aspect-ratio: 1672 / 760;
   overflow: hidden;
+}
+
+.case-page .case-collection-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1672 / 941;
+  transform: translateY(-9.56%);
 }
 
 .case-page .case-collection-photo {
@@ -4163,8 +4239,8 @@ body.site-page {
   position: absolute;
   z-index: 3;
   overflow: hidden;
-  -webkit-clip-path: circle(50% at 50% 50%);
-  clip-path: circle(50% at 50% 50%);
+  -webkit-clip-path: ellipse(50% 50% at 50% 50%);
+  clip-path: ellipse(50% 50% at 50% 50%);
   -webkit-mask-image: -webkit-radial-gradient(white, black);
   background: #030606;
   box-shadow: inset 0 0 0 1px #ffffff12;
@@ -4180,26 +4256,40 @@ body.site-page {
   mix-blend-mode: screen;
 }
 
+/* Display apertures measured against the 1672 × 941 collection artwork. */
 .case-page .case-live-screen-riverstone {
-  left: 45.3%;
-  top: 25.55%;
-  width: 18.1%;
-  aspect-ratio: 1;
+  left: 42.82297%;
+  top: 39.00106%;
+  width: 14.89234%;
+  height: 26.35494%;
   border-radius: 50%;
-  transform: perspective(700px) rotateY(-3deg) rotateZ(.15deg);
 }
 
 .case-page .case-live-screen-scuttle {
-  left: 71.05%;
-  top: 30.85%;
-  width: 20.35%;
-  aspect-ratio: 1;
+  left: 78.28947%;
+  top: 39.31987%;
+  width: 14.89234%;
+  height: 25.07970%;
   border-radius: 50%;
-  transform: perspective(700px) rotateY(-5deg) rotateZ(.15deg);
 }
 
-.case-page .case-u1-photo-cycle,
-.case-page .case-u1-photo-variant {
+.case-page .case-live-screen-cinquefoil {
+  left: 28.05024%;
+  top: 33.04995%;
+  width: 9.33014%;
+  height: 16.04676%;
+  border-radius: 50%;
+}
+
+.case-page .case-live-screen-trillium {
+  left: 63.57656%;
+  top: 36.13177%;
+  width: 9.50957%;
+  height: 16.36557%;
+  border-radius: 50%;
+}
+
+.case-page .case-u1-display {
   position: absolute;
   z-index: 3;
   inset: 0;
@@ -4208,15 +4298,25 @@ body.site-page {
   pointer-events: none;
 }
 
-.case-page .case-u1-photo-cycle {
-  overflow: hidden;
+.case-page .case-u1-photo-plane {
+  position: relative;
+  width: 1672px;
+  height: 941px;
+  transform-origin: 0 0;
+}
+
+.case-page .case-u1-photo-base,
+.case-page .case-u1-photo-variant {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .case-page .case-u1-photo-variant {
-  display: block;
-  object-fit: cover;
   opacity: 0;
-  clip-path: polygon(18.15% 46.15%, 34.05% 45.9%, 34.45% 74.35%, 19.05% 79.35%);
   will-change: opacity;
 }
 
@@ -4253,7 +4353,7 @@ body.site-page {
 }
 
 .case-page .case-screen-slide img,
-.case-page .case-live-screen-scuttle > img {
+.case-page .case-live-screen > img {
   display: block;
   width: 100%;
   height: 100%;
@@ -4264,33 +4364,22 @@ body.site-page {
   transform: scale(1.08);
 }
 
-.case-page .case-live-screen-scuttle > img {
+.case-page .case-live-screen > img {
   transform: scale(1.04);
 }
 
 .case-page .case-hero-link {
   position: absolute;
   z-index: 6;
-  top: 7%;
-  height: 82%;
   border-radius: 28px;
   cursor: pointer;
 }
 
-.case-page .case-hero-link-u1 {
-  left: 0;
-  width: 36.5%;
-}
-
-.case-page .case-hero-link-riverstone {
-  left: 36.5%;
-  width: 28.5%;
-}
-
-.case-page .case-hero-link-scuttle {
-  left: 65%;
-  width: 35%;
-}
+.case-page .case-hero-link-u1 { left: 1%; top: 33%; width: 24%; height: 42%; }
+.case-page .case-hero-link-cinquefoil { left: 24.5%; top: 28.5%; width: 15.5%; height: 28%; z-index: 5; }
+.case-page .case-hero-link-riverstone { left: 38.5%; top: 31%; width: 23%; height: 43%; }
+.case-page .case-hero-link-trillium { left: 61%; top: 29%; width: 15%; height: 27%; z-index: 5; }
+.case-page .case-hero-link-scuttle { left: 75.5%; top: 35%; width: 23%; height: 41%; }
 
 .case-page .case-hero-link:focus-visible {
   outline: 2px solid #fff;

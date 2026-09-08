@@ -114,6 +114,7 @@
     const hero = document.querySelector('[data-workshop-hero]');
     const stage = hero?.querySelector('[data-workshop-screen-stage]');
     if (!hero || !stage) return;
+    const additions = hero.querySelector('[data-workshop-additions]');
 
     const sourceWidth = 1916;
     const sourceHeight = 821;
@@ -156,11 +157,14 @@
       const left = axisPosition(positionTokens[0] || '50%', rect.width - renderedWidth);
       const top = axisPosition(positionTokens[1] || '50%', rect.height - renderedHeight);
 
-      stage.style.width = `${renderedWidth}px`;
-      stage.style.height = `${renderedHeight}px`;
-      stage.style.left = `${left}px`;
-      stage.style.top = `${top}px`;
-      stage.classList.add('is-ready');
+      for (const layer of [stage, additions]) {
+        if (!layer) continue;
+        layer.style.width = `${renderedWidth}px`;
+        layer.style.height = `${renderedHeight}px`;
+        layer.style.left = `${left}px`;
+        layer.style.top = `${top}px`;
+        layer.classList.add('is-ready');
+      }
     };
 
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(syncStage) : null;
@@ -359,6 +363,38 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindHeroScreenRotation);
   else bindHeroScreenRotation();
+})();
+
+(() => {
+  const bindEyeBlinks = () => {
+    const eyes = Array.from(document.querySelectorAll('[data-eye-blink-src]'));
+    if (!eyes.length) return;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const posters = eyes.map((eye) => eye.src);
+    let timers = [];
+
+    const start = () => {
+      timers.forEach(window.clearTimeout);
+      timers = [];
+      eyes.forEach((eye, index) => {
+        eye.src = posters[index];
+        if (reducedMotion.matches) return;
+        // All three blink loops last 2400 ms; spread their starts by 800 ms.
+        const delay = Number.parseInt(eye.dataset.eyeBlinkDelay || '0', 10);
+        timers.push(window.setTimeout(() => {
+          eye.src = eye.dataset.eyeBlinkSrc;
+        }, delay));
+      });
+    };
+
+    reducedMotion.addEventListener('change', start);
+    if (document.readyState === 'complete') start();
+    else window.addEventListener('load', start, { once: true });
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindEyeBlinks);
+  else bindEyeBlinks();
 })();
 
 (() => {
