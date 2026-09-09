@@ -41,6 +41,8 @@ set(PRINTDECK_SRCS
         "src/platform/elegoo_cc2_parser.cpp"
         "src/platform/elegoo_cc2_service.cpp"
         "src/platform/elegoo_connection_probe.cpp"
+    "src/platform/uniformation_connection_probe.cpp"
+    "src/platform/uniformation_sdcp_parser.cpp"
         "src/platform/prusalink_discovery.cpp"
         "src/platform/moonraker_connection_probe.cpp"
         "src/platform/moonraker_camera_client.cpp"

@@ -89,7 +89,7 @@ bool is_local_printer_endpoint(std::string_view endpoint, PrinterProtocol protoc
   const std::size_t colon = endpoint.rfind(':');
   if (colon != std::string_view::npos) {
     const bool local_port = protocol == PrinterProtocol::elegoo_sdcp ||
-                            protocol == PrinterProtocol::elegoo_cc2;
+                            protocol == PrinterProtocol::elegoo_cc2 || protocol == PrinterProtocol::uniformation_sdcp;
     if ((!http && !local_port) || endpoint.find(':') != colon) return false;
     host = endpoint.substr(0, colon);
     const std::string_view port_text = endpoint.substr(colon + 1);
@@ -456,8 +456,8 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
     check_text(issues, (prefix + "access_code").c_str(), profile.access_code, 32,
                printer_supports(profile.protocol, PrinterCapability::access_code));
     if (profile.protocol == PrinterProtocol::elegoo_sdcp ||
-        profile.protocol == PrinterProtocol::elegoo_cc2) {
-      const bool sdcp = profile.protocol == PrinterProtocol::elegoo_sdcp;
+        profile.protocol == PrinterProtocol::elegoo_cc2 || profile.protocol == PrinterProtocol::uniformation_sdcp) {
+      const bool sdcp = profile.protocol != PrinterProtocol::elegoo_cc2;
       const bool valid_serial = !profile.serial.empty() && profile.serial.size() <= 32 &&
           (!sdcp || profile.serial.size() == 16 || profile.serial.size() == 32) &&
           std::all_of(profile.serial.begin(), profile.serial.end(), [sdcp](unsigned char ch) {
@@ -476,7 +476,7 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
                profile.protocol == PrinterProtocol::moonraker);
     check_text(issues, (prefix + "model").c_str(), profile.model, 48, false);
     check_text(issues, (prefix + "brand").c_str(), profile.brand, 24, false);
-    selected_exists = selected_exists || profile.id == settings.selected_profile;
+    selected_exists = selected_exists || (profile.id == settings.selected_profile && printer_driver(profile.protocol).dashboard);
   }
   if (!selected_exists) {
     issues.push_back({"selected_profile", "Selected profile does not exist"});

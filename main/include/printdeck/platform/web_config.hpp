@@ -21,6 +21,7 @@
 #include "printdeck/platform/moonraker_connection_probe.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
 #include "printdeck/platform/elegoo_connection_probe.hpp"
+#include "printdeck/platform/uniformation_connection_probe.hpp"
 #include "printdeck/platform/printer_discovery_service.hpp"
 #include "printdeck/platform/firmware_update_service.hpp"
 #include "printdeck/platform/bambu_compatibility_probe.hpp"
@@ -77,6 +78,8 @@ class WebConfig {
   esp_err_t save_language(std::string_view language);
   esp_err_t save_printer_animations(bool enabled);
   esp_err_t save_last_auto_rotation(int degrees);
+
+  bool uniformation_check_running() const { return uniformation_probe_.snapshot().running; }
 
  private:
   static esp_err_t root_entry(httpd_req_t* request);
@@ -141,6 +144,12 @@ class WebConfig {
   esp_err_t start_elegoo_check(httpd_req_t* request);
   esp_err_t serve_elegoo_check_status(httpd_req_t* request) const;
   bool read_elegoo_credentials(const std::string& body, core::PrinterProfile& profile) const;
+  static esp_err_t uniformation_check_start_entry(httpd_req_t* request);
+  static esp_err_t uniformation_check_status_entry(httpd_req_t* request);
+  static esp_err_t uniformation_check_cancel_entry(httpd_req_t* request);
+  esp_err_t start_uniformation_check(httpd_req_t* request);
+  esp_err_t serve_uniformation_check_status(httpd_req_t* request) const;
+  bool read_uniformation_credentials(const std::string& body, core::PrinterProfile& profile) const;
   static esp_err_t moonraker_check_status_entry(httpd_req_t* request);
   static esp_err_t compatibility_start_entry(httpd_req_t* request);
   static esp_err_t compatibility_status_entry(httpd_req_t* request);
@@ -229,6 +238,7 @@ class WebConfig {
   MoonrakerConnectionProbe* moonraker_probe_ = nullptr;
   PrusaLinkConnectionProbe* prusalink_probe_ = nullptr;
   ElegooConnectionProbe* elegoo_probe_ = nullptr;
+  UniformationConnectionProbe uniformation_probe_;
   PrinterDiscoveryService* printer_discovery_ = nullptr;
   FirmwareUpdateService* firmware_update_ = nullptr;
   ReactionAssetService* reaction_assets_ = nullptr;

@@ -14,6 +14,8 @@
 #include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/core/screen_saver.hpp"
+#include "printdeck/core/resin_reactions.hpp"
+#include "printdeck/core/resin_controls.hpp"
 #include "printdeck/core/theme.hpp"
 #include "printdeck/core/timezone.hpp"
 #include "printdeck/platform/inactive_printer_poller.hpp"
@@ -38,6 +40,7 @@ class DisplayShell {
   using PageRefreshRequested = void (*)(void* context);
   using ChamberLightChanged = void (*)(void* context, bool enabled);
   using CameraModeChanged = void (*)(void* context, bool live);
+  using ResinControlRequested = bool (*)(void* context, const core::ResinControlRequest& request);
   using UpdateCheckRequested = void (*)(void* context);
   using UpdateInstallRequested = void (*)(void* context);
 
@@ -97,6 +100,9 @@ class DisplayShell {
   void set_page_refresh_callback(PageRefreshRequested callback, void* context);
   void set_chamber_light_changed_callback(ChamberLightChanged callback, void* context);
   void set_camera_mode_changed_callback(CameraModeChanged callback, void* context);
+  void set_resin_control_callback(ResinControlRequested callback, void* context) {
+    resin_control_requested_ = callback; resin_control_context_ = context;
+  }
   void set_camera_preferences(bool live, int snapshot_fps);
   void set_update_check_callback(UpdateCheckRequested callback, void* context);
   void set_update_install_callback(UpdateInstallRequested callback, void* context);
@@ -123,6 +129,7 @@ class DisplayShell {
   esp_err_t navigate_for_capture(std::string_view screen_name);
 
  private:
+  static std::string endpoint_host(std::string value);
   static void screen_event(lv_event_t* event);
   static void wifi_setup_pager_event(lv_event_t* event);
   static void wifi_setup_navigation_event(lv_event_t* event);
@@ -131,9 +138,9 @@ class DisplayShell {
   static void printer_list_scroll_event(lv_event_t* event);
   static void printer_retry_wait_finished(lv_timer_t* timer);
   static void camera_mode_event(lv_event_t* event);
-  static void camera_zoom_event(lv_event_t* event);
+  static void media_zoom_event(lv_event_t* event);
   void update_camera_image(const core::JobState& job);
-  void update_camera_zoom_geometry();
+  void update_media_zoom_geometry();
   static void horizontal_transition_finished(lv_anim_t* animation);
   static void horizontal_transition_switch(lv_timer_t* timer);
   static void horizontal_transition_timeout(lv_timer_t* timer);
@@ -218,6 +225,36 @@ class DisplayShell {
   void show_printer_reactions(const core::PrinterProfile& profile,
                               const core::PrinterSnapshot& snapshot,
                               const PowerSnapshot& power);
+  void update_printer_preview(const core::PrinterSnapshot& snapshot);
+  void show_resin_reactions(const core::PrinterProfile&, const core::PrinterSnapshot&);
+  static void resin_reaction_tick(lv_timer_t* timer);
+  void render_resin_reaction(bool update_scene = false);
+  void update_resin_reaction_readout(bool force = false);
+  void show_resin_controls(const core::PrinterProfile&, const core::PrinterSnapshot&, bool stop);
+  void show_resin_confirmation();
+  void close_resin_confirmation();
+  void update_resin_confirmation();
+  bool resin_control_click_allowed(lv_event_t*) const;
+  static void resin_control_tick(lv_timer_t*);
+  static void resin_control_action_event(lv_event_t*);
+  static void resin_control_yes_event(lv_event_t*);
+  static void resin_control_no_event(lv_event_t*);
+  lv_obj_t* resin_text(const char*, int, int, int, int, std::uint32_t,
+                       lv_text_align_t = LV_TEXT_ALIGN_LEFT);
+  void show_resin_cycle(const core::PrinterProfile&, const core::PrinterSnapshot&,
+                        const PowerSnapshot&, bool bottom);
+  void show_resin_temperature(const core::PrinterProfile&, const core::PrinterSnapshot&, const PowerSnapshot&);
+  void show_resin_feeder(const core::PrinterProfile&, const core::PrinterSnapshot&, const PowerSnapshot&);
+  static void resin_cycle_units_event(lv_event_t* event);
+  static void resin_cycle_switch_tick(lv_timer_t*);
+  void set_resin_status(const core::PrinterSnapshot&, const char* override_label = nullptr);
+  void update_resin_status();
+  static void resin_status_tick(lv_timer_t*);
+  void show_resin_details(const core::PrinterProfile& profile,
+                          const core::PrinterSnapshot& snapshot, const PowerSnapshot& power);
+  void show_resin_status(const core::PrinterProfile& profile,
+                         const core::PrinterSnapshot& snapshot,
+                         const PowerSnapshot& power);
   void show_printer_status(const core::PrinterProfile& profile,
                            const core::PrinterSnapshot& snapshot, const PowerSnapshot& power,
                            const char* ipv4);
@@ -323,6 +360,62 @@ class DisplayShell {
   std::array<lv_obj_t*, core::kMaximumToolheads> nozzle_material_dots_{};
   lv_obj_t* version_label_ = nullptr;
   lv_obj_t* clock_status_label_ = nullptr;
+  std::array<lv_obj_t*, 5> resin_detail_values_{};
+  std::array<lv_obj_t*, 4> resin_cycle_values_{};
+  lv_obj_t* resin_platform_ = nullptr;
+  lv_obj_t* resin_uv_ = nullptr;
+  lv_obj_t* resin_units_label_ = nullptr;
+  lv_obj_t* resin_transition_label_ = nullptr;
+  lv_obj_t* resin_sensor_fill_ = nullptr;
+  core::ResinStage resin_visual_stage_ = core::ResinStage::unknown;
+  std::atomic<bool> resin_cycle_speeds_{false};
+  lv_obj_t* resin_cycle_spinner_ = nullptr;
+  lv_timer_t* resin_cycle_switch_timer_ = nullptr;
+  bool resin_cycle_switch_pending_ = false, resin_cycle_switch_applied_ = false;
+  std::uint32_t resin_cycle_switch_started_ms_ = 0;
+  lv_timer_t* resin_status_timer_ = nullptr;
+  const char* resin_status_key_ = nullptr;
+  std::optional<core::ResinExposureTiming> resin_exposure_;
+  std::uint64_t resin_status_updated_ms_ = 0;
+  lv_timer_t* resin_reaction_timer_ = nullptr;
+  lv_obj_t* resin_reaction_footer_ = nullptr;
+  lv_obj_t* resin_reaction_footer_accent_ = nullptr;
+  lv_obj_t* resin_reaction_footer_icon_ = nullptr;
+  lv_obj_t* resin_reaction_footer_sun_ = nullptr;
+  lv_timer_t* resin_control_timer_ = nullptr;
+  lv_obj_t* resin_control_button_ = nullptr;
+  lv_obj_t* resin_control_button_label_ = nullptr;
+  lv_obj_t* resin_control_icon_ = nullptr;
+  lv_obj_t* resin_control_spinner_ = nullptr;
+  lv_obj_t* resin_control_overlay_ = nullptr;
+  lv_obj_t* resin_control_yes_ = nullptr;
+  lv_obj_t* resin_control_yes_label_ = nullptr;
+  core::PrinterSnapshot resin_control_state_;
+  core::ResinControlConfirmation resin_confirmation_;
+  core::ResinControl resin_control_action_ = core::ResinControl::pause;
+  core::ResinControlRequest resin_pending_request_;
+  bool resin_control_pending_ = false;
+  std::uint64_t resin_control_sent_ms_ = 0;
+  unsigned resin_yes_remaining_ = 6;
+  const char* resin_control_feedback_ = nullptr;
+  std::string resin_control_profile_name_, resin_control_job_name_;
+  ResinControlRequested resin_control_requested_ = nullptr;
+  void* resin_control_context_ = nullptr;
+  lv_font_t* resin_reaction_time_font_ = nullptr;
+  lv_obj_t* resin_reaction_model_ = nullptr;
+  lv_obj_t* resin_reaction_arrow_up_ = nullptr;
+  lv_obj_t* resin_reaction_arrow_down_ = nullptr;
+  lv_obj_t* resin_reaction_symbol_ = nullptr;
+  lv_obj_t* resin_reaction_caption_ = nullptr;
+  std::optional<std::uint32_t> resin_reaction_remaining_;
+  std::uint16_t resin_reaction_layer_ = 0;
+  std::uint16_t resin_reaction_total_ = 0;
+  std::uint32_t resin_readout_started_ms_ = 0;
+  bool resin_readout_layers_ = false;
+  std::array<lv_obj_t*, 4> resin_reaction_rays_{};
+  std::array<lv_obj_t*, 3> resin_reaction_dots_{};
+  core::ResinReaction resin_reaction_ = core::ResinReaction::standby;
+  std::uint32_t resin_reaction_started_ms_ = 0;
   lv_obj_t* progress_arc_ = nullptr;
   lv_obj_t* clock_hour_hand_ = nullptr;
   lv_obj_t* clock_minute_hand_ = nullptr;
@@ -355,14 +448,14 @@ class DisplayShell {
   lv_obj_t* update_dismiss_button_ = nullptr;
   lv_obj_t* update_install_button_label_ = nullptr;
   lv_obj_t* media_image_ = nullptr;
-  lv_obj_t* camera_zoom_image_ = nullptr;
-  lv_obj_t* camera_zoom_root_ = nullptr;
-  int camera_pan_x_ = 0;
-  int camera_pan_y_ = 0;
-  int camera_pan_start_x_ = 0;
-  int camera_pan_start_y_ = 0;
-  bool camera_pan_candidate_ = false;
-  bool camera_pan_moved_ = false;
+  lv_obj_t* media_zoom_image_ = nullptr;
+  lv_obj_t* media_zoom_root_ = nullptr;
+  int media_pan_x_ = 0;
+  int media_pan_y_ = 0;
+  int media_pan_start_x_ = 0;
+  int media_pan_start_y_ = 0;
+  bool media_pan_candidate_ = false;
+  bool media_pan_moved_ = false;
   std::uint32_t camera_presented_frames_ = 0;
   std::int64_t camera_presentation_window_us_ = 0;
   lv_obj_t* printer_animation_root_ = nullptr;
@@ -410,6 +503,7 @@ class DisplayShell {
   std::atomic<int> selected_camera_depth_{0};
   std::atomic<int> selected_light_depth_{0};
   std::atomic<bool> selected_is_bambu_{false};
+  std::atomic<bool> selected_is_resin_{false};
   std::atomic<bool> selected_online_{false};
   std::uint32_t selected_profile_ = 0;
   std::uint32_t printer_retry_wait_profile_ = 0;

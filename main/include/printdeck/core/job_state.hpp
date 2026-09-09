@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,6 +24,12 @@ enum class JobPhase : std::uint8_t {
 enum class JobKind : std::uint8_t {
   print,
   calibration,
+};
+
+// Resin printing has a layer cycle independent of FDM motion/tool telemetry.
+enum class ResinStage : std::uint8_t {
+  unknown, standby, homing, lowering, exposing, lifting, pausing, paused,
+  stopping, stopped, completed, checking_file, transferring_file, exposure_test, device_test,
 };
 
 // A printer/service condition is independent of the outcome of a print job.
@@ -120,8 +127,44 @@ struct ToolheadState {
   bool filament_detected = false;
 };
 
+struct ResinLayerSettings {
+  std::array<std::optional<float>, 2> lift_mm, retract_mm;
+  std::array<std::optional<float>, 2> lift_mm_s, retract_mm_s;
+  std::optional<float> exposure_s;
+};
+
+struct ResinTelemetry {
+  std::optional<float> chamber_target_c, bottle_ml;
+  std::optional<bool> feeder_enabled;
+};
+
+struct ResinPrintSettings {
+  std::string profile_name;
+  ResinLayerSettings bottom, normal;
+  std::optional<float> layer_height_mm, volume_ml, weight_g;
+  std::optional<std::uint16_t> bottom_layers, transition_layers;
+};
+
+// Executed layer duration, anchored to the observed exposure-state transition.
+// The monotonic anchor belongs to the adapter, so changing pages cannot restart it.
+struct ResinExposureTiming {
+  std::uint64_t started_at_ms = 0;
+  std::uint32_t duration_ms = 0;
+};
+
+inline std::uint32_t resin_exposure_remaining_tenths(const ResinExposureTiming& timing,
+                                                    std::uint64_t now_ms) {
+  const auto elapsed = now_ms > timing.started_at_ms ? now_ms - timing.started_at_ms : 0;
+  return elapsed >= timing.duration_ms ? 0 :
+      static_cast<std::uint32_t>((timing.duration_ms - elapsed + 99) / 100);
+}
+
 struct JobState {
   JobPhase phase = JobPhase::unknown;
+  ResinStage resin_stage = ResinStage::unknown;
+  ResinPrintSettings resin_settings;
+  ResinTelemetry resin_telemetry;
+  std::optional<ResinExposureTiming> resin_exposure;
   JobKind kind = JobKind::print;
   PrinterActivity activity = PrinterActivity::unknown;
   // Optional detail for the current activity; reaction IDs remain unchanged.
@@ -176,6 +219,7 @@ struct JobState {
 
 const char* phase_label(JobPhase phase);
 const char* job_status_label(const JobState& job);
+const char* resin_status_label(const JobState& job);
 std::string job_name_for_display(std::string_view name);
 PrinterActivity effective_printer_activity(const JobState& job);
 const char* printer_activity_label(PrinterActivity activity);

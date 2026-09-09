@@ -7,6 +7,7 @@
 #include "lvgl.h"
 #include "src/misc/cache/instance/lv_image_cache.h"
 #include "png.h"
+#include "printdeck/platform/uniformation_sdcp_parser.hpp"
 
 #include <string>
 #include <cstdio>
@@ -36,6 +37,10 @@ namespace printdeck::platform {
 namespace {
 
 constexpr char kLogTag[] = "display";
+constexpr int kResinSubpageCount = 6;
+constexpr int kResinBottomCycleView = 62;
+constexpr int kResinNormalCycleView = 65;
+constexpr int kResinReactionsView = 66;
 constexpr int kHorizontalSwipeThresholdPx = 36;
 constexpr int kHorizontalFlickMinDisplacementPx = 20;
 constexpr int kHorizontalFlickVectorThresholdPx = 6;
@@ -141,19 +146,6 @@ const char* theme_display_name(std::string_view id) {
   return "CUSTOM";
 }
 
-std::string endpoint_host(std::string value) {
-  if (const std::size_t scheme = value.find("://"); scheme != std::string::npos) {
-    value.erase(0, scheme + 3);
-  }
-  if (const std::size_t path = value.find('/'); path != std::string::npos) {
-    value.resize(path);
-  }
-  if (const std::size_t port = value.rfind(':'); port != std::string::npos) {
-    value.resize(port);
-  }
-  return value.empty() ? "No local IP" : value;
-}
-
 void make_gesture_passthrough(lv_obj_t* object);
 
 lv_obj_t* transparent_icon_root(lv_obj_t* parent, int width, int height,
@@ -211,6 +203,19 @@ void create_thermometer_icon(lv_obj_t* parent, int x, int y, std::uint32_t color
 
 }  // namespace
 
+std::string DisplayShell::endpoint_host(std::string value) {
+  if (const std::size_t scheme = value.find("://"); scheme != std::string::npos) {
+    value.erase(0, scheme + 3);
+  }
+  if (const std::size_t path = value.find('/'); path != std::string::npos) {
+    value.resize(path);
+  }
+  if (const std::size_t port = value.rfind(':'); port != std::string::npos) {
+    value.resize(port);
+  }
+  return value.empty() ? "--" : value;
+}
+
 std::string DisplayShell::effective_brand(const core::PrinterProfile& profile) {
   if (!profile.brand.empty() && profile.brand != "generic" && profile.brand != "klipper") {
     return profile.brand;
@@ -219,6 +224,7 @@ std::string DisplayShell::effective_brand(const core::PrinterProfile& profile) {
   std::transform(identity.begin(), identity.end(), identity.begin(), [](unsigned char ch) {
     return static_cast<char>(std::tolower(ch));
   });
+  if (identity.find("uniformation") != std::string::npos) return "uniformation";
   if (identity.find("creality") != std::string::npos ||
       identity.find("ender") != std::string::npos ||
       identity.find("sermoon") != std::string::npos ||
@@ -236,6 +242,7 @@ std::string DisplayShell::effective_brand(const core::PrinterProfile& profile) {
 
 const char* DisplayShell::brand_mark(const core::PrinterProfile& profile) {
   const std::string brand = effective_brand(profile);
+  if (brand == "uniformation") return "UF";
   if (brand == "creality") return "CR";
   if (brand == "snapmaker") return "SN";
   if (brand == "prusa") return "PR";
@@ -321,6 +328,20 @@ bool decode_preview_png(const std::shared_ptr<std::vector<std::uint8_t>>& encode
                         std::shared_ptr<std::vector<std::uint8_t>>& pixels,
                         lv_image_dsc_t& descriptor) {
   if (!encoded || encoded->empty()) return false;
+  if (encoded->size() >= 2 && (*encoded)[0] == 'B' && (*encoded)[1] == 'M') {
+    if (heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) <
+        kMaximumDecodedPreviewBytes + kPreviewDecodeHeapMarginBytes) return false;
+    auto decoded = std::make_shared<std::vector<std::uint8_t>>();
+    std::uint16_t width = 0, height = 0;
+    if (!uniformation_decode_preview_bmp(*encoded, *decoded, width, height)) return false;
+    descriptor = {};
+    descriptor.header.magic = LV_IMAGE_HEADER_MAGIC;
+    descriptor.header.cf = LV_COLOR_FORMAT_ARGB8888;
+    descriptor.header.w = width; descriptor.header.h = height;
+    descriptor.header.stride = width * 4;
+    descriptor.data_size = decoded->size(); descriptor.data = decoded->data();
+    pixels = std::move(decoded); return true;
+  }
   png_image image{};
   image.version = PNG_IMAGE_VERSION;
   if (!png_image_begin_read_from_memory(&image, encoded->data(), encoded->size())) return false;
@@ -702,10 +723,10 @@ void DisplayShell::screen_event(lv_event_t* event) {
     shell->gesture_start_y_ = point.y;
     shell->square_gesture_peak_dx_ = 0;
     shell->square_gesture_peak_dy_ = 0;
-    shell->camera_pan_candidate_ = false;
-    shell->camera_pan_moved_ = false;
-    if (shell->camera_zoom_root_ != nullptr &&
-        !lv_obj_has_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_HIDDEN)) {
+    shell->media_pan_candidate_ = false;
+    shell->media_pan_moved_ = false;
+    if (shell->media_zoom_root_ != nullptr &&
+        !lv_obj_has_flag(shell->media_zoom_root_, LV_OBJ_FLAG_HIDDEN)) {
       const int cx = point.x - kDisplayWidth / 2;
       const int cy = point.y - kDisplayHeight / 2;
       const int inner_radius = std::min(kDisplayWidth, kDisplayHeight) / 2 - 20;
@@ -713,9 +734,9 @@ void DisplayShell::screen_event(lv_event_t* event) {
           ? cx * cx + cy * cy >= inner_radius * inner_radius
           : point.x < 20 || point.y < 20 ||
             point.x >= kDisplayWidth - 20 || point.y >= kDisplayHeight - 20;
-      shell->camera_pan_candidate_ = !edge;
-      shell->camera_pan_start_x_ = shell->camera_pan_x_;
-      shell->camera_pan_start_y_ = shell->camera_pan_y_;
+      shell->media_pan_candidate_ = !edge;
+      shell->media_pan_start_x_ = shell->media_pan_x_;
+      shell->media_pan_start_y_ = shell->media_pan_y_;
     }
     if (shell->printer_list_scroll_ != nullptr &&
         lv_obj_is_valid(shell->printer_list_scroll_)) {
@@ -766,20 +787,20 @@ void DisplayShell::screen_event(lv_event_t* event) {
     }
   }
 
-  if (shell->camera_pan_candidate_) {
+  if (shell->media_pan_candidate_) {
     if (code == LV_EVENT_PRESSING) {
-      if (abs_dx > 10 || abs_dy > 10) shell->camera_pan_moved_ = true;
-      if (shell->camera_pan_moved_) {
-        shell->camera_pan_x_ = shell->camera_pan_start_x_ + dx;
-        shell->camera_pan_y_ = shell->camera_pan_start_y_ - dy;
-        shell->update_camera_zoom_geometry();
+      if (abs_dx > 10 || abs_dy > 10) shell->media_pan_moved_ = true;
+      if (shell->media_pan_moved_) {
+        shell->media_pan_x_ = shell->media_pan_start_x_ + dx;
+        shell->media_pan_y_ = shell->media_pan_start_y_ - dy;
+        shell->update_media_zoom_geometry();
       }
       return;
     }
-    if (code == LV_EVENT_LONG_PRESSED && shell->camera_pan_moved_) return;
+    if (code == LV_EVENT_LONG_PRESSED && shell->media_pan_moved_) return;
     if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
       shell->gesture_active_ = false;
-      shell->camera_pan_candidate_ = false;
+      shell->media_pan_candidate_ = false;
       return;
     }
   }
@@ -1281,7 +1302,10 @@ void DisplayShell::printer_list_scroll_event(lv_event_t* event) {
         0, current + static_cast<int>(lv_obj_get_scroll_bottom(list)));
     const int bounded = std::clamp(current, 0, maximum);
     if (bounded != current) {
-      lv_obj_scroll_to_y(list, static_cast<lv_coord_t>(bounded), LV_ANIM_ON);
+      // SCROLL_END also runs when LVGL deletes a scroll animation. Starting
+      // another animation here makes its delete loop repeatedly find the new
+      // animation, freezing input/rendering at an overscrolled list boundary.
+      lv_obj_scroll_to_y(list, static_cast<lv_coord_t>(bounded), LV_ANIM_OFF);
     }
     shell->update_printer_list_scroll_position();
   }
@@ -1357,6 +1381,7 @@ bool DisplayShell::horizontal_destination(bool forward, int* target_page,
   // long-press drift as navigation here creates a curtain with no destination
   // renderer to acknowledge it.
   if (view_ == 1) return false;
+  if (resin_control_overlay_ != nullptr) return false;
   const int depth = horizontal_depth_.load();
   const bool dashboard_available = selected_profile_ != 0 &&
                                    selected_online_.load();
@@ -1570,6 +1595,7 @@ void DisplayShell::create_quick_overlay_close_button() {
 }
 
 void DisplayShell::show_quick_menu() {
+  close_resin_confirmation();
   if constexpr (!kDisplayUsesLargeLayout) {
     square_show_quick_menu();
     return;
@@ -2137,6 +2163,15 @@ void DisplayShell::clear_capture_overlay_name(const char* expected_screen_name) 
 }
 
 void DisplayShell::prepare_active_screen(const char* screen_name) {
+  if (resin_status_timer_) { lv_timer_delete(resin_status_timer_); resin_status_timer_ = nullptr; }
+  if (resin_cycle_switch_timer_) { lv_timer_delete(resin_cycle_switch_timer_); resin_cycle_switch_timer_ = nullptr; }
+  resin_cycle_spinner_ = nullptr;
+  resin_cycle_switch_pending_ = resin_cycle_switch_applied_ = false;
+  resin_exposure_.reset(); resin_status_key_ = nullptr;
+  close_resin_confirmation();
+  if (resin_control_timer_) { lv_timer_delete(resin_control_timer_); resin_control_timer_ = nullptr; }
+  resin_control_button_ = resin_control_button_label_ = resin_control_icon_ = nullptr;
+  resin_control_spinner_ = nullptr;
   lv_async_call_cancel(printer_animation_source_async, this);
   printer_animation_source_pending_ = false;
   printer_animation_native_width_ = 0;
@@ -2144,6 +2179,10 @@ void DisplayShell::prepare_active_screen(const char* screen_name) {
   if (printer_animation_timer_ != nullptr) {
     lv_timer_delete(printer_animation_timer_);
     printer_animation_timer_ = nullptr;
+  }
+  if (resin_reaction_timer_ != nullptr) {
+    lv_timer_delete(resin_reaction_timer_);
+    resin_reaction_timer_ = nullptr;
   }
   capture_screen_name_ = screen_name == nullptr ? "" : screen_name;
   active_accent_label_ = nullptr;
@@ -2193,10 +2232,20 @@ void DisplayShell::prepare_active_screen(const char* screen_name) {
   telemetry_metric_value_labels_ = {};
   telemetry_detail_caption_labels_ = {};
   media_image_ = nullptr;
-  camera_zoom_image_ = nullptr;
-  camera_zoom_root_ = nullptr;
-  camera_pan_x_ = camera_pan_y_ = 0;
-  camera_pan_candidate_ = camera_pan_moved_ = false;
+  media_zoom_image_ = nullptr;
+  media_zoom_root_ = nullptr;
+  resin_platform_ = resin_uv_ = resin_units_label_ = resin_sensor_fill_ = nullptr;
+  resin_transition_label_ = nullptr;
+  resin_visual_stage_ = core::ResinStage::unknown;
+  resin_cycle_values_.fill(nullptr); resin_detail_values_.fill(nullptr);
+  resin_reaction_model_ = resin_reaction_arrow_up_ = resin_reaction_arrow_down_ = nullptr;
+  resin_reaction_symbol_ = nullptr;
+  resin_reaction_caption_ = nullptr;
+  resin_reaction_footer_ = resin_reaction_footer_accent_ = nullptr;
+  resin_reaction_footer_icon_ = resin_reaction_footer_sun_ = nullptr;
+  resin_reaction_rays_.fill(nullptr); resin_reaction_dots_.fill(nullptr);
+  media_pan_x_ = media_pan_y_ = 0;
+  media_pan_candidate_ = media_pan_moved_ = false;
   camera_presented_frames_ = 0;
   camera_presentation_window_us_ = 0;
   printer_animation_root_ = nullptr;
@@ -2215,6 +2264,10 @@ void DisplayShell::prepare_active_screen(const char* screen_name) {
   chamber_light_button_label_ = nullptr;
   chamber_light_spinner_ = nullptr;
   prepare_screen(lv_screen_active(), theme_style_.background);
+  if (resin_reaction_time_font_ != nullptr) {
+    lv_tiny_ttf_destroy(resin_reaction_time_font_);
+    resin_reaction_time_font_ = nullptr;
+  }
   printer_animation_gif_path_.clear();
   // The LVGL canvas does not own its external pixel buffer. Keep that buffer
   // alive until lv_obj_clean() above has synchronously destroyed the canvas.
@@ -2348,7 +2401,7 @@ void DisplayShell::release_camera_frame() {
   if (view_ == 22 && media_image_ != nullptr && lv_obj_is_valid(media_image_)) {
     lv_image_set_src(media_image_, nullptr);
   }
-  if (camera_zoom_image_ != nullptr) lv_image_set_src(camera_zoom_image_, nullptr);
+  if (view_ == 22 && media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
   lv_image_cache_drop(&camera_image_dsc_);
   camera_pixels_.reset();
   camera_image_dsc_ = {};
@@ -2358,10 +2411,12 @@ void DisplayShell::release_camera_frame() {
 
 void DisplayShell::release_printer_preview() {
   if (board_display_lock(1000) != ESP_OK) return;
-  if (view_ == 3 && media_image_ != nullptr && lv_obj_is_valid(media_image_)) {
+  if ((view_ == 3 || view_ == 60) && media_image_ != nullptr && lv_obj_is_valid(media_image_)) {
     lv_image_set_src(media_image_, nullptr);
     view_ = -1;
   }
+  if (view_ != 22 && media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
+  lv_image_cache_drop(&preview_image_dsc_);
   preview_encoded_.reset();
   preview_pixels_.reset();
   preview_image_dsc_ = {};
@@ -2805,7 +2860,7 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
           connected ? core::PrinterReachability::online
                     : (has_status ? core::PrinterReachability::offline
                                   : core::PrinterReachability::unknown);
-      const bool selectable = !checking &&
+      const bool selectable = core::printer_driver(profile.protocol).dashboard && !checking &&
                               core::printer_selectable(is_selected, reachability);
       lv_obj_t* card = lv_obj_create(list);
       lv_obj_set_size(card, 330, 82);
@@ -2982,6 +3037,7 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
 
 void DisplayShell::return_to_printer_list() {
   const bool locked = board_display_lock(1000) == ESP_OK;
+  if (locked) close_resin_confirmation();
   if (locked && horizontal_transition_active_) {
     cancel_horizontal_transition_locked();
   }
@@ -3026,13 +3082,36 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
   else if (screen_name == "analog-clock") target_page = 3;
   else if (screen_name == "web-config") target_page = 4;
   else if (screen_name == "printer-reactions") {
-    if (!selected_online_.load()) return ESP_ERR_INVALID_STATE;
+    if (!selected_online_.load() || selected_is_resin_.load()) return ESP_ERR_INVALID_STATE;
     target_depth = 1;
     target_subpage = 0;
   }
+  else if (screen_name == "resin-reactions") {
+    if (!selected_online_.load() || !selected_is_resin_.load()) return ESP_ERR_INVALID_STATE;
+    if (!printer_animations_enabled_) return ESP_ERR_NOT_SUPPORTED;
+    target_depth = 1;
+    target_subpage = 0;
+  }
+  else if (screen_name == "resin-pause-resume" || screen_name == "resin-stop") {
+    if (!selected_online_.load() || !selected_is_resin_.load() ||
+        horizontal_depth_count_.load() != 4) return ESP_ERR_INVALID_STATE;
+    target_depth = screen_name == "resin-stop" ? 3 : 2;
+  }
+  else if (screen_name == "resin-printer-status" || screen_name == "resin-print-details" ||
+           screen_name == "resin-bottom-layers" || screen_name == "resin-normal-layers" ||
+           screen_name == "resin-temperatures" || screen_name == "resin-feeder") {
+    if (!selected_online_.load() || !selected_is_resin_.load()) return ESP_ERR_INVALID_STATE;
+    target_depth = 1;
+    target_subpage = screen_name == "resin-print-details" ? 1
+                   : screen_name == "resin-bottom-layers" ? 2
+                   : screen_name == "resin-normal-layers" ? 3
+                   : screen_name == "resin-temperatures" ? 4
+                   : screen_name == "resin-feeder" ? 5 : 0;
+    target_subpage += printer_animations_enabled_ ? 1 : 0;
+  }
   else if (screen_name == "printer-status" || screen_name == "nozzles" ||
            screen_name == "compact-details" || screen_name == "speeds") {
-    if (!selected_online_.load()) return ESP_ERR_INVALID_STATE;
+    if (selected_is_resin_.load() || !selected_online_.load()) return ESP_ERR_INVALID_STATE;
     target_depth = 1;
     const int reaction_offset = printer_animations_enabled_ ? 1 : 0;
     target_subpage = reaction_offset + (screen_name == "printer-status" ? 0
@@ -3135,6 +3214,36 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
   selected_profile_ = profile.id;
   selected_online_.store(snapshot.profile_id == profile.id &&
                          snapshot.link == core::LinkState::online);
+  const bool resin = core::printer_driver(profile.protocol).resin;
+  selected_is_resin_.store(resin);
+  if (resin) {
+    // Resin uses procedural reactions and its own telemetry pages.
+    selected_is_bambu_.store(false);
+    selected_camera_depth_.store(0); selected_light_depth_.store(0);
+    const int reaction_offset = printer_animations_enabled_ ? 1 : 0;
+    const int subpage_count = kResinSubpageCount + reaction_offset;
+    const bool controls = profile.protocol == core::PrinterProtocol::uniformation_sdcp;
+    horizontal_depth_count_.store(controls ? 4 : 2); printer_subpage_count_.store(subpage_count);
+    horizontal_depth_.store(std::min(controls ? 3 : 1, horizontal_depth_.load()));
+    if (controls && horizontal_depth_.load() >= 2) {
+      show_resin_controls(profile, snapshot, horizontal_depth_.load() == 3);
+      return;
+    }
+    printer_subpage_.store(std::clamp(printer_subpage_.load(), 0, subpage_count - 1));
+    if (reaction_offset && printer_subpage_.load() == 0) {
+      show_resin_reactions(profile, snapshot);
+      return;
+    }
+    switch (printer_subpage_.load() - reaction_offset) {
+      case 1: show_resin_details(profile, snapshot, power); break;
+      case 2: show_resin_cycle(profile, snapshot, power, true); break;
+      case 3: show_resin_cycle(profile, snapshot, power, false); break;
+      case 4: show_resin_temperature(profile, snapshot, power); break;
+      case 5: show_resin_feeder(profile, snapshot, power); break;
+      default: show_resin_status(profile, snapshot, power); break;
+    }
+    return;
+  }
   const bool is_bambu = core::printer_supports(
       profile.protocol, core::PrinterCapability::material_system);
   // Camera discovery is deliberately lazy.  Keep the page reachable for both
@@ -3778,29 +3887,997 @@ void DisplayShell::update_power_header(const PowerSnapshot& power) {
   }
 }
 
+void DisplayShell::update_printer_preview(const core::PrinterSnapshot& snapshot) {
+  if (preview_encoded_.get() == snapshot.job.preview.get()) return;
+  // Decode on the core-0 display-state worker. Retire the old LVGL source and
+  // cache under the display lock before releasing its backing pixels.
+  std::shared_ptr<std::vector<std::uint8_t>> decoded;
+  lv_image_dsc_t descriptor{};
+  if (snapshot.job.preview && !snapshot.job.preview->empty())
+    decode_preview_png(snapshot.job.preview, decoded, descriptor);
+  if (board_display_lock(1000) != ESP_OK) return;
+  if (media_image_ != nullptr && lv_obj_is_valid(media_image_))
+    lv_image_set_src(media_image_, nullptr);
+  if (view_ != 22 && media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
+  lv_image_cache_drop(&preview_image_dsc_);
+  preview_encoded_ = snapshot.job.preview;
+  preview_pixels_ = std::move(decoded);
+  preview_image_dsc_ = descriptor;
+  view_ = -1;
+  board_display_unlock();
+}
+
+namespace {
+int resin_px(int value) { return kDisplayUsesLargeLayout ? value * 466 / 240 : value; }
+lv_obj_t* resin_box(lv_obj_t* parent, int x, int y, int width, int height,
+                    std::uint32_t color, int radius = 0) {
+  auto* box = lv_obj_create(parent);
+  lv_obj_set_pos(box, resin_px(x), resin_px(y));
+  lv_obj_set_size(box, resin_px(width), resin_px(height));
+  lv_obj_set_style_pad_all(box, 0, LV_PART_MAIN);
+  lv_obj_set_style_border_width(box, 0, LV_PART_MAIN);
+  lv_obj_set_style_radius(box, resin_px(radius), LV_PART_MAIN);
+  lv_obj_set_style_bg_color(box, lv_color_hex(color), LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(box, LV_OPA_COVER, LV_PART_MAIN);
+  make_gesture_passthrough(box);
+  return box;
+}
+}
+
+lv_obj_t* DisplayShell::resin_text(const char* text, int x, int y, int width,
+                                  int size, std::uint32_t color, lv_text_align_t align) {
+  auto* label = lv_label_create(lv_screen_active());
+  const auto* font = kDisplayUsesLargeLayout
+      ? (size >= 24 ? &lv_font_montserrat_32 : size >= 14 ? &lv_font_montserrat_24 : &lv_font_montserrat_16)
+      : (size >= 24 ? &lv_font_montserrat_24 : size >= 16 ? &lv_font_montserrat_16 : size >= 14 ? &lv_font_montserrat_14 : &lv_font_montserrat_12);
+  apply_text_style(label, lv_color_hex(color), font);
+  lv_label_set_text(label, text);
+  lv_obj_set_pos(label, resin_px(x), resin_px(y));
+  lv_obj_set_size(label, resin_px(width), resin_px(size >= 24 ? 34 : 20));
+  lv_obj_set_style_text_align(label, align, LV_PART_MAIN);
+  lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+  make_gesture_passthrough(label);
+  return label;
+}
+
+bool DisplayShell::resin_control_click_allowed(lv_event_t* event) const {
+  const int limit = kDisplayUsesLargeLayout ? 16 : 12;
+  if (auto* input = lv_indev_active()) {
+    lv_point_t point{}; lv_indev_get_point(input, &point);
+    if (std::abs(point.x - gesture_start_x_) > limit || std::abs(point.y - gesture_start_y_) > limit) return false;
+  }
+  return lv_event_get_code(event) == LV_EVENT_SHORT_CLICKED && !content_hidden() &&
+      !suppress_update_click_ && !horizontal_transition_active_ &&
+      std::abs(square_gesture_peak_dx_) <= limit && std::abs(square_gesture_peak_dy_) <= limit;
+}
+
+void DisplayShell::close_resin_confirmation() {
+  resin_confirmation_.cancel();
+  if (resin_control_overlay_) {
+    lv_obj_delete(resin_control_overlay_); resin_control_overlay_ = nullptr;
+    clear_capture_overlay_name("resin-control-confirmation");
+    clear_capture_overlay_name("resin-control-confirm-again");
+  }
+  resin_control_yes_ = resin_control_yes_label_ = nullptr;
+}
+
+void DisplayShell::resin_control_action_event(lv_event_t* event) {
+  auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
+  if (!shell || !shell->resin_control_click_allowed(event) || shell->resin_control_pending_) return;
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000;
+  if (shell->resin_confirmation_.begin(shell->resin_control_action_, shell->resin_control_state_, now)) {
+    shell->resin_control_feedback_ = nullptr;
+    shell->show_resin_confirmation();
+  }
+}
+
+void DisplayShell::resin_control_no_event(lv_event_t* event) {
+  auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
+  if (shell && shell->resin_control_click_allowed(event)) shell->close_resin_confirmation();
+}
+
+void DisplayShell::resin_control_yes_event(lv_event_t* event) {
+  auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
+  if (!shell || !shell->resin_control_click_allowed(event)) return;
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000;
+  const auto result = shell->resin_confirmation_.advance(shell->resin_control_state_, now);
+  using Result = core::ResinControlConfirmation::Result;
+  if (result == Result::next) { shell->show_resin_confirmation(); return; }
+  if (result == Result::blocked) return;
+  const auto request = shell->resin_confirmation_.request();
+  shell->close_resin_confirmation();
+  if (result != Result::confirmed) { shell->resin_control_feedback_ = "Printer state changed"; return; }
+  const bool queued = shell->resin_control_requested_ &&
+      shell->resin_control_requested_(shell->resin_control_context_, request);
+  shell->resin_control_pending_ = queued;
+  shell->resin_pending_request_ = request;
+  shell->resin_control_sent_ms_ = now;
+  shell->resin_control_feedback_ = queued ? "Waiting for printer" : "Request unavailable";
+  if (shell->resin_control_button_) lv_obj_add_state(shell->resin_control_button_, LV_STATE_DISABLED);
+}
+
+void DisplayShell::show_resin_confirmation() {
+  const bool again = resin_confirmation_.step() == 2;
+  if (!resin_control_overlay_) resin_control_overlay_ = resin_box(lv_layer_top(), 0, 0, 240, 240, 0x080C10);
+  else lv_obj_clean(resin_control_overlay_);
+  set_capture_overlay_name(again ? "resin-control-confirm-again" : "resin-control-confirmation");
+  lv_obj_add_flag(resin_control_overlay_, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_remove_flag(resin_control_overlay_, LV_OBJ_FLAG_EVENT_BUBBLE);
+  lv_obj_remove_event_cb(resin_control_overlay_, screen_event);
+  for (auto event : {LV_EVENT_PRESSED, LV_EVENT_PRESSING, LV_EVENT_RELEASED, LV_EVENT_PRESS_LOST, LV_EVENT_LONG_PRESSED})
+    lv_obj_add_event_cb(resin_control_overlay_, screen_event, event, this);
+  const auto label = [&](const char* text, int x, int y, int w, int font, std::uint32_t color) {
+    auto* object = resin_text(text, x, y, w, font, color, LV_TEXT_ALIGN_CENTER);
+    lv_obj_set_parent(object, resin_control_overlay_);
+    lv_obj_set_pos(object, resin_px(x), resin_px(y));
+    return object;
+  };
+  label(tr(again ? "Confirm again" : "Are you sure?"), 27, 31, 186, 16, 0xF1F5F8);
+  const auto action = resin_confirmation_.request().action;
+  const bool stop = action == core::ResinControl::stop;
+  const auto color = stop ? 0xF4777FU : 0x58C9E8U;
+  auto* icon = label(stop ? LV_SYMBOL_STOP : action == core::ResinControl::resume ? LV_SYMBOL_PLAY : LV_SYMBOL_PAUSE,
+                     91, 62, 58, 24, color);
+  lv_obj_set_style_text_font(icon, kDisplayUsesLargeLayout ? &lv_font_montserrat_32 : &lv_font_montserrat_24, LV_PART_MAIN);
+  label(resin_control_profile_name_.c_str(), 30, 96, 180, 12, 0xF1F5F8);
+  label(resin_control_job_name_.c_str(), 30, 114, 180, 12, 0x9AABB8);
+  const char* question = again ? (stop ? "This ends the print.\nConfirm once more." : "Check the printer.\nIs everything ready?")
+      : stop ? "Stop this print?" : action == core::ResinControl::resume ? "Resume this print?" : "Pause this print?";
+  auto* question_label = label(tr(question), 30, 138, 180, 12, 0xCDD9E2);
+  lv_label_set_long_mode(question_label, LV_LABEL_LONG_WRAP);
+  lv_obj_set_height(question_label, resin_px(37));
+  auto* no = resin_box(resin_control_overlay_, 40, 183, 74, 31, 0x273440, 12);
+  resin_control_yes_ = resin_box(resin_control_overlay_, 126, 183, 74, 31, color, 12);
+  for (auto* button : {no, resin_control_yes_}) lv_obj_add_flag(button, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(no, resin_control_no_event, LV_EVENT_SHORT_CLICKED, this);
+  lv_obj_add_event_cb(resin_control_yes_, resin_control_yes_event, LV_EVENT_SHORT_CLICKED, this);
+  auto* no_text = lv_label_create(no);
+  lv_label_set_text(no_text, tr("No"));
+  apply_text_style(no_text, lv_color_hex(0xEAF1F5), kDisplayUsesLargeLayout ? &lv_font_montserrat_24 : &lv_font_montserrat_14);
+  lv_obj_center(no_text); make_gesture_passthrough(no_text);
+  resin_control_yes_label_ = lv_label_create(resin_control_yes_);
+  apply_text_style(resin_control_yes_label_, lv_color_black(), kDisplayUsesLargeLayout ? &lv_font_montserrat_24 : &lv_font_montserrat_14);
+  make_gesture_passthrough(resin_control_yes_label_);
+  lv_obj_set_style_bg_opa(resin_control_yes_, LV_OPA_30, LV_PART_MAIN | LV_STATE_DISABLED);
+  resin_yes_remaining_ = 6;
+  update_resin_confirmation();
+}
+
+void DisplayShell::update_resin_confirmation() {
+  if (!resin_control_overlay_) return;
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000;
+  if (content_hidden() || !resin_confirmation_.valid(resin_control_state_, now)) {
+    close_resin_confirmation(); resin_control_feedback_ = "Printer state changed"; return;
+  }
+  const auto remaining = resin_confirmation_.remaining(now);
+  if (resin_yes_remaining_ == remaining) return;
+  resin_yes_remaining_ = remaining;
+  if (remaining) {
+    lv_obj_add_state(resin_control_yes_, LV_STATE_DISABLED);
+    lv_label_set_text_fmt(resin_control_yes_label_, "%s %u", tr("Yes"), remaining);
+  } else {
+    lv_obj_remove_state(resin_control_yes_, LV_STATE_DISABLED);
+    lv_label_set_text(resin_control_yes_label_, tr("Yes"));
+  }
+  lv_obj_set_style_text_color(resin_control_yes_label_, lv_color_hex(remaining ? 0xADB7BE : 0x081218), LV_PART_MAIN);
+  lv_obj_center(resin_control_yes_label_);
+}
+
+void DisplayShell::resin_control_tick(lv_timer_t* timer) {
+  auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
+  if (shell) shell->update_resin_confirmation();
+}
+
+void DisplayShell::show_resin_controls(const core::PrinterProfile& profile,
+                                      const core::PrinterSnapshot& snapshot, bool stop) {
+  if (board_display_lock(1000) != ESP_OK) return;
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000;
+  auto& state = resin_control_state_;
+  state.profile_id = snapshot.profile_id; state.link = snapshot.link;
+  state.updated_at_ms = snapshot.updated_at_ms;
+  state.job.preview_hint = snapshot.job.preview_hint;
+  state.job.phase = snapshot.job.phase; state.job.resin_stage = snapshot.job.resin_stage;
+  state.job.reachable = snapshot.job.reachable; state.job.condition = snapshot.job.condition;
+  resin_control_profile_name_ = profile.display_name;
+  resin_control_job_name_ = core::job_name_for_display(snapshot.job.name);
+  const int control_view = stop ? 71 : 70;
+  if (view_ != control_view || visible_profile_ != profile.id) {
+    prepare_active_screen(stop ? "resin-stop" : "resin-pause-resume");
+    auto* screen = lv_screen_active();
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0x080C10), LV_PART_MAIN);
+    title_label_ = resin_text(profile.display_name.c_str(), 32, 28, 176, 12, 0xA5B6C4, LV_TEXT_ALIGN_CENTER);
+    resin_control_button_ = resin_box(screen, 77, 57, 86, 86, stop ? 0x24181D : 0x122831, 43);
+    lv_obj_add_flag(resin_control_button_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_border_width(resin_control_button_, resin_px(1), LV_PART_MAIN);
+    lv_obj_set_style_border_color(resin_control_button_, lv_color_hex(stop ? 0xF4777F : 0x58C9E8), LV_PART_MAIN);
+    lv_obj_set_style_opa(resin_control_button_, LV_OPA_40, LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_add_event_cb(resin_control_button_, resin_control_action_event, LV_EVENT_SHORT_CLICKED, this);
+    resin_control_icon_ = lv_label_create(resin_control_button_);
+    lv_obj_set_style_text_font(resin_control_icon_, &lv_font_montserrat_32, LV_PART_MAIN);
+    lv_obj_set_style_text_color(resin_control_icon_, lv_color_hex(stop ? 0xF4777F : 0x58C9E8), LV_PART_MAIN);
+    make_gesture_passthrough(resin_control_icon_);
+    resin_control_spinner_ = lv_spinner_create(resin_control_button_);
+    lv_obj_set_size(resin_control_spinner_, resin_px(42), resin_px(42));
+    lv_obj_center(resin_control_spinner_);
+    lv_obj_set_style_arc_width(resin_control_spinner_, resin_px(3), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(resin_control_spinner_, resin_px(3), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(resin_control_spinner_, lv_color_hex(0x283942), LV_PART_MAIN);
+    lv_obj_set_style_arc_color(resin_control_spinner_, lv_color_hex(stop ? 0xF4777F : 0x58C9E8), LV_PART_INDICATOR);
+    make_gesture_passthrough(resin_control_spinner_);
+    lv_obj_add_flag(resin_control_spinner_, LV_OBJ_FLAG_HIDDEN);
+    resin_control_button_label_ = resin_text("--", 30, 154, 180, 20, 0xEDF4F8, LV_TEXT_ALIGN_CENTER);
+    status_label_ = resin_text("--", 30, 184, 180, 12, 0xA5B6C4, LV_TEXT_ALIGN_CENTER);
+    create_depth_dots(kDisplayUsesLargeLayout ? 22 : 4);
+    view_ = control_view; visible_profile_ = profile.id;
+    resin_control_timer_ = lv_timer_create(resin_control_tick, 100, this);
+  }
+  if (resin_control_pending_) {
+    const bool same_job = state.profile_id == resin_pending_request_.profile_id &&
+        state.job.preview_hint == std::string_view(resin_pending_request_.task.data(), 36);
+    if (!same_job || state.link != core::LinkState::online) {
+      resin_control_pending_ = false; resin_control_feedback_ = "Printer state changed";
+    } else if (core::resin_control_completed(resin_pending_request_.action, state.job)) {
+      resin_control_pending_ = false; resin_control_feedback_ = nullptr;
+    } else if (now - resin_control_sent_ms_ >= 60000) {
+      resin_control_pending_ = false; resin_control_feedback_ = "Check the printer";
+    }
+  }
+  resin_control_action_ = stop ? core::ResinControl::stop : state.job.phase == core::JobPhase::paused
+      ? core::ResinControl::resume : core::ResinControl::pause;
+  const char* name = stop ? "Stop print" : resin_control_action_ == core::ResinControl::resume ? "Resume print" : "Pause print";
+  const bool busy = resin_control_pending_ || (stop ? state.job.resin_stage == core::ResinStage::stopping
+      : state.job.resin_stage == core::ResinStage::pausing);
+  if (busy) {
+    lv_obj_add_flag(resin_control_icon_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(resin_control_spinner_, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_remove_flag(resin_control_icon_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(resin_control_spinner_, LV_OBJ_FLAG_HIDDEN);
+  }
+  lv_obj_set_style_opa(resin_control_button_, busy ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN | LV_STATE_DISABLED);
+  lv_label_set_text(title_label_, profile.display_name.c_str());
+  lv_label_set_text(resin_control_button_label_, tr(name));
+  lv_label_set_text(resin_control_icon_, stop ? LV_SYMBOL_STOP : resin_control_action_ == core::ResinControl::resume ? LV_SYMBOL_PLAY : LV_SYMBOL_PAUSE);
+  lv_obj_center(resin_control_icon_);
+  const bool available = core::resin_control_available(resin_control_action_, state, now) && !busy;
+  if (available) lv_obj_remove_state(resin_control_button_, LV_STATE_DISABLED);
+  else lv_obj_add_state(resin_control_button_, LV_STATE_DISABLED);
+  set_resin_status(snapshot, resin_control_feedback_);
+  update_resin_confirmation();
+  board_display_unlock();
+}
+
+void DisplayShell::show_resin_reactions(const core::PrinterProfile& profile,
+                                       const core::PrinterSnapshot& snapshot) {
+  if (board_display_lock(1000) != ESP_OK) return;
+  bool created = false;
+  if (view_ != kResinReactionsView || visible_profile_ != profile.id) {
+    prepare_active_screen("resin-reactions");
+    auto* screen = lv_screen_active();
+    lv_obj_set_style_bg_color(screen, lv_color_black(), LV_PART_MAIN);
+    title_label_ = resin_text(profile.display_name.c_str(), 42, 27, 156, 12, 0x9AA9B7, LV_TEXT_ALIGN_CENTER);
+
+    // A few LVGL primitives replace stored frames and their decoder/canvas.
+    resin_box(screen, 69, 92, 3, 14, 0x6E8C9C, 1);
+    resin_box(screen, 168, 92, 3, 14, 0x6E8C9C, 1);
+    resin_box(screen, 69, 104, 102, 3, 0x6E8C9C, 1);
+    // UV remains blue in every theme. A small glowing wash and four rays
+    // provide the flash of light without an image or full-screen blur buffer.
+    resin_uv_ = resin_box(screen, 74, 88, 92, 15, 0x168BFF, 3);
+    lv_obj_set_style_bg_opa(resin_uv_, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(resin_uv_, lv_color_hex(0x007BFF), LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(resin_uv_, resin_px(16), LV_PART_MAIN);
+    lv_obj_set_style_shadow_spread(resin_uv_, resin_px(2), LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(resin_uv_, LV_OPA_TRANSP, LV_PART_MAIN);
+    for (std::size_t i = 0; i < resin_reaction_rays_.size(); ++i) {
+      auto*& ray = resin_reaction_rays_[i];
+      ray = resin_box(screen, 98 + i * 13, 88, 3, 15, 0x61B8FF, 1);
+      lv_obj_set_style_bg_opa(ray, LV_OPA_TRANSP, LV_PART_MAIN);
+      lv_obj_set_style_shadow_color(ray, lv_color_hex(0x168BFF), LV_PART_MAIN);
+      lv_obj_set_style_shadow_width(ray, resin_px(8), LV_PART_MAIN);
+      lv_obj_set_style_shadow_opa(ray, LV_OPA_TRANSP, LV_PART_MAIN);
+    }
+    resin_platform_ = resin_box(screen, 89, 49, 62, 24, 0);
+    lv_obj_set_style_bg_opa(resin_platform_, LV_OPA_TRANSP, LV_PART_MAIN);
+    resin_box(resin_platform_, 27, 0, 8, 8, 0xA9BAC6, 1);
+    resin_box(resin_platform_, 0, 8, 62, 3, 0xA9BAC6, 1);
+    resin_reaction_model_ = resin_box(resin_platform_, 15, 11, 32, 12,
+                                      theme_style_.accent_secondary, 2);
+
+    static const lv_point_precise_t up[] = {
+      {0, resin_px(5)}, {resin_px(4), 0}, {resin_px(8), resin_px(5)},
+      {resin_px(4), 0}, {resin_px(4), resin_px(19)}};
+    static const lv_point_precise_t down[] = {
+      {0, resin_px(14)}, {resin_px(4), resin_px(19)}, {resin_px(8), resin_px(14)},
+      {resin_px(4), resin_px(19)}, {resin_px(4), 0}};
+    for (int direction = 0; direction < 2; ++direction) {
+      auto* arrow = lv_line_create(screen);
+      lv_line_set_points(arrow, direction == 0 ? up : down, 5);
+      lv_obj_set_pos(arrow, resin_px(164), resin_px(63));
+      lv_obj_set_style_line_width(arrow, resin_px(2), LV_PART_MAIN);
+      lv_obj_set_style_line_color(arrow, lv_color_hex(theme_style_.accent_secondary), LV_PART_MAIN);
+      make_gesture_passthrough(arrow);
+      lv_obj_add_flag(arrow, LV_OBJ_FLAG_HIDDEN);
+      (direction == 0 ? resin_reaction_arrow_up_ : resin_reaction_arrow_down_) = arrow;
+    }
+    for (std::size_t i = 0; i < resin_reaction_dots_.size(); ++i) {
+      resin_reaction_dots_[i] = resin_box(screen, 109 + i * 9, 91, 4, 4,
+                                         theme_style_.accent_secondary, 2);
+      lv_obj_add_flag(resin_reaction_dots_[i], LV_OBJ_FLAG_HIDDEN);
+    }
+    resin_reaction_symbol_ = resin_text("", 98, 69, 44, 24,
+                                       theme_style_.accent_secondary, LV_TEXT_ALIGN_CENTER);
+    apply_icon_text_style(resin_reaction_symbol_, lv_color_hex(theme_style_.accent_secondary),
+                          kDisplayUsesLargeLayout ? &lv_font_montserrat_32 : &lv_font_montserrat_24);
+    resin_reaction_caption_ = resin_text("", 35, 117, 170, 12, 0x9AA9B7, LV_TEXT_ALIGN_CENTER);
+    remaining_label_ = resin_text("--:--:--", 23, 136, 194, 24, 0xF4FAFF, LV_TEXT_ALIGN_CENTER);
+    apply_text_style(remaining_label_, lv_color_hex(0xF4FAFF), &lv_font_montserrat_32);
+    if constexpr (kDisplayUsesLargeLayout) {
+      const auto latin = embedded_latin_font();
+      if (latin.data != nullptr) resin_reaction_time_font_ = lv_tiny_ttf_create_data_ex(
+          latin.data, latin.size, 56, LV_FONT_KERNING_NONE, 12);
+      if (resin_reaction_time_font_ != nullptr)
+        lv_obj_set_style_text_font(remaining_label_, resin_reaction_time_font_, LV_PART_MAIN);
+    }
+    lv_obj_set_height(remaining_label_, resin_px(39));
+
+    resin_reaction_footer_ = resin_box(screen, 35, 181, 170, 31, 0x09151E, 16);
+    lv_obj_set_style_clip_corner(resin_reaction_footer_, true, LV_PART_MAIN);
+    lv_obj_set_style_border_width(resin_reaction_footer_, resin_px(1), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(resin_reaction_footer_, LV_OPA_50, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(resin_reaction_footer_, resin_px(5), LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(resin_reaction_footer_, LV_OPA_20, LV_PART_MAIN);
+    resin_reaction_footer_accent_ = resin_box(resin_reaction_footer_, 0, 0, 0, 31, 0x39C8EC);
+    lv_obj_set_height(resin_reaction_footer_accent_, LV_PCT(100));
+    lv_obj_set_style_bg_opa(resin_reaction_footer_accent_, LV_OPA_40, LV_PART_MAIN);
+    lv_obj_add_flag(resin_reaction_footer_accent_, LV_OBJ_FLAG_HIDDEN);
+    resin_reaction_footer_icon_ = lv_label_create(resin_reaction_footer_);
+    lv_obj_set_style_text_font(resin_reaction_footer_icon_, kDisplayUsesLargeLayout ? &lv_font_montserrat_24 : &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_align(resin_reaction_footer_icon_, LV_ALIGN_LEFT_MID, resin_px(27), 0);
+    make_gesture_passthrough(resin_reaction_footer_icon_);
+    resin_reaction_footer_sun_ = resin_box(resin_reaction_footer_, 25, 7, 18, 18, 0);
+    lv_obj_align(resin_reaction_footer_sun_, LV_ALIGN_LEFT_MID, resin_px(25), 0);
+    lv_obj_set_style_bg_opa(resin_reaction_footer_sun_, LV_OPA_TRANSP, LV_PART_MAIN);
+    resin_box(resin_reaction_footer_sun_, 6, 6, 6, 6, 0x61B8FF, 3);
+    static const lv_point_precise_t sun_rays[][2] = {
+      {{resin_px(9),0},{resin_px(9),resin_px(3)}},
+      {{resin_px(9),resin_px(15)},{resin_px(9),resin_px(18)}},
+      {{0,resin_px(9)},{resin_px(3),resin_px(9)}},
+      {{resin_px(15),resin_px(9)},{resin_px(18),resin_px(9)}},
+      {{resin_px(2),resin_px(2)},{resin_px(4),resin_px(4)}},
+      {{resin_px(14),resin_px(14)},{resin_px(16),resin_px(16)}},
+      {{resin_px(2),resin_px(16)},{resin_px(4),resin_px(14)}},
+      {{resin_px(14),resin_px(4)},{resin_px(16),resin_px(2)}}};
+    for (const auto& points : sun_rays) {
+      auto* ray = lv_line_create(resin_reaction_footer_sun_);
+      lv_line_set_points(ray, points, 2);
+      lv_obj_set_style_line_width(ray, resin_px(1), LV_PART_MAIN);
+      lv_obj_set_style_line_color(ray, lv_color_hex(0x61B8FF), LV_PART_MAIN);
+      make_gesture_passthrough(ray);
+    }
+    status_label_ = resin_text("--", 49, 7, 113, 12, 0xE7F5FD, LV_TEXT_ALIGN_CENTER);
+    lv_obj_set_parent(status_label_, resin_reaction_footer_);
+    lv_obj_set_height(status_label_, lv_font_get_line_height(lv_obj_get_style_text_font(status_label_, LV_PART_MAIN)));
+    lv_obj_align(status_label_, LV_ALIGN_LEFT_MID, resin_px(49), 0);
+    create_printer_view_dots(kDisplayUsesLargeLayout ? 26 : 1);
+    create_depth_dots(kDisplayUsesLargeLayout ? 22 : 4);
+    view_ = kResinReactionsView;
+    visible_profile_ = profile.id;
+    created = true;
+    resin_readout_started_ms_ = lv_tick_get();
+    resin_reaction_timer_ = lv_timer_create(resin_reaction_tick, 80, this);
+  }
+  const auto next = core::resin_reaction(snapshot.job);
+  lv_label_set_text(title_label_, profile.display_name.c_str());
+  const bool changed = created || next != resin_reaction_;
+  if (changed) {
+    resin_reaction_ = next;
+    resin_reaction_started_ms_ = lv_tick_get();
+  }
+  const auto remaining = core::resin_reaction_remaining(snapshot.job);
+  const bool valid_layers = snapshot.job.reachable && snapshot.job.total_layers > 0 &&
+      next != core::ResinReaction::error && next != core::ResinReaction::unavailable &&
+      next != core::ResinReaction::standby && next != core::ResinReaction::stopped;
+  const auto layer = valid_layers ? snapshot.job.current_layer : std::uint16_t{0};
+  const auto total = valid_layers ? snapshot.job.total_layers : std::uint16_t{0};
+  const bool changed_readout = created || resin_reaction_remaining_ != remaining ||
+      resin_reaction_layer_ != layer || resin_reaction_total_ != total;
+  resin_reaction_remaining_ = remaining;
+  resin_reaction_layer_ = layer;
+  resin_reaction_total_ = total;
+  update_resin_reaction_readout(changed_readout);
+  const auto progress = core::resin_reaction_progress(snapshot.job);
+  lv_obj_set_width(resin_reaction_footer_accent_, LV_PCT(progress));
+  if (progress == 0) lv_obj_add_flag(resin_reaction_footer_accent_, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_remove_flag(resin_reaction_footer_accent_, LV_OBJ_FLAG_HIDDEN);
+  set_resin_status(snapshot);
+  render_resin_reaction(changed);
+  if (resin_reaction_timer_ != nullptr) {
+    lv_timer_set_period(resin_reaction_timer_, core::resin_reaction_animated(next) ? 80 : 250);
+    if (content_hidden()) lv_timer_pause(resin_reaction_timer_);
+    else lv_timer_resume(resin_reaction_timer_);
+  }
+  board_display_unlock();
+}
+
+void DisplayShell::resin_reaction_tick(lv_timer_t* timer) {
+  auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
+  if (shell == nullptr || shell->view_ != kResinReactionsView || shell->content_hidden()) {
+    lv_timer_pause(timer);
+    return;
+  }
+  shell->update_resin_reaction_readout();
+  if (core::resin_reaction_animated(shell->resin_reaction_)) shell->render_resin_reaction();
+}
+
+void DisplayShell::update_resin_reaction_readout(bool force) {
+  const bool layers = ((lv_tick_get() - resin_readout_started_ms_) / 5000U) % 2U != 0;
+  if (!force && layers == resin_readout_layers_) return;
+  resin_readout_layers_ = layers;
+  lv_label_set_text_fmt(resin_reaction_caption_, "%s:", tr(layers ? "Layer" : "Remaining"));
+  char text[24]{};
+  if (layers && resin_reaction_total_ > 0)
+    std::snprintf(text, sizeof(text), "%u/%u", static_cast<unsigned>(resin_reaction_layer_),
+                  static_cast<unsigned>(resin_reaction_total_));
+  else if (layers) std::snprintf(text, sizeof(text), "--/--");
+  else if (const auto seconds = resin_reaction_remaining_)
+    std::snprintf(text, sizeof(text), "%u:%02u:%02u", static_cast<unsigned>(*seconds / 3600U),
+                  static_cast<unsigned>((*seconds / 60U) % 60U), static_cast<unsigned>(*seconds % 60U));
+  else std::snprintf(text, sizeof(text), "--:--:--");
+  if constexpr (!kDisplayUsesLargeLayout)
+    apply_text_style(remaining_label_, lv_color_hex(0xF4FAFF),
+                     std::strlen(text) > 9 ? &lv_font_montserrat_24 : &lv_font_montserrat_32);
+  lv_label_set_text(remaining_label_, text);
+}
+
+void DisplayShell::render_resin_reaction(bool update_scene) {
+  if (resin_platform_ == nullptr || !lv_obj_is_valid(resin_platform_)) return;
+  using Reaction = core::ResinReaction;
+  if (update_scene && resin_reaction_footer_) {
+    const std::uint32_t tint = resin_reaction_ == Reaction::paused ? 0xB180F2
+        : resin_reaction_ == Reaction::error || resin_reaction_ == Reaction::stopped ? 0xF4777F
+        : resin_reaction_ == Reaction::complete ? 0x67D9AD
+        : resin_reaction_ == Reaction::standby || resin_reaction_ == Reaction::unavailable ? 0x7299AE
+        : resin_reaction_ == Reaction::exposing ? 0x419EFF : 0x39C8EC;
+    const auto color = lv_color_hex(tint);
+    lv_obj_set_style_border_color(resin_reaction_footer_, color, LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(resin_reaction_footer_, color, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(resin_reaction_footer_, lv_color_mix(color, lv_color_hex(0x061017), 24), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(resin_reaction_footer_accent_, color, LV_PART_MAIN);
+    lv_obj_set_style_text_color(resin_reaction_footer_icon_, color, LV_PART_MAIN);
+    const char* symbol = resin_reaction_ == Reaction::homing ? LV_SYMBOL_HOME
+        : resin_reaction_ == Reaction::lifting ? LV_SYMBOL_UP
+        : resin_reaction_ == Reaction::lowering ? LV_SYMBOL_DOWN
+        : resin_reaction_ == Reaction::paused ? LV_SYMBOL_PAUSE
+        : resin_reaction_ == Reaction::stopped ? LV_SYMBOL_STOP
+        : resin_reaction_ == Reaction::complete ? LV_SYMBOL_OK
+        : resin_reaction_ == Reaction::error ? LV_SYMBOL_WARNING
+        : resin_reaction_ == Reaction::waiting || resin_reaction_ == Reaction::printing ? LV_SYMBOL_REFRESH
+        : LV_SYMBOL_POWER;
+    lv_label_set_text(resin_reaction_footer_icon_, symbol);
+    if (resin_reaction_ == Reaction::exposing) {
+      lv_obj_add_flag(resin_reaction_footer_icon_, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_remove_flag(resin_reaction_footer_sun_, LV_OBJ_FLAG_HIDDEN);
+    } else {
+      lv_obj_remove_flag(resin_reaction_footer_icon_, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_add_flag(resin_reaction_footer_sun_, LV_OBJ_FLAG_HIDDEN);
+    }
+  }
+  const auto frame = core::resin_reaction_frame(resin_reaction_, lv_tick_get() - resin_reaction_started_ms_);
+  lv_obj_set_y(resin_platform_, resin_px(frame.platform_y));
+  lv_obj_set_style_bg_opa(resin_uv_, frame.light_opacity / 3, LV_PART_MAIN);
+  lv_obj_set_style_shadow_opa(resin_uv_, frame.light_opacity / 2, LV_PART_MAIN);
+  for (auto* ray : resin_reaction_rays_) {
+    lv_obj_set_style_bg_opa(ray, frame.light_opacity, LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(ray, frame.light_opacity, LV_PART_MAIN);
+  }
+  for (std::size_t i = 0; i < resin_reaction_dots_.size(); ++i)
+    lv_obj_set_style_bg_opa(resin_reaction_dots_[i], i == frame.dot ? LV_OPA_COVER : LV_OPA_30, LV_PART_MAIN);
+  if (!update_scene) return;
+  const auto color = resin_reaction_ == Reaction::paused ? theme_colors_.paused
+                   : resin_reaction_ == Reaction::error ? theme_colors_.error
+                   : resin_reaction_ == Reaction::complete ? theme_colors_.done
+                   : resin_reaction_ == Reaction::unavailable || resin_reaction_ == Reaction::standby
+                       ? 0x6E8C9CU : theme_style_.accent_secondary;
+  lv_obj_set_style_bg_color(resin_reaction_model_, lv_color_hex(color), LV_PART_MAIN);
+  const auto visible = [](lv_obj_t* object, bool show) {
+    if (show) lv_obj_remove_flag(object, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(object, LV_OBJ_FLAG_HIDDEN);
+  };
+  visible(resin_reaction_arrow_up_, resin_reaction_ == Reaction::lifting);
+  visible(resin_reaction_arrow_down_, resin_reaction_ == Reaction::lowering || resin_reaction_ == Reaction::homing);
+  const bool dots = resin_reaction_ == Reaction::waiting || resin_reaction_ == Reaction::printing;
+  for (std::size_t i = 0; i < resin_reaction_dots_.size(); ++i) {
+    visible(resin_reaction_dots_[i], dots);
+  }
+  const char* symbol = resin_reaction_ == Reaction::paused ? LV_SYMBOL_PAUSE
+                     : resin_reaction_ == Reaction::stopped ? LV_SYMBOL_STOP
+                     : resin_reaction_ == Reaction::complete ? LV_SYMBOL_OK
+                     : resin_reaction_ == Reaction::error ? LV_SYMBOL_WARNING
+                     : resin_reaction_ == Reaction::unavailable ? LV_SYMBOL_CLOSE : "";
+  lv_label_set_text(resin_reaction_symbol_, symbol);
+  lv_obj_set_style_text_color(resin_reaction_symbol_, lv_color_hex(color), LV_PART_MAIN);
+}
+
+void DisplayShell::set_resin_status(const core::PrinterSnapshot& snapshot, const char* override_label) {
+  resin_status_key_ = override_label ? override_label : core::resin_status_label(snapshot.job);
+  resin_exposure_ = !override_label && snapshot.link == core::LinkState::online && snapshot.job.reachable
+      ? snapshot.job.resin_exposure : std::nullopt;
+  resin_status_updated_ms_ = snapshot.updated_at_ms;
+  update_resin_status();
+  if (resin_exposure_ && !resin_status_timer_)
+    resin_status_timer_ = lv_timer_create(resin_status_tick, 100, this);
+  if (resin_status_timer_) {
+    if (!resin_exposure_ || content_hidden()) lv_timer_pause(resin_status_timer_);
+    else lv_timer_resume(resin_status_timer_);
+  }
+}
+
+void DisplayShell::update_resin_status() {
+  if (!status_label_ || !resin_status_key_) return;
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000;
+  char label[160];
+  if (resin_exposure_ && now >= resin_status_updated_ms_ && now - resin_status_updated_ms_ <= 2500) {
+    const auto tenths = core::resin_exposure_remaining_tenths(*resin_exposure_, now);
+    std::snprintf(label, sizeof(label), "%s %u.%us", tr(resin_status_key_),
+        static_cast<unsigned>(tenths / 10), static_cast<unsigned>(tenths % 10));
+  } else std::snprintf(label, sizeof(label), "%s", tr(resin_status_key_));
+  if (std::strcmp(lv_label_get_text(status_label_), label) != 0) lv_label_set_text(status_label_, label);
+}
+
+void DisplayShell::resin_status_tick(lv_timer_t* timer) {
+  auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
+  if (!shell || shell->content_hidden()) { lv_timer_pause(timer); return; }
+  shell->update_resin_status();
+}
+
+void DisplayShell::resin_cycle_switch_tick(lv_timer_t* timer) {
+  auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
+  if (!shell || !shell->resin_cycle_switch_pending_) { lv_timer_pause(timer); return; }
+  if (shell->resin_cycle_switch_applied_ && lv_tick_get() - shell->resin_cycle_switch_started_ms_ >= 300) {
+    lv_obj_add_flag(shell->resin_cycle_spinner_, LV_OBJ_FLAG_HIDDEN);
+    shell->resin_cycle_switch_pending_ = false;
+    lv_timer_pause(timer);
+  }
+}
+
+void DisplayShell::resin_cycle_units_event(lv_event_t* event) {
+  auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
+  if (!shell || (shell->view_ != kResinBottomCycleView && shell->view_ != kResinNormalCycleView)) return;
+  if (lv_event_get_code(event) != LV_EVENT_SHORT_CLICKED || shell->suppress_update_click_ ||
+      shell->horizontal_transition_active_ || shell->resin_cycle_switch_pending_) return;
+  const int movement_limit = kDisplayUsesLargeLayout ? 16 : 12;
+  if (auto* input = lv_indev_active()) {
+    lv_point_t point{}; lv_indev_get_point(input, &point);
+    if (std::abs(point.x - shell->gesture_start_x_) > movement_limit ||
+        std::abs(point.y - shell->gesture_start_y_) > movement_limit ||
+        std::abs(shell->square_gesture_peak_dx_) > movement_limit ||
+        std::abs(shell->square_gesture_peak_dy_) > movement_limit) return;
+  }
+  shell->resin_cycle_speeds_.store(!shell->resin_cycle_speeds_.load());
+  shell->resin_cycle_switch_pending_ = true;
+  shell->resin_cycle_switch_applied_ = false;
+  shell->resin_cycle_switch_started_ms_ = lv_tick_get();
+  lv_obj_remove_flag(shell->resin_cycle_spinner_, LV_OBJ_FLAG_HIDDEN);
+  lv_timer_resume(shell->resin_cycle_switch_timer_);
+  shell->note_activity(true);
+  if (shell->page_refresh_requested_) shell->page_refresh_requested_(shell->page_refresh_context_);
+}
+
+void DisplayShell::show_resin_cycle(const core::PrinterProfile& profile,
+                                    const core::PrinterSnapshot& snapshot,
+                                    const PowerSnapshot& power, bool bottom) {
+  if (board_display_lock(1000) != ESP_OK) return;
+  const int cycle_view = bottom ? kResinBottomCycleView : kResinNormalCycleView;
+  bool created = false;
+  if (view_ != cycle_view || visible_profile_ != profile.id) {
+    prepare_active_screen(bottom ? "resin-bottom-layers" : "resin-normal-layers");
+    if constexpr (kDisplayUsesLargeLayout) create_printer_chrome(profile, snapshot, &power);
+    else square_create_printer_chrome(profile, snapshot, &power);
+    lv_label_set_text(title_label_, tr(resin_cycle_speeds_.load() ? "Lift Speeds" : "Lift Heights"));
+    auto* screen = lv_screen_active();
+    detail_label_ = resin_text("--", 30, 53, 180, 12, theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
+    lv_obj_set_height(detail_label_, resin_px(17));
+    if (bottom) {
+      resin_transition_label_ = resin_text("--", 30, 71, 180, 12,
+                                           theme_style_.text_muted, LV_TEXT_ALIGN_CENTER);
+      lv_obj_set_height(resin_transition_label_, resin_px(17));
+    }
+    resin_box(screen, 67, 152, 106, 24, theme_style_.text_muted, 4);
+    resin_box(screen, 71, 150, 98, 21, theme_style_.background, 2);
+    resin_uv_ = resin_box(screen, 73, 160, 94, 8, 0x49ABFF, 2);
+    lv_obj_set_style_bg_opa(resin_uv_, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(resin_uv_, lv_color_hex(0x007BFF), LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(resin_uv_, resin_px(14), LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(resin_uv_, LV_OPA_TRANSP, LV_PART_MAIN);
+    resin_platform_ = resin_box(screen, 84, 101, 72, 48, theme_style_.background);
+    lv_obj_set_style_bg_opa(resin_platform_, LV_OPA_TRANSP, LV_PART_MAIN);
+    resin_box(resin_platform_, 31, 0, 10, 12, theme_style_.text_secondary, 2);
+    resin_box(resin_platform_, 0, 12, 72, 5, theme_style_.text_secondary, 2);
+    resin_box(resin_platform_, 17, 17, 38, 25, theme_style_.accent_secondary, 5);
+    // Draw direction arrows independently of the current language's font.
+    static const lv_point_precise_t up_arrow[] = {
+      {0, resin_px(5)}, {resin_px(5), 0}, {resin_px(10), resin_px(5)},
+      {resin_px(5), 0}, {resin_px(5), resin_px(18)}};
+    static const lv_point_precise_t down_arrow[] = {
+      {0, resin_px(13)}, {resin_px(5), resin_px(18)}, {resin_px(10), resin_px(13)},
+      {resin_px(5), resin_px(18)}, {resin_px(5), 0}};
+    for (int direction = 0; direction < 2; ++direction) {
+      auto* arrow = lv_line_create(screen);
+      lv_line_set_points(arrow, direction == 0 ? up_arrow : down_arrow, 5);
+      lv_obj_set_pos(arrow, resin_px(direction == 0 ? 40 : 188), resin_px(91));
+      lv_obj_set_style_line_width(arrow, resin_px(2), LV_PART_MAIN);
+      lv_obj_set_style_line_color(arrow, lv_color_hex(theme_style_.accent_secondary), LV_PART_MAIN);
+      make_gesture_passthrough(arrow);
+    }
+    // Stage 1 sits below the divider and stage 2 above it. Preserve the
+    // same placement when switching between each stage's height and speed.
+    resin_cycle_values_[0] = resin_text("--", 13, 133, 50, 14, theme_style_.accent_secondary, LV_TEXT_ALIGN_CENTER);
+    resin_cycle_values_[1] = resin_text("--", 13, 111, 50, 14, theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
+    resin_cycle_values_[2] = resin_text("--", 177, 133, 50, 14, theme_style_.accent_secondary, LV_TEXT_ALIGN_CENTER);
+    resin_cycle_values_[3] = resin_text("--", 177, 111, 50, 14, theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
+    static const lv_point_precise_t stage_boundary[] = {{0, 0}, {resin_px(200), 0}};
+    auto* separator = lv_line_create(screen);
+    lv_line_set_points(separator, stage_boundary, 2);
+    lv_obj_set_pos(separator, resin_px(20), resin_px(130));
+    lv_obj_set_style_line_width(separator, resin_px(1), LV_PART_MAIN);
+    lv_obj_set_style_line_dash_width(separator, resin_px(5), LV_PART_MAIN);
+    lv_obj_set_style_line_dash_gap(separator, resin_px(6), LV_PART_MAIN);
+    lv_obj_set_style_line_color(separator, lv_color_hex(theme_style_.accent_secondary), LV_PART_MAIN);
+    lv_obj_set_style_line_opa(separator, LV_OPA_40, LV_PART_MAIN);
+    make_gesture_passthrough(separator);
+    auto* units = resin_box(screen, 83, 177, 74, 20, theme_style_.surface_soft, 8);
+    resin_units_label_ = lv_label_create(units);
+    apply_text_style(resin_units_label_, lv_color_hex(theme_style_.accent_secondary),
+        kDisplayUsesLargeLayout ? &lv_font_montserrat_16 : &lv_font_montserrat_12);
+    lv_obj_center(resin_units_label_); make_gesture_passthrough(resin_units_label_);
+    status_label_ = resin_text("--", 40, 203, 160, 14, theme_style_.accent_secondary, LV_TEXT_ALIGN_CENTER);
+    // One stable pointer target across the page preserves the global gesture
+    // recognizer and treats only a stationary short tap as a units change.
+    auto* tap_surface = resin_box(screen, 0, 0, 240, 240, 0);
+    lv_obj_set_style_bg_opa(tap_surface, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_remove_flag(tap_surface, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_remove_flag(tap_surface, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_flag(tap_surface, LV_OBJ_FLAG_CLICKABLE);
+    for (auto event : {LV_EVENT_PRESSED, LV_EVENT_PRESSING, LV_EVENT_RELEASED,
+                       LV_EVENT_PRESS_LOST, LV_EVENT_LONG_PRESSED})
+      lv_obj_add_event_cb(tap_surface, screen_event, event, this);
+    lv_obj_add_event_cb(tap_surface, resin_cycle_units_event, LV_EVENT_SHORT_CLICKED, this);
+    resin_cycle_spinner_ = resin_box(screen, 92, 98, 56, 56, theme_style_.background, 16);
+    lv_obj_set_style_bg_opa(resin_cycle_spinner_, LV_OPA_90, LV_PART_MAIN);
+    auto* spinner = lv_spinner_create(resin_cycle_spinner_);
+    lv_obj_set_size(spinner, resin_px(36), resin_px(36)); lv_obj_center(spinner);
+    lv_obj_set_style_arc_width(spinner, resin_px(3), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(spinner, resin_px(3), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(spinner, lv_color_hex(theme_style_.track), LV_PART_MAIN);
+    lv_obj_set_style_arc_color(spinner, lv_color_hex(theme_style_.accent_secondary), LV_PART_INDICATOR);
+    make_gesture_passthrough(spinner); make_gesture_passthrough(resin_cycle_spinner_);
+    lv_obj_add_flag(resin_cycle_spinner_, LV_OBJ_FLAG_HIDDEN);
+    resin_cycle_switch_timer_ = lv_timer_create(resin_cycle_switch_tick, 50, this);
+    lv_timer_pause(resin_cycle_switch_timer_);
+    view_ = cycle_view; visible_profile_ = profile.id; created = true;
+  }
+  const auto& settings = snapshot.job.resin_settings;
+  const auto& layer = bottom ? settings.bottom : settings.normal;
+  if (bottom) {
+    if (settings.bottom_layers)
+      lv_label_set_text_fmt(detail_label_, "%s: %u", tr("Bottom layers"), static_cast<unsigned>(*settings.bottom_layers));
+    else lv_label_set_text_fmt(detail_label_, "%s: --", tr("Bottom layers"));
+    if (settings.transition_layers)
+      lv_label_set_text_fmt(resin_transition_label_, "%s: %u", tr("Transition layers"), static_cast<unsigned>(*settings.transition_layers));
+    else lv_label_set_text_fmt(resin_transition_label_, "%s: --", tr("Transition layers"));
+  } else {
+    const std::uint32_t non_normal = settings.bottom_layers.value_or(0) +
+                                     settings.transition_layers.value_or(0);
+    if (snapshot.job.total_layers > 0 && settings.bottom_layers && settings.transition_layers &&
+        non_normal <= snapshot.job.total_layers)
+      lv_label_set_text_fmt(detail_label_, "%s: %u", tr("Normal layers"),
+          static_cast<unsigned>(snapshot.job.total_layers - non_normal));
+    else lv_label_set_text_fmt(detail_label_, "%s: --", tr("Normal layers"));
+  }
+  const bool speeds = resin_cycle_speeds_.load();
+  lv_label_set_text(title_label_, tr(speeds ? "Lift Speeds" : "Lift Heights"));
+  const auto& up = speeds ? layer.lift_mm_s : layer.lift_mm;
+  const auto& down = speeds ? layer.retract_mm_s : layer.retract_mm;
+  for (std::size_t i = 0; i < 4; ++i) {
+    const auto value = i < 2 ? up[i] : down[i - 2];
+    if (value) lv_label_set_text_fmt(resin_cycle_values_[i], speeds ? "%.0f" : "%.1f",
+        static_cast<double>(*value * (speeds ? 60 : 1)));
+    else lv_label_set_text(resin_cycle_values_[i], "--");
+  }
+  lv_label_set_text(resin_units_label_, speeds ? "mm/min" : "mm");
+  lv_obj_center(resin_units_label_);
+  if (resin_cycle_switch_pending_) resin_cycle_switch_applied_ = true;
+  set_resin_status(snapshot);
+  // Both pages illustrate the live phase while their numeric values remain
+  // the selected group's saved settings, rather than measured Z telemetry.
+  const auto reaction = core::resin_reaction(snapshot.job);
+  const auto stage = reaction == core::ResinReaction::lifting ? core::ResinStage::lifting
+                   : reaction == core::ResinReaction::lowering || reaction == core::ResinReaction::homing
+                       ? core::ResinStage::lowering
+                   : reaction == core::ResinReaction::exposing ? core::ResinStage::exposing
+                   : core::ResinStage::unknown;
+  if (created || resin_visual_stage_ != stage) {
+    resin_visual_stage_ = stage;
+    lv_anim_delete(resin_platform_, nullptr); lv_anim_delete(resin_uv_, nullptr);
+    lv_obj_set_style_bg_opa(resin_uv_, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(resin_uv_, LV_OPA_TRANSP, LV_PART_MAIN);
+    if (stage == core::ResinStage::lifting || stage == core::ResinStage::lowering) {
+      const bool lifting = stage == core::ResinStage::lifting;
+      const auto& distances = lifting ? layer.lift_mm : layer.retract_mm;
+      const auto& velocities = lifting ? layer.lift_mm_s : layer.retract_mm_s;
+      const int start = lifting ? 118 : 94, end = lifting ? 94 : 118;
+      float fraction = 0.65F;
+      if (distances[0] && distances[1] && *distances[0] + *distances[1] > 0)
+        fraction = *distances[0] / (*distances[0] + *distances[1]);
+      const int middle = start + static_cast<int>((end - start) * fraction);
+      std::uint32_t delay = 0;
+      lv_obj_set_y(resin_platform_, resin_px(start));
+      for (int i = 0; i < 2; ++i) {
+        std::uint32_t duration = i == 0 ? 1200 : 600;
+        if (distances[i] && velocities[i] && *velocities[i] > 0)
+          duration = static_cast<std::uint32_t>(std::clamp(*distances[i] / *velocities[i] * 1000, 100.0F, 60000.0F));
+        lv_anim_t animation; lv_anim_init(&animation); lv_anim_set_var(&animation, resin_platform_);
+        // Distinct callbacks let the two sequential animation segments coexist.
+        lv_anim_set_exec_cb(&animation, i == 0
+            ? +[](void* object, std::int32_t value) { lv_obj_set_y(static_cast<lv_obj_t*>(object), value); }
+            : +[](void* object, std::int32_t value) { lv_obj_set_y(static_cast<lv_obj_t*>(object), value); });
+        lv_anim_set_values(&animation, resin_px(i == 0 ? start : middle), resin_px(i == 0 ? middle : end));
+        lv_anim_set_duration(&animation, duration); lv_anim_set_delay(&animation, delay);
+        lv_anim_set_early_apply(&animation, i == 0);
+        lv_anim_start(&animation); delay += duration;
+      }
+    } else if (stage == core::ResinStage::exposing) {
+      lv_obj_set_y(resin_platform_, resin_px(118));
+      lv_anim_t animation; lv_anim_init(&animation); lv_anim_set_var(&animation, resin_uv_);
+      lv_anim_set_exec_cb(&animation, +[](void* object, std::int32_t value) {
+        lv_obj_set_style_bg_opa(static_cast<lv_obj_t*>(object), static_cast<lv_opa_t>(value), LV_PART_MAIN);
+        lv_obj_set_style_shadow_opa(static_cast<lv_obj_t*>(object), static_cast<lv_opa_t>(value), LV_PART_MAIN);
+      });
+      lv_anim_set_values(&animation, 96, 255); lv_anim_set_duration(&animation, 800);
+      lv_anim_set_playback_duration(&animation, 800); lv_anim_set_repeat_count(&animation, LV_ANIM_REPEAT_INFINITE);
+      lv_anim_start(&animation);
+    }
+  }
+  update_printer_progress(snapshot);
+  if constexpr (kDisplayUsesLargeLayout) update_power_header(power); else square_update_power_header(power);
+  board_display_unlock();
+}
+
+void DisplayShell::show_resin_temperature(const core::PrinterProfile& profile,
+                                          const core::PrinterSnapshot& snapshot, const PowerSnapshot& power) {
+  if (board_display_lock(1000) != ESP_OK) return;
+  if (view_ != 63 || visible_profile_ != profile.id) {
+    prepare_active_screen("resin-temperatures");
+    if constexpr (kDisplayUsesLargeLayout) create_printer_chrome(profile, snapshot, &power);
+    else square_create_printer_chrome(profile, snapshot, &power);
+    lv_label_set_text(title_label_, tr("Temperatures"));
+    resin_text(tr("CHAMBER"), 40, 59, 160, 14, theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
+    auto* screen = lv_screen_active();
+    resin_box(screen, 65, 87, 16, 77, theme_style_.text_muted, 8);
+    resin_box(screen, 69, 91, 8, 69, theme_style_.background, 4);
+    resin_sensor_fill_ = resin_box(screen, 70, 130, 6, 29, theme_style_.accent_secondary, 3);
+    resin_box(screen, 59, 153, 28, 28, theme_style_.accent_secondary, 14);
+    remaining_label_ = resin_text("--", 97, 98, 118, 24, theme_style_.accent_secondary);
+    resin_text(tr("Target"), 98, 140, 114, 12, theme_style_.text_muted);
+    total_time_label_ = resin_text("--", 98, 159, 114, 16, theme_style_.text_secondary);
+    view_ = 63; visible_profile_ = profile.id;
+  }
+  if (snapshot.job.temperatures.chamber_known) {
+    const float temperature = snapshot.job.temperatures.chamber_c;
+    lv_label_set_text_fmt(remaining_label_, "%.1f°C", static_cast<double>(temperature));
+    const int height = resin_px(std::clamp(static_cast<int>(temperature * 65 / 60), 1, 65));
+    lv_obj_set_height(resin_sensor_fill_, height); lv_obj_set_y(resin_sensor_fill_, resin_px(158) - height);
+    lv_obj_remove_flag(resin_sensor_fill_, LV_OBJ_FLAG_HIDDEN);
+  } else { lv_label_set_text(remaining_label_, "--"); lv_obj_add_flag(resin_sensor_fill_, LV_OBJ_FLAG_HIDDEN); }
+  if (const auto target = snapshot.job.resin_telemetry.chamber_target_c)
+    lv_label_set_text_fmt(total_time_label_, "%.1f°C", static_cast<double>(*target));
+  else lv_label_set_text(total_time_label_, "--");
+  update_printer_progress(snapshot);
+  if constexpr (kDisplayUsesLargeLayout) update_power_header(power); else square_update_power_header(power);
+  board_display_unlock();
+}
+
+void DisplayShell::show_resin_feeder(const core::PrinterProfile& profile,
+                                     const core::PrinterSnapshot& snapshot, const PowerSnapshot& power) {
+  if (board_display_lock(1000) != ESP_OK) return;
+  if (view_ != 64 || visible_profile_ != profile.id) {
+    prepare_active_screen("resin-feeder");
+    if constexpr (kDisplayUsesLargeLayout) create_printer_chrome(profile, snapshot, &power);
+    else square_create_printer_chrome(profile, snapshot, &power);
+    lv_label_set_text(title_label_, tr("Resin Feeder"));
+    auto* screen = lv_screen_active();
+    resin_text(tr("In bottle"), 40, 59, 160, 14, theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
+    resin_box(screen, 53, 85, 28, 12, theme_style_.accent_secondary, 3);
+    auto* bottle = resin_box(screen, 43, 98, 48, 75, theme_style_.surface_soft, 10);
+    lv_obj_set_style_border_color(bottle, lv_color_hex(theme_style_.accent_secondary), LV_PART_MAIN);
+    lv_obj_set_style_border_width(bottle, resin_px(2), LV_PART_MAIN);
+    // Bottle capacity is unknown: no invented fill percentage or sufficiency alarm.
+    resin_box(screen, 55, 120, 24, 29, theme_style_.accent_secondary, 6);
+    remaining_label_ = resin_text("--", 101, 94, 115, 24, theme_style_.accent_secondary);
+    resin_text(tr("Job estimate"), 101, 138, 114, 12, theme_style_.text_muted);
+    total_time_label_ = resin_text("--", 101, 157, 114, 16, theme_style_.text_secondary);
+    resin_text(tr("Automatic refill"), 35, 188, 170, 12, theme_style_.text_muted, LV_TEXT_ALIGN_CENTER);
+    status_label_ = resin_text("--", 55, 207, 130, 14, theme_style_.accent_secondary, LV_TEXT_ALIGN_CENTER);
+    view_ = 64; visible_profile_ = profile.id;
+  }
+  if (const auto amount = snapshot.job.resin_telemetry.bottle_ml)
+    lv_label_set_text_fmt(remaining_label_, "%.0f ml", static_cast<double>(*amount));
+  else lv_label_set_text(remaining_label_, "--");
+  if (const auto estimate = snapshot.job.resin_settings.volume_ml)
+    lv_label_set_text_fmt(total_time_label_, "%.1f ml", static_cast<double>(*estimate));
+  else lv_label_set_text(total_time_label_, "--");
+  const auto enabled = snapshot.job.resin_telemetry.feeder_enabled;
+  lv_label_set_text(status_label_, enabled ? tr(*enabled ? "On" : "Off") : "--");
+  update_printer_progress(snapshot);
+  if constexpr (kDisplayUsesLargeLayout) update_power_header(power); else square_update_power_header(power);
+  board_display_unlock();
+}
+
+void DisplayShell::show_resin_details(const core::PrinterProfile& profile,
+                                      const core::PrinterSnapshot& snapshot,
+                                      const PowerSnapshot& power) {
+  if (board_display_lock(1000) != ESP_OK) return;
+  constexpr bool large = kDisplayUsesLargeLayout;
+  if (view_ != 61 || visible_profile_ != profile.id) {
+    prepare_active_screen("resin-print-details");
+    if constexpr (large) create_printer_chrome(profile, snapshot, &power);
+    else square_create_printer_chrome(profile, snapshot, &power);
+    auto* screen = lv_screen_active();
+    lv_label_set_text(title_label_, tr("Print Details"));
+    detail_label_ = lv_label_create(screen);
+    apply_text_style(detail_label_, lv_color_hex(theme_style_.text_muted),
+        large ? &lv_font_montserrat_16 : &lv_font_montserrat_12);
+    lv_obj_set_size(detail_label_, large ? 300 : 168, large ? 24 : 18);
+    lv_obj_align(detail_label_, LV_ALIGN_TOP_MID, 0, large ? 120 : 58);
+    lv_label_set_long_mode(detail_label_, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(detail_label_, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    make_gesture_passthrough(detail_label_);
+    const char* names[] = {"Layer height", "Bottom layers", "Transition layers", "Resin volume", "Estimated weight"};
+    for (std::size_t i = 0; i < resin_detail_values_.size(); ++i) {
+      auto* label = lv_label_create(screen);
+      apply_text_style(label, lv_color_hex(theme_style_.text_secondary),
+          large ? &lv_font_montserrat_16 : &lv_font_montserrat_12);
+      lv_label_set_text(label, tr(names[i]));
+      lv_obj_set_pos(label, large ? 72 : 22, (large ? 170 : 88) + i * (large ? 40 : 22));
+      lv_obj_set_size(label, large ? 190 : 114, large ? 26 : 18);
+      lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+      lv_label_set_long_mode(label, LV_LABEL_LONG_DOT); make_gesture_passthrough(label);
+      auto*& value = resin_detail_values_[i];
+      value = lv_label_create(screen);
+      apply_text_style(value, lv_color_hex(theme_style_.accent_secondary),
+          large ? &lv_font_montserrat_16 : &lv_font_montserrat_12);
+      lv_obj_set_pos(value, large ? 278 : 144, (large ? 170 : 88) + i * (large ? 40 : 22));
+      lv_obj_set_size(value, large ? 124 : 72, large ? 26 : 18);
+      lv_obj_set_style_text_align(value, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+      lv_label_set_long_mode(value, LV_LABEL_LONG_DOT); make_gesture_passthrough(value);
+    }
+    view_ = 61; visible_profile_ = profile.id;
+  }
+  const auto& data = snapshot.job.resin_settings;
+  lv_label_set_text(detail_label_, data.profile_name.empty() ? "--" : data.profile_name.c_str());
+  const auto number = [&](std::size_t index, std::optional<float> value, const char* format) {
+    if (value) lv_label_set_text_fmt(resin_detail_values_[index], format, static_cast<double>(*value));
+    else lv_label_set_text(resin_detail_values_[index], "--");
+  };
+  number(0, data.layer_height_mm, "%.3f mm");
+  for (std::size_t i = 0; i < 2; ++i) {
+    const auto value = i == 0 ? data.bottom_layers : data.transition_layers;
+    if (value) lv_label_set_text_fmt(resin_detail_values_[i + 1], "%u", static_cast<unsigned>(*value));
+    else lv_label_set_text(resin_detail_values_[i + 1], "--");
+  }
+  number(3, data.volume_ml, "%.2f ml"); number(4, data.weight_g, "%.1f g");
+  update_printer_progress(snapshot);
+  if constexpr (large) update_power_header(power); else square_update_power_header(power);
+  board_display_unlock();
+}
+
+void DisplayShell::show_resin_status(const core::PrinterProfile& profile,
+                                     const core::PrinterSnapshot& snapshot,
+                                     const PowerSnapshot& power) {
+  update_printer_preview(snapshot);
+  if (board_display_lock(1000) != ESP_OK) return;
+  constexpr bool large = kDisplayUsesLargeLayout;
+  if (view_ != 60 || visible_profile_ != profile.id) {
+    prepare_active_screen("resin-printer-status");
+    if constexpr (large) create_printer_chrome(profile, snapshot, &power);
+    else square_create_printer_chrome(profile, snapshot, &power);
+    auto* screen = lv_screen_active();
+    const auto label = [&](int x, int y, int width, int height, const lv_font_t* font,
+                           std::uint32_t color, lv_text_align_t align = LV_TEXT_ALIGN_LEFT) {
+      auto* value = lv_label_create(screen);
+      apply_text_style(value, lv_color_hex(color), font);
+      lv_obj_set_pos(value, x, y); lv_obj_set_size(value, width, height);
+      lv_obj_set_style_text_align(value, align, LV_PART_MAIN);
+      lv_label_set_long_mode(value, LV_LABEL_LONG_DOT);
+      make_gesture_passthrough(value);
+      return value;
+    };
+    detail_label_ = label(large ? 73 : 36, large ? 116 : 51,
+        large ? 320 : 168, large ? 24 : 18,
+        large ? &lv_font_montserrat_16 : &lv_font_montserrat_14,
+        theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
+    auto* frame = lv_obj_create(screen);
+    lv_obj_set_pos(frame, large ? 65 : 20, large ? 162 : 78);
+    lv_obj_set_size(frame, large ? 156 : 88, large ? 156 : 88);
+    lv_obj_set_style_radius(frame, themed_radius(10), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(frame, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(frame, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(frame, preview_pixels_ ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(frame, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(frame, lv_color_hex(theme_colors_.done), LV_PART_MAIN);
+    make_gesture_passthrough(frame);
+    if (preview_pixels_ && !preview_pixels_->empty()) {
+      media_image_ = lv_image_create(frame);
+      lv_image_set_src(media_image_, &preview_image_dsc_);
+      lv_obj_set_size(media_image_, large ? 148 : 80, large ? 148 : 80);
+      lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
+      lv_obj_center(media_image_); make_gesture_passthrough(media_image_);
+      lv_obj_add_flag(media_image_, LV_OBJ_FLAG_CLICKABLE);
+      lv_obj_add_event_cb(media_image_, media_zoom_event, LV_EVENT_SHORT_CLICKED, this);
+    } else if (const auto* logo = large ? brand_logo(profile) : brand_logo_small(profile)) {
+      auto* mark = lv_image_create(frame);
+      lv_image_set_src(mark, logo);
+      lv_obj_set_style_image_recolor(
+          mark, lv_color_hex(brand_logo_color(profile, theme_style_.background)), LV_PART_MAIN);
+      lv_obj_set_style_image_recolor_opa(mark, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_center(mark); make_gesture_passthrough(mark);
+    } else {
+      auto* mark = lv_label_create(frame);
+      lv_label_set_text(mark, brand_mark(profile));
+      apply_text_style(mark, lv_color_hex(brand_color(profile)), &lv_font_montserrat_24);
+      lv_obj_center(mark); make_gesture_passthrough(mark);
+    }
+    const int x = large ? 251 : 120, width = large ? 150 : 101;
+    auto* remaining_title = label(x, large ? 174 : 79, width, large ? 22 : 17,
+        large ? &lv_font_montserrat_16 : &lv_font_montserrat_12, theme_style_.text_muted);
+    lv_label_set_text(remaining_title, tr("Remaining"));
+    remaining_label_ = label(x, large ? 199 : 96, width, large ? 30 : 22,
+        large ? &lv_font_montserrat_24 : &lv_font_montserrat_16, theme_style_.accent_secondary);
+    auto* elapsed_title = label(x, large ? 246 : 125, width, large ? 22 : 17,
+        large ? &lv_font_montserrat_16 : &lv_font_montserrat_12, theme_style_.text_muted);
+    lv_label_set_text(elapsed_title, tr("Elapsed"));
+    total_time_label_ = label(x, large ? 271 : 142, width, large ? 28 : 22,
+        large ? &lv_font_montserrat_24 : &lv_font_montserrat_16, theme_style_.text_secondary);
+    layer_label_ = label(large ? 83 : 30, large ? 335 : 173, large ? 300 : 180,
+        large ? 30 : 18, large ? &lv_font_montserrat_24 : &lv_font_montserrat_12,
+        theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
+    status_label_ = label(large ? 73 : 34, large ? 382 : 196, large ? 320 : 172,
+        large ? 32 : 22, large ? &lv_font_montserrat_24 : &lv_font_montserrat_16,
+        accent_color_, LV_TEXT_ALIGN_CENTER);
+    view_ = 60; visible_profile_ = profile.id;
+  }
+  const auto timer = [](std::uint32_t seconds) {
+    char value[24]{};
+    std::snprintf(value, sizeof(value), "%u:%02u:%02u", static_cast<unsigned>(seconds / 3600),
+        static_cast<unsigned>((seconds / 60) % 60), static_cast<unsigned>(seconds % 60));
+    return std::string(value);
+  };
+  update_printer_progress(snapshot);
+  lv_label_set_text(title_label_, profile.display_name.c_str());
+  const auto name = core::job_name_for_display(snapshot.job.name);
+  lv_label_set_text(detail_label_, name.empty() ? tr(snapshot.job.phase == core::JobPhase::idle
+      ? "No active print" : "Filename unavailable") : name.c_str());
+  lv_label_set_text(remaining_label_, snapshot.job.remaining_known
+      ? timer(snapshot.job.remaining_seconds).c_str() : "--");
+  lv_label_set_text(total_time_label_, snapshot.job.elapsed_known
+      ? timer(snapshot.job.elapsed_seconds).c_str() : "--");
+  if (snapshot.job.total_layers > 0)
+    lv_label_set_text_fmt(layer_label_, "%s: %u / %u", tr("Layer"), snapshot.job.current_layer, snapshot.job.total_layers);
+  else lv_label_set_text_fmt(layer_label_, "%s: -- / --", tr("Layer"));
+  set_resin_status(snapshot);
+  lv_obj_set_style_text_color(status_label_, lv_color_hex(core::phase_color(
+      theme_colors_, snapshot.job.phase, snapshot.job.reachable)), LV_PART_MAIN);
+  if constexpr (large) update_power_header(power); else square_update_power_header(power);
+  board_display_unlock();
+}
+
 void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
                                        const core::PrinterSnapshot& snapshot,
                                        const PowerSnapshot& power,
                                        const char* ipv4) {
   (void)ipv4;
-  if (snapshot.job.preview && snapshot.job.preview->empty()) {
-    preview_encoded_.reset();
-    preview_pixels_.reset();
-  } else if (snapshot.job.preview && preview_encoded_.get() != snapshot.job.preview.get()) {
-    std::shared_ptr<std::vector<std::uint8_t>> decoded;
-    lv_image_dsc_t descriptor{};
-    if (decode_preview_png(snapshot.job.preview, decoded, descriptor)) {
-      preview_encoded_ = snapshot.job.preview;
-      preview_pixels_ = std::move(decoded);
-      preview_image_dsc_ = descriptor;
-      view_ = -1;
-    }
-  } else if (!snapshot.job.preview && preview_encoded_) {
-    preview_encoded_.reset();
-    preview_pixels_.reset();
-    preview_image_dsc_ = {};
-    view_ = -1;
-  }
+  update_printer_preview(snapshot);
   if constexpr (!kDisplayUsesLargeLayout) {
     square_show_printer_status(profile, snapshot, power);
     return;
@@ -3817,8 +4894,7 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
       lv_obj_set_size(preview_frame, 158, 158);
       lv_obj_align(preview_frame, LV_ALIGN_CENTER, -90, -3);
       lv_obj_set_style_radius(preview_frame, themed_radius(9), LV_PART_MAIN);
-      lv_obj_set_style_bg_color(preview_frame,
-                                lv_color_hex(theme_colors_.preview_background), LV_PART_MAIN);
+      lv_obj_set_style_bg_color(preview_frame, lv_color_black(), LV_PART_MAIN);
       lv_obj_set_style_bg_opa(preview_frame, LV_OPA_COVER, LV_PART_MAIN);
       lv_obj_set_style_border_color(preview_frame,
                                     lv_color_hex(theme_colors_.done), LV_PART_MAIN);
@@ -3832,6 +4908,8 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
       lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
       lv_obj_align(media_image_, LV_ALIGN_CENTER, -90, -3);
       make_gesture_passthrough(media_image_);
+      lv_obj_add_flag(media_image_, LV_OBJ_FLAG_CLICKABLE);
+      lv_obj_add_event_cb(media_image_, media_zoom_event, LV_EVENT_SHORT_CLICKED, this);
     } else {
       lv_obj_t* badge_slot = lv_obj_create(screen);
       lv_obj_set_size(badge_slot, 158, 158);
@@ -4892,7 +5970,7 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
     lv_obj_set_width(detail_label_, 390);
     lv_obj_align(detail_label_, LV_ALIGN_TOP_MID, 0, 106);
     media_image_ = lv_image_create(lv_screen_active());
-    lv_obj_add_event_cb(media_image_, camera_zoom_event, LV_EVENT_SHORT_CLICKED, this);
+    lv_obj_add_event_cb(media_image_, media_zoom_event, LV_EVENT_SHORT_CLICKED, this);
     lv_obj_add_flag(media_image_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_EVENT_BUBBLE |
                                   LV_OBJ_FLAG_GESTURE_BUBBLE));
     lv_obj_set_size(media_image_, 360, 203);
@@ -5014,7 +6092,7 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
                                           : tr("Live local snapshot"));
   } else {
     lv_image_set_src(media_image_, nullptr);
-    if (camera_zoom_image_ != nullptr) lv_image_set_src(camera_zoom_image_, nullptr);
+    if (media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
     const bool rtsps_unsupported =
         snapshot.job.camera_detail == "This display does not support RTSPS cameras";
     const bool detection_failed = snapshot.job.camera_detail == "No camera detected";
@@ -5769,7 +6847,10 @@ void DisplayShell::apply_printer_animations_enabled(bool enabled) {
     printer_subpage_.store(std::max(0, current_subpage - 1));
   }
   printer_animations_enabled_ = enabled;
-  printer_subpage_count_.store(enabled ? 5 : 4);
+  if (selected_is_resin_.load()) {
+    printer_subpage_count_.store(kResinSubpageCount + (enabled ? 1 : 0));
+    printer_subpage_.store(std::clamp(printer_subpage_.load(), 0, printer_subpage_count_.load() - 1));
+  } else printer_subpage_count_.store(enabled ? 5 : 4);
   view_ = -1;
 }
 
@@ -6114,9 +7195,9 @@ void DisplayShell::update_camera_image(const core::JobState& job) {
   camera_image_dsc_.data_size = static_cast<std::uint32_t>(camera_pixels_->size());
   camera_image_dsc_.data = camera_pixels_->data();
   lv_image_set_src(media_image_, &camera_image_dsc_);
-  if (camera_zoom_image_ != nullptr) {
-    lv_image_set_src(camera_zoom_image_, &camera_image_dsc_);
-    update_camera_zoom_geometry();
+  if (media_zoom_image_ != nullptr) {
+    lv_image_set_src(media_zoom_image_, &camera_image_dsc_);
+    update_media_zoom_geometry();
   }
   const std::int64_t now = esp_timer_get_time();
   if (camera_presentation_window_us_ == 0) camera_presentation_window_us_ = now;
@@ -6130,11 +7211,11 @@ void DisplayShell::update_camera_image(const core::JobState& job) {
   }
 }
 
-void DisplayShell::update_camera_zoom_geometry() {
-  if (camera_zoom_image_ == nullptr || camera_image_dsc_.header.w == 0 ||
-      camera_image_dsc_.header.h == 0) return;
-  const int source_width = camera_image_dsc_.header.w;
-  const int source_height = camera_image_dsc_.header.h;
+void DisplayShell::update_media_zoom_geometry() {
+  const auto& image = view_ == 22 ? camera_image_dsc_ : preview_image_dsc_;
+  if (media_zoom_image_ == nullptr || image.header.w == 0 || image.header.h == 0) return;
+  const int source_width = image.header.w;
+  const int source_height = image.header.h;
   int width = kDisplayWidth;
   int height = kDisplayHeight;
   if (kDisplayWidth * source_height >= kDisplayHeight * source_width) {
@@ -6142,20 +7223,27 @@ void DisplayShell::update_camera_zoom_geometry() {
   } else {
     width = (kDisplayHeight * source_width + source_height - 1) / source_height;
   }
+  // Fill the display while preserving the image's proportions. Panning reveals
+  // the overflow along the longer dimension, as in the camera preview.
   const int center_x = (kDisplayWidth - width) / 2;
   const int center_y = (kDisplayHeight - height) / 2;
-  const int x = std::clamp(center_x + camera_pan_x_, kDisplayWidth - width, 0);
-  const int y = std::clamp(center_y + camera_pan_y_, kDisplayHeight - height, 0);
-  camera_pan_x_ = x - center_x;
-  camera_pan_y_ = y - center_y;
-  lv_obj_set_size(camera_zoom_image_, width, height);
-  lv_obj_set_pos(camera_zoom_image_, x, y);
+  const int x = std::clamp(center_x + media_pan_x_, kDisplayWidth - width, 0);
+  const int y = std::clamp(center_y + media_pan_y_, kDisplayHeight - height, 0);
+  media_pan_x_ = x - center_x;
+  media_pan_y_ = y - center_y;
+  lv_obj_set_size(media_zoom_image_, width, height);
+  lv_obj_set_pos(media_zoom_image_, x, y);
 }
 
-void DisplayShell::camera_zoom_event(lv_event_t* event) {
+void DisplayShell::media_zoom_event(lv_event_t* event) {
   auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
-  if (shell == nullptr || shell->view_ != 22 || !shell->camera_page_active() ||
-      !shell->camera_pixels_ || shell->camera_pixels_->empty() || shell->camera_pan_moved_) return;
+  if (shell == nullptr || shell->media_pan_moved_) return;
+  const bool camera = shell->view_ == 22;
+  const bool preview = shell->view_ == 3 || shell->view_ == 60;
+  if (camera ? (!shell->camera_page_active() || !shell->camera_pixels_ || shell->camera_pixels_->empty())
+             : (!preview || !shell->preview_pixels_ || shell->preview_pixels_->empty())) return;
+  const char* zoom_name = camera ? "local-camera-zoom" : shell->view_ == 60 ? "resin-print-preview" : "print-preview";
+  const char* base_name = camera ? "local-camera" : shell->view_ == 60 ? "resin-printer-status" : "printer-status";
   // A custom carousel swipe can also finish as a short click in LVGL. Only a
   // stationary tap toggles the image, and a long press remains Quick Menu.
   lv_indev_t* input = lv_indev_active();
@@ -6166,31 +7254,31 @@ void DisplayShell::camera_zoom_event(lv_event_t* event) {
         std::abs(point.y - shell->gesture_start_y_) > 12) return;
   }
   shell->note_activity(true);
-  if (shell->camera_zoom_root_ == nullptr) {
-    shell->camera_zoom_root_ = lv_obj_create(lv_screen_active());
-    lv_obj_set_size(shell->camera_zoom_root_, kDisplayWidth, kDisplayHeight);
-    lv_obj_center(shell->camera_zoom_root_);
-    lv_obj_set_style_pad_all(shell->camera_zoom_root_, 0, LV_PART_MAIN);
-    lv_obj_set_style_border_width(shell->camera_zoom_root_, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(shell->camera_zoom_root_, 0, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(shell->camera_zoom_root_, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(shell->camera_zoom_root_, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_remove_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(shell->camera_zoom_root_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE |
+  if (shell->media_zoom_root_ == nullptr) {
+    shell->media_zoom_root_ = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(shell->media_zoom_root_, kDisplayWidth, kDisplayHeight);
+    lv_obj_center(shell->media_zoom_root_);
+    lv_obj_set_style_pad_all(shell->media_zoom_root_, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(shell->media_zoom_root_, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(shell->media_zoom_root_, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(shell->media_zoom_root_, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(shell->media_zoom_root_, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_remove_flag(shell->media_zoom_root_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(shell->media_zoom_root_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE |
         LV_OBJ_FLAG_EVENT_BUBBLE | LV_OBJ_FLAG_GESTURE_BUBBLE));
-    lv_obj_add_event_cb(shell->camera_zoom_root_, camera_zoom_event, LV_EVENT_SHORT_CLICKED, shell);
-    shell->camera_zoom_image_ = lv_image_create(shell->camera_zoom_root_);
-    lv_obj_remove_flag(shell->camera_zoom_image_, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_inner_align(shell->camera_zoom_image_, LV_IMAGE_ALIGN_STRETCH);
-    lv_image_set_src(shell->camera_zoom_image_, &shell->camera_image_dsc_);
-    shell->update_camera_zoom_geometry();
-    shell->capture_screen_name_ = "local-camera-zoom";
-  } else if (lv_obj_has_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_HIDDEN)) {
-    lv_obj_remove_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_HIDDEN);
-    shell->capture_screen_name_ = "local-camera-zoom";
+    lv_obj_add_event_cb(shell->media_zoom_root_, media_zoom_event, LV_EVENT_SHORT_CLICKED, shell);
+    shell->media_zoom_image_ = lv_image_create(shell->media_zoom_root_);
+    lv_obj_remove_flag(shell->media_zoom_image_, LV_OBJ_FLAG_CLICKABLE);
+    lv_image_set_inner_align(shell->media_zoom_image_, LV_IMAGE_ALIGN_STRETCH);
+    lv_image_set_src(shell->media_zoom_image_, camera ? &shell->camera_image_dsc_ : &shell->preview_image_dsc_);
+    shell->update_media_zoom_geometry();
+    shell->capture_screen_name_ = zoom_name;
+  } else if (lv_obj_has_flag(shell->media_zoom_root_, LV_OBJ_FLAG_HIDDEN)) {
+    lv_obj_remove_flag(shell->media_zoom_root_, LV_OBJ_FLAG_HIDDEN);
+    shell->capture_screen_name_ = zoom_name;
   } else {
-    lv_obj_add_flag(shell->camera_zoom_root_, LV_OBJ_FLAG_HIDDEN);
-    shell->capture_screen_name_ = "local-camera";
+    lv_obj_add_flag(shell->media_zoom_root_, LV_OBJ_FLAG_HIDDEN);
+    shell->capture_screen_name_ = base_name;
   }
 }
 
@@ -6752,6 +7840,14 @@ bool DisplayShell::automatic_shutdown_due(bool on_battery, bool keep_awake,
 }
 
 void DisplayShell::suspend_visual_updates(bool suspended) {
+  if (resin_status_timer_) {
+    if (suspended) lv_timer_pause(resin_status_timer_);
+    else if (resin_exposure_) { update_resin_status(); lv_timer_resume(resin_status_timer_); }
+  }
+  if (resin_reaction_timer_ != nullptr) {
+    if (suspended) lv_timer_pause(resin_reaction_timer_);
+    else lv_timer_resume(resin_reaction_timer_);
+  }
   if (printer_animation_timer_ != nullptr) {
     if (suspended) lv_timer_pause(printer_animation_timer_);
     else lv_timer_resume(printer_animation_timer_);

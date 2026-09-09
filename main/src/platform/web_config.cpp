@@ -167,7 +167,7 @@ std::string canonical_brand(std::string value) {
     return static_cast<char>(std::tolower(ch));
   });
   for (const auto& [needle, brand] : {
-           std::pair{"creality", "creality"}, std::pair{"snapmaker", "snapmaker"},
+           std::pair{"uniformation", "uniformation"}, std::pair{"creality", "creality"}, std::pair{"snapmaker", "snapmaker"},
            std::pair{"prusa", "prusa"}, std::pair{"bambu", "bambu"},
            std::pair{"anycubic", "anycubic"}, std::pair{"elegoo", "elegoo"},
            std::pair{"qidi", "qidi"}, std::pair{"sovol", "sovol"},
@@ -550,7 +550,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  config.max_uri_handlers = 64;
+  constexpr unsigned route_capacity = 68;
+  config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
   result = httpd_start(&server_, &config);
@@ -612,6 +613,9 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/elegoo/check/start", .method = HTTP_POST, .handler = elegoo_check_start_entry, .user_ctx = this},
       {.uri = "/api/elegoo/check/status", .method = HTTP_GET, .handler = elegoo_check_status_entry, .user_ctx = this},
       {.uri = "/api/elegoo/check/cancel", .method = HTTP_POST, .handler = elegoo_check_cancel_entry, .user_ctx = this},
+      {.uri = "/api/uniformation/check/start", .method = HTTP_POST, .handler = uniformation_check_start_entry, .user_ctx = this},
+      {.uri = "/api/uniformation/check/status", .method = HTTP_GET, .handler = uniformation_check_status_entry, .user_ctx = this},
+      {.uri = "/api/uniformation/check/cancel", .method = HTTP_POST, .handler = uniformation_check_cancel_entry, .user_ctx = this},
       {.uri = "/api/moonraker/check/status", .method = HTTP_GET, .handler = moonraker_check_status_entry, .user_ctx = this},
       {.uri = "/api/bambu/compatibility/start", .method = HTTP_POST, .handler = compatibility_start_entry, .user_ctx = this},
       {.uri = "/api/bambu/compatibility/status", .method = HTTP_GET, .handler = compatibility_status_entry, .user_ctx = this},
@@ -624,7 +628,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/v1/printers/*", .method = HTTP_GET, .handler = unified_api_printer_entry, .user_ctx = this},
       {.uri = "/*", .method = HTTP_GET, .handler = captive_entry, .user_ctx = this},
   };
-  static_assert(sizeof(routes) / sizeof(routes[0]) <= 64,
+  static_assert(sizeof(routes) / sizeof(routes[0]) <= route_capacity,
                 "Web Config route capacity must include every handler");
   for (const auto& route : routes) {
     result = httpd_register_uri_handler(server_, &route);
@@ -1282,6 +1286,78 @@ esp_err_t WebConfig::start_elegoo_check(httpd_req_t* request) {
 
 esp_err_t WebConfig::serve_elegoo_check_status(httpd_req_t* request) const {
   const auto snapshot = elegoo_probe_->snapshot();
+  std::string body = "{\"check_id\":";
+  append_json_string(body, snapshot.id);
+  body += ",\"running\":";
+  body += snapshot.running ? "true" : "false";
+  body += ",\"ready\":";
+  body += snapshot.ready ? "true" : "false";
+  body += ",\"error_code\":" + std::to_string(static_cast<unsigned>(snapshot.error));
+  body += ",\"model\":";
+  append_json_string(body, snapshot.identity.model);
+  body += ",\"serial\":";
+  append_json_string(body, snapshot.ready ? snapshot.identity.serial : "");
+  body += "}";
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::uniformation_check_start_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->start_uniformation_check(request);
+}
+
+esp_err_t WebConfig::uniformation_check_status_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_uniformation_check_status(request);
+}
+
+esp_err_t WebConfig::uniformation_check_cancel_entry(httpd_req_t* request) {
+  auto* self = static_cast<WebConfig*>(request->user_ctx);
+  std::string body, id;
+  if (request->content_len > 80 || !receive_form(request, body) ||
+      !form_value(body, "check_id", id) || id.size() != 32)
+    return send_json(request, "400 Bad Request", "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  self->uniformation_probe_.cancel(id);
+  return send_json(request, "200 OK", "{\"cancelled\":true}");
+}
+
+bool WebConfig::read_uniformation_credentials(const std::string& body, core::PrinterProfile& profile) const {
+  if (profile.protocol != core::PrinterProtocol::uniformation_sdcp) return false;
+  if (!form_value(body, "serial", profile.serial) ||
+      !form_value(body, "access_code", profile.access_code) ||
+      profile.endpoint.size() > 128 || profile.serial.size() > 32 || profile.access_code.size() > 32 ||
+      !core::is_local_printer_endpoint(profile.endpoint, profile.protocol)) return false;
+  if (profile.endpoint.find(':') == std::string::npos) profile.endpoint += ":3030";
+  core::clear_irrelevant_printer_credentials(profile);
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto& existing : settings_.profiles) {
+      if (existing.id != profile.id || existing.protocol != profile.protocol ||
+          existing.endpoint != profile.endpoint || existing.serial != profile.serial) continue;
+      if (profile.access_code.empty()) profile.access_code = existing.access_code;
+      break;
+    }
+  }
+  const auto control = [](unsigned char ch) { return ch < 0x20 || ch == 0x7f; };
+  return profile.access_code.empty() &&
+      !std::any_of(profile.serial.begin(), profile.serial.end(), control) &&
+      !std::any_of(profile.access_code.begin(), profile.access_code.end(), control);
+}
+
+esp_err_t WebConfig::start_uniformation_check(httpd_req_t* request) {
+  if (!network_->status().station_connected)
+    return send_json(request, "409 Conflict", "{\"error\":\"Connect PrintDeck to Wi-Fi before testing a printer.\"}");
+  core::PrinterProfile profile;
+  std::string body, id, protocol;
+  if (!receive_form(request, body) || !form_value(body, "profile_id", id) || !parse_id(id, profile.id) ||
+      !form_value(body, "protocol", protocol) || !core::printer_protocol_from_id(protocol, profile.protocol) ||
+      !form_value(body, "endpoint", profile.endpoint) || !read_uniformation_credentials(body, profile))
+    return send_json(request, "400 Bad Request", "{\"error\":\"Please check the printer name, network address and connection details.\"}");
+  if (uniformation_probe_.start(std::move(profile), *network_) != ESP_OK)
+    return send_json(request, "409 Conflict", "{\"error\":\"PrintDeck could not start the connection test. Please try again.\"}");
+  return serve_uniformation_check_status(request);
+}
+
+esp_err_t WebConfig::serve_uniformation_check_status(httpd_req_t* request) const {
+  const auto snapshot = uniformation_probe_.snapshot();
   std::string body = "{\"check_id\":";
   append_json_string(body, snapshot.id);
   body += ",\"running\":";
@@ -3307,7 +3383,11 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
     body += "\"";
     body += ",\"protocol\":\"";
     body += core::printer_driver(profile.protocol).id;
-    body += "\",\"name\":";
+    body += "\",\"technology\":\"";
+    body += core::printer_driver(profile.protocol).resin ? "resin" : "fdm";
+    body += "\",\"dashboard_available\":";
+    body += core::printer_driver(profile.protocol).dashboard ? "true" : "false";
+    body += ",\"name\":";
     append_json_string(body, profile.display_name);
     body += ",\"endpoint\":";
     append_json_string(body, profile.endpoint);
@@ -3370,7 +3450,11 @@ esp_err_t WebConfig::serve_printer_discovery(httpd_req_t* request,
     first = false;
     body += "{\"protocol\":\"";
     body += core::printer_driver(printer.protocol).id;
-    body += "\",\"name\":";
+    body += "\",\"technology\":\"";
+    body += core::printer_driver(printer.protocol).resin ? "resin" : "fdm";
+    body += "\",\"brand\":";
+    append_json_string(body, core::printer_driver(printer.protocol).default_brand);
+    body += ",\"name\":";
     append_json_string(body, printer.name);
     body += ",\"model\":";
     append_json_string(body, printer.model);
@@ -3795,6 +3879,13 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     return send_json(request, "400 Bad Request",
                      "{\"error\":\"This printer connection type is not supported.\"}");
   }
+  core::DeviceSettings candidate;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    candidate = settings_;
+  }
+  auto existing = std::find_if(candidate.profiles.begin(), candidate.profiles.end(),
+                               [profile_id](const auto& value) { return value.id == profile_id; });
   if (profile.protocol == core::PrinterProtocol::prusalink) {
     profile.id = profile_id;
     std::string check_id;
@@ -3806,7 +3897,24 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
   }
   const bool elegoo = profile.protocol == core::PrinterProtocol::elegoo_sdcp ||
                       profile.protocol == core::PrinterProtocol::elegoo_cc2;
-  if (elegoo) {
+  const bool uniformation = profile.protocol == core::PrinterProtocol::uniformation_sdcp;
+  if (uniformation) {
+    profile.id = profile_id;
+    std::string check_id;
+    if (!read_uniformation_credentials(body, profile))
+      return send_json(request, "400 Bad Request", "{\"error\":\"Please check the printer name, network address and connection details.\"}");
+    // A name-only edit retains the already verified connection and identity.
+    // A new or changed endpoint still requires a fresh read-only check.
+    const bool unchanged = existing != candidate.profiles.end() &&
+                           core::same_printer_connection(*existing, profile);
+    if (!unchanged && (!form_value(body, "check_id", check_id) ||
+        !uniformation_probe_.verified(profile, check_id)))
+      return send_json(request, "409 Conflict", "{\"error\":\"Check the UniFormation connection before saving.\"}");
+    profile.manufacturer = "UniFormation";
+    profile.brand = "uniformation";
+    profile.model = unchanged ? existing->model : uniformation_probe_.snapshot().identity.model;
+    core::clear_irrelevant_printer_credentials(profile);
+  } else if (elegoo) {
     profile.id = profile_id;
     std::string check_id;
     if (!read_elegoo_credentials(body, profile) || !form_value(body, "check_id", check_id) ||
@@ -3828,13 +3936,6 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     profile.brand = canonical_brand(profile.manufacturer);
   }
 
-  core::DeviceSettings candidate;
-  {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    candidate = settings_;
-  }
-  auto existing = std::find_if(candidate.profiles.begin(), candidate.profiles.end(),
-                               [profile_id](const auto& value) { return value.id == profile_id; });
   if (profile_id != 0 && existing == candidate.profiles.end()) {
     return send_json(request, "404 Not Found",
                      "{\"error\":\"This printer is no longer in your saved list. Refresh the page and try again.\"}");
@@ -3853,10 +3954,10 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     candidate.profiles.push_back(std::move(profile));
     // The first available printer becomes active. Adding more printers in one
     // discovery session must not repeatedly tear down the current connection.
-    if (candidate.selected_profile == 0) candidate.selected_profile = next_id;
+    if (candidate.selected_profile == 0 && core::printer_driver(candidate.profiles.back().protocol).dashboard) candidate.selected_profile = next_id;
   } else {
     profile.id = profile_id;
-    if (profile.protocol == existing->protocol && profile.protocol != core::PrinterProtocol::prusalink && !elegoo) {
+    if (profile.protocol == existing->protocol && profile.protocol != core::PrinterProtocol::prusalink && !elegoo && !uniformation) {
       if (profile.api_key.empty()) profile.api_key = existing->api_key;
       if (profile.access_code.empty()) profile.access_code = existing->access_code;
     }
@@ -3929,6 +4030,8 @@ esp_err_t WebConfig::manage_printer(httpd_req_t* request) {
     return send_json(request, "404 Not Found",
                      "{\"error\":\"This printer is no longer in your saved list. Refresh the page and try again.\"}");
   if (action == "select") {
+    if (!core::printer_driver(found->protocol).dashboard)
+      return send_json(request, "409 Conflict", "{\"error\":\"The device view for this printer is not available yet.\"}");
     const InactivePrinterSnapshot inactive = inactive_printer_poller_ != nullptr
         ? inactive_printer_poller_->snapshot() : InactivePrinterSnapshot{};
     const auto status = std::find_if(

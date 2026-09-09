@@ -11,7 +11,7 @@ namespace printdeck::platform {
 enum class ElegooError : std::uint8_t {
   none, invalid_configuration, cancelled, timeout, unavailable,
   authorization, unsupported_response, identity_mismatch, service_not_ready,
-  capacity,
+  capacity, local_busy,
 };
 
 struct ElegooIdentity {

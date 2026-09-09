@@ -26,6 +26,7 @@
 #include "printdeck/platform/prusalink_discovery.hpp"
 #include "printdeck/platform/prusalink_http_transport.hpp"
 #include "printdeck/platform/elegoo_sdcp_parser.hpp"
+#include "printdeck/platform/uniformation_sdcp_parser.hpp"
 #include "printdeck/platform/elegoo_cc2_parser.hpp"
 #include "printdeck/platform/device_discovery_policy.hpp"
 #include "printdeck/platform/printer_setup_address.hpp"
@@ -376,7 +377,7 @@ void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
     const auto origin = prusalink_origin(result.host + ":" + std::to_string(result.port));
     if (origin && std::find(saved_prusa_origins_.begin(), saved_prusa_origins_.end(), *origin) !=
                       saved_prusa_origins_.end()) return;
-  } else if (std::find(saved_ipv4_hosts_.begin(), saved_ipv4_hosts_.end(), result.host) !=
+  } else if (target_host_.empty() && std::find(saved_ipv4_hosts_.begin(), saved_ipv4_hosts_.end(), result.host) !=
              saved_ipv4_hosts_.end()) return;
   const auto existing = std::find_if(snapshot_.printers.begin(), snapshot_.printers.end(),
                                      [&result](const DiscoveredPrinter& value) {
@@ -648,6 +649,17 @@ void PrinterDiscoveryService::run() {
     }
   };
   service_elegoo();
+  const auto uniformation_identity = [&](const std::string& host, std::uint16_t port) {
+    core::PrinterProfile profile;
+    profile.protocol = core::PrinterProtocol::uniformation_sdcp;
+    profile.endpoint = host + ":" + std::to_string(port);
+    ElegooIdentity identity;
+    const auto cancelled = [&] { return cancel_requested_.load() || now_ms() >= deadline; };
+    const auto result = uniformation_sdcp_probe(profile, std::min(deadline, now_ms() + 3500), cancelled, &identity);
+    if (!cancelled() && result.snapshot && result.snapshot->link == core::LinkState::online)
+      add_result({.protocol = core::PrinterProtocol::uniformation_sdcp, .name = "UniFormation " + identity.model,
+                  .model = identity.model, .host = host, .serial = identity.serial, .port = port});
+  };
   const auto prusa_identity = [&](const std::string& host, std::uint16_t port, bool advertised = false) {
     const auto cancelled = [&] { return cancel_requested_.load() || now_ms() >= deadline; };
     std::unique_lock<std::timed_mutex> transaction(prusalink_transaction_mutex(), std::defer_lock);
@@ -733,6 +745,9 @@ void PrinterDiscoveryService::run() {
     std::uint32_t timeout_ms;
   };
   std::vector<Pass> passes{
+      // GK3 Ultra does not reliably answer UDP discovery. Verify its known
+      // local WebSocket service and model before publishing a resin result.
+      {3030, core::PrinterProtocol::uniformation_sdcp, false, 1000},
       // A cold Wi-Fi ARP lookup can exceed a few hundred milliseconds. Give
       // Moonraker's primary port one full ARP window so the result does not
       // depend on an earlier failed scan having warmed the neighbor cache.
@@ -747,13 +762,13 @@ void PrinterDiscoveryService::run() {
       {4409, core::PrinterProtocol::moonraker, true, 1000},
   };
   if (targeted && target_port_ != 0) {
-    passes = {{target_port_, target_port_ == kBambuTlsPort ? core::PrinterProtocol::bambu_lan
-                : core::PrinterProtocol::moonraker, target_port_ != kBambuTlsPort, 1200}};
-    // These two transports identify themselves through their bounded UDP
-    // discovery exchange; do not send HTTP requests to an MQTT endpoint.
-    if (target_port_ == 1883 || target_port_ == 3030) passes.clear();
+    passes = {{target_port_, target_port_ == 3030 ? core::PrinterProtocol::uniformation_sdcp
+                : target_port_ == kBambuTlsPort ? core::PrinterProtocol::bambu_lan
+                : core::PrinterProtocol::moonraker, target_port_ != kBambuTlsPort && target_port_ != 3030, 1200}};
+    // CC2 identifies itself through UDP; never send HTTP to its MQTT port.
+    if (target_port_ == 1883) passes.clear();
   } else if (targeted) {
-    passes.front().verify_moonraker = true;
+    for (auto& pass : passes) if (pass.protocol == core::PrinterProtocol::moonraker) pass.verify_moonraker = true;
   }
   struct Pending { int socket_fd; std::string host; std::uint16_t port;
                    core::PrinterProtocol protocol; bool verify_moonraker; };
@@ -797,7 +812,11 @@ void PrinterDiscoveryService::run() {
         socklen_t error_size = sizeof(socket_error);
         bool accepted = getsockopt(probe.socket_fd, SOL_SOCKET, SO_ERROR, &socket_error,
                                    &error_size) == 0 && socket_error == 0;
-        if (accepted && probe.verify_moonraker) {
+        if (accepted && probe.protocol == core::PrinterProtocol::uniformation_sdcp) {
+          close(probe.socket_fd); probe.socket_fd = -1;
+          uniformation_identity(probe.host, probe.port);
+          accepted = false;
+        } else if (accepted && probe.verify_moonraker) {
           accepted = moonraker_signature(probe.socket_fd, probe.host, deadline);
           if (!accepted && (probe.port == 80 || targeted)) {
             close(probe.socket_fd);
@@ -858,7 +877,11 @@ void PrinterDiscoveryService::run() {
                                    sizeof(target));
         if (result == 0) {
           bool accepted = !pass.verify_moonraker;
-          if (pass.verify_moonraker) {
+          if (pass.protocol == core::PrinterProtocol::uniformation_sdcp) {
+            close(socket_fd); socket_fd = -1;
+            uniformation_identity(candidate.host, pass.port);
+            accepted = false;
+          } else if (pass.verify_moonraker) {
             accepted = moonraker_signature(socket_fd, candidate.host, deadline);
             if (!accepted && (pass.port == 80 || targeted)) {
               close(socket_fd);

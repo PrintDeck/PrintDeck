@@ -12,6 +12,7 @@ namespace printdeck::core {
 enum class PrinterProtocol : std::uint8_t {
   moonraker = 0, bambu_lan = 1, prusalink = 2, elegoo_sdcp = 3, elegoo_cc2 = 4,
   // Storage ID 5 is retired and must not be reused.
+  uniformation_sdcp = 6,
 };
 enum class HttpAuthMode : std::uint8_t { api_key = 0, digest = 1 };
 enum class LinkState : std::uint8_t { stopped, waiting_for_network, connecting, online, failed };

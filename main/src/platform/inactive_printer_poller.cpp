@@ -1,6 +1,7 @@
 #include "printdeck/platform/inactive_printer_poller.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
 #include "printdeck/platform/elegoo_sdcp_service.hpp"
+#include "printdeck/platform/uniformation_sdcp_parser.hpp"
 #include "printdeck/platform/elegoo_cc2_service.hpp"
 
 #include <algorithm>
@@ -436,7 +437,7 @@ InactivePrinterStatus InactivePrinterPoller::probe(
   summary.profile_id = profile.id;
   summary.available = true;
   if (profile.protocol == core::PrinterProtocol::elegoo_sdcp ||
-      profile.protocol == core::PrinterProtocol::elegoo_cc2) {
+      profile.protocol == core::PrinterProtocol::elegoo_cc2 || profile.protocol == core::PrinterProtocol::uniformation_sdcp) {
     const auto cancelled = [&] {
       if (!network_ || !network_->status().station_connected) return true;
       const std::lock_guard<std::mutex> lock(mutex_);
@@ -445,7 +446,9 @@ InactivePrinterStatus InactivePrinterPoller::probe(
               [&](const auto& value) { return core::same_printer_connection(value, profile); });
     };
     const auto deadline = static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + 8000;
-    const auto result = profile.protocol == core::PrinterProtocol::elegoo_sdcp
+    const auto result = profile.protocol == core::PrinterProtocol::uniformation_sdcp
+        ? uniformation_sdcp_probe(profile, deadline, cancelled)
+        : profile.protocol == core::PrinterProtocol::elegoo_sdcp
         ? elegoo_sdcp_probe(profile, deadline, cancelled)
         : elegoo_cc2_probe(profile, deadline, cancelled);
     if (cancelled()) { summary.available = false; return summary; }

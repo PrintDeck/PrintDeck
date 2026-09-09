@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <new>
+#include "printdeck/core/printer_driver.hpp"
 
 #ifdef ESP_PLATFORM
 #include "esp_heap_caps.h"
@@ -25,7 +26,7 @@ bool DeviceState::select(std::uint32_t profile_id) {
   }
   const bool exists = std::any_of(profiles.begin(), profiles.end(),
                                   [profile_id](const PrinterProfile& profile) {
-                                    return profile.id == profile_id;
+                                    return profile.id == profile_id && printer_driver(profile.protocol).dashboard;
                                   });
   if (exists) selected_profile = profile_id;
   return exists;

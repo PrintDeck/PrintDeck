@@ -15,7 +15,7 @@ constexpr std::uint32_t capability_mask(
   return result;
 }
 
-constexpr std::array<PrinterDriverDescriptor, 5> kDrivers{{
+constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
     {
         .protocol = PrinterProtocol::moonraker,
         .storage_id = 0,
@@ -67,11 +67,22 @@ constexpr std::array<PrinterDriverDescriptor, 5> kDrivers{{
                                          PrinterCapability::access_code}),
         .experimental = true,
     },
+    {
+        .protocol = PrinterProtocol::uniformation_sdcp,
+        .storage_id = 6,
+        .id = "uniformation_sdcp",
+        .default_manufacturer = "UniFormation",
+        .default_brand = "uniformation",
+        .capabilities = capability_mask({PrinterCapability::serial_number}),
+        .experimental = true,
+        .resin = true,
+        .dashboard = true,
+    },
 }};
 
 constexpr PrinterDriverDescriptor kUnsupported{
     .protocol = static_cast<PrinterProtocol>(255), .storage_id = 255,
-    .id = "unsupported", .default_manufacturer = "", .default_brand = "", .capabilities = 0};
+    .id = "unsupported", .default_manufacturer = "", .default_brand = "", .capabilities = 0, .dashboard = false};
 
 }  // namespace
 

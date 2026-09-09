@@ -295,6 +295,9 @@ void Runtime::start() {
     display_.set_navigation_feedback_callback(navigation_feedback_entry, this);
     display_.set_page_refresh_callback(page_refresh_entry, this);
     display_.set_chamber_light_changed_callback(chamber_light_changed_entry, this);
+    display_.set_resin_control_callback(+[](void* context, const core::ResinControlRequest& request) {
+      return static_cast<Runtime*>(context)->elegoo_sdcp_.request_control(request);
+    }, this);
     display_.set_camera_mode_changed_callback(camera_mode_changed_entry, this);
   }
   display_.set_update_check_callback(update_check_entry, this);
@@ -362,13 +365,15 @@ bool Runtime::ensure_selected_adapter_started(const core::PrinterProfile* select
       {Protocol::elegoo_cc2, elegoo_cc2_.running()},
   };
   for (const auto& [protocol, running] : adapters)
-    if (running && protocol != selected->protocol) return false;
+    if (running && protocol != selected->protocol &&
+        !(protocol == Protocol::elegoo_sdcp && selected->protocol == Protocol::uniformation_sdcp)) return false;
   switch (selected->protocol) {
     case Protocol::moonraker: return ensure_moonraker_started(selected);
     case Protocol::bambu_lan: return ensure_bambu_lan_started(selected);
     case Protocol::prusalink: return ensure_prusalink_started(selected);
     case Protocol::elegoo_sdcp: return elegoo_sdcp_.start(selected, network_) == ESP_OK;
     case Protocol::elegoo_cc2: return elegoo_cc2_.start(selected, network_) == ESP_OK;
+    case Protocol::uniformation_sdcp: return elegoo_sdcp_.start(selected, network_) == ESP_OK;
     default: return false;
   }
 }
@@ -515,7 +520,8 @@ bool Runtime::selected_printer_snapshot_entry(
   auto* runtime = static_cast<Runtime*>(context);
   if (runtime == nullptr) return false;
   const int protocol = runtime->selected_printer_protocol_.load(std::memory_order_acquire);
-  if (protocol == static_cast<int>(core::PrinterProtocol::elegoo_sdcp) && runtime->elegoo_sdcp_.running()) {
+  if ((protocol == static_cast<int>(core::PrinterProtocol::elegoo_sdcp) ||
+       protocol == static_cast<int>(core::PrinterProtocol::uniformation_sdcp)) && runtime->elegoo_sdcp_.running()) {
     runtime->elegoo_sdcp_.snapshot_into(destination);
     return destination.profile_id != 0;
   }
@@ -581,7 +587,7 @@ bool Runtime::background_update_blocked() const {
   }
   if (moonraker_probe_.snapshot().running) return true;
   if (prusalink_probe_.snapshot().running) return true;
-  if (elegoo_probe_.snapshot().running) return true;
+  if (elegoo_probe_.snapshot().running || web_config_.uniformation_check_running()) return true;
   const BambuCompatibilityState compatibility = bambu_compatibility_.snapshot().state;
   return compatibility == BambuCompatibilityState::kConnecting ||
          compatibility == BambuCompatibilityState::kCollecting ||
@@ -1026,7 +1032,7 @@ void Runtime::apply_pending_printer_selection() {
                                     [selected](const core::PrinterProfile& candidate) {
                                       return candidate.id == selected;
                                     });
-  if (profile == settings_.profiles.end()) {
+  if (profile == settings_.profiles.end() || !core::printer_driver(profile->protocol).dashboard) {
     pending_selected_profile_.store(0, std::memory_order_release);
     return;
   }
@@ -1351,7 +1357,8 @@ void Runtime::monitor_loop() {
     const bool want_moonraker_connection = full_connection_active && selected_is_moonraker;
     const bool want_prusalink_connection = full_connection_active && selected_is_prusalink;
     const bool want_elegoo_sdcp_connection = full_connection_active &&
-        selected->protocol == core::PrinterProtocol::elegoo_sdcp;
+        (selected->protocol == core::PrinterProtocol::elegoo_sdcp ||
+         selected->protocol == core::PrinterProtocol::uniformation_sdcp);
     const bool want_elegoo_cc2_connection = full_connection_active &&
         selected->protocol == core::PrinterProtocol::elegoo_cc2;
     moonraker_.set_preview_requested(want_moonraker_connection &&

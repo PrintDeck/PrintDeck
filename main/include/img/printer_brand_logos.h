@@ -21,6 +21,7 @@ extern const lv_image_dsc_t printer_logo_snapmaker;
 extern const lv_image_dsc_t printer_logo_sovol;
 extern const lv_image_dsc_t printer_logo_ultimaker;
 extern const lv_image_dsc_t printer_logo_voron;
+extern const lv_image_dsc_t printer_logo_uniformation;
 
 extern const lv_image_dsc_t printer_logo_ankermake_small;
 extern const lv_image_dsc_t printer_logo_anycubic_small;
@@ -37,6 +38,7 @@ extern const lv_image_dsc_t printer_logo_snapmaker_small;
 extern const lv_image_dsc_t printer_logo_sovol_small;
 extern const lv_image_dsc_t printer_logo_ultimaker_small;
 extern const lv_image_dsc_t printer_logo_voron_small;
+extern const lv_image_dsc_t printer_logo_uniformation_small;
 
 #ifdef __cplusplus
 }

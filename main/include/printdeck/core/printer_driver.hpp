@@ -27,6 +27,8 @@ struct PrinterDriverDescriptor {
   const char* default_brand;
   std::uint32_t capabilities;
   bool experimental = false;
+  bool resin = false;
+  bool dashboard = true;
 };
 
 const PrinterDriverDescriptor& printer_driver(PrinterProtocol protocol);

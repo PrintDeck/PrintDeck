@@ -6,8 +6,11 @@
 #include <cstring>
 #include <fcntl.h>
 #include <memory>
+#include <ctime>
+#include "printdeck/platform/uniformation_sdcp_parser.hpp"
 
 #include "esp_log.h"
+#include "esp_http_client.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "lwip/dns.h"
@@ -180,6 +183,82 @@ class HostLease {
   std::string* slot_ = nullptr;
 };
 
+// The history preview path is derived solely from the current task UUID and
+// the already verified local peer. No redirects, arbitrary paths or credentials.
+std::shared_ptr<std::vector<std::uint8_t>> fetch_resin_preview(
+    const std::string& address, std::uint16_t port, const std::string& task,
+    const Cancel& cancelled) {
+  if (!uniformation_valid_task_id(task) || cancelled()) return {};
+  const std::string url = "http://" + address + ":" + std::to_string(port) +
+      "/media/emmc0/history_image/" + task + ".bmp";
+  esp_http_client_config_t config{};
+  config.url = url.c_str(); config.timeout_ms = 500;
+  config.disable_auto_redirect = true; config.buffer_size = 1024;
+  const auto client = esp_http_client_init(&config);
+  if (!client) return {};
+  std::unique_ptr<std::remove_pointer_t<esp_http_client_handle_t>, decltype(&esp_http_client_cleanup)>
+      guard(client, esp_http_client_cleanup);
+  esp_http_client_set_header(client, "Connection", "close");
+  if (esp_http_client_open(client, 0) != ESP_OK) return {};
+  const auto length = esp_http_client_fetch_headers(client);
+  if (esp_http_client_get_status_code(client) != 200 || length < 0 || length > 1048576) return {};
+  const auto deadline = now_ms() + 3000;
+  auto bytes = std::make_shared<std::vector<std::uint8_t>>();
+  if (length > 0) bytes->reserve(static_cast<std::size_t>(length));
+  std::array<char, 2048> buffer{};
+  while (!done(deadline, cancelled)) {
+    const int count = esp_http_client_read(client, buffer.data(), buffer.size());
+    if (count < 0) return {};
+    if (count == 0) break;
+    if (bytes->size() + count > 1048576) return {};
+    bytes->insert(bytes->end(), buffer.data(), buffer.data() + count);
+  }
+  if (done(deadline, cancelled) || !esp_http_client_is_complete_data_received(client)) return {};
+  std::vector<std::uint8_t> decoded; std::uint16_t width = 0, height = 0;
+  if (!uniformation_decode_preview_bmp(*bytes, decoded, width, height)) return {};
+  return bytes;
+}
+
+std::optional<UniformationLayerExecution> fetch_resin_execution(
+    const std::string& address, std::uint16_t port, const Cancel& cancelled) {
+  if (cancelled()) return {};
+  const std::string url = "http://" + address + ":" + std::to_string(port) + "/customer/resources/log";
+  esp_http_client_config_t config{};
+  config.url = url.c_str(); config.timeout_ms = 300; config.buffer_size = 1024;
+  config.disable_auto_redirect = true; config.method = HTTP_METHOD_HEAD;
+  auto client = esp_http_client_init(&config);
+  if (!client) return {};
+  std::unique_ptr<std::remove_pointer_t<esp_http_client_handle_t>, decltype(&esp_http_client_cleanup)>
+      guard(client, esp_http_client_cleanup);
+  const auto deadline = now_ms() + 1200;
+  esp_http_client_set_header(client, "Connection", "close");
+  if (esp_http_client_open(client, 0) != ESP_OK) return {};
+  const auto size = esp_http_client_fetch_headers(client);
+  if (esp_http_client_get_status_code(client) != 200 || size <= 0 || size > 536870912 || done(deadline, cancelled)) return {};
+  esp_http_client_close(client);
+  // This firmware ignores suffix ranges. Use explicit offsets and reject a
+  // full-file response or rotation, keeping every read at most 32 KiB.
+  const auto offset = std::max<std::int64_t>(0, size - 32768);
+  const auto range = "bytes=" + std::to_string(offset) + "-" + std::to_string(size - 1);
+  esp_http_client_set_method(client, HTTP_METHOD_GET);
+  esp_http_client_set_header(client, "Range", range.c_str());
+  if (esp_http_client_open(client, 0) != ESP_OK) return {};
+  const auto length = esp_http_client_fetch_headers(client);
+  if (esp_http_client_get_status_code(client) != 206 || length != size - offset ||
+      length <= 0 || length > 32768) return {};
+  std::string tail; tail.reserve(static_cast<std::size_t>(length));
+  std::array<char, 1024> bytes{};
+  while (!done(deadline, cancelled)) {
+    const int count = esp_http_client_read(client, bytes.data(), bytes.size());
+    if (count < 0) return {};
+    if (count == 0) break;
+    if (tail.size() + count > 32768) return {};
+    tail.append(bytes.data(), count);
+  }
+  if (done(deadline, cancelled) || !esp_http_client_is_complete_data_received(client)) return {};
+  return uniformation_layer_execution(tail);
+}
+
 // This intentionally narrow RFC6455 transport never follows HTTP redirects,
 // negotiates compression, or accepts an unsolicited protocol extension. Keeping
 // it on the service worker also avoids a second full WebSocket task/queue.
@@ -187,29 +266,40 @@ class Session {
  public:
   bool open(const core::PrinterProfile& profile, bool allow_discovery, std::uint64_t deadline, const Cancel& cancelled) {
     const auto endpoint = elegoo_sdcp_endpoint(profile.endpoint);
-    if (profile.protocol != core::PrinterProtocol::elegoo_sdcp || !endpoint ||
+    uniformation_ = profile.protocol == core::PrinterProtocol::uniformation_sdcp;
+    if ((!uniformation_ && profile.protocol != core::PrinterProtocol::elegoo_sdcp) || !endpoint ||
         (!profile.serial.empty() && !elegoo_sdcp_valid_mainboard_id(profile.serial)) ||
         (profile.serial.empty() && !allow_discovery)) { error_ = ElegooError::invalid_configuration; return false; }
     const auto address = resolve(endpoint->host, deadline, cancelled);
+    address_ = address; port_ = endpoint->port; live_ = !allow_discovery;
     if (address.empty()) { error_ = ElegooError::unavailable; return false; }
     lease_ = std::make_unique<HostLease>(address);
-    if (!lease_->held()) { error_ = ElegooError::capacity; return false; }
+    if (!lease_->held()) { error_ = ElegooError::local_busy; return false; }
     ElegooIdentity discovered;
     std::string serial = profile.serial;
     // Restore the independent outer routing ID on reconnect as well as setup.
     // This is one bounded unicast identity request to the configured address,
     // never subnet discovery. Firmware without UDP may still supply Cmd1 attrs.
-    const bool found = discover_one(address, discovered, outer_id_,
+    const bool found = !uniformation_ && discover_one(address, discovered, outer_id_,
         std::min(deadline, now_ms() + (serial.empty() ? 2500 : 1200)), cancelled);
-    if (serial.empty()) {
+    if (serial.empty() && !uniformation_) {
       if (!found) {
         error_ = done(deadline, cancelled) ? ElegooError::timeout : ElegooError::unsupported_response; return false;
       }
       serial = discovered.serial;
     }
     serial_ = serial;
-    parser_ = std::make_unique<ElegooSdcpParser>(profile.id, serial);
-    if (!discovered.serial.empty() && !parser_->seed_identity(discovered)) { error_ = parser_->error(); return false; }
+    if (uniformation_) {
+      uniformation_parser_ = std::make_unique<UniformationSdcpParser>(profile.id, serial);
+      char client_id[33];
+      std::snprintf(client_id, sizeof(client_id), "%08x%08x%08x%08x",
+          static_cast<unsigned>(esp_random()), static_cast<unsigned>(esp_random()),
+          static_cast<unsigned>(esp_random()), static_cast<unsigned>(esp_random()));
+      outer_id_ = client_id;
+    } else {
+      parser_ = std::make_unique<ElegooSdcpParser>(profile.id, serial);
+      if (!discovered.serial.empty() && !parser_->seed_identity(discovered)) { error_ = parser_->error(); return false; }
+    }
     socket_.value = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_.value < 0 || fcntl(socket_.value, F_SETFL, O_NONBLOCK) < 0) { error_ = ElegooError::unavailable; return false; }
     const auto peer = address_of(address, endpoint->port);
@@ -251,24 +341,60 @@ class Session {
   bool step(const Cancel& cancelled) {
     if (cancelled && cancelled()) { error_ = ElegooError::cancelled; return false; }
     const auto now = now_ms();
-    if (now >= next_status_) {
+    if (now >= next_status_ && (!uniformation_ || !identity().serial.empty())) {
       if (!request(0, cancelled)) return false;
-      next_status_ = now_ms() + 2000;
-    } else if (parser_->identity().serial.empty() && now >= next_attributes_) {
+      next_status_ = now_ms() + (uniformation_ && live_ && uniformation_parser_->active_layer_cycle() ? 500 : 2000);
+    } else if (identity().serial.empty() && now >= next_attributes_) {
       if (!request(1, cancelled)) return false;
       next_attributes_ = now_ms() + 5000;
     }
     if (!receive(cancelled)) return false;
-    if (parser_->error() != ElegooError::none) { error_ = parser_->error(); return false; }
-    const auto latest = parser_->last_status_ms() ? parser_->last_status_ms() : started_at_;
+    if (uniformation_ && live_ && ready(now_ms())) {
+      const auto& task = uniformation_parser_->task_id();
+      if (task != details_task_) { details_task_ = task; next_details_ = 0; }
+      if (!task.empty() && !uniformation_parser_->task_details_known() && now_ms() >= next_details_) {
+        if (!request(321, cancelled)) return false;
+        next_details_ = now_ms() + 30000;
+      }
+      const auto layer = uniformation_parser_->current_layer();
+      if (task != execution_task_ || layer != execution_layer_) {
+        execution_task_ = task; execution_layer_ = layer;
+        execution_attempts_ = 0; next_execution_ = 0;
+      }
+      if (execution_attempts_ < 3 && now_ms() >= next_execution_ &&
+          uniformation_parser_->needs_layer_execution(now_ms())) {
+        ++execution_attempts_; next_execution_ = now_ms() + 1500;
+        if (const auto execution = fetch_resin_execution(address_, port_, cancelled))
+          uniformation_parser_->ingest_layer_execution(*execution, now_ms());
+      }
+    }
+    if (parser_error() != ElegooError::none) { error_ = parser_error(); return false; }
+    const auto latest = last_status_ms() ? last_status_ms() : started_at_;
     if (now_ms() - latest >= kElegooSdcpStatusLifetimeMs ||
-        (!parser_->ready(now_ms()) && now_ms() - started_at_ >= kElegooSdcpStatusLifetimeMs)) {
+        (!ready(now_ms()) && now_ms() - started_at_ >= kElegooSdcpStatusLifetimeMs)) {
       error_ = ElegooError::timeout; return false;
     }
     return true;
   }
   ElegooError error() const { return error_; }
-  const ElegooSdcpParser& parser() const { return *parser_; }
+  bool ready(std::uint64_t now) const { return uniformation_ ? uniformation_parser_->ready(now) : parser_->ready(now); }
+  const ElegooIdentity& identity() const { return uniformation_ ? uniformation_parser_->identity() : parser_->identity(); }
+  ElegooError parser_error() const { return uniformation_ ? uniformation_parser_->error() : parser_->error(); }
+  std::uint64_t last_status_ms() const { return uniformation_ ? uniformation_parser_->last_status_ms() : parser_->last_status_ms(); }
+  std::shared_ptr<std::vector<std::uint8_t>> preview(const std::string& task, const Cancel& cancelled) const {
+    return fetch_resin_preview(address_, port_, task, cancelled);
+  }
+  void snapshot_into(core::PrinterSnapshot& out, std::uint64_t now) const {
+    if (uniformation_) uniformation_parser_->snapshot_into(out, now); else parser_->snapshot_into(out, now);
+  }
+  bool control(core::ResinControl action, const Cancel& cancelled) {
+    if (!uniformation_ || !live_ || !ready(now_ms())) return false;
+    const auto body = uniformation_sdcp_control_request(action, identity().serial,
+        outer_id_, ++request_id_, static_cast<std::uint64_t>(std::time(nullptr)));
+    if (!body || !send_frame(1, *body, cancelled)) return false;
+    next_status_ = now_ms() + 100;
+    return true;
+  }
  private:
   bool send_frame(unsigned opcode, std::string_view payload, const Cancel& cancelled) {
     if (payload.size() > 512) { error_ = ElegooError::invalid_configuration; return false; }
@@ -283,7 +409,9 @@ class Session {
     return true;
   }
   bool request(unsigned command, const Cancel& cancelled) {
-    const auto body = elegoo_sdcp_read_request(command, serial_, ++request_id_, now_ms(), outer_id_);
+    const auto body = uniformation_
+        ? uniformation_sdcp_read_request(command, identity().serial, outer_id_, ++request_id_, static_cast<std::uint64_t>(std::time(nullptr)), command == 321 ? uniformation_parser_->task_id() : "")
+        : elegoo_sdcp_read_request(command, serial_, ++request_id_, now_ms(), outer_id_);
     if (!body) { error_ = ElegooError::invalid_configuration; return false; }
     return send_frame(1, *body, cancelled);
   }
@@ -330,7 +458,9 @@ class Session {
         if (result == ElegooSdcpFrames::Result::invalid) { error_ = ElegooError::unsupported_response; return false; }
         if (result == ElegooSdcpFrames::Result::complete) {
           auto message = frames_.take();
-          if (parser_->ingest(message, now_ms()) == ElegooSdcpMessage::invalid) { error_ = parser_->error(); return false; }
+          const auto parsed = uniformation_ ? uniformation_parser_->ingest(message, now_ms()) : parser_->ingest(message, now_ms());
+          if (parsed == ElegooSdcpMessage::invalid) { error_ = parser_error(); return false; }
+          if (uniformation_ && !uniformation_parser_->outer_id().empty()) outer_id_ = uniformation_parser_->outer_id();
         }
       }
       offset += count;
@@ -341,6 +471,15 @@ class Session {
   std::unique_ptr<HostLease> lease_;
   Socket socket_;
   std::unique_ptr<ElegooSdcpParser> parser_;
+  std::unique_ptr<UniformationSdcpParser> uniformation_parser_;
+  bool uniformation_ = false, live_ = false;
+  std::string address_, details_task_;
+  std::uint16_t port_ = 3030;
+  std::uint64_t next_details_ = 0;
+  std::string execution_task_;
+  std::uint16_t execution_layer_ = 0;
+  unsigned execution_attempts_ = 0;
+  std::uint64_t next_execution_ = 0;
   ElegooSdcpFrames frames_;
   std::string serial_, outer_id_;
   std::uint64_t started_at_ = 0, request_id_ = 0, next_status_ = 0, next_attributes_ = 0;
@@ -349,7 +488,7 @@ class Session {
 
 }  // namespace
 
-ElegooPollResult elegoo_sdcp_probe(const core::PrinterProfile& profile, std::uint64_t deadline,
+static ElegooPollResult sdcp_probe(const core::PrinterProfile& profile, std::uint64_t deadline,
     const std::function<bool()>& cancelled, ElegooIdentity* identity) {
   ElegooPollResult result;
   const auto stop = [&] { return done(deadline, cancelled); };
@@ -361,10 +500,10 @@ ElegooPollResult elegoo_sdcp_probe(const core::PrinterProfile& profile, std::uin
     if (!session->step(stop)) {
       result.error = cancelled && cancelled() ? ElegooError::cancelled : now_ms() >= deadline ? ElegooError::timeout : session->error(); return result;
     }
-    if (session->parser().ready(now_ms())) {
+    if (session->ready(now_ms())) {
       result.snapshot.emplace();
-      session->parser().snapshot_into(*result.snapshot, now_ms());
-      if (identity) *identity = session->parser().identity();
+      session->snapshot_into(*result.snapshot, now_ms());
+      if (identity) *identity = session->identity();
       return result;
     }
   }
@@ -372,11 +511,25 @@ ElegooPollResult elegoo_sdcp_probe(const core::PrinterProfile& profile, std::uin
   return result;
 }
 
+ElegooPollResult elegoo_sdcp_probe(const core::PrinterProfile& profile, std::uint64_t deadline,
+    const std::function<bool()>& cancelled, ElegooIdentity* identity) {
+  if (profile.protocol != core::PrinterProtocol::elegoo_sdcp) return {.error = ElegooError::invalid_configuration};
+  return sdcp_probe(profile, deadline, cancelled, identity);
+}
+ElegooPollResult uniformation_sdcp_probe(const core::PrinterProfile& profile, std::uint64_t deadline,
+    const std::function<bool()>& cancelled, ElegooIdentity* identity) {
+  if (profile.protocol != core::PrinterProtocol::uniformation_sdcp) return {.error = ElegooError::invalid_configuration};
+  return sdcp_probe(profile, deadline, cancelled, identity);
+}
+
 void ElegooSdcpAdapter::configure(const core::PrinterProfile* profile) {
   const std::lock_guard<std::mutex> lock(mutex_);
-  const core::PrinterProfile next = profile && profile->protocol == core::PrinterProtocol::elegoo_sdcp ? *profile : core::PrinterProfile{};
+  const core::PrinterProfile next = profile && (profile->protocol == core::PrinterProtocol::elegoo_sdcp ||
+      profile->protocol == core::PrinterProtocol::uniformation_sdcp) ? *profile : core::PrinterProfile{};
   if (core::same_printer_connection(profile_, next)) return;
   profile_ = next; ++generation_;
+  controls_live_ = false;
+  if (controls_) xQueueReset(controls_);
   snapshots_.invalidate(next.id, next.id ? core::LinkState::connecting : core::LinkState::stopped);
   if (task_) xTaskNotifyGive(task_);
 }
@@ -385,6 +538,9 @@ esp_err_t ElegooSdcpAdapter::start(const core::PrinterProfile* profile, const Ne
   const std::lock_guard<std::mutex> lock(mutex_);
   if (running_) return stopping_ ? ESP_ERR_INVALID_STATE : ESP_OK;
   if (!profile_.id || !elegoo_sdcp_valid_mainboard_id(profile_.serial)) return ESP_ERR_INVALID_ARG;
+  if (!controls_) controls_ = xQueueCreate(1, sizeof(QueuedControl));
+  if (!controls_) return ESP_ERR_NO_MEM;
+  xQueueReset(controls_);
   network_ = &network; stopping_ = false; running_ = true;
   if (xTaskCreatePinnedToCoreWithCaps(task_entry, "elegoo_sdcp", 49152, this, 4, &task_, kServiceCore,
       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
@@ -394,7 +550,13 @@ esp_err_t ElegooSdcpAdapter::start(const core::PrinterProfile* profile, const Ne
 }
 void ElegooSdcpAdapter::stop() {
   const std::lock_guard<std::mutex> lock(mutex_);
+  controls_live_ = false;
   stopping_ = true; if (task_) xTaskNotifyGive(task_);
+}
+bool ElegooSdcpAdapter::request_control(const core::ResinControlRequest& request) {
+  if (!running_ || stopping_ || !controls_live_ || !controls_) return false;
+  const QueuedControl queued{request, now_ms(), generation_.load()};
+  return xQueueSend(controls_, &queued, 0) == pdTRUE;
 }
 void ElegooSdcpAdapter::task_entry(void* context) {
   static_cast<ElegooSdcpAdapter*>(context)->run(); vTaskDeleteWithCaps(nullptr);
@@ -407,17 +569,54 @@ void ElegooSdcpAdapter::run() {
     const auto cancelled = [&] { return stopping_ || generation != generation_ || !network_->status().station_connected; };
     auto session = std::make_unique<Session>();
     auto state = std::make_unique<core::PrinterSnapshot>();
+    std::string preview_task;
+    std::shared_ptr<std::vector<std::uint8_t>> preview;
+    std::uint64_t next_preview = 0;
+    unsigned preview_attempts = 0;
     if (!cancelled() && session->open(profile, false, now_ms() + 7000, cancelled)) {
+      if (controls_) xQueueReset(controls_);
+      controls_live_ = profile.protocol == core::PrinterProtocol::uniformation_sdcp;
       std::uint64_t published_at = 0;
       while (!cancelled() && session->step(cancelled)) {
         const auto now = now_ms();
-        if (!session->parser().ready(now) || now - published_at < 100) continue;
-        session->parser().snapshot_into(*state, now);
+        if (!session->ready(now) || now - published_at < 100) continue;
+        session->snapshot_into(*state, now);
+        QueuedControl control;
+        if (controls_ && xQueueReceive(controls_, &control, 0) == pdTRUE) {
+          // One-shot commands belong to this connection and this exact job.
+          // Never replay a queued action after reconnection or a slow download.
+          if (profile.protocol == core::PrinterProtocol::uniformation_sdcp &&
+              control.generation == generation && now >= control.queued_at_ms &&
+              now - control.queued_at_ms <= 2000 &&
+              core::resin_control_matches(control.request, *state, now) && !cancelled()) {
+            if (!session->control(control.request.action, cancelled)) break;
+          }
+        }
+        if (profile.protocol == core::PrinterProtocol::uniformation_sdcp) {
+          const auto& task = state->job.preview_hint;
+          if (task != preview_task) {
+            preview_task = task; preview.reset(); next_preview = 0; preview_attempts = 0;
+          }
+          // A changed job is published without the previous image before a
+          // bounded download. Failed/missing previews never take status offline.
+          state->job.preview = preview;
+          if (!preview_task.empty() && !preview && preview_attempts < 3 && now >= next_preview) {
+            { const std::lock_guard<std::mutex> lock(mutex_);
+              if (generation == generation_ && !stopping_) snapshots_.replace(*state); }
+            ++preview_attempts; next_preview = now + 30000;
+            preview = session->preview(preview_task, cancelled);
+            // Read the queued status before publishing an image: the print
+            // may have changed while HTTP was in flight.
+            continue;
+          }
+        }
         { const std::lock_guard<std::mutex> lock(mutex_);
           if (generation == generation_ && !stopping_) snapshots_.replace(std::move(*state)); }
         published_at = now;
       }
     }
+    controls_live_ = false;
+    if (controls_) xQueueReset(controls_);
     session.reset();  // release the socket before any backoff/reconfiguration
     { const std::lock_guard<std::mutex> lock(mutex_);
       if (generation == generation_ && !stopping_) {

@@ -90,6 +90,9 @@ void JobState::normalize() {
 
   if (!reachable) {
     phase = JobPhase::unknown;
+    resin_stage = ResinStage::unknown;
+    resin_settings = {};
+    resin_telemetry = {};
     activity = PrinterActivity::unknown;
     activity_detail = ActivityDetail::none;
     activity_status_available = false;
@@ -168,6 +171,28 @@ const char* job_status_label(const JobState& job) {
                       job.phase == JobPhase::printing;
   return active && job.kind == JobKind::calibration ? "Calibration"
                                                      : phase_label(job.phase);
+}
+
+const char* resin_status_label(const JobState& job) {
+  if (!job.reachable) return "Unavailable";
+  if (job.condition == PrinterCondition::error) return "Printer error";
+  switch (job.resin_stage) {
+    case ResinStage::standby: return "Standby";
+    case ResinStage::homing: return "Homing";
+    case ResinStage::lowering: return "Lowering";
+    case ResinStage::exposing: return "Exposing";
+    case ResinStage::lifting: return "Lifting";
+    case ResinStage::pausing: return "Pausing";
+    case ResinStage::paused: return "Paused";
+    case ResinStage::stopping: return "Stopping";
+    case ResinStage::stopped: return "Stopped";
+    case ResinStage::completed: return "Complete";
+    case ResinStage::checking_file: return "Checking file";
+    case ResinStage::transferring_file: return "Transferring file";
+    case ResinStage::exposure_test: return "Exposure test";
+    case ResinStage::device_test: return "Device test";
+    default: return job_status_label(job);
+  }
 }
 
 std::string job_name_for_display(std::string_view name) {

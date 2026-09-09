@@ -1182,7 +1182,7 @@ void DisplayShell::square_show_my_printers(
         const bool checking = has_status && inactive_status->checking;
         const bool connected = is_selected ? selected_online
                                            : has_status && inactive_status->connected;
-        const bool selectable = !checking && core::printer_selectable(
+        const bool selectable = core::printer_driver(profile.protocol).dashboard && !checking && core::printer_selectable(
             is_selected, connected ? core::PrinterReachability::online
                                    : has_status ? core::PrinterReachability::offline
                                                 : core::PrinterReachability::unknown);
@@ -1223,13 +1223,10 @@ void DisplayShell::square_show_my_printers(
         lv_obj_add_flag(name, LV_OBJ_FLAG_EVENT_BUBBLE);
         lv_obj_add_flag(name, LV_OBJ_FLAG_GESTURE_BUBBLE);
         lv_obj_t* detail = lv_label_create(card);
-        std::string endpoint = profile.endpoint;
-        if (endpoint.rfind("http://", 0) == 0) endpoint.erase(0, 7);
-        else if (endpoint.rfind("https://", 0) == 0) endpoint.erase(0, 8);
-        while (!endpoint.empty() && endpoint.back() == '/') endpoint.pop_back();
-        lv_label_set_text(detail, endpoint.empty() ? "--" : endpoint.c_str());
+        const auto host = endpoint_host(profile.endpoint);
+        lv_label_set_text(detail, host.c_str());
         apply_text_style(detail, lv_color_hex(theme_style_.text_muted), &lv_font_montserrat_12);
-        lv_obj_set_width(detail, kDisplayUsesCompactRoundLayout ? 104 : 126);
+        lv_obj_set_size(detail, kDisplayUsesCompactRoundLayout ? 104 : 126, 16);
         lv_obj_set_style_text_align(detail, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
         lv_label_set_long_mode(detail, LV_LABEL_LONG_DOT);
         lv_obj_align(detail, LV_ALIGN_BOTTOM_LEFT, 0, 3);
@@ -1256,7 +1253,8 @@ void DisplayShell::square_show_my_printers(
             : has_status ? theme_colors_.offline : theme_colors_.unknown;
         lv_label_set_text(state, tr(state_text));
         apply_text_style(state, lv_color_hex(state_color), &lv_font_montserrat_12);
-        lv_obj_set_width(state, kDisplayUsesCompactRoundLayout ? 58 : 65);
+        lv_obj_set_size(state, kDisplayUsesCompactRoundLayout ? 58 : 65, 16);
+        lv_label_set_long_mode(state, LV_LABEL_LONG_DOT);
         lv_obj_set_style_text_align(state, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
         lv_obj_align(state, LV_ALIGN_RIGHT_MID, 0, 0);
         lv_obj_add_flag(state, LV_OBJ_FLAG_EVENT_BUBBLE);
@@ -1299,8 +1297,7 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     lv_obj_set_size(media_frame, 70, 70);
     lv_obj_align(media_frame, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_set_style_radius(media_frame, themed_radius(10), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(media_frame,
-                              lv_color_hex(theme_colors_.preview_background), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(media_frame, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(media_frame, has_preview ? LV_OPA_COVER : LV_OPA_TRANSP,
                             LV_PART_MAIN);
     lv_obj_set_style_border_width(media_frame, 1, LV_PART_MAIN);
@@ -1315,6 +1312,8 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
       lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
       lv_obj_center(media_image_);
       square_route_screen_gestures(media_image_);
+      lv_obj_add_flag(media_image_, LV_OBJ_FLAG_CLICKABLE);
+      lv_obj_add_event_cb(media_image_, media_zoom_event, LV_EVENT_SHORT_CLICKED, this);
     } else if (const lv_image_dsc_t* logo = brand_logo_small(profile); logo != nullptr) {
       lv_obj_t* mark = lv_image_create(media_frame);
       lv_image_set_src(mark, logo);
@@ -2425,7 +2424,7 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
     square_route_screen_gestures(detail_label_);
 
     media_image_ = lv_image_create(lv_screen_active());
-    lv_obj_add_event_cb(media_image_, camera_zoom_event, LV_EVENT_SHORT_CLICKED, this);
+    lv_obj_add_event_cb(media_image_, media_zoom_event, LV_EVENT_SHORT_CLICKED, this);
     lv_obj_add_flag(media_image_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_EVENT_BUBBLE |
                                   LV_OBJ_FLAG_GESTURE_BUBBLE));
     lv_obj_set_size(media_image_, 220, 124);
@@ -2545,7 +2544,7 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
                                           : tr("Live local snapshot"));
   } else {
     lv_image_set_src(media_image_, nullptr);
-    if (camera_zoom_image_ != nullptr) lv_image_set_src(camera_zoom_image_, nullptr);
+    if (media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
     const bool rtsps_unsupported =
         snapshot.job.camera_detail == "This display does not support RTSPS cameras";
     const bool detection_failed = snapshot.job.camera_detail == "No camera detected";
