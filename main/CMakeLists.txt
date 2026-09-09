@@ -242,3 +242,12 @@ foreach(font_size 12 14 16 24 32)
     target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=lv_font_montserrat_${font_size}")
 endforeach()
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Wpedantic)
+# Configuration and status parsing are not rendering hot paths. Prefer compact
+# code here to keep the application within the existing 5 MiB OTA slots.
+set_source_files_properties(
+    "src/platform/web_config.cpp"
+    "src/platform/bambu_report_parser.cpp"
+    "src/platform/elegoo_sdcp_parser.cpp"
+    "src/platform/moonraker_status_parser.cpp"
+    "src/platform/uniformation_sdcp_parser.cpp"
+    PROPERTIES COMPILE_OPTIONS "-Os")
