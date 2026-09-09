@@ -171,6 +171,10 @@ esp_err_t NetworkService::start(const core::DeviceSettings& settings) {
   std::array<std::uint8_t, 6> station_mac{};
   result = esp_read_mac(station_mac.data(), ESP_MAC_WIFI_STA);
   if (result != ESP_OK) return result;
+  std::array<char, 18> mac_address{};
+  std::snprintf(mac_address.data(), mac_address.size(), "%02X:%02X:%02X:%02X:%02X:%02X",
+                station_mac[0], station_mac[1], station_mac[2], station_mac[3],
+                station_mac[4], station_mac[5]);
   std::array<char, 23> device_id{};
   std::snprintf(device_id.data(), device_id.size(), "printdeck-%02x%02x%02x%02x%02x%02x",
                 station_mac[0], station_mac[1], station_mac[2], station_mac[3],
@@ -220,6 +224,7 @@ esp_err_t NetworkService::start(const core::DeviceSettings& settings) {
     status_.station_connecting = !settings.wifi_name.empty();
     status_.setup_network_name = setup_network_name_;
     status_.device_id = device_id_;
+    status_.mac_address = mac_address.data();
     status_.device_name = device_name_;
     status_.friendly_hostname = friendly_mdns_hostname_ + ".local";
   }

@@ -24,6 +24,7 @@ struct NetworkStatus {
   bool recovery_ap_active = false;
   std::string station_name;
   std::string ipv4;
+  std::string mac_address;  // Wi-Fi station interface, including during setup.
   std::string netmask;
   std::string device_name;
   std::string local_hostname;

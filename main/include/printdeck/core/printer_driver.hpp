@@ -26,6 +26,7 @@ struct PrinterDriverDescriptor {
   const char* default_manufacturer;
   const char* default_brand;
   std::uint32_t capabilities;
+  std::uint16_t default_port = 0;
   bool experimental = false;
   bool resin = false;
   bool dashboard = true;

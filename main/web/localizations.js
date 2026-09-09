@@ -891,6 +891,7 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"Save name":["Zapisz nazwę","Guardar nombre","Enregistrer le nom","Namen speichern","保存名称"]
   ,"Local address:":["Adres lokalny:","Dirección local:","Adresse locale :","Lokale Adresse:","本地地址："]
   ,"IP address:":["Adres IP:","Dirección IP:","Adresse IP :","IP-Adresse:","IP 地址："]
+  ,"MAC address:":["Adres MAC:","Dirección MAC:","Adresse MAC :","MAC-Adresse:","MAC 地址："]
   ,"Saving device name…":["Zapisywanie nazwy urządzenia…","Guardando el nombre del dispositivo…","Enregistrement du nom de l’appareil…","Gerätename wird gespeichert…","正在保存设备名称…"]
   ,"Device name saved.":["Nazwa urządzenia została zapisana.","Nombre del dispositivo guardado.","Nom de l’appareil enregistré.","Gerätename gespeichert.","设备名称已保存。"]
   ,"The device name is too long.":["Nazwa urządzenia jest za długa.","El nombre del dispositivo es demasiado largo.","Le nom de l’appareil est trop long.","Der Gerätename ist zu lang.","设备名称过长。"]

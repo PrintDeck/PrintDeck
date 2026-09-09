@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <string_view>
 
 #include "printdeck/core/printer_driver.hpp"
+#include "printdeck/core/settings.hpp"
 
 namespace printdeck::core {
 namespace {
@@ -194,6 +196,32 @@ void append_status_object(std::string& output, const UnifiedPrinterView& printer
   output += "}";
 }
 
+void append_printer_network(std::string& output, const UnifiedPrinterView& printer) {
+  if (!is_local_printer_endpoint(printer.endpoint, printer.protocol)) {
+    output += "{\"address\":null,\"port\":null}";
+    return;
+  }
+  std::string_view address = printer.endpoint;
+  unsigned port = printer_driver(printer.protocol).default_port;
+  if (address.starts_with("https://")) {
+    address.remove_prefix(8);
+    port = 443;
+  } else if (address.starts_with("http://")) {
+    address.remove_prefix(7);
+    port = 80;
+  }
+  const auto colon = address.find(':');
+  if (colon != std::string_view::npos) {
+    const auto port_text = address.substr(colon + 1);
+    // Profile validation has already checked the complete port and its range.
+    std::from_chars(port_text.data(), port_text.data() + port_text.size(), port);
+    address = address.substr(0, colon);
+  }
+  output += "{\"address\":";
+  append_json_string(output, address);
+  output += ",\"port\":" + (port == 0 ? std::string("null") : std::to_string(port)) + "}";
+}
+
 void append_printer_object(std::string& output, const UnifiedPrinterView& printer) {
   output += "{\"id\":" + std::to_string(printer.id) + ",\"name\":";
   append_json_string(output, printer.display_name);
@@ -207,6 +235,8 @@ void append_printer_object(std::string& output, const UnifiedPrinterView& printe
   else append_json_string(output, printer.model);
   output += ",\"endpoint\":";
   append_json_string(output, printer.endpoint);
+  output += ",\"network\":";
+  append_printer_network(output, printer);
   output += ",\"selected\":";
   output += printer.selected ? "true" : "false";
   output += ",\"reachability\":\"";

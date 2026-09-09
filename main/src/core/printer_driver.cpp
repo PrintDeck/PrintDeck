@@ -23,6 +23,7 @@ constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
         .default_manufacturer = "Klipper",
         .default_brand = "klipper",
         .capabilities = capability_mask({PrinterCapability::api_key, PrinterCapability::http_endpoint}),
+        .default_port = 7125,
     },
     {
         .protocol = PrinterProtocol::bambu_lan,
@@ -36,6 +37,7 @@ constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
                                          PrinterCapability::local_camera,
                                          PrinterCapability::chamber_light,
                                          PrinterCapability::compatibility_report}),
+        .default_port = 8883,
     },
     {
         .protocol = PrinterProtocol::prusalink,
@@ -46,6 +48,7 @@ constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
         .capabilities = capability_mask({PrinterCapability::api_key,
                                          PrinterCapability::http_endpoint,
                                          PrinterCapability::http_digest}),
+        .default_port = 80,
         .experimental = true,
     },
     {
@@ -55,6 +58,7 @@ constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
         .default_manufacturer = "ELEGOO",
         .default_brand = "elegoo",
         .capabilities = capability_mask({PrinterCapability::serial_number}),
+        .default_port = 3030,
         .experimental = true,
     },
     {
@@ -65,6 +69,7 @@ constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
         .default_brand = "elegoo",
         .capabilities = capability_mask({PrinterCapability::serial_number,
                                          PrinterCapability::access_code}),
+        .default_port = 1883,
         .experimental = true,
     },
     {
@@ -74,6 +79,7 @@ constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
         .default_manufacturer = "UniFormation",
         .default_brand = "uniformation",
         .capabilities = capability_mask({PrinterCapability::serial_number}),
+        .default_port = 3030,
         .experimental = true,
         .resin = true,
         .dashboard = true,

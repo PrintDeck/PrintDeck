@@ -1490,6 +1490,8 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   append_json_string(body, network.friendly_hostname);
   body += ",\"ipv4\":";
   append_json_string(body, network.ipv4);
+  body += ",\"mac_address\":";
+  append_json_string(body, network.mac_address);
   body += ",\"device_name\":";
   append_json_string(body, network.device_name);
   body += ",\"configured_device_name\":";
