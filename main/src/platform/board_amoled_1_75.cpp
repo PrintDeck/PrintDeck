@@ -3,9 +3,28 @@
 #include "bsp/esp32_s3_touch_amoled_1_75.h"
 #include "bsp/touch.h"
 #include "driver/gpio.h"
+#include "esp_lcd_touch_cst9217.h"
+#include "esp_log.h"
 #include "printdeck/platform/rotating_panel.hpp"
 
 namespace printdeck::platform {
+namespace {
+
+// The QSPI panel is write-only: LVGL can still render and capture its scene
+// without a connected screen. Keep a polling input for Live View when the
+// detached screen's CST9217 does not acknowledge its address after reset.
+esp_lcd_touch_t remote_touch{};
+bool remote_touch_active = false;
+
+esp_err_t remote_touch_read(esp_lcd_touch_handle_t) { return ESP_OK; }
+
+bool remote_touch_get_xy(esp_lcd_touch_handle_t, std::uint16_t*, std::uint16_t*,
+                         std::uint16_t*, std::uint8_t* count, std::uint8_t) {
+  *count = 0;
+  return false;
+}
+
+}  // namespace
 
 esp_err_t board_early_init() { return ESP_OK; }
 
@@ -41,13 +60,44 @@ void board_auto_rotation_axes(float x, float y, float,
 }
 
 esp_err_t board_touch_new(esp_lcd_touch_handle_t* touch) {
-  bsp_display_cfg_t config = {
-      .lv_adapter_cfg = ESP_LV_ADAPTER_DEFAULT_CONFIG(),
-      .rotation = ESP_LV_ADAPTER_ROTATE_0,
-      .tear_avoid_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_NONE,
-      .touch_flags = {.swap_xy = 0, .mirror_x = 1, .mirror_y = 1},
+  if (touch == nullptr) return ESP_ERR_INVALID_ARG;
+  *touch = nullptr;
+  const esp_err_t bus_result = bsp_i2c_init();
+  if (bus_result != ESP_OK) return bus_result;
+  const esp_lcd_touch_config_t config = {
+      .x_max = BSP_LCD_H_RES,
+      .y_max = BSP_LCD_V_RES,
+      .rst_gpio_num = BSP_LCD_TOUCH_RST,
+      .int_gpio_num = BSP_LCD_TOUCH_INT,
+      .levels = {.reset = 0, .interrupt = 0},
+      .flags = {.swap_xy = 0, .mirror_x = 1, .mirror_y = 1},
   };
-  return bsp_touch_new(&config, touch);
+  esp_lcd_panel_io_i2c_config_t io_config = ESP_LCD_TOUCH_IO_I2C_CST9217_CONFIG();
+  io_config.scl_speed_hz = CONFIG_BSP_I2C_CLK_SPEED_HZ;
+  esp_lcd_panel_io_handle_t io = nullptr;
+  const esp_err_t io_result = esp_lcd_new_panel_io_i2c(bsp_i2c_get_handle(), &io_config, &io);
+  if (io_result != ESP_OK) return io_result;
+
+  // Retain the driver's normal reset and identification sequence. A bus error,
+  // allocation failure or an unrecognized responding device is not absence.
+  const esp_err_t result = esp_lcd_touch_new_i2c_cst9217(io, &config, touch);
+  if (result == ESP_OK) return ESP_OK;
+  esp_lcd_panel_io_del(io);
+  if (result != ESP_FAIL && result != ESP_ERR_NOT_FOUND) return result;
+  const esp_err_t probe = i2c_master_probe(
+      bsp_i2c_get_handle(), ESP_LCD_TOUCH_IO_I2C_CST9217_ADDRESS, 50);
+  if (probe != ESP_ERR_NOT_FOUND) return result;
+
+  remote_touch.config.x_max = BSP_LCD_H_RES;
+  remote_touch.config.y_max = BSP_LCD_V_RES;
+  remote_touch.config.rst_gpio_num = GPIO_NUM_NC;
+  remote_touch.config.int_gpio_num = GPIO_NUM_NC;
+  remote_touch.read_data = remote_touch_read;
+  remote_touch.get_xy = remote_touch_get_xy;
+  remote_touch_active = true;
+  *touch = &remote_touch;
+  ESP_LOGW("amoled_board", "Touch controller absent; continuing with Live View input only");
+  return ESP_OK;
 }
 
 void board_touch_transform(int degrees, bool* swap_xy, bool* mirror_x, bool* mirror_y) {
@@ -71,7 +121,9 @@ esp_err_t board_display_brightness_set(int percent) {
 
 int board_display_brightness_get() { return bsp_display_brightness_get(); }
 
-bool board_touch_interrupt_active() { return gpio_get_level(BSP_LCD_TOUCH_INT) == 0; }
+bool board_touch_interrupt_active() {
+  return !remote_touch_active && gpio_get_level(BSP_LCD_TOUCH_INT) == 0;
+}
 
 esp_err_t board_i2c_init() { return bsp_i2c_init(); }
 

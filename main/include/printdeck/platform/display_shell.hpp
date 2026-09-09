@@ -552,6 +552,7 @@ class DisplayShell {
   std::atomic<int> current_rotation_{0};
   std::atomic<int> touch_rotation_applied_{-1};
   lv_indev_t* touch_input_ = nullptr;
+  bool touch_uses_interrupt_ = true;
   std::atomic<int> remote_input_state_{0};
   std::int64_t remote_input_started_us_ = 0;
   std::atomic<std::int64_t> remote_activity_suppressed_until_us_{0};

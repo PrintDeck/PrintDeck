@@ -509,6 +509,7 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
   }
   const esp_lv_adapter_touch_config_t touch_config =
       ESP_LV_ADAPTER_TOUCH_DEFAULT_CONFIG(display, touch_handle);
+  touch_uses_interrupt_ = touch_handle->config.int_gpio_num != GPIO_NUM_NC;
   lv_indev_t* touch_input = esp_lv_adapter_register_touch(&touch_config);
   if (touch_input == nullptr) {
     ESP_LOGE(kLogTag, "Touch input registration failed");
@@ -6709,7 +6710,7 @@ esp_err_t DisplayShell::queue_remote_input(int start_x, int start_y,
           static_cast<std::int64_t>(duration_ms + 250U) * 1000,
       std::memory_order_release);
   remote_input_state_.store(kRemoteInputActive, std::memory_order_release);
-  if (!esp_lv_adapter_touch_notify_interrupt(touch_input_)) {
+  if (touch_uses_interrupt_ && !esp_lv_adapter_touch_notify_interrupt(touch_input_)) {
     remote_input_state_.store(kRemoteInputIdle, std::memory_order_release);
     remote_activity_suppressed_until_us_.store(0, std::memory_order_release);
     return ESP_ERR_INVALID_STATE;

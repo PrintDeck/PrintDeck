@@ -104,6 +104,7 @@ else()
     )
     list(APPEND PRINTDECK_BOARD_REQUIRES
         waveshare__esp32_s3_touch_amoled_1_75
+        waveshare__esp_lcd_touch_cst9217
     )
 endif()
 
