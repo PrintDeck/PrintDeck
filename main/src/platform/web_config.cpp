@@ -391,6 +391,10 @@ bool backup_hmac_sha256(std::span<const std::uint8_t> password,
         output[index] ^= value[index];
       }
     }
+    // PBKDF2 can take several seconds on-device. Keep each CPU burst bounded
+    // so the idle watchdog and other core-0 services can run during a backup.
+    // The iteration count and derived key remain unchanged.
+    if ((iteration % 1024U) == 0) vTaskDelay(1);
   }
   mbedtls_md_free(&context);
   mbedtls_platform_zeroize(value.data(), value.size());

@@ -107,9 +107,12 @@ esp_err_t VoiceService::start(AudioService& audio, WakeCallback wake, void* cont
   stop_requested_.store(false);
   ready_.store(false);
   running_.store(true);
+  // Mapping and unmapping the model partition briefly disable the flash/PSRAM
+  // cache. This worker therefore needs an internal stack; model data stays in
+  // PSRAM and is still expanded one model at a time.
   if (xTaskCreatePinnedToCoreWithCaps(task_entry, "voice", 8192, this, 5,
                                       &task_, kServiceCore,
-                                      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
+                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) != pdPASS) {
     running_.store(false);
     return ESP_ERR_NO_MEM;
   }
