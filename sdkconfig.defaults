@@ -97,10 +97,11 @@ CONFIG_MDNS_PREDEF_NETIF_AP=y
 # CONFIG_MDNS_PREDEF_NETIF_ETH is not set
 CONFIG_MDNS_ENABLE_BROWSE=n
 CONFIG_MDNS_ENABLE_CONSOLE_CLI=n
-# A K2 1080p IDR is delivered as a burst of roughly 10-20 UDP datagrams.  The
-# IDF default queue of six accepts ordinary P-frames but drops that burst before
-# the WebRTC jitter buffer can assemble a keyframe.
-CONFIG_LWIP_UDP_RECVMBOX_SIZE=32
+# K2 1080p keyframes arrive in bursts of up to 80 small RTP datagrams.
+# Use the largest supported UDP mailbox and a matching TCP/IP queue while
+# draining bounded batches; 32 slots can discard part of every keyframe.
+CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=64
+CONFIG_LWIP_UDP_RECVMBOX_SIZE=64
 # Printer discovery owns two SSDP listeners and a bounded batch of five TCP
 # probes while Web Config and the selected printer remain responsive. Keep the
 # same descriptor budget as the proven 3D Print Monitor discovery path.

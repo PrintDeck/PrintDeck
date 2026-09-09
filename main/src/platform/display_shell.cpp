@@ -1,3 +1,4 @@
+#include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/display_shell.hpp"
 
 #include "esp_log.h"
@@ -3355,22 +3356,27 @@ void DisplayShell::update_printer_progress(const core::PrinterSnapshot& snapshot
   const bool round_reaction_progress =
       kDisplayUsesCompactRoundLayout && view_ == 24;
   if (kDisplayUsesLargeLayout || round_reaction_progress) {
-    lv_obj_set_style_arc_color(progress_arc_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
-    lv_obj_set_style_arc_color(progress_arc_, lv_color_hex(theme_colors_.printing),
-                               LV_PART_INDICATOR);
-    lv_obj_set_style_text_color(progress_label_, lv_color_hex(theme_colors_.printing),
-                                LV_PART_MAIN);
+    if (!lv_color_eq(lv_obj_get_style_arc_color(progress_arc_, LV_PART_MAIN), lv_color_hex(theme_style_.track)))
+      lv_obj_set_style_arc_color(progress_arc_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
+    if (!lv_color_eq(lv_obj_get_style_arc_color(progress_arc_, LV_PART_INDICATOR), lv_color_hex(theme_colors_.printing)))
+      lv_obj_set_style_arc_color(progress_arc_, lv_color_hex(theme_colors_.printing), LV_PART_INDICATOR);
+    if (!lv_color_eq(lv_obj_get_style_text_color(progress_label_, LV_PART_MAIN), lv_color_hex(theme_colors_.printing)))
+      lv_obj_set_style_text_color(progress_label_, lv_color_hex(theme_colors_.printing), LV_PART_MAIN);
     lv_arc_set_value(progress_arc_, progress);
   } else {
-    lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_colors_.printing),
-                              LV_PART_INDICATOR);
-    lv_obj_set_style_text_color(progress_label_, lv_color_hex(theme_colors_.printing),
-                                LV_PART_MAIN);
+    if (!lv_color_eq(lv_obj_get_style_bg_color(progress_arc_, LV_PART_MAIN), lv_color_hex(theme_style_.track)))
+      lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
+    if (!lv_color_eq(lv_obj_get_style_bg_color(progress_arc_, LV_PART_INDICATOR), lv_color_hex(theme_colors_.printing)))
+      lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_colors_.printing), LV_PART_INDICATOR);
+    if (!lv_color_eq(lv_obj_get_style_text_color(progress_label_, LV_PART_MAIN), lv_color_hex(theme_colors_.printing)))
+      lv_obj_set_style_text_color(progress_label_, lv_color_hex(theme_colors_.printing), LV_PART_MAIN);
     lv_bar_set_value(progress_arc_, progress, LV_ANIM_OFF);
   }
-  if (snapshot.job.completion_known) lv_label_set_text_fmt(progress_label_, "%d%%", progress);
-  else lv_label_set_text(progress_label_, "--%");
+  char progress_text[8];
+  if (snapshot.job.completion_known) std::snprintf(progress_text, sizeof(progress_text), "%d%%", progress);
+  else std::snprintf(progress_text, sizeof(progress_text), "--%%");
+  if (std::strcmp(lv_label_get_text(progress_label_), progress_text) != 0)
+    lv_label_set_text(progress_label_, progress_text);
 }
 
 void DisplayShell::create_printer_animation(lv_obj_t* parent) {
@@ -3862,13 +3868,13 @@ void DisplayShell::update_power_header(const PowerSnapshot& power) {
   const bool externally_powered = power.charging || power.usb_present;
   const std::uint32_t color = power.charging ? theme_style_.accent_secondary
                                              : theme_style_.text_primary;
-  if (externally_powered) {
-    lv_label_set_text_fmt(header_power_label_, LV_SYMBOL_CHARGE " %u%%",
-                          static_cast<unsigned>(power.battery_percent));
-  } else {
-    lv_label_set_text_fmt(header_power_label_, "%u%%",
-                          static_cast<unsigned>(power.battery_percent));
-  }
+  char label[32];
+  std::snprintf(label, sizeof(label), externally_powered ? LV_SYMBOL_CHARGE " %u%%" : "%u%%",
+                static_cast<unsigned>(power.battery_percent));
+  if (std::strcmp(lv_label_get_text(header_power_label_), label) == 0 &&
+      lv_color_eq(lv_obj_get_style_text_color(header_power_label_, LV_PART_MAIN),
+                   lv_color_hex(color))) return;
+  lv_label_set_text(header_power_label_, label);
   lv_obj_set_style_text_color(header_power_label_, lv_color_hex(color), LV_PART_MAIN);
   if (header_battery_outline_ != nullptr && lv_obj_is_valid(header_battery_outline_)) {
     lv_obj_t* battery = lv_obj_get_parent(header_battery_outline_);
@@ -4964,13 +4970,17 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
     apply_text_style(remaining_label_, lv_color_hex(theme_style_.accent_secondary),
                      &lv_font_montserrat_24);
     lv_obj_set_style_text_align(remaining_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-    lv_obj_set_width(remaining_label_, 150);
-    lv_obj_align(remaining_label_, LV_ALIGN_CENTER, 120, -26);
+    // One line ending at x=410, before the vertical pager. Reserve height too:
+    // long multi-day durations must ellipsize rather than move the timer rows.
+    lv_obj_set_size(remaining_label_, 132, 26);
+    lv_label_set_long_mode(remaining_label_, LV_LABEL_LONG_DOT);
+    lv_obj_align(remaining_label_, LV_ALIGN_CENTER, 111, -26);
     total_time_label_ = lv_label_create(screen);
     apply_text_style(total_time_label_, lv_color_hex(theme_style_.text_secondary), &lv_font_montserrat_16);
     lv_obj_set_style_text_align(total_time_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-    lv_obj_set_width(total_time_label_, 150);
-    lv_obj_align(total_time_label_, LV_ALIGN_CENTER, 120, -2);
+    lv_obj_set_size(total_time_label_, 132, 20);
+    lv_label_set_long_mode(total_time_label_, LV_LABEL_LONG_DOT);
+    lv_obj_align(total_time_label_, LV_ALIGN_CENTER, 111, -2);
     layer_label_ = lv_label_create(screen);
     // UNSCII is monospaced and substantially wider than Montserrat at the
     // same nominal size. Keep three-digit current/total layer values on one
@@ -5038,6 +5048,19 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
   const std::string remaining = active_job && snapshot.job.remaining_known ? duration_hms(snapshot.job.remaining_seconds) : "--m";
   const std::uint32_t total_seconds = snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
   const std::string total = active_job && snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0 ? duration_hms(total_seconds) : "--";
+  // Measure a full seconds/minutes field to avoid font changes as digits tick.
+  const auto hours = snapshot.job.remaining_seconds / 3600;
+  std::string widest_remaining = hours > 0 ? std::string(std::to_string(hours).size(), '8') + "h " : "";
+  widest_remaining += "88m 88s";
+  const lv_font_t* timer_font = localized_font(&lv_font_montserrat_24);
+  lv_point_t timer_size{};
+  lv_text_get_size(&timer_size, widest_remaining.c_str(), timer_font,
+                  lv_obj_get_style_text_letter_space(remaining_label_, LV_PART_MAIN),
+                  0, 132, LV_TEXT_FLAG_EXPAND);
+  if (timer_size.x > 132) {
+    timer_font = localized_font(&lv_font_montserrat_16);
+  }
+  lv_obj_set_style_text_font(remaining_label_, timer_font, LV_PART_MAIN);
   lv_label_set_text(remaining_label_, remaining.c_str());
   lv_label_set_text(total_time_label_, total.c_str());
   if (snapshot.job.current_layer > 0 || snapshot.job.total_layers > 0) {
@@ -5955,6 +5978,15 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
   if (board_display_lock(1000) != ESP_OK) return;
   const bool frame_changed = snapshot.job.camera_frame &&
       camera_pixels_.get() != snapshot.job.camera_frame.get();
+  // A new frame is presented immediately. Unchanged chrome only needs a
+  // one-second update, avoiding full-ring redraws on every camera poll.
+  const auto camera_now = esp_timer_get_time();
+  if (view_ == 22 && visible_profile_ == profile.id && !frame_changed &&
+      camera_now < camera_chrome_update_after_us_) {
+    board_display_unlock();
+    return;
+  }
+  camera_chrome_update_after_us_ = camera_now + 1'000'000;
   const bool refresh_completed = camera_was_refreshing_ &&
       !snapshot.job.camera_refreshing && snapshot.job.camera_frame &&
       !snapshot.job.camera_frame->empty();
@@ -7949,9 +7981,11 @@ void DisplayShell::screen_saver_tick(lv_timer_t* timer) {
 
 esp_err_t DisplayShell::capture_png(std::vector<std::uint8_t>& png,
                                     std::string& screen_name) const {
-  live_render_until_us_ = esp_timer_get_time() + 6'000'000;
   png.clear();
   screen_name.clear();
+  ImageWorkspaceLock workspace(3000);
+  if (!workspace) return ESP_ERR_TIMEOUT;
+  live_render_until_us_ = esp_timer_get_time() + 6'000'000;
   if (board_display_lock(2000) != ESP_OK) return ESP_ERR_TIMEOUT;
 
   screen_name = screen_power_mode_ == 3 ? "screen-saver" :

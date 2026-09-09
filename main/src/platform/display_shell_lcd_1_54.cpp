@@ -1361,11 +1361,13 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     apply_text_style(remaining_label_, lv_color_hex(theme_style_.accent_secondary),
                      &lv_font_montserrat_16);
     lv_obj_set_size(remaining_label_, 108, 22);
+    lv_label_set_long_mode(remaining_label_, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(remaining_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
     lv_obj_align(remaining_label_, LV_ALIGN_TOP_LEFT, 2, 0);
     total_time_label_ = lv_label_create(timer_values);
     apply_text_style(total_time_label_, lv_color_hex(theme_style_.text_secondary), &lv_font_montserrat_12);
     lv_obj_set_size(total_time_label_, 108, 18);
+    lv_label_set_long_mode(total_time_label_, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(total_time_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
     lv_obj_align(total_time_label_, LV_ALIGN_BOTTOM_LEFT, 2, 0);
     layer_label_ = lv_label_create(details);
@@ -2402,6 +2404,15 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
   if (board_display_lock(1000) != ESP_OK) return;
   const bool frame_changed = snapshot.job.camera_frame &&
       camera_pixels_.get() != snapshot.job.camera_frame.get();
+  // A new frame is presented immediately. Unchanged chrome only needs a
+  // one-second update, avoiding full-ring redraws on every camera poll.
+  const auto camera_now = esp_timer_get_time();
+  if (view_ == 22 && visible_profile_ == profile.id && !frame_changed &&
+      camera_now < camera_chrome_update_after_us_) {
+    board_display_unlock();
+    return;
+  }
+  camera_chrome_update_after_us_ = camera_now + 1'000'000;
   const bool refresh_completed = camera_was_refreshing_ &&
       !snapshot.job.camera_refreshing && snapshot.job.camera_frame &&
       !snapshot.job.camera_frame->empty();

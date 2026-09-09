@@ -1,3 +1,4 @@
+#include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/web_config.hpp"
 
 #include "printdeck/core/firmware_image.hpp"
@@ -1628,6 +1629,11 @@ esp_err_t WebConfig::serve_live_view_frame(httpd_req_t* request) {
                      "{\"error\":\"Wait a moment before refreshing Live View again.\"}");
   }
 
+  ImageWorkspaceLock workspace(5000);
+  if (!workspace) {
+    return send_json(request, "503 Service Unavailable",
+                     "{\"error\":\"The PrintDeck screen could not be captured.\"}");
+  }
   std::vector<std::uint8_t> png;
   std::string screen_name;
   const esp_err_t result = display_->capture_png(png, screen_name);

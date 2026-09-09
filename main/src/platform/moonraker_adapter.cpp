@@ -364,6 +364,7 @@ void MoonrakerAdapter::task_loop() {
       cached_estimated_seconds_ = 0;
       cached_total_layers_ = 0;
       tool_objects_.clear();
+      telemetry_objects_.clear();
       chamber_sensor_object_.clear();
       chamber_light_ = {};
       chamber_light_channels_ = 0;
@@ -414,6 +415,7 @@ void MoonrakerAdapter::task_loop() {
   cached_estimated_seconds_ = 0;
   cached_total_layers_ = 0;
   tool_objects_.clear();
+  telemetry_objects_.clear();
   chamber_sensor_object_.clear();
   chamber_light_ = {};
   chamber_light_channels_ = 0;
@@ -439,6 +441,7 @@ bool MoonrakerAdapter::discover_printer(const core::PrinterProfile& profile) {
   if (!document || !cJSON_IsArray(objects)) return false;
 
   tool_objects_.clear();
+  telemetry_objects_.clear();
   chamber_sensor_object_.clear();
   chamber_light_ = {};
   chamber_light_channels_ = 0;
@@ -452,6 +455,9 @@ bool MoonrakerAdapter::discover_printer(const core::PrinterProfile& profile) {
     if (!cJSON_IsString(item) || item->valuestring == nullptr) continue;
     const std::string name(item->valuestring);
     object_names.push_back(name);
+    if (name != "fan" && !moonraker_telemetry_fields(name).empty()) {
+      telemetry_objects_.push_back(name);
+    }
     const int tool_index = tool_index_from_name(name);
     if (tool_index >= 0 && tool_index < static_cast<int>(core::kMaximumToolheads)) {
       tool_objects_.push_back(name);
@@ -527,6 +533,10 @@ bool MoonrakerAdapter::poll(const core::PrinterProfile& profile) {
     query += "&" + url_encode(chamber_sensor_object_, false);
   }
   if (has_print_task_config_) query += "&print_task_config";
+  for (const std::string& object : telemetry_objects_) {
+    query += "&" + url_encode(object, false) + "=" +
+             url_encode(std::string(moonraker_telemetry_fields(object)), false);
+  }
   if (has_machine_state_manager_) query += "&machine_state_manager";
   if (has_machine_state_manager_ && has_bed_mesh_) query += "&bed_mesh=progress";
   if (chamber_light_.kind != MoonrakerLightKind::none) {
@@ -606,6 +616,7 @@ void MoonrakerAdapter::refresh_job_metadata(const core::PrinterProfile& profile,
                                             const std::string& filename) {
   cached_thumbnail_path_.clear();
   preview_pending_ = !filename.empty();
+  preview_retry_after_ms_ = 0;
   cached_metadata_filename_ = filename;
   cached_preview_.reset();
   cached_estimated_seconds_ = 0;
@@ -648,10 +659,17 @@ void MoonrakerAdapter::refresh_job_metadata(const core::PrinterProfile& profile,
 
 void MoonrakerAdapter::refresh_job_preview(const core::PrinterProfile& profile) {
   if (!preview_requested_.load()) return;
-  preview_pending_ = false;
   const auto& thumbnail_path = cached_thumbnail_path_;
   const auto& filename = cached_metadata_filename_;
-  if (filename.empty()) return;
+  if (filename.empty()) {
+    preview_pending_ = false;
+    return;
+  }
+  const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  if (now_ms < preview_retry_after_ms_) return;
+  // Leaving the camera can race a preview fetch or a temporary HTTP failure.
+  // Keep the request pending until an image is available, with bounded retries.
+  preview_retry_after_ms_ = now_ms + 5000;
   if (!thumbnail_path.empty()) {
     std::string image;
     const std::string image_path =
@@ -660,6 +678,7 @@ void MoonrakerAdapter::refresh_job_preview(const core::PrinterProfile& profile) 
                      kMaximumThumbnailBytes, nullptr, "image/png") &&
         preview_requested_.load() && is_png(image)) {
       cached_preview_ = std::make_shared<std::vector<std::uint8_t>>(image.begin(), image.end());
+      preview_pending_ = false;
       ESP_LOGI(kLogTag, "Loaded Moonraker thumbnail (%u bytes)",
                static_cast<unsigned>(cached_preview_->size()));
     }
@@ -675,6 +694,7 @@ void MoonrakerAdapter::refresh_job_preview(const core::PrinterProfile& profile) 
     if (!preview_requested_.load()) return;
     cached_preview_ = extract_embedded_png(header);
     if (cached_preview_) {
+      preview_pending_ = false;
       ESP_LOGI(kLogTag, "Loaded embedded Moonraker thumbnail (%u bytes)",
                static_cast<unsigned>(cached_preview_->size()));
     }

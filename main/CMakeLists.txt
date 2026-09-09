@@ -22,6 +22,7 @@ set(PRINTDECK_SRCS
         "src/platform/embedded_resources.cpp"
         "src/platform/runtime.cpp"
         "src/platform/display_shell.cpp"
+        "src/platform/lvgl_thread_affinity.cpp"
         "src/platform/printer_animation_renderer.cpp"
         "src/platform/reaction_asset_service.cpp"
         "src/platform/settings_store.cpp"
@@ -225,6 +226,8 @@ target_sources(${COMPONENT_LIB} PRIVATE "${layout_header}")
 target_include_directories(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_definitions(${COMPONENT_LIB} PRIVATE PRINTDECK_IDENTITY_TARGET="${PRINTDECK_HW_VARIANT}")
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,-u,printdeck_firmware_identity")
+target_link_libraries(${COMPONENT_LIB} INTERFACE
+    "-Wl,-u,__wrap_lv_thread_init" "-Wl,--wrap=lv_thread_init")
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_KNOMI2=1)
 elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")

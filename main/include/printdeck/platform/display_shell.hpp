@@ -482,6 +482,7 @@ class DisplayShell {
   std::shared_ptr<std::vector<std::uint8_t>> camera_pixels_;
   std::int64_t camera_activity_updated_until_us_ = 0;
   bool camera_was_refreshing_ = false;
+  std::int64_t camera_chrome_update_after_us_ = 0;
   std::array<lv_obj_t*, 4> material_cards_{};
   std::array<lv_obj_t*, 4> material_slot_labels_{};
   std::array<lv_obj_t*, 4> material_feed_labels_{};

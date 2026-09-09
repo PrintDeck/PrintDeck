@@ -43,6 +43,8 @@ struct MoonrakerStatusParseResult {
 core::JobPhase moonraker_phase(std::string_view status);
 MoonrakerLightDescriptor discover_moonraker_light(
     const std::vector<std::string>& object_names);
+// Only request recognized telemetry fields from objects advertised by the printer.
+std::string_view moonraker_telemetry_fields(std::string_view object_name);
 MoonrakerStatusParseResult parse_moonraker_status(
     const char* payload, std::size_t length, std::uint32_t profile_id,
     std::uint64_t updated_at_ms, const MoonrakerStatusParseContext& context);

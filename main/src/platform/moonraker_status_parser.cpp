@@ -44,6 +44,144 @@ bool bool_member(const cJSON* object, const char* key, bool fallback = false) {
   return cJSON_IsBool(value) ? cJSON_IsTrue(value) : fallback;
 }
 
+bool bounded_number(const cJSON* value, double minimum, double maximum) {
+  return cJSON_IsNumber(value) && std::isfinite(value->valuedouble) &&
+         value->valuedouble >= minimum && value->valuedouble <= maximum;
+}
+
+std::uint16_t first_layer_value(std::initializer_list<const cJSON*> values) {
+  for (const cJSON* value : values) {
+    if (bounded_number(value, 1, 65535) && std::floor(value->valuedouble) == value->valuedouble) {
+      return static_cast<std::uint16_t>(value->valuedouble);
+    }
+  }
+  return 0;
+}
+
+// Ordered by role and protocol: never substitute a hotend or chamber fan.
+constexpr std::string_view kPartFanObjects[]{
+    "fan", "fan_generic part_fan", "fan_generic partfan",
+    "fan_generic part_cooling_fan", "fan_generic part_cooling",
+    "fan_generic print_fan", "fan_generic print_cooling", "fan_generic fan0",
+    "output_pin fan0", "pwm_tool fan0",
+};
+
+void apply_part_fan(const cJSON* status, core::JobState& job) {
+  for (const auto name : kPartFanObjects) {
+    const bool pin = name.starts_with("output_pin ") || name.starts_with("pwm_tool ");
+    const cJSON* value = member(member(status, name.data()), pin ? "value" : "speed");
+    if (!bounded_number(value, 0, 1)) continue;
+    double speed = value->valuedouble;
+    if (pin) {
+      // Creality M106 adds fan0_min (0..255) before setting the normalized pin.
+      // Recover the requested percentage, including quiet-mode limiting.
+      const cJSON* minimum = member(member(status, "gcode_macro PRINTER_PARAM"), "fan0_min");
+      if (speed > 0 && bounded_number(minimum, 0, 254)) {
+        speed = std::clamp((speed * 255.0 - minimum->valuedouble) /
+                               (255.0 - minimum->valuedouble), 0.0, 1.0);
+      }
+      const cJSON* enabled = member(member(status, "output_pin fan0_en"), "value");
+      if (bounded_number(enabled, 0, 1) && enabled->valuedouble == 0) speed = 0;
+    }
+    job.motion.fan_percent = static_cast<float>(speed * 100.0);
+    job.motion.fan_percent_known = true;
+    return;  // A valid zero is authoritative; it must not fall through.
+  }
+}
+
+std::string creality_material(std::string_view code) {
+  // Numeric filament IDs from Creality Print profiles; firmware pads to six digits.
+  if (code.empty() || code.size() > 6) return {};
+  unsigned id = 0;
+  for (const char c : code) {
+    if (c < '0' || c > '9') return {};
+    id = id * 10 + static_cast<unsigned>(c - '0');
+  }
+  switch (id) {
+    case 1: return "PLA";
+    case 2: return "PLA-Silk";
+    case 3: return "PETG";
+    case 4: return "ABS";
+    case 5: return "TPU";
+    case 6: return "PLA-CF";
+    case 7: return "ASA";
+    case 8: return "PA";
+    case 9: return "PA-CF";
+    case 10: return "BVOH";
+    case 11: return "PVA";
+    case 12: return "HIPS";
+    case 13: return "PET-CF";
+    case 14: return "PETG-CF";
+    case 17: return "PPS";
+    case 18: return "PPS-CF";
+    case 19: return "PP";
+    case 20: return "PET";
+    case 21: return "PC";
+    case 27: return "PETG-GF";
+    case 32: return "PCTG";
+    case 1001: return "Hyper PLA";
+    case 2001: return "Hyper PLA-CF";
+    case 3001: return "Hyper ABS";
+    case 4001: return "CR-PLA";
+    case 5001: return "CR-Silk";
+    case 6001: return "CR-PETG";
+    case 6002: return "Hyper PETG";
+    case 6003: return "Hyper PETG-CF";
+    case 6004: return "Hyper PETG-GF";
+    case 7001: return "CR-ABS";
+    case 7002: return "Hyper PC";
+    case 8001: return "Ender-PLA";
+    case 9001: return "EN-PLA+";
+    case 9002: return "ENDER FAST PLA";
+    case 10001: return "HP-TPU";
+    case 11001: return "CR-Nylon";
+    case 19001: return "HP-ASA";
+    default: return {};
+  }
+}
+
+std::uint32_t creality_color(std::string color) {
+  if (!color.empty() && color.front() == '#') color.erase(0, 1);
+  if (color.size() == 7 && color.front() == '0') color.erase(0, 1);
+  if (color.size() != 6) return 0;
+  std::uint32_t rgb = 0;
+  for (const unsigned char c : color) {
+    if (!std::isxdigit(c)) return 0;
+    rgb = (rgb << 4U) | (c <= '9' ? c - '0' : std::tolower(c) - 'a' + 10);
+  }
+  return (rgb << 8U) | 0xFFU;  // Black is present (opaque), not an unknown color.
+}
+
+void apply_external_filament(const cJSON* status, const cJSON* job_metadata,
+                             core::JobState& job) {
+  const cJSON* rack = member(status, "filament_rack");
+  const cJSON* box_enabled = member(member(status, "box"), "enable");
+  const bool external = cJSON_IsFalse(box_enabled) ||
+                        (bounded_number(box_enabled, 0, 0));
+  if (!cJSON_IsObject(rack) || !external || job.toolhead_count != 1 ||
+      !job.toolheads[0].present) return;
+  auto& tool = job.toolheads[0];
+  // Remaining-material fields describe the previous load, not the current spool.
+  tool.material = creality_material(string_member(rack, "material_type"));
+  if (tool.material.empty()) {
+    const std::string type = string_member(job_metadata, "filament_type");
+    // A job's single material is a fallback only; never assign a multi-material list.
+    if (!type.empty() && type.size() <= 24 &&
+        type.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-+ ") ==
+            std::string::npos) tool.material = type;
+  }
+  tool.filament_state_known = false;
+  tool.filament_detected = false;
+  const cJSON* detected = member(member(status, "filament_switch_sensor filament_sensor"),
+                                 "filament_detected");
+  if (cJSON_IsBool(detected)) {
+    tool.filament_state_known = true;
+    tool.filament_detected = cJSON_IsTrue(detected);
+  }
+  tool.material_rgba = tool.filament_state_known && !tool.filament_detected
+                           ? 0 : creality_color(string_member(rack, "color_value"));
+}
+
 std::uint32_t rgba_from_array(const cJSON* array, int index) {
   const cJSON* value = cJSON_IsArray(array) ? cJSON_GetArrayItem(array, index) : nullptr;
   if (!cJSON_IsString(value) || value->valuestring == nullptr) return 0;
@@ -275,6 +413,20 @@ MoonrakerLightDescriptor discover_moonraker_light(
   return ambiguous ? MoonrakerLightDescriptor{} : best;
 }
 
+std::string_view moonraker_telemetry_fields(std::string_view object_name) {
+  for (const auto fan : kPartFanObjects) {
+    if (object_name == fan) {
+      return fan.starts_with("output_pin ") || fan.starts_with("pwm_tool ") ? "value" : "speed";
+    }
+  }
+  if (object_name == "filament_rack") return "material_type,color_value";
+  if (object_name == "box") return "enable";
+  if (object_name == "filament_switch_sensor filament_sensor") return "filament_detected";
+  if (object_name == "gcode_macro PRINTER_PARAM") return "fan0_min";
+  if (object_name == "output_pin fan0_en") return "value";
+  return {};
+}
+
 MoonrakerStatusParseResult parse_moonraker_status(
     const char* payload, std::size_t length, std::uint32_t profile_id,
     std::uint64_t updated_at_ms, const MoonrakerStatusParseContext& context) {
@@ -300,6 +452,11 @@ MoonrakerStatusParseResult parse_moonraker_status(
   const cJSON* display = member(status, "display_status");
   next.job.phase = moonraker_phase(string_member(stats, "state"));
   next.job.gcode_file = string_member(stats, "filename");
+  const cJSON* current_print = member(virtual_sd, "cur_print_data");
+  const cJSON* job_metadata = !next.job.gcode_file.empty() &&
+          string_member(current_print, "filename") == next.job.gcode_file &&
+          (next.job.phase == core::JobPhase::printing || next.job.phase == core::JobPhase::paused)
+      ? member(current_print, "metadata") : nullptr;
   next.job.name = display_job_name(next.job.gcode_file);
   next.job.preview = context.preview;
   next.job.detail = string_member(stats, "message");
@@ -319,10 +476,11 @@ MoonrakerStatusParseResult parse_moonraker_status(
     next.job.remaining_known = true;
   }
   const cJSON* layer_info = member(stats, "info");
-  next.job.current_layer = static_cast<std::uint16_t>(
-      std::clamp(number_member(layer_info, "current_layer"), 0.0, 65535.0));
-  next.job.total_layers = static_cast<std::uint16_t>(
-      std::clamp(number_member(layer_info, "total_layer"), 0.0, 65535.0));
+  next.job.current_layer = first_layer_value(
+      {member(layer_info, "current_layer"), member(virtual_sd, "layer")});
+  next.job.total_layers = first_layer_value(
+      {member(layer_info, "total_layer"), member(virtual_sd, "layer_count"),
+       member(job_metadata, "layer_count")});
   if (next.job.total_layers == 0) next.job.total_layers = context.total_layers;
 
   const cJSON* toolhead = member(status, "toolhead");
@@ -395,6 +553,7 @@ MoonrakerStatusParseResult parse_moonraker_status(
   for (std::size_t index = 0; index < next.job.toolhead_count; ++index) {
     next.job.toolheads[index].active = static_cast<int>(index) == next.job.active_toolhead;
   }
+  apply_external_filament(status, job_metadata, next.job);
 
   const cJSON* extruder = next.job.active_toolhead >= 0
                               ? member(status, context.tool_objects[next.job.active_toolhead].c_str())
@@ -455,8 +614,7 @@ MoonrakerStatusParseResult parse_moonraker_status(
   next.job.motion.speed_multiplier_known = cJSON_IsNumber(member(movement, "speed_factor"));
   next.job.motion.extrusion_multiplier = static_cast<float>(number_member(movement, "extrude_factor") * 100.0);
   next.job.motion.extrusion_multiplier_known = cJSON_IsNumber(member(movement, "extrude_factor"));
-  next.job.motion.fan_percent = static_cast<float>(number_member(member(status, "fan"), "speed") * 100.0);
-  next.job.motion.fan_percent_known = cJSON_IsNumber(member(member(status, "fan"), "speed"));
+  apply_part_fan(status, next.job);
   apply_snapmaker_activity(status, next.job, context.tool_objects);
   return result;
 }

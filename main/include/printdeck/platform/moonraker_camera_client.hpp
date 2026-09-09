@@ -101,7 +101,6 @@ class MoonrakerCameraClient {
   std::atomic<bool> h264_parameter_sets_sent_{false};
   std::atomic<bool> idr_snapshot_decoder_{false};
   std::atomic<bool> creality_decoder_busy_{false};
-  std::atomic<std::uint32_t> creality_idr_count_{0};
   std::mutex pending_idr_mutex_{};
   std::shared_ptr<std::vector<std::uint8_t>> pending_idr_{};
   std::shared_ptr<std::vector<std::uint8_t>> pending_mjpeg_{};

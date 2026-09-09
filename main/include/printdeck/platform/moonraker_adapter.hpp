@@ -41,6 +41,7 @@ class MoonrakerAdapter {
   void refresh_job_preview(const core::PrinterProfile& profile);
   std::atomic<bool> preview_requested_{false};
   bool preview_pending_ = false;
+  std::uint64_t preview_retry_after_ms_ = 0;
   std::string cached_thumbnail_path_;
   mutable std::mutex profile_mutex_;
   core::PrinterProfile profile_;
@@ -56,6 +57,7 @@ class MoonrakerAdapter {
   std::uint16_t cached_total_layers_ = 0;
   std::uint32_t active_profile_id_ = 0;
   std::vector<std::string> tool_objects_;
+  std::vector<std::string> telemetry_objects_;
   std::string chamber_sensor_object_;
   MoonrakerLightDescriptor chamber_light_;
   std::uint8_t chamber_light_channels_ = 0;

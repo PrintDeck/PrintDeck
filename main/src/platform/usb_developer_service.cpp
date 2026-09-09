@@ -1,3 +1,4 @@
+#include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/usb_developer_service.hpp"
 
 #include "driver/usb_serial_jtag.h"
@@ -193,9 +194,10 @@ void UsbDeveloperService::task_loop() {
 }
 
 bool UsbDeveloperService::send_screenshot() {
+  ImageWorkspaceLock workspace(5000);
   std::vector<std::uint8_t> png;
   std::string screen_name;
-  if (display_ == nullptr || display_->capture_png(png, screen_name) != ESP_OK ||
+  if (!workspace || display_ == nullptr || display_->capture_png(png, screen_name) != ESP_OK ||
       png.empty() || !valid_screen_name(screen_name)) {
     static constexpr char response[] = "PRINTDECK.DEV ERROR CAPTURE\n";
     write_all(reinterpret_cast<const std::uint8_t*>(response),

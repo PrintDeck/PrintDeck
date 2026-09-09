@@ -1,3 +1,4 @@
+#include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/moonraker_camera_client.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/mjpeg_stream_parser.hpp"
@@ -18,6 +19,7 @@
 #include "esp_h264_dec_param.h"
 #include "esp_h264_dec_sw.h"
 #include "esp_heap_caps.h"
+#include "esp_freertos_hooks.h"
 #include "esp_http_client.h"
 #include "esp_jpeg_dec.h"
 #include "esp_log.h"
@@ -35,15 +37,23 @@ namespace printdeck::platform {
 namespace {
 
 constexpr char kTag[] = "printdeck.mrcam";
+std::atomic<TickType_t> decoder_idle_tick{0};
+std::uint32_t decoder_yield_count = 0;
+std::int64_t decoder_yield_us = 0;
+bool observe_decoder_idle() {
+  decoder_idle_tick.store(xTaskGetTickCount(), std::memory_order_relaxed);
+  return true;
+}
 constexpr std::size_t kMaximumJpegBytes = 1024U * 1024U;
 constexpr std::uint16_t kOutputWidth = 400;
 constexpr std::uint16_t kOutputHeight = 224;
+constexpr std::uint16_t kH264OutputWidth = kDisplayUsesCompactLayout ? 220 : 360;
+constexpr std::uint16_t kH264OutputHeight = kDisplayUsesCompactLayout ? 124 : 204;
 constexpr std::int64_t kRefreshIntervalUs = 2000000;
 constexpr std::int64_t kLivePublishIntervalUs = 125000;
-// K2 keyframes take about two seconds of software H264 work on the S3.  Keep
-// enough quiet time between accepted IDRs for Wi-Fi, Moonraker and IDLE0 even
-// when the printer sends a burst of keyframes after the decoder catches up.
-constexpr std::int64_t kCrealityMinimumDecodeIntervalUs = 4000000;
+// Bound snapshot work even when a camera bursts several complete IDRs. The
+// decoder also yields between macroblock groups to keep core-0 services alive.
+constexpr std::int64_t kCrealityMinimumDecodeIntervalUs = 2000000;
 constexpr EventBits_t kWebsocketConnected = BIT0;
 constexpr EventBits_t kWebsocketFailed = BIT1;
 
@@ -434,13 +444,16 @@ std::shared_ptr<std::vector<std::uint8_t>> i420_to_rgb565(
     const std::uint8_t* v_plane, std::uint16_t source_width,
     std::uint16_t source_height, std::uint16_t y_stride,
     std::uint16_t chroma_stride, std::uint16_t* output_width,
-    std::uint16_t* output_height) {
+    std::uint16_t* output_height,
+    std::shared_ptr<std::vector<std::uint8_t>> pixels = {}) {
   if (y_plane == nullptr || u_plane == nullptr || v_plane == nullptr ||
       source_width == 0 || source_height == 0 || y_stride < source_width ||
       chroma_stride < source_width / 2U || source_width > 4096 ||
       source_height > 2160) return {};
-  constexpr std::uint16_t maximum_width = 400;
-  constexpr std::uint16_t maximum_height = 224;
+  // Match the actual image box to avoid resampling the decoded snapshot again
+  // in LVGL's software renderer on every repaint.
+  constexpr std::uint16_t maximum_width = kH264OutputWidth;
+  constexpr std::uint16_t maximum_height = kH264OutputHeight;
   std::uint16_t width = maximum_width;
   std::uint16_t height = static_cast<std::uint16_t>(
       static_cast<std::uint32_t>(maximum_width) * source_height / source_width);
@@ -464,8 +477,14 @@ std::shared_ptr<std::vector<std::uint8_t>> i420_to_rgb565(
     source_y[y] = static_cast<std::uint16_t>(
         static_cast<std::uint32_t>(y) * source_height / height);
   }
-  auto pixels = std::make_shared<std::vector<std::uint8_t>>(
-      static_cast<std::size_t>(width) * height * 2U);
+  const std::size_t pixel_bytes = static_cast<std::size_t>(width) * height * 2U;
+  if (!pixels) {
+    if (heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) < pixel_bytes + 16384U) return {};
+    pixels = std::make_shared<std::vector<std::uint8_t>>(pixel_bytes);
+  } else {
+    if (pixels->capacity() < pixel_bytes) return {};
+    pixels->resize(pixel_bytes);
+  }
   for (std::uint16_t y = 0; y < height; ++y) {
     const std::uint16_t sy = source_y[y];
     for (std::uint16_t x = 0; x < width; ++x) {
@@ -584,6 +603,14 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
                      std::end(kK2ParameterSets));
   append_annex_b(&access_unit, data, size);
 
+  // Reserve the final image before OpenH264 consumes its temporary picture
+  // workspace. A late std::vector allocation can abort a no-exceptions build.
+  constexpr std::size_t reserved_bytes = kH264OutputWidth * kH264OutputHeight * 2U;
+  if (heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) < reserved_bytes + 16384U) return {};
+  auto reserved_pixels = std::make_shared<std::vector<std::uint8_t>>(reserved_bytes);
+  decoder_yield_count = 0;
+  decoder_yield_us = 0;
+  const std::int64_t prepare_started = esp_timer_get_time();
   ISVCDecoder* decoder = nullptr;
   if (WelsCreateDecoder(&decoder) != 0 || decoder == nullptr) return {};
   std::shared_ptr<std::vector<std::uint8_t>> pixels;
@@ -595,6 +622,7 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
   int threads = 0;
   decoder->SetOption(DECODER_OPTION_NUM_OF_THREADS, &threads);
   if (decoder->Initialize(&parameters) == 0) {
+    const std::int64_t initialize_done = esp_timer_get_time();
     std::uint8_t* planes[3] = {nullptr, nullptr, nullptr};
     SBufferInfo info{};
     DECODING_STATE state = decoder->DecodeFrame2(
@@ -618,6 +646,7 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
             static_cast<int>(decoder->FlushFrame(planes, &info)));
       }
     }
+    const std::int64_t decode_done = esp_timer_get_time();
     ESP_LOGI(kTag,
              "Creality OpenH264 state=0x%x buffer=%d planes=%p/%p/%p size=%dx%d "
              "PSRAM free=%u largest=%u",
@@ -639,9 +668,17 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
       const auto y_stride = static_cast<std::uint16_t>(info.UsrData.sSystemBuffer.iStride[0]);
       const auto chroma_stride = static_cast<std::uint16_t>(info.UsrData.sSystemBuffer.iStride[1]);
       pixels = i420_to_rgb565(planes[0], planes[1], planes[2], width, height,
-                              y_stride, chroma_stride, output_width, output_height);
+                              y_stride, chroma_stride, output_width, output_height, reserved_pixels);
     }
+    const std::int64_t scale_done = esp_timer_get_time();
     decoder->Uninitialize();
+    ESP_LOGI(kTag, "Creality decode stages: init=%lld decode=%lld scale=%lld cleanup=%lld ms stack=%u yield=%lld/%u",
+             (initialize_done - prepare_started) / 1000,
+             (decode_done - initialize_done) / 1000,
+             (scale_done - decode_done) / 1000,
+             (esp_timer_get_time() - scale_done) / 1000,
+             static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)),
+             decoder_yield_us / 1000, static_cast<unsigned>(decoder_yield_count));
   }
   WelsDestroyDecoder(decoder);
   return pixels;
@@ -658,6 +695,28 @@ void websocket_event(void* argument, esp_event_base_t, std::int32_t event_id, vo
 }
 
 }  // namespace
+
+// Called by the bounded IDR-only port between macroblock groups. A fixed
+// delay can be consumed entirely by networking; wait for actual IDLE0 time
+// before resuming CPU-bound work, while keeping every wait bounded.
+extern "C" void printdeck_h264_yield() {
+  static const bool registered =
+      esp_register_freertos_idle_hook_for_cpu(observe_decoder_idle, kServiceCore) == ESP_OK;
+  if (!registered) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+    return;
+  }
+  const TickType_t observed = decoder_idle_tick.load(std::memory_order_relaxed);
+  const TickType_t started = xTaskGetTickCount();
+  if (static_cast<TickType_t>(started - observed) < pdMS_TO_TICKS(500)) return;
+  const std::int64_t yield_started = esp_timer_get_time();
+  ++decoder_yield_count;
+  do {
+    vTaskDelay(1);
+  } while (decoder_idle_tick.load(std::memory_order_relaxed) == observed &&
+           static_cast<TickType_t>(xTaskGetTickCount() - started) < pdMS_TO_TICKS(1000));
+  decoder_yield_us += esp_timer_get_time() - yield_started;
+}
 
 void MoonrakerCameraClient::configure(const core::PrinterProfile* profile) {
   const core::PrinterProfile next = profile != nullptr ? *profile : core::PrinterProfile{};
@@ -1195,7 +1254,6 @@ bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& prof
   // is the exception: despite its SDP it sends 1080p Main/CABAC, decoded only
   // for a single keyframe by the bounded snapshot decoder below.
   idr_snapshot_decoder_.store(supports_creality_k2(profile));
-  creality_idr_count_.store(0);
   last_creality_idr_queued_us_.store(0);
   last_creality_video_us_.store(0);
   if (!idr_snapshot_decoder_.load()) {
@@ -1354,9 +1412,6 @@ bool MoonrakerCameraClient::exchange_creality_offer(const core::PrinterProfile& 
     while (!offer.empty() && (offer.back() == '\r' || offer.back() == '\n')) offer.pop_back();
     offer += "\r\na=end-of-candidates\r\n";
   }
-  if (creality_codec_attempt_ == 0) {
-    ESP_LOGI(kTag, "Creality local offer SDP:\n%s", offer.c_str());
-  }
 
   cJSON* root = cJSON_CreateObject();
   if (root == nullptr) return false;
@@ -1423,9 +1478,6 @@ bool MoonrakerCameraClient::exchange_creality_offer(const core::PrinterProfile& 
   std::string answer = sanitize_creality_answer(sdp->valuestring,
                                                  creality_codec_attempt_,
                                                  &candidate_count);
-  if (creality_codec_attempt_ == 0) {
-    ESP_LOGI(kTag, "Creality sanitized answer SDP:\n%s", answer.c_str());
-  }
   cJSON_Delete(answer_json);
   if (candidate_count > 0) {
     const std::size_t selected_index =
@@ -1450,11 +1502,9 @@ bool MoonrakerCameraClient::decode_creality_frame(const std::uint8_t* data,
       stop_requested_.load(std::memory_order_acquire)) return false;
   if (idr_snapshot_decoder_.load()) {
     if (!contains_h264_nal(data, size, 5)) return false;
-    // A 1080p Main/CABAC decode takes most of one core for roughly two
-    // seconds. Keep the WebRTC session alive, but decode every other keyframe
-    // so Moonraker, networking and the idle watchdog retain CPU time.
-    if ((creality_idr_count_.fetch_add(1) & 1U) != 0U ||
-        creality_decoder_busy_.load()) return false;
+    // Keep only a complete fresh IDR and leave the transport running while
+    // decoding. Closing a live K2 socket makes its late RTP trigger ICMP replies.
+    if (creality_decoder_busy_.load()) return false;
     const std::uint64_t now = static_cast<std::uint64_t>(esp_timer_get_time());
     const std::uint64_t last_queued = last_creality_idr_queued_us_.load();
     if (last_queued != 0 && now - last_queued < kCrealityMinimumDecodeIntervalUs) {
@@ -1649,7 +1699,19 @@ void MoonrakerCameraClient::decoder_loop() {
                static_cast<unsigned>(encoded->size()));
       std::uint16_t width = 0;
       std::uint16_t height = 0;
+      ImageWorkspaceLock workspace(5000);
+      if (!workspace || generation != camera_session_generation_.load() || !enabled_.load()) {
+        if (generation == camera_session_generation_.load()) set_refreshing(false);
+        creality_decoder_busy_.store(false);
+        continue;
+      }
+      const std::int64_t decode_started = esp_timer_get_time();
+      const UBaseType_t previous_priority = uxTaskPriorityGet(nullptr);
+      // This bounded decoder yields between groups of macroblocks. Let its
+      // useful work run ahead of background rendering on the service core.
+      vTaskPrioritySet(nullptr, 5);
       auto pixels = decode_idr_snapshot(encoded->data(), encoded->size(), &width, &height);
+      vTaskPrioritySet(nullptr, previous_priority);
       if (!pixels) {
         ESP_LOGW(kTag, "Creality Main/CABAC keyframe decode failed");
         if (generation == camera_session_generation_.load()) set_refreshing(false);
@@ -1665,7 +1727,8 @@ void MoonrakerCameraClient::decoder_loop() {
       frame_received_.store(true);
       last_published_frame_us_.store(static_cast<std::uint64_t>(esp_timer_get_time()));
       publish_frame(std::move(pixels), width, height);
-      ESP_LOGI(kTag, "Creality keyframe published at %ux%u", width, height);
+      ESP_LOGI(kTag, "Creality keyframe published at %ux%u; decode=%lld ms",
+               width, height, (esp_timer_get_time() - decode_started) / 1000);
       creality_decoder_busy_.store(false);
     }
   }
@@ -1750,7 +1813,14 @@ void MoonrakerCameraClient::task_loop() {
         }
       }
       if (peer_ != nullptr) {
-        esp_peer_main_loop(static_cast<esp_peer_handle_t>(peer_));
+        // Drain a keyframe burst before yielding: one datagram per millisecond
+        // can overflow the UDP mailbox even though average bandwidth is low.
+        // Bound work by both call count and time so other core-0 tasks run.
+        const std::int64_t receive_deadline = esp_timer_get_time() + 2000;
+        for (unsigned received = 0; received < 8; ++received) {
+          esp_peer_main_loop(static_cast<esp_peer_handle_t>(peer_));
+          if (esp_timer_get_time() >= receive_deadline) break;
+        }
         if (offer_ready_.load() && !exchange_creality_offer(current)) {
           ESP_LOGW(kTag, "Creality WebRTC signaling exchange failed");
           stop_creality_peer();
@@ -1769,7 +1839,7 @@ void MoonrakerCameraClient::task_loop() {
           stop_creality_peer();
           next_peer_start_us = esp_timer_get_time() + 1000000;
         } else if (!frame_received_.load() && peer_started_us != 0 &&
-                   esp_timer_get_time() - peer_started_us > 12000000) {
+                   esp_timer_get_time() - peer_started_us > 30000000) {
           ESP_LOGW(kTag, "No frame for SDP codec attempt %u; trying next candidate",
                    static_cast<unsigned>(creality_codec_attempt_));
           stop_creality_peer();
@@ -1778,10 +1848,9 @@ void MoonrakerCameraClient::task_loop() {
           next_peer_start_us = esp_timer_get_time() + 1000000;
         }
       }
-      // Drain the socket fast enough for a multi-packet 1080p IDR burst.  A
-      // 10 ms cadence was sufficient for small P-frames but overflowed the UDP
-      // receive mailbox before a complete keyframe could be reassembled.
-      ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1));
+      // Notifications must not consume this scheduling window: decoding and
+      // rendering need time even while another caller refreshes camera mode.
+      vTaskDelay(pdMS_TO_TICKS(2));
       continue;
     }
 
