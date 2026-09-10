@@ -300,9 +300,9 @@
       h3 { margin: 0 0 8px; font-size: 1.08rem; }
       .instructions > h3 { margin-top: 28px; }
       .lead { max-width: 640px; margin: 0; color: var(--muted); font-size: 1.08rem; line-height: 1.65; }
-      .firmware-version { width: min(100%, 480px); min-height: 60px; display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(180px, 1.2fr); align-items: stretch; margin-top: 88px; border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; color: var(--muted); background: var(--surface); font-size: .96rem; }
-      .firmware-version-label { display: flex; align-items: center; padding: 0 18px; white-space: nowrap; }
-      .firmware-version select { width: 100%; min-width: 0; padding: 12px 46px 12px 18px; border: 0; border-left: 1px solid var(--line-strong); border-radius: 15px; color: var(--strong); background-color: var(--surface-raised); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23788f9a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-size: 20px 20px; background-position: right 16px center; appearance: none; -webkit-appearance: none; font: inherit; font-weight: 800; cursor: pointer; }
+      .firmware-version { width: min(100%, 480px); min-height: 60px; display: grid; grid-template-columns: 1fr; align-items: stretch; margin-top: 88px; border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; color: var(--muted); background: var(--surface); font-size: .96rem; }
+      .firmware-version-label { min-height: 48px; display: flex; align-items: center; padding: 0 18px; white-space: nowrap; }
+      .firmware-version select { min-height: 52px; width: 100%; min-width: 0; padding: 12px 46px 12px 18px; border: 0; border-top: 1px solid var(--line-strong); border-radius: 0; color: var(--strong); background-color: var(--surface-raised); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23788f9a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-size: 20px 20px; background-position: right 16px center; appearance: none; -webkit-appearance: none; font: inherit; font-weight: 800; cursor: pointer; }
       .product-photo {
         position: relative;
         width: 100%;
@@ -519,7 +519,7 @@
         :root:lang(de) .installer-title h1 { font-size: 1rem; }
         .firmware-version { grid-template-columns: 1fr; margin-top: 60px; }
         .firmware-version-label { min-height: 48px; }
-        .firmware-version select { min-height: 52px; border-top: 1px solid var(--line-strong); border-left: 0; border-radius: 0; }
+        .firmware-version select { font-size: .875rem; }
         .step-label { font-size: .72rem; letter-spacing: .055em; }
         .browser-card { width: 125px; padding: 15px; }
         .steps li { padding-left: 50px; }
@@ -598,9 +598,10 @@
             <label class="firmware-version" for="firmware-version">
               <span class="firmware-version-label">Versión del firmware</span>
               <select id="firmware-version" aria-label="Versión del firmware">
-                <option value="1.0.15" hidden="" disabled="">1.0.15</option>
-                <option value="1.0.14" selected="">1.0.14 (más reciente)</option>
-                <option value="1.0.13">1.0.13 (FR!)</option>
+                <option value="1.0.16" hidden="" disabled="">1.0.16</option>
+                <option value="1.0.15" selected="">1.0.15 (más reciente)</option>
+                <option value="1.0.14">1.0.14</option>
+                <option value="1.0.13">1.0.13 (¡Solo reset de fábrica!)</option>
                 <option value="1.0.12">1.0.12</option>
                 <option value="1.0.11">1.0.11</option>
                 <option value="1.0.10">1.0.10</option>
@@ -758,7 +759,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>Inicia el instalador de abajo.</strong> Elige WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) o /dev/ttyUSB…. Confirma el borrado completo cuando se solicite y espera hasta que la instalación llegue al 100 %.</li>
             </ol>
             <esp-web-install-button id="install-button" manifest="../manifest-install.json">
-              <button slot="activate" id="install-button-label">Instalar 1.0.14 o restablecer de fábrica</button>
+              <button slot="activate" id="install-button-label">Instalar 1.0.15 o restablecer de fábrica</button>
               <span slot="not-allowed">El acceso USB requiere abrir esta página mediante HTTPS.</span>
             </esp-web-install-button>
             <div class="tip" data-hardware-instruction="waveshare"><strong>Si no aparece ningún dispositivo:</strong> desconecta el cable. Mantén pulsado el botón <strong>BOOT</strong> de la pantalla, vuelve a conectar USB-C, suelta BOOT tras dos segundos e inténtalo de nuevo.</div>
@@ -786,7 +787,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>Inicia abajo la actualización por USB.</strong> Cuando se solicite, elige WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) o /dev/ttyUSB….</li>
               <li><strong>Espera a que la pantalla se reinicie.</strong> No desconectes el USB mientras se muestre el progreso de la actualización.</li>
             </ol>
-            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Actualizar a 1.0.14 por USB</button>
+            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Actualizar a 1.0.15 por USB</button>
             <div class="tip" data-hardware-instruction="knomi2" hidden=""><strong>Si KNOMI2 no aparece:</strong> sigue las instrucciones del controlador USB de la sección roja de arriba, vuelve a conectarlo e inicia de nuevo la actualización.</div>
             <p class="warning" id="full-install-required" role="status"></p>
             <div class="update-progress" id="update-progress" role="status" aria-live="polite" hidden="">
@@ -1055,7 +1056,7 @@
 
       if (supported) {
         let activeInstallMode = 'install';
-        let activeVersion = '1.0.14';
+        let activeVersion = '1.0.15';
         let activeHardware = 'amoled_1_75';
         let activeInstallHardware = 'amoled_1_75';
         const versionSelect = document.getElementById('firmware-version');
@@ -1086,19 +1087,31 @@
         let setupNetworkName = '';
         const releaseBase = 'https://raw.githubusercontent.com/PrintDeck/PrintDeck';
         const versions = {
-          '1.0.15': {
+          '1.0.16': {
             knomi2: {
-              releaseTag: 'knomi2-v1.0.15',
+              releaseTag: 'knomi2-v1.0.16',
               installManifest: '../manifest-install-knomi2.json',
               application: '../firmware/knomi2/printdeck.bin',
               otaData: '../firmware/knomi2/ota_data_initial.bin'
             }
           },
-          '1.0.14': {
-            releaseTag: 'amoled_1_75-v1.0.14',
+          '1.0.15': {
+            releaseTag: 'amoled_1_75-v1.0.15',
             installManifest: '../manifest-install.json',
             application: '../firmware/printdeck.bin',
             otaData: '../firmware/ota_data_initial.bin',
+            knomi2: {
+              releaseTag: 'knomi2-v1.0.15',
+              installManifest: '../manifests/manifest-install-knomi2-1.0.15.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.15/docs/firmware/knomi2/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.15/docs/firmware/knomi2/ota_data_initial.bin'
+            }
+          },
+          '1.0.14': {
+            releaseTag: 'amoled_1_75-v1.0.14',
+            installManifest: '../manifests/manifest-install-amoled_1_75-1.0.14.json',
+            application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.14/docs/firmware/printdeck.bin',
+            otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.14/docs/firmware/ota_data_initial.bin',
             knomi2: {
               releaseTag: 'knomi2-v1.0.14',
               installManifest: '../manifests/manifest-install-knomi2-1.0.14.json',
