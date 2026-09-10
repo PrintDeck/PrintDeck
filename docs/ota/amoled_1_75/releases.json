@@ -2,11 +2,11 @@
   "schema": 2,
   "target": "amoled_1_75",
   "latest": {
-    "version": "1.0.14",
+    "version": "1.0.15",
     "layout": "912618a15488a6e06bf5f29d59479ec7d1a7aa3e6ff96dbb035f4d64bb44e153",
-    "sha256": "842900124487ddc16ed54c60376ca7cfc394c3bc0afe07a69c325fbf212a15bf",
-    "url": "https://github.com/PrintDeck/PrintDeck/releases/download/amoled_1_75-v1.0.14/printdeck_amoled_1_75_layout_912618a15488_ota-1.0.14.bin",
-    "install_manifest": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.14/docs/manifests/manifest-install-amoled_1_75-1.0.14.json"
+    "sha256": "bb9279d8d384a671ff37c312aba1d00434622a2bb5c4d8fd6d98c5095e8ae2a9",
+    "url": "https://github.com/PrintDeck/PrintDeck/releases/download/amoled_1_75-v1.0.15/printdeck_amoled_1_75_layout_912618a15488_ota-1.0.15.bin",
+    "install_manifest": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.15/docs/manifests/manifest-install-amoled_1_75-1.0.15.json"
   },
   "factory_releases": [
     {
