@@ -1,5 +1,6 @@
 #include "printdeck/platform/bambu_a1_preview_client.hpp"
 #include "printdeck/platform/task_affinity.hpp"
+#include "printdeck/platform/image_workspace.hpp"
 
 #include <algorithm>
 #include <array>
@@ -461,7 +462,7 @@ bool BambuA1PreviewClient::fetch(const BambuLocalConnection& connection, const J
   ESP_LOGI(kTag, "Fetching a bounded local Bambu print preview");
   for (const std::string& path : paths) {
     if (stop_requested_.load(std::memory_order_acquire) || !network_ready_.load() ||
-        job_request().key != job.key) break;
+        !preview_requested_.load() || job_request().key != job.key) break;
     if (fetch_archive_png(connection, path, target_name, image)) {
       ESP_LOGI(kTag, "Loaded local Bambu print preview (%u bytes)",
                static_cast<unsigned>((*image)->size()));
@@ -495,7 +496,8 @@ void BambuA1PreviewClient::task_loop() {
       attempts = 0;
       last_attempt_us = 0;
     }
-    if (!job.active || !current_connection.is_ready()) {
+    if (!preview_requested_.load() || !job.active || !current_connection.is_ready()) {
+      publish_status(current_connection.is_ready(), false, "Print preview idle", true);
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
       continue;
     }
@@ -513,13 +515,19 @@ void BambuA1PreviewClient::task_loop() {
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
       continue;
     }
+    ImageWorkspaceLock workspace(50);
+    if (!workspace || !preview_requested_.load()) {
+      fetch_requested_.store(true);
+      ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100));
+      continue;
+    }
     ++attempts;
     last_attempt_us = now_us;
     publish_status(true, true, "Loading local print preview");
     mark_reset_checkpoint(ResetCheckpoint::kA1PreviewFetch);
     std::shared_ptr<std::vector<uint8_t>> image;
     if (fetch(current_connection, job, &image) && image &&
-        !stop_requested_.load(std::memory_order_acquire) &&
+        !stop_requested_.load(std::memory_order_acquire) && preview_requested_.load() &&
         job_request().key == job.key) {
       publish_image(job.key, std::move(image));
       attempts = kMaximumAttemptsPerJob;

@@ -400,11 +400,26 @@
 (() => {
   const bindScreenCarousels = () => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const startingScreens = new Set();
 
     document.querySelectorAll('[data-screen-carousel]').forEach((carousel) => {
       const track = carousel.querySelector('[data-screen-carousel-track]');
       const slides = track ? Array.from(track.children) : [];
       if (!track || slides.length < 2) return;
+
+      const randomize = carousel.hasAttribute('data-screen-carousel-random');
+      if (randomize) {
+        for (let index = slides.length - 1; index > 0; index -= 1) {
+          const other = Math.floor(Math.random() * (index + 1));
+          [slides[index], slides[other]] = [slides[other], slides[index]];
+        }
+        // Give neighbouring displays different first screens when possible.
+        const screenKey = (slide) => slide.querySelector('img')?.getAttribute('src');
+        const firstUnused = slides.findIndex((slide) => !startingScreens.has(screenKey(slide)));
+        if (firstUnused > 0) [slides[0], slides[firstUnused]] = [slides[firstUnused], slides[0]];
+        startingScreens.add(screenKey(slides[0]));
+        slides.forEach((slide) => track.append(slide));
+      }
 
       const slideCount = slides.length;
       const firstClone = slides[0].cloneNode(true);
@@ -429,13 +444,13 @@
         });
       };
 
-      const scheduleNext = (delay = 3000) => {
+      const scheduleNext = (delay = randomize ? 2600 + Math.random() * 1800 : 3000) => {
         window.clearTimeout(timer);
         if (!isVisible || document.hidden) return;
         timer = window.setTimeout(advance, delay);
       };
 
-      const scheduleWithStagger = () => scheduleNext(3000 + staggerDelay);
+      const scheduleWithStagger = () => scheduleNext(randomize ? 1200 + Math.random() * 3000 : 3000 + staggerDelay);
 
       const advance = () => {
         if (!isVisible || document.hidden) return;

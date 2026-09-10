@@ -1,0 +1,73 @@
+/* The photograph and its four live displays share one coordinate plane. */
+.knomi-page .knomi-hero {
+  min-height: clamp(420px, 35vw, 660px);
+  padding: 0;
+  isolation: isolate;
+  background: #101310;
+}
+.knomi-page .knomi-hero::after { display: none; }
+.knomi-page .knomi-hero > .knomi-inner {
+  display: flex;
+  align-items: center;
+  width: min(1530px, calc(100% - 96px));
+  min-height: inherit;
+  z-index: 4;
+  pointer-events: none;
+}
+.knomi-page .knomi-hero-copy { width: 43%; max-width: 660px; padding: 42px 0; pointer-events: auto; }
+.knomi-page .knomi-hero .knomi-eyebrow { font-size: .8rem; letter-spacing: .12em; }
+.knomi-page .knomi-hero h1 { margin: 18px 0 24px; font-size: clamp(3rem, 4.6vw, 5.5rem); font-weight: 650; line-height: 1.04; letter-spacing: -.055em; }
+.knomi-page .knomi-hero h1 strong { color: #2bd1a7; font-weight: inherit; }
+.knomi-page:lang(pl) .knomi-hero h1,
+.knomi-page:lang(de) .knomi-hero h1,
+.knomi-page:lang(fr) .knomi-hero h1 { font-size: clamp(2.8rem, 4vw, 4.8rem); }
+.knomi-page .knomi-hero .knomi-lead { max-width: 480px; color: #e2e7e4; font-size: clamp(.9rem, 1.06vw, 1.08rem); line-height: 1.65; }
+.knomi-page .knomi-hero .site-actions { align-items: center; gap: 22px; margin: 28px 0 0; }
+.knomi-page .knomi-hero .knomi-install { min-height: 50px; padding: 13px 22px; color: #071c17; background: #2bd1a7; border-color: #2bd1a7; font-size: .9rem; }
+.knomi-page .knomi-hero .knomi-install:hover { background: #59dfbc; border-color: #59dfbc; }
+.knomi-page .knomi-animation-link { display: inline-flex; align-items: center; gap: 6px; color: #fff; font-size: .85rem; font-weight: 550; text-decoration: none; }
+.knomi-page .knomi-animation-link:hover { color: #2bd1a7; }
+.knomi-page .knomi-hero .site-actions svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.knomi-page .knomi-workshop { position: absolute; z-index: 2; inset: 0; margin: 0; overflow: hidden; }
+.knomi-page .knomi-workshop-stage { position: absolute; inset: 0; container-type: size; }
+.knomi-page .knomi-workshop-art { position: absolute; left: 50%; top: 50%; width: max(100cqw, calc(100cqh * 2120 / 742)); aspect-ratio: 2120 / 742; transform: translate(-50%, -50%); }
+.knomi-page .knomi-workshop-photo { display: block; width: 100%; height: 100%; object-fit: fill; }
+.knomi-page .knomi-live-screen { position: absolute; overflow: hidden; border-radius: 50%; background: #050807; isolation: isolate; }
+/* Inner glass apertures measured on the 2120 × 742 scene. */
+.knomi-page .knomi-live-screen-bare { left: 35.212%; top: 64.286%; width: 6.415%; height: 18.194%; }
+.knomi-page .knomi-live-screen-red { left: 48.962%; top: 18.464%; width: 6.132%; height: 21.698%; transform: rotate(9deg); }
+.knomi-page .knomi-live-screen-gray { left: 68.986%; top: 28.841%; width: 6.132%; height: 18.059%; transform: rotate(-3deg); }
+.knomi-page .knomi-clear-projection { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* The 466 × 466 display is projected as a plane, with its horizontal axis
+   aligned to the enclosure face; the resulting circle follows the inner glass.
+   Glass centre (1859.6, 362.77), radii (70.75, 79.35), tilt -4.12°;
+   screen horizontal slope 0.8° and perspective term -0.02 match the face. */
+.knomi-page .knomi-live-screen-clear { left: 0; top: 0; width: 466px; height: 466px; transform-origin: 0 0; transform: matrix3d(0.141397393003, -0.026368888648, 0, -0.000084153833, 0.001194423967, 0.33361095527, 0, 0, 0, 0, 1, 0, 1788.525194794553, 284.050077498114, 0, 1); }
+.knomi-page .knomi-screen-track { display: flex; width: 100%; height: 100%; transition: transform 560ms ease-in-out; }
+.knomi-page .knomi-screen-track.is-resetting { transition: none; }
+.knomi-page .knomi-screen-slide { display: block; flex: 0 0 100%; min-width: 0; width: 100%; height: 100%; overflow: hidden; }
+.knomi-page .knomi-screen-slide img { display: block; width: 100%; height: 100%; object-fit: fill; }
+/* Remove the photographed rim so every status ring aligns with full-frame captures. */
+.knomi-page .knomi-screen-slide .knomi-screen-photo { transform: translate(.2%, 1.8%) scale(1.15); }
+.knomi-page .knomi-image-credit { position: absolute; right: 16px; bottom: 14px; padding: 4px 7px; border-radius: 3px; background: #101310b8; color: #fff; font-size: 10px; font-weight: 650; line-height: 1.4; letter-spacing: .09em; }
+@media (prefers-reduced-motion: reduce) {
+  .knomi-page .knomi-screen-track { transition: none; }
+}
+@media (min-width: 1101px) and (max-width: 1350px) {
+  .knomi-page .knomi-hero .site-actions { max-width: 340px; gap: 14px; }
+}
+@media (max-width: 1100px) {
+  .knomi-page .knomi-hero { min-height: 0; }
+  .knomi-page .knomi-hero > .knomi-inner { display: block; width: 100%; }
+  .knomi-page .knomi-hero-copy { width: auto; max-width: 660px; padding: 38px 24px 0; }
+  .knomi-page .knomi-hero h1 { font-size: clamp(2.55rem, 8.6vw, 4rem); margin: 18px 0 20px; }
+  .knomi-page:lang(pl) .knomi-hero h1,
+  .knomi-page:lang(de) .knomi-hero h1,
+  .knomi-page:lang(fr) .knomi-hero h1 { font-size: clamp(2.2rem, 7.5vw, 3.8rem); }
+  .knomi-page .knomi-hero .knomi-lead { font-size: .95rem; }
+  .knomi-page .knomi-hero .site-actions { margin-top: 24px; gap: 16px; }
+  .knomi-page .knomi-workshop { position: relative; height: clamp(180px, 52.5vw, 390px); margin-top: 14px; }
+  .knomi-page .knomi-workshop-art { left: auto; right: 0; width: 150%; top: 50%; transform: translateY(-50%); }
+  .knomi-page .knomi-workshop-stage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(#101310, transparent 15%); pointer-events: none; }
+  .knomi-page .knomi-image-credit { right: 10px; bottom: 9px; }
+}

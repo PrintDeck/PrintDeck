@@ -98,7 +98,7 @@ void PrusaLinkAdapter::run() {
     const auto deadline = prusalink_now_ms() + 7000;
     std::unique_lock<std::timed_mutex> transaction(prusalink_transaction_mutex(), std::defer_lock);
     PrusaLinkPollResult result{.error = PrusaLinkError::invalid_configuration};
-    if (configured && acquire(transaction, deadline, cancelled)) result = client.poll(deadline, cancelled);
+    if (configured && acquire(transaction, deadline, cancelled)) result = client.poll(deadline, cancelled, true, [&] { return preview_requested_.load(); });
     if (transaction.owns_lock()) transaction.unlock();
     if (result.sample && !reported_stack) {
       ESP_LOGI("prusalink", "Status worker stack high-water=%u",

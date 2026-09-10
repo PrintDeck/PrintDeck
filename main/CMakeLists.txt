@@ -30,6 +30,8 @@ set(PRINTDECK_SRCS
         "src/platform/web_config.cpp"
         "src/platform/web_assets.cpp"
         "src/platform/moonraker_adapter.cpp"
+        "src/platform/print_preview_cache.cpp"
+        "src/platform/print_preview_service.cpp"
         "src/platform/moonraker_status_parser.cpp"
         "src/platform/prusalink_status_parser.cpp"
         "src/platform/prusalink_auth.cpp"
@@ -223,11 +225,13 @@ add_custom_command(OUTPUT "${layout_header}"
     DEPENDS partition_table "${build_dir}/partition_table/partition-table.bin"
         "${CMAKE_CURRENT_LIST_DIR}/firmware_layout.cmake")
 target_sources(${COMPONENT_LIB} PRIVATE "${layout_header}")
+target_sources(${COMPONENT_LIB} PRIVATE "src/platform/camera_receive_slice.cpp")
 target_include_directories(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_definitions(${COMPONENT_LIB} PRIVATE PRINTDECK_IDENTITY_TARGET="${PRINTDECK_HW_VARIANT}")
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,-u,printdeck_firmware_identity")
 target_link_libraries(${COMPONENT_LIB} INTERFACE
     "-Wl,-u,__wrap_lv_thread_init" "-Wl,--wrap=lv_thread_init")
+target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=lwip_recvfrom")
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_KNOMI2=1)
 elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
@@ -254,4 +258,9 @@ set_source_files_properties(
     "src/platform/elegoo_sdcp_parser.cpp"
     "src/platform/moonraker_status_parser.cpp"
     "src/platform/uniformation_sdcp_parser.cpp"
+    "src/platform/print_preview_cache.cpp"
+    "src/platform/print_preview_service.cpp"
+    "src/platform/inactive_printer_poller.cpp"
+    "src/platform/prusalink_client.cpp"
+    "src/platform/moonraker_adapter.cpp"
     PROPERTIES COMPILE_OPTIONS "-Os")

@@ -1,0 +1,146 @@
+/* The workshop, screen apertures and filename pills share the 2171 × 724 plane. */
+.reactions-page .gifs-hero {
+  min-height: clamp(420px, 33.333vw, 660px);
+  padding: 0;
+  isolation: isolate;
+  background: #101310;
+}
+.reactions-page .gifs-hero::after { display: none; }
+.reactions-page .gifs-hero > .reactions-inner {
+  display: flex;
+  align-items: center;
+  width: min(1530px, calc(100% - 96px));
+  min-height: inherit;
+  z-index: 4;
+  pointer-events: none;
+}
+.reactions-page .gifs-hero .reactions-hero-copy {
+  width: 36%;
+  max-width: 620px;
+  padding: 42px 0;
+  text-align: left;
+  pointer-events: auto;
+}
+.reactions-page .gifs-hero .reactions-eyebrow { font-size: .8rem; letter-spacing: .12em; }
+.reactions-page .gifs-hero h1 {
+  margin: 18px 0 24px;
+  color: #fff;
+  font-size: clamp(3.3rem, 5.3vw, 6rem);
+  font-weight: 650;
+  line-height: 1.02;
+  letter-spacing: -.055em;
+}
+.reactions-page .gifs-hero h1 strong { color: #2bd1a7; font-weight: inherit; }
+.reactions-page .gifs-hero .reactions-lead { color: #e2e7e4; font-size: clamp(.9rem, 1.08vw, 1.15rem); line-height: 1.6; }
+.reactions-page .gifs-hero .site-actions { width: auto; margin: 28px 0 0; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: flex-start; }
+.reactions-page .gifs-hero .gifs-browse {
+  flex: none;
+  min-height: 50px;
+  padding: 13px 22px;
+  gap: 12px;
+  color: #071c17;
+  background: #2bd1a7;
+  border-color: #2bd1a7;
+  font-size: .95rem;
+}
+.reactions-page .gifs-hero .gifs-browse:hover { background: #59dfbc; border-color: #59dfbc; }
+.reactions-page .gifs-flow-link { display: inline-flex; align-items: center; gap: 6px; color: #fff; font-size: .9rem; font-weight: 600; text-decoration: none; }
+.reactions-page .gifs-flow-link:hover { color: #2bd1a7; }
+.reactions-page .gifs-hero .site-actions svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.reactions-page .gifs-workshop { position: absolute; z-index: 2; inset: 0; overflow: hidden; }
+.reactions-page .gifs-workshop-stage { position: absolute; inset: 0; container-type: size; }
+.reactions-page .gifs-workshop-art {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100cqw, 300cqh);
+  aspect-ratio: 2171 / 724;
+  transform: translate(-50%, -50%);
+  container-type: inline-size;
+}
+.reactions-page .gifs-workshop-photo { display: block; width: 100%; height: 100%; }
+/* Inner round glass: centre (1279, 430), radii (102, 103.5). */
+.reactions-page .gifs-round-screen { position: absolute; left: 54.2146%; top: 45.0967%; width: 9.3966%; height: 28.5912%; overflow: hidden; border-radius: 50%; background: #030504; }
+.reactions-page .gifs-round-screen img { display: block; width: 100%; height: 100%; object-fit: fill; transform: scale(1.13); }
+.reactions-page .gifs-square-projection { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+.reactions-page .gifs-square-screen { width: 466px; height: 466px; overflow: hidden; border-radius: 6px; background: #050505; }
+.reactions-page .gifs-square-screen img { display: block; width: 100%; height: 100%; }
+.reactions-page .gifs-files { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.reactions-page .gifs-file {
+  --tilt: -6deg;
+  --drift: -.32cqw;
+  --sway: .13cqw;
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: .7cqw;
+  padding: .7cqw 1.1cqw .7cqw .8cqw;
+  border: 1px solid #98e1c6a8;
+  border-radius: 1.45cqw;
+  color: #f5f7f6;
+  background: linear-gradient(135deg, #171c1bef, #242726e8);
+  box-shadow: 0 0 .35cqw #48eab65c, inset 0 1px 1px #ffffff33, 0 .55cqw 1.25cqw #0008;
+  font-size: 1.23cqw;
+  font-weight: 400;
+  line-height: 1.1;
+  white-space: nowrap;
+  transform: rotate(var(--tilt));
+  transform-origin: 0 0;
+  scale: .7;
+  animation: gifs-file-float var(--period, 7s) ease-in-out var(--delay, -2s) infinite;
+  backdrop-filter: blur(12px);
+}
+.reactions-page .gifs-file > i { display: grid; flex: none; place-items: center; width: 2.3cqw; height: 2.3cqw; border-radius: .64cqw; color: #071c17; background: #2bd1a7; font-size: 1.8cqw; font-style: normal; font-weight: 650; }
+.reactions-page .gifs-file strong { color: inherit; font-weight: 650; }
+.reactions-page .gifs-file-animation { left: 56%; top: 33%; padding: .85cqw 1.25cqw; font-size: 1.7cqw; --tilt: -7deg; --period: 8.4s; --delay: -3.1s; }
+.reactions-page .gifs-file-animation > i { width: 2.7cqw; height: 2.7cqw; font-size: 2cqw; }
+.reactions-page .gifs-file-motion { left: 73%; top: 27%; --tilt: 8deg; --period: 7.1s; --delay: -5.3s; --drift: .28cqw; }
+.reactions-page .gifs-file-png { left: 46%; top: 30%; --tilt: -9deg; --period: 6.7s; --delay: -1.7s; }
+.reactions-page .gifs-file-jpg { left: 46%; top: 50%; --tilt: 9deg; --period: 9.1s; --delay: -4.2s; --drift: .24cqw; }
+.reactions-page .gifs-file-jpeg { left: 81.5%; top: 40%; --tilt: -8deg; --period: 7.8s; --delay: -6s; }
+.reactions-page .gifs-file-avif { left: 44.5%; top: 73%; --tilt: -12deg; --period: 8.7s; --delay: -2.8s; }
+.reactions-page .gifs-file-bmp { left: 84%; top: 57%; --tilt: 6deg; --period: 6.9s; --delay: -5.8s; --drift: .31cqw; }
+.reactions-page .gifs-file-heic { left: 62%; top: 79%; --tilt: -7deg; --period: 7.6s; --delay: -3.7s; }
+.reactions-page .gifs-file-heif { left: 80%; top: 80%; --tilt: -10deg; --period: 9.4s; --delay: -7.1s; --drift: .23cqw; }
+.reactions-page .gifs-hero.is-paused .gifs-file { animation-play-state: paused; }
+@keyframes gifs-file-float {
+  0%, 100% { transform: translate(0, 0) rotate(var(--tilt)); }
+  50% { transform: translate(var(--sway), var(--drift)) rotate(calc(var(--tilt) + .7deg)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reactions-page .gifs-file { animation: none; }
+}
+@media (min-width: 1101px) and (max-width: 1450px) {
+  .reactions-page .gifs-hero .site-actions { gap: 12px 18px; }
+  .reactions-page .gifs-hero .gifs-browse { padding-inline: 18px; font-size: .86rem; }
+  .reactions-page .gifs-flow-link { font-size: .82rem; }
+}
+@media (max-width: 1100px) {
+  .reactions-page .gifs-hero { min-height: 0; }
+  .reactions-page .gifs-hero > .reactions-inner { display: block; width: 100%; }
+  .reactions-page .gifs-hero .reactions-hero-copy { width: auto; max-width: 650px; padding: 38px 24px 0; }
+  .reactions-page .gifs-hero h1 { font-size: clamp(2.9rem, 9vw, 4.5rem); margin: 18px 0 20px; }
+  .reactions-page .gifs-hero .reactions-lead { font-size: .95rem; }
+  .reactions-page .gifs-hero .site-actions { margin-top: 24px; gap: 16px; }
+  .reactions-page .gifs-workshop { position: relative; height: clamp(235px, 57vw, 470px); margin-top: 16px; }
+  .reactions-page .gifs-workshop-art { left: auto; right: 0; top: 50%; width: 156%; transform: translateY(-50%); }
+  .reactions-page .gifs-workshop-stage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(#101310, transparent 14%); pointer-events: none; }
+}
+@media (max-width: 560px) {
+  .reactions-page .gifs-hero .reactions-eyebrow { font-size: .69rem; }
+  .reactions-page .gifs-hero .gifs-browse { min-height: 46px; padding: 12px 18px; font-size: .85rem; }
+  .reactions-page .gifs-flow-link { font-size: .82rem; }
+  .reactions-page .gifs-workshop { height: 66vw; min-height: 220px; }
+  .reactions-page .gifs-workshop-art { width: 166%; }
+  .reactions-page .gifs-file { gap: .7cqw; padding: .85cqw 1.1cqw; font-size: 1.85cqw; border-radius: 1.8cqw; scale: .85; }
+  .reactions-page .gifs-file > i { width: 2.6cqw; height: 2.6cqw; font-size: 2.1cqw; }
+  .reactions-page .gifs-file-animation { left: 55%; top: 30%; font-size: 2cqw; }
+  .reactions-page .gifs-file-motion { left: 75%; top: 24%; }
+  .reactions-page .gifs-file-png { left: 42%; top: 32%; }
+  .reactions-page .gifs-file-jpg { left: 42%; top: 51%; }
+  .reactions-page .gifs-file-jpeg { left: 82%; top: 42%; }
+  .reactions-page .gifs-file-avif { left: 42%; top: 77%; }
+  .reactions-page .gifs-file-bmp { left: 85%; top: 60%; }
+  .reactions-page .gifs-file-heic { left: 62%; top: 81%; }
+  .reactions-page .gifs-file-heif { left: 80%; top: 83%; }
+}

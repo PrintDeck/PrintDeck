@@ -3,7 +3,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>Pomoc · PrintDeck</title>
-  <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
+  <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/support-hero.css?v=20260910-3">
+    <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
   <script>window.printDeckInstallerI18n={language:"pl",t:(source,values={})=>{let result=({"Play":"Odtwórz","Pause":"Wstrzymaj","Seek":"Przewiń","{currentTime} of {duration}":"{currentTime} z {duration}","Played":"Odtworzono","Buffered":"Zbuforowano","Current time":"Bieżący czas","Volume":"Głośność","Mute":"Wycisz","Unmute":"Włącz dźwięk","Enter fullscreen":"Włącz pełny ekran","Exit fullscreen":"Wyjdź z pełnego ekranu","Automatic appearance":"Automatyczny wygląd"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -36,7 +38,7 @@
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Pomoc · PrintDeck","description":"Instrukcja, rozwiązania typowych problemów i kontakt z nami — wszystko w jednym miejscu.","url":"https://printdeck.xyz/pl/support/","inLanguage":"pl","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
-  <body class="site-page support-page" data-page-title="Pomoc · PrintDeck">
+  <body class="site-page wide-hero-page support-page" data-page-title="Pomoc · PrintDeck">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/pl/" aria-label="Strona główna">
@@ -48,50 +50,34 @@
           <a class="site-tab" href="/pl/firmware/">Firmware</a>
           <a class="site-tab" href="/pl/gifs/">GIFs</a>
           <a class="site-tab" href="/pl/case-designs/">Projekty obudów</a>
-          <a class="site-tab" href="/pl/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/pl/knomi/">KNOMI</a>
           <a class="site-tab" href="/pl/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/pl/support/" aria-current="page">Pomoc</a>
+          <a class="site-tab" href="/pl/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
 
     <main class="support-content">
-      <section class="support-hero">
+      <section class="support-hero support-workshop-hero">
         <div class="support-inner support-hero-grid">
           <div class="support-hero-copy">
             <span class="support-eyebrow">Pomoc</span>
-            <h1>Potrzebujesz pomocy?</h1>
+            <h1>Potrzebujesz pomocy?<br><strong>Jesteśmy tutaj.</strong></h1>
             <p class="support-lead">Instrukcja, rozwiązania typowych problemów i kontakt z nami — wszystko w jednym miejscu.</p>
-          </div>
-
-          <nav class="support-hero-resources" aria-label="Materiały pomocy">
-            <a class="support-hero-resource" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">
-              <span class="support-resource-index">01</span>
-              <span class="support-resource-copy"><strong>Instrukcja obsługi</strong><span>Dowiedz się, jak skonfigurować i obsługiwać PrintDeck.</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <a class="support-hero-resource" href="mailto:support@printdeck.xyz">
-              <span class="support-resource-index">02</span>
-              <span class="support-resource-copy"><strong>Napisz do nas</strong><span>Zapytaj nas o zgodność sprzętu, indywidualną pomoc przy montażu lub komercyjną licencję na firmware.</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <a class="support-hero-resource support-hero-resource-wide" href="/pl/unified-printer-api/">
-              <span class="support-resource-index">03</span>
-              <span class="support-resource-copy"><strong>Unified API</strong><span>Twórz lokalne oprogramowanie z jednym formatem JSON tylko do odczytu dla obsługiwanych drukarek.</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <div class="support-contact-prompt">
-              <span class="support-contact-icon" aria-hidden="true">?</span>
-              <p><span>Nie znalazłeś odpowiedzi?</span><br><a href="mailto:support@printdeck.xyz">Napisz do nas</a><span> — chętnie pomożemy.</span><br><a href="/pl/legal/privacy/#support-messages">Jak przetwarzamy Twoją wiadomość</a></p>
+            <div class="site-actions">
+              <a class="site-button support-manual" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener"><span>Instrukcja obsługi</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg></a>
+              <a class="support-email" href="mailto:support@printdeck.xyz"><span>Napisz do nas</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"></path></svg></a>
             </div>
-          </nav>
+          </div>
+        </div>
+        <div class="support-workshop-scene">
+          <img src="/assets/marketing/support/workshop-guide.webp" width="2206" height="713" alt="" fetchpriority="high">
         </div>
       </section>
 
       <div class="campaign-signal support-signal" aria-label="Materiały pomocy">
         <span>Przejrzysta dokumentacja</span>
         <span>Raport bez danych prywatnych</span>
-        <span>Unified API</span>
         <span>Bezpośredni kontakt</span>
       </div>
 
@@ -124,6 +110,11 @@
               <p><a href="/printdeck-user-manual.pdf#page=12">Uruchom Sprawdzenie zgodności</a>. PrintDeck zbierze potrzebne dane lokalnie, usunie z raportu informacje prywatne i udostępni go do pobrania. Raport nie jest wysyłany automatycznie — pobierz go i prześlij do nas.</p>
               <p>Dzięki raportowi możemy dodać obsługę Twojego modelu.</p>
             </article>
+            <article class="faq-item" id="resin-printers">
+              <h3>Czy PrintDeck obsługuje drukarki żywiczne?</h3>
+              <p>Tak! Przetestowaliśmy PrintDeck z Uniformation GK3 Ultra i spodziewamy się, że zadziała również z pozostałymi modelami serii GK3. Nie mieliśmy jeszcze dostępu do innych drukarek żywicznych, więc nie możemy potwierdzić ich zgodności.</p>
+              <p>Masz drukarkę żywiczną? Wypróbuj PrintDeck i daj nam znać, jak poszło. Zrobimy, co w naszej mocy, żeby działał również z Twoją drukarką.</p>
+            </article>
             <article class="faq-item">
               <h3>Gdzie znajdę inne obudowy?</h3>
               <p>Udostępniamy bezpłatne modele trzech obudów do samodzielnego wydruku. Możesz też tworzyć własne modyfikacje i projekty.</p>
@@ -132,11 +123,33 @@
             </article>
           </div>
         </section>
+
+        <nav class="support-hero-resources support-body-resources" aria-label="Materiały pomocy">
+          <a class="support-hero-resource" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">
+            <span class="support-resource-index">01</span>
+            <span class="support-resource-copy"><strong>Instrukcja obsługi</strong><span>Dowiedz się, jak skonfigurować i obsługiwać PrintDeck.</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="support-hero-resource" href="mailto:support@printdeck.xyz">
+            <span class="support-resource-index">02</span>
+            <span class="support-resource-copy"><strong>Napisz do nas</strong><span>Zapytaj nas o zgodność sprzętu, indywidualną pomoc przy montażu lub komercyjną licencję na firmware.</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="support-hero-resource support-hero-resource-wide" href="/pl/unified-printer-api/">
+            <span class="support-resource-index">03</span>
+            <span class="support-resource-copy"><strong>Unified API</strong><span>Twórz lokalne oprogramowanie z jednym formatem JSON tylko do odczytu dla obsługiwanych drukarek.</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <div class="support-contact-prompt">
+            <span class="support-contact-icon" aria-hidden="true">?</span>
+            <p><span>Nie znalazłeś odpowiedzi?</span><br><a href="mailto:support@printdeck.xyz">Napisz do nas</a><span> — chętnie pomożemy.</span><br><a href="/pl/legal/privacy/#support-messages">Jak przetwarzamy Twoją wiadomość</a></p>
+          </div>
+        </nav>
       </div>
     </main>
 
     <footer class="site-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/pl/support/">Skontaktuj się z pomocą</a> · <a href="/pl/legal/license/">Licencja</a> · <a href="/pl/legal/notice/">Informacje prawne</a> · <a href="/pl/legal/privacy/">Prywatność</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/pl/support/">Skontaktuj się z pomocą</a> · <a href="/pl/legal/license/">Licencja</a> · <a href="/pl/legal/notice/">Informacje prawne</a> · <a href="/pl/legal/privacy/">Prywatność</a></span>
       <div class="footer-controls">
         <label hidden="" for="support-language">Język</label>
         <select class="installer-language" id="support-language" aria-label="Język" data-site-language=""><option value="/support/">English</option><option value="/pl/support/" selected="">Polski</option><option value="/es/support/">Español</option><option value="/fr/support/">Français</option><option value="/de/support/">Deutsch</option><option value="/zh-cn/support/">简体中文</option></select>

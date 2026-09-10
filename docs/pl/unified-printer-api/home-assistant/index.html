@@ -8,7 +8,9 @@
 
 
     <title>Home Assistant · Unified Printer API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
+    <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/home-assistant-hero.css?v=20260910-4">
+    <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
     <script>window.printDeckInstallerI18n={language:"pl",t:(source,values={})=>{let result=({"Play":"Odtwórz","Pause":"Wstrzymaj","Seek":"Przewiń","{currentTime} of {duration}":"{currentTime} z {duration}","Played":"Odtworzono","Buffered":"Zbuforowano","Current time":"Bieżący czas","Volume":"Głośność","Mute":"Wycisz","Unmute":"Włącz dźwięk","Enter fullscreen":"Włącz pełny ekran","Exit fullscreen":"Wyjdź z pełnego ekranu","Automatic appearance":"Automatyczny wygląd"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -41,7 +43,7 @@
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Home Assistant · Unified Printer API · PrintDeck","description":"Połącz Home Assistant z Unified Printer API PrintDeck i przekształć lokalne stany drukarek, postęp oraz temperatury w sensory i automatyzacje.","url":"https://printdeck.xyz/pl/unified-printer-api/home-assistant/","inLanguage":"pl","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
-  <body class="site-page api-page api-integration-page" data-page-title="Home Assistant · Unified Printer API · PrintDeck">
+  <body class="site-page wide-hero-page api-page api-integration-page" data-page-title="Home Assistant · Unified Printer API · PrintDeck">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/pl/" aria-label="Strona główna">
@@ -53,31 +55,27 @@
           <a class="site-tab" href="/pl/firmware/">Firmware</a>
           <a class="site-tab" href="/pl/gifs/">GIFs</a>
           <a class="site-tab" href="/pl/case-designs/">Projekty obudów</a>
-          <a class="site-tab" href="/pl/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/pl/knomi/">KNOMI</a>
           <a class="site-tab" href="/pl/unified-printer-api/" aria-current="page">Unified API</a>
-          <a class="site-tab" href="/pl/support/">Pomoc</a>
+          <a class="site-tab" href="/pl/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
 
     <main class="api-content">
       <section class="ha-hero">
+        <div class="ha-hero-scene" aria-hidden="true">
+          <img src="/assets/marketing/home-assistant/workshop-scene.webp" alt="" width="2079" height="756" fetchpriority="high">
+        </div>
         <div class="api-inner">
-          <a class="ha-back-link" href="/pl/unified-printer-api/"><span aria-hidden="true">←</span> Unified Printer API</a>
-          <div class="ha-hero-grid">
-            <div class="ha-hero-copy">
-              <span class="api-eyebrow">HOME ASSISTANT · INTEGRACJA PRINTDECK</span>
-              <h1>Twoja drukarka staje się<br><strong>częścią inteligentnego domu.</strong></h1>
-              <p class="api-lead">Home Assistant może odpytywać PrintDeck w sieci lokalnej, przekształcać znormalizowane dane drukarki w encje i reagować na każdą zmianę stanu wydruku.</p>
-              <div class="site-actions">
-                <a class="site-button" href="#native-integration">Zainstaluj integrację PrintDeck</a>
-                <a class="site-button secondary" href="#first-automation">Utwórz pierwszą automatyzację</a>
-              </div>
-            </div>
-            <div class="ha-hero-mark" aria-label="PrintDeck przekazuje dane drukarki do Home Assistant">
-              <div class="ha-mark-logo"><img src="/assets/integrations/home-assistant.png" alt="Logo Home Assistant"></div>
-              <div class="ha-mark-flow" aria-hidden="true"><span>DRUKARKA</span><i>→</i><span>PRINTDECK API</span><i>→</i><span>HOME ASSISTANT</span></div>
-              <p>Lokalne odpytywanie. Jedno żądanie statusu tylko do odczytu. Bez pośrednictwa chmury.</p>
+          <div class="ha-hero-copy">
+            <a class="ha-back-link" href="/pl/unified-printer-api/"><span aria-hidden="true">←</span> Unified Printer API</a>
+            <span class="api-eyebrow">HOME ASSISTANT · INTEGRACJA PRINTDECK</span>
+            <h1>Twoja drukarka staje się<br><strong>częścią inteligentnego domu.</strong></h1>
+            <p class="api-lead">Home Assistant może odpytywać PrintDeck w sieci lokalnej, przekształcać znormalizowane dane drukarki w encje i reagować na każdą zmianę stanu wydruku.</p>
+            <div class="site-actions">
+              <a class="site-button" href="#native-integration">Zainstaluj integrację PrintDeck</a>
+              <a class="site-button secondary" href="#first-automation">Utwórz pierwszą automatyzację</a>
             </div>
           </div>
         </div>
@@ -495,7 +493,7 @@
     </main>
 
     <footer class="site-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/pl/support/">Skontaktuj się z pomocą</a> · <a href="/pl/legal/license/">Licencja</a> · <a href="/pl/legal/notice/">Informacje prawne</a> · <a href="/pl/legal/privacy/">Prywatność</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/pl/support/">Skontaktuj się z pomocą</a> · <a href="/pl/legal/license/">Licencja</a> · <a href="/pl/legal/notice/">Informacje prawne</a> · <a href="/pl/legal/privacy/">Prywatność</a></span>
       <div class="footer-controls">
         <label hidden="" for="ha-language">Język</label>
         <select class="installer-language" id="ha-language" aria-label="Język" data-site-language=""><option value="/unified-printer-api/home-assistant/">English</option><option value="/pl/unified-printer-api/home-assistant/" selected="">Polski</option><option value="/es/unified-printer-api/home-assistant/">Español</option><option value="/fr/unified-printer-api/home-assistant/">Français</option><option value="/de/unified-printer-api/home-assistant/">Deutsch</option><option value="/zh-cn/unified-printer-api/home-assistant/">简体中文</option></select>

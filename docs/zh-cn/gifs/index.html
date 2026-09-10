@@ -3,9 +3,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#101010">
     <title>GIF 动画 · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
-    <link rel="stylesheet" href="/assets/reactions.css?v=20260906-1">
+    <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/reactions.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/gifs-hero.css?v=20260910-3">
+    <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏","Automatic appearance":"自动外观"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
+    <script src="/assets/gifs-hero.js?v=20260910-1" defer=""></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
@@ -37,7 +40,7 @@
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"GIF 动画 · PrintDeck","description":"通过浏览器中的裁剪、片段选择、优化和直接上传，将 GIF、动态 WebP 和静态图片转换为自定义 PrintDeck 反应动画。","url":"https://printdeck.xyz/zh-cn/gifs/","inLanguage":"zh-CN","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
-  <body class="site-page reactions-page" data-page-title="GIF 动画 · PrintDeck">
+  <body class="site-page wide-hero-page reactions-page" data-page-title="GIF 动画 · PrintDeck">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/zh-cn/" aria-label="首页">
@@ -49,50 +52,57 @@
           <a class="site-tab" href="/zh-cn/firmware/">固件</a>
           <a class="site-tab" href="/zh-cn/gifs/" aria-current="page">GIFs</a>
           <a class="site-tab" href="/zh-cn/case-designs/">外壳设计</a>
-          <a class="site-tab" href="/zh-cn/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/zh-cn/knomi/">KNOMI</a>
           <a class="site-tab" href="/zh-cn/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/zh-cn/support/">支持</a>
+          <a class="site-tab" href="/zh-cn/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
 
     <main class="reactions-content">
-      <section class="reactions-hero">
+      <section class="reactions-hero gifs-hero is-paused" data-gifs-hero="">
         <div class="reactions-inner reactions-hero-grid">
           <div class="reactions-hero-copy">
-            <span class="reactions-eyebrow">自定义 GIF · 无需重新编译固件</span>
-            <h1>让打印机的每种状态<br><strong>都有独特形象。</strong></h1>
-            <p class="reactions-lead">将动画或图片拖放到 Web Config。PrintDeck 可让你裁剪、缩放、选择最佳片段，并在发送到显示屏前预览优化结果。</p>
+            <span class="reactions-eyebrow">自定义 GIF · 你的风格</span>
+            <h1>你的创意。<br><strong>你的 GIF。</strong></h1>
+            <p class="reactions-lead"><span>将你的文件变成生动的 PrintDeck 反应动画。</span><br><span>拖放、裁剪，打造你的专属风格。</span></p>
             <div class="site-actions">
-              <a class="site-button" href="#reaction-film">观看完整流程</a>
-              <a class="site-button secondary" href="#free-gallery">浏览免费示例</a>
+              <a class="site-button gifs-browse" href="#free-gallery"><span>浏览免费 GIF</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg></a>
+              <a class="gifs-flow-link" href="#reaction-film"><span>了解使用方法</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"></path></svg></a>
             </div>
           </div>
-          <div class="reactions-hero-art" aria-label="PrintDeck 自定义 GIF 示例">
-            <figure class="reactions-hero-device reactions-hero-device-round">
-              <img src="/assets/marketing/knomi2/blue-eye.gif" alt="用作自定义打印机反应的蓝色动态眼睛" fetchpriority="high">
-              <figcaption>打印中 · 自定义</figcaption>
-            </figure>
-            <figure class="reactions-hero-device reactions-hero-device-square">
-              <img src="/assets/marketing/knomi2/reactions/filament-loading.gif" alt="装载耗材反应动画" fetchpriority="high">
-              <figcaption>装载耗材</figcaption>
-            </figure>
-            <div class="reactions-hero-files" aria-label="支持的文件扩展名">
-              <span class="reactions-hero-file">animation<strong>.gif</strong></span>
-              <span class="reactions-hero-file">motion<strong>.webp</strong></span>
-              <span class="reactions-hero-file">photo<strong>.png</strong></span>
-              <span class="reactions-hero-file">picture<strong>.jpg</strong></span>
-              <span class="reactions-hero-file">portrait<strong>.jpeg</strong></span>
-              <span class="reactions-hero-file">artwork<strong>.avif</strong></span>
-              <span class="reactions-hero-file">image<strong>.bmp</strong></span>
-              <span class="reactions-hero-file">photo<strong>.heic</strong></span>
-              <span class="reactions-hero-file">photo<strong>.heif</strong></span>
+        </div>
+        <div class="gifs-workshop" aria-label="PrintDeck 自定义 GIF 示例">
+          <div class="gifs-workshop-stage">
+            <div class="gifs-workshop-art">
+              <img class="gifs-workshop-photo" src="/assets/marketing/gifs/workshop-compact.webp" width="2171" height="724" alt="" fetchpriority="high">
+              <div class="gifs-round-screen">
+                <img src="/assets/marketing/gifs/blue-eye-poster.webp" data-gifs-animation="/assets/marketing/knomi2/blue-eye.gif" alt="用作自定义打印机反应的蓝色动态眼睛" width="466" height="466">
+              </div>
+              <svg class="gifs-square-projection" viewBox="0 0 2171 724" aria-label="喷嘴加热反应动画">
+                <foreignObject x="0" y="0" width="466" height="466" transform="matrix(.291845 .012875 0 .283262 1517 407)">
+                  <div xmlns="http://www.w3.org/1999/xhtml" class="gifs-square-screen">
+                    <img src="/assets/marketing/gifs/cartoon-poster.webp" data-gifs-animation="/assets/marketing/home/nozzle-heating-cartoon.gif" alt="" width="466" height="466">
+                  </div>
+                </foreignObject>
+              </svg>
+              <div class="gifs-files" aria-label="支持的文件扩展名" translate="no">
+                <span class="gifs-file gifs-file-animation"><i aria-hidden="true">+</i><span>animation<strong>.gif</strong></span></span>
+                <span class="gifs-file gifs-file-motion"><i aria-hidden="true">+</i><span>motion<strong>.webp</strong></span></span>
+                <span class="gifs-file gifs-file-png"><i aria-hidden="true">+</i><span>photo<strong>.png</strong></span></span>
+                <span class="gifs-file gifs-file-jpg"><i aria-hidden="true">+</i><span>picture<strong>.jpg</strong></span></span>
+                <span class="gifs-file gifs-file-jpeg"><i aria-hidden="true">+</i><span>portrait<strong>.jpeg</strong></span></span>
+                <span class="gifs-file gifs-file-avif"><i aria-hidden="true">+</i><span>artwork<strong>.avif</strong></span></span>
+                <span class="gifs-file gifs-file-bmp"><i aria-hidden="true">+</i><span>image<strong>.bmp</strong></span></span>
+                <span class="gifs-file gifs-file-heic"><i aria-hidden="true">+</i><span>photo<strong>.heic</strong></span></span>
+                <span class="gifs-file gifs-file-heif"><i aria-hidden="true">+</i><span>photo<strong>.heif</strong></span></span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <div class="reactions-signal" aria-label="自定义 GIF 亮点">
+      <div class="campaign-signal reactions-signal" aria-label="自定义 GIF 亮点">
         <span>18 个反应动画槽位</span>
         <span>1–5 秒片段</span>
         <span>支持多种文件格式</span>
@@ -299,7 +309,7 @@
     </main>
 
     <footer class="site-footer reactions-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
       <div class="footer-controls">
         <label hidden="" for="reactions-language">语言</label>
         <select class="installer-language" id="reactions-language" aria-label="语言" data-site-language=""><option value="/gifs/">English</option><option value="/pl/gifs/">Polski</option><option value="/es/gifs/">Español</option><option value="/fr/gifs/">Français</option><option value="/de/gifs/">Deutsch</option><option value="/zh-cn/gifs/" selected="">简体中文</option></select>

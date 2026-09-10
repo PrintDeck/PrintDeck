@@ -224,29 +224,6 @@
   font-size: .82rem;
 }
 
-.reactions-page .reactions-signal {
-  --signal-dot-margin: 31px;
-  min-height: 92px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 20px 26px;
-  overflow-x: auto;
-  border-top: 1px solid #d0d4d2;
-  border-bottom: 1px solid #d0d4d2;
-  color: #151817;
-  background: #e7e9e8;
-  font-size: .94rem;
-  font-weight: 680;
-  letter-spacing: .02em;
-  scrollbar-width: none;
-}
-
-.reactions-page .reactions-signal::-webkit-scrollbar { display: none; }
-.reactions-page .reactions-signal span { flex: 0 0 auto; }
-.reactions-page .reactions-signal span + span::before { content: "·"; margin: 0 var(--signal-dot-margin); opacity: .6; }
-
 .reactions-page .reactions-section { padding: 96px 0; }
 .reactions-page .reactions-section-head { margin-bottom: 52px; }
 .reactions-page .reactions-section-head h2 { font-size: clamp(2.8rem, 4.8vw, 4.55rem); }
@@ -855,7 +832,6 @@
 }
 
 :root[data-appearance="dark"] .reactions-page .reactions-content { border-color: #393c3b; background: linear-gradient(145deg, #202121 0%, #181919 54%, #111212 100%); box-shadow: 0 32px 90px #000a, inset 0 1px #ffffff06; }
-:root[data-appearance="dark"] .reactions-page .reactions-signal { border-color: #393c3b; color: #f2f5f4; background: #252827; }
 :root[data-appearance="dark"] .reactions-page .reactions-formats-section,
 :root[data-appearance="dark"] .reactions-page .reactions-limits-section { background: #111212; }
 :root[data-appearance="dark"] .reactions-page .reactions-editor-section,
@@ -952,7 +928,6 @@
   .reactions-page .reactions-hero-grid { gap: 28px; }
   .reactions-page .reactions-hero-copy .site-button { padding-right: 8px; padding-left: 8px; font-size: clamp(.61rem, 2.75vw, .78rem); }
   .reactions-page .reactions-section { padding: 76px 0; }
-  .reactions-page .reactions-signal { justify-content: flex-start; }
   .reactions-page .reactions-film-stage { min-height: 590px; }
   .reactions-page .reactions-film-scene { padding: 28px 22px 82px; }
   .reactions-page .reactions-film-bar { grid-template-columns: 1fr auto; padding: 0 16px; }
@@ -1035,7 +1010,6 @@
   .reactions-page .reactions-hero-file { min-height: 30px; padding: 4px 7px; font-size: .55rem; }
   .reactions-page .reactions-hero-file::before { width: 17px; height: 17px; margin-right: 5px; }
   .reactions-page .reactions-editor-screenshot { width: min(360px, 100%); margin-top: 34px; border-radius: 15px; }
-  .reactions-page .reactions-signal { --signal-dot-margin: 18px; min-height: 82px; font-size: .82rem; }
   .reactions-page .reactions-film { margin: 0 -4px; border-radius: 22px; }
   .reactions-page .reactions-film-stage { min-height: 610px; }
   .reactions-page .reactions-film-scene > p { right: 20px; bottom: 22px; left: 20px; font-size: .8rem; }

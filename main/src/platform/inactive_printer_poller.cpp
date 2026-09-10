@@ -459,6 +459,10 @@ InactivePrinterStatus InactivePrinterPoller::probe(
       summary.phase = job.phase;
       summary.kind = job.kind;
       summary.condition = job.condition;
+      summary.completion = job.completion;
+      summary.completion_known = job.completion_known;
+      summary.elapsed_seconds = job.elapsed_seconds;
+      summary.elapsed_known = job.elapsed_known;
       summary.remaining_seconds = job.remaining_seconds;
       summary.remaining_known = job.remaining_known;
     } else if (result.error == ElegooError::capacity || result.error == ElegooError::service_not_ready) {
@@ -488,6 +492,10 @@ InactivePrinterStatus InactivePrinterPoller::probe(
       summary.phase = job.phase;
       summary.kind = job.kind;
       summary.condition = job.condition;
+      summary.completion = job.completion;
+      summary.completion_known = job.completion_known;
+      summary.elapsed_seconds = job.elapsed_seconds;
+      summary.elapsed_known = job.elapsed_known;
       summary.remaining_seconds = job.remaining_seconds;
       summary.remaining_known = job.remaining_known;
     }
@@ -580,6 +588,8 @@ InactivePrinterStatus InactivePrinterPoller::probe(
     if (summary.job_name.empty()) {
       summary.job_name = display_job_name(gcode_file);
     }
+    summary.completion_known = cJSON_IsNumber(member(print, "mc_percent"));
+    summary.completion = static_cast<float>(std::clamp(number_member(print, "mc_percent"), 0.0, 100.0));
     summary.remaining_seconds = static_cast<std::uint32_t>(std::max(
         0.0, number_member(print, "mc_remaining_time") * 60.0));
     summary.remaining_known = cJSON_IsNumber(member(print, "mc_remaining_time"));
@@ -622,17 +632,13 @@ InactivePrinterStatus InactivePrinterPoller::probe(
   summary.connected = true;
   summary.phase = moonraker_phase(string_member(stats, "state"));
   summary.job_name = display_job_name(string_member(stats, "filename"));
-  const cJSON* virtual_sd = member(status, "virtual_sdcard");
-  const cJSON* display = member(status, "display_status");
-  const double progress = std::clamp(
-      number_member(virtual_sd, "progress", number_member(display, "progress")),
-      0.0, 1.0);
-  const double elapsed = std::max(0.0, number_member(stats, "print_duration"));
-  if (progress > 0.001 && progress < 1.0 && elapsed > 0.0) {
-    summary.remaining_known = true;
-    summary.remaining_seconds = static_cast<std::uint32_t>(
-        std::max(0.0, elapsed / progress - elapsed));
-  }
+  const auto timing = moonraker_job_timing(status);
+  summary.completion = timing.completion;
+  summary.completion_known = timing.completion_known;
+  summary.elapsed_seconds = timing.elapsed_seconds;
+  summary.elapsed_known = timing.elapsed_known;
+  summary.remaining_seconds = timing.remaining_seconds;
+  summary.remaining_known = timing.remaining_known;
   return summary;
 }
 

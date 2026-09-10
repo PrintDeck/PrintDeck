@@ -11,27 +11,9 @@
 #include "printdeck/core/device_state.hpp"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/platform/network_service.hpp"
+#include "printdeck/platform/inactive_printer_status.hpp"
 
 namespace printdeck::platform {
-
-struct InactivePrinterStatus {
-  std::uint32_t profile_id = 0;
-  bool available = false;
-  bool connected = false;
-  bool checking = false;
-  core::JobPhase phase = core::JobPhase::unknown;
-  core::JobKind kind = core::JobKind::print;
-  std::string job_name;
-  std::uint32_t remaining_seconds = 0;
-  bool remaining_known = false;
-  core::PrinterCondition condition = core::PrinterCondition::normal;
-  std::uint64_t updated_at_ms = 0;
-};
-
-struct InactivePrinterSnapshot {
-  std::vector<InactivePrinterStatus> printers;
-  std::uint32_t revision = 0;
-};
 
 // Performs one bounded local status probe for each profile that does not
 // currently own a full live connection.

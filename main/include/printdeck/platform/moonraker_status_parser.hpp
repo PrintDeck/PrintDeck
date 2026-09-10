@@ -9,6 +9,8 @@
 
 #include "printdeck/core/device_state.hpp"
 
+struct cJSON;
+
 namespace printdeck::platform {
 
 enum class MoonrakerLightKind : std::uint8_t {
@@ -41,6 +43,18 @@ struct MoonrakerStatusParseResult {
 };
 
 core::JobPhase moonraker_phase(std::string_view status);
+// Keep lightweight probes and the live dashboard on the same progress source.
+double moonraker_progress(const cJSON* status);
+struct MoonrakerJobTiming {
+  float completion = 0;
+  std::uint32_t elapsed_seconds = 0;
+  std::uint32_t remaining_seconds = 0;
+  bool completion_known = false;
+  bool elapsed_known = false;
+  bool remaining_known = false;
+};
+MoonrakerJobTiming moonraker_job_timing(const cJSON* status,
+                                      std::uint32_t estimated_seconds = 0);
 MoonrakerLightDescriptor discover_moonraker_light(
     const std::vector<std::string>& object_names);
 // Only request recognized telemetry fields from objects advertised by the printer.

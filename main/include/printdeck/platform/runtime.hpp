@@ -11,6 +11,7 @@
 #include "printdeck/platform/network_service.hpp"
 #include "printdeck/platform/web_config.hpp"
 #include "printdeck/platform/moonraker_adapter.hpp"
+#include "printdeck/platform/print_preview_service.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
 #include "printdeck/platform/elegoo_sdcp_service.hpp"
 #include "printdeck/platform/elegoo_cc2_service.hpp"
@@ -166,6 +167,9 @@ class Runtime {
   bool elegoo_cc2_connection_requested_ = false;
   bool bambu_connection_requested_ = false;
   bool moonraker_camera_requested_ = false;
+  bool printer_preview_visible_ = false;
+  PrintPreviewService print_preview_;
+  bool camera_cleanup_pending_ = false;
   bool bambu_preview_requested_ = false;
   bool bambu_camera_requested_ = false;
   bool bambu_phase_primed_ = false;

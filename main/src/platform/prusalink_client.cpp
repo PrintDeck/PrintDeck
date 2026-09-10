@@ -219,8 +219,10 @@ PrusaLinkHttpResponse PrusaLinkClient::get(std::string_view path, std::size_t ma
 }
 
 PrusaLinkPollResult PrusaLinkClient::poll(std::uint64_t deadline_ms,
-    const std::function<bool()>& cancelled, bool include_metadata) {
-  auto result = poll_once(deadline_ms, cancelled, include_metadata);
+    const std::function<bool()>& cancelled, bool include_metadata,
+    const std::function<bool()>& want_preview) {
+  if (previous_ && want_preview && !want_preview()) previous_->snapshot.job.preview.reset();
+  auto result = poll_once(deadline_ms, cancelled, include_metadata, want_preview);
   if (!result.sample) {
     // Reconnect is a new evidence baseline; never carry a prior job's metadata
     // through an unavailable/rebooted endpoint just because its ID is reused.
@@ -244,7 +246,10 @@ PrusaLinkPollResult PrusaLinkClient::poll(std::uint64_t deadline_ms,
       if (job.name.empty()) job.name = before.name;
       if (job.gcode_file.empty()) job.gcode_file = before.gcode_file;
       if (same_id) {
-        if (!job.preview) job.preview = before.preview;
+        if (!job.preview && (job.phase == core::JobPhase::printing ||
+                             job.phase == core::JobPhase::paused ||
+                             job.phase == core::JobPhase::preparing) &&
+            (!want_preview || want_preview())) job.preview = before.preview;
         if (current.preview_path.empty()) current.preview_path = previous_->preview_path;
         current.metadata_loaded |= previous_->metadata_loaded;
       }
@@ -255,7 +260,8 @@ PrusaLinkPollResult PrusaLinkClient::poll(std::uint64_t deadline_ms,
 }
 
 PrusaLinkPollResult PrusaLinkClient::poll_once(std::uint64_t deadline_ms,
-    const std::function<bool()>& cancelled, bool include_metadata) {
+    const std::function<bool()>& cancelled, bool include_metadata,
+    const std::function<bool()>& want_preview) {
   if (origin_.empty()) return {.error = PrusaLinkError::invalid_configuration};
   if (identity_.api_version.empty()) {
     auto response = get("/api/version", 16 * 1024, deadline_ms, cancelled);
@@ -302,23 +308,39 @@ PrusaLinkPollResult PrusaLinkClient::poll_once(std::uint64_t deadline_ms,
     if (response.error == PrusaLinkError::cancelled) return {.error = response.error};
     if (response.error == PrusaLinkError::none && response.status == 200)
       apply_prusalink_v1_job(response.body, *next);
+    // Empty 204 or unavailable metadata cannot turn a valid status offline.
+  }
+  if (previous_ && previous_->job_id == next->job_id) {
+    if (next->preview_path.empty()) next->preview_path = previous_->preview_path;
+    next->metadata_loaded |= previous_->metadata_loaded;
+    if (!want_preview || want_preview()) next->snapshot.job.preview = previous_->snapshot.job.preview;
+  }
+  const auto phase = next->snapshot.job.phase;
+  const bool active = phase == core::JobPhase::preparing || phase == core::JobPhase::printing ||
+                      phase == core::JobPhase::paused;
+  if (include_metadata && active && (!want_preview || want_preview()) && !next->snapshot.job.preview) {
     if (const auto target = prusalink_preview_target(next->preview_path, origin_);
         target && next->metadata_loaded && now_ms_() + 500 < deadline_ms) {
       const auto preview_revision = session_revision_;
-      auto preview = get(*target, 512 * 1024, deadline_ms, cancelled);
+      const auto preview_cancelled = [&] {
+        return (cancelled && cancelled()) || (want_preview && !want_preview());
+      };
+      auto preview = get(*target, 512 * 1024, deadline_ms, preview_cancelled);
       if (preview.error == PrusaLinkError::none && preview.status == 200 && prusalink_preview_png(preview.body)) {
         // A job may change during a thumbnail transfer. Never attach an image
         // until fresh status confirms the same job in the same auth session.
         const auto confirmation = get("/api/v1/status", 32 * 1024, deadline_ms, cancelled);
         const auto confirmed = confirmation.error == PrusaLinkError::none && confirmation.status == 200
             ? parse_prusalink_v1_status(confirmation.body, profile_id_, now_ms_()) : std::nullopt;
-        if (preview_revision == session_revision_ && confirmed && confirmed->job_id == next->job_id)
+        if (preview_revision == session_revision_ && !preview_cancelled() && confirmed &&
+            confirmed->job_id == next->job_id)
           next->snapshot.job.preview = std::make_shared<std::vector<std::uint8_t>>(preview.body.begin(), preview.body.end());
       }
       if (preview_revision != session_revision_) return {.error = PrusaLinkError::unavailable};
     }
-    // Empty 204 or unavailable metadata cannot turn a valid status offline.
   }
+  if (next->job_id) next->snapshot.job.preview_hint = std::to_string(*next->job_id);
+  if (!active || (want_preview && !want_preview())) next->snapshot.job.preview.reset();
   if (cancelled && cancelled()) return {.error = PrusaLinkError::cancelled};
   return {.sample = std::move(next)};
 }

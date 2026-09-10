@@ -1,4 +1,5 @@
 #include "printdeck/platform/voice_service.hpp"
+#include "printdeck/platform/image_workspace.hpp"
 
 #include <array>
 #include <cstdlib>
@@ -101,6 +102,7 @@ esp_err_t VoiceService::start(AudioService& audio, WakeCallback wake, void* cont
   // Runtime is the single caller. A stopping worker retains ownership until all
   // models and the microphone have been released; a later pass can start again.
   if (running_.load()) return ESP_OK;
+  if (!wanted(true, audio.enabled(), audio.volume())) return ESP_ERR_INVALID_STATE;
   audio_ = &audio;
   wake_callback_ = wake;
   wake_context_ = context;
@@ -121,7 +123,12 @@ esp_err_t VoiceService::start(AudioService& audio, WakeCallback wake, void* cont
 
 esp_err_t VoiceService::initialize_resources() {
   // Only the enabled core-0 worker opens the microphone and expands models.
-  if (stop_requested_.load()) return ESP_ERR_INVALID_STATE;
+  if (stop_requested_.load() || !wanted(true, audio_->enabled(), audio_->volume()))
+    return ESP_ERR_INVALID_STATE;
+  ImageWorkspaceLock workspace(5000);
+  if (!workspace) return ESP_ERR_NO_MEM;
+  if (stop_requested_.load() || !wanted(true, audio_->enabled(), audio_->volume()))
+    return ESP_ERR_INVALID_STATE;
   microphone_ = board_audio_codec_microphone_init();
   if (microphone_ == nullptr) return ESP_FAIL;
   auto microphone = static_cast<esp_codec_dev_handle_t>(microphone_);
@@ -176,6 +183,8 @@ bool VoiceService::activate_wakenet() {
   // clean() while the audio codec is playing is unnecessary and is unsafe
   // when another subsystem is simultaneously reserving internal DMA memory.
   if (wakenet_data_ != nullptr) return true;
+  ImageWorkspaceLock workspace(5000);
+  if (!workspace || stop_requested_.load()) return false;
   deactivate_multinet();
   if (!activate_voice_model(wakenet_model_name_)) return false;
   auto* data = wakenet->create(wakenet_model_name_, kWakeDetectionMode);
@@ -199,6 +208,8 @@ void VoiceService::deactivate_multinet() {
 
 bool VoiceService::activate_multinet() {
   if (multinet_data_ != nullptr) return true;
+  ImageWorkspaceLock workspace(5000);
+  if (!workspace || stop_requested_.load()) return false;
   auto wakenet = static_cast<const esp_wn_iface_t*>(wakenet_interface_);
   auto multinet = static_cast<const esp_mn_iface_t*>(multinet_interface_);
   if (wakenet_data_ != nullptr) {
@@ -268,6 +279,7 @@ void VoiceService::release_resources() {
     microphone_ = nullptr;
   }
   task_ = nullptr;
+  ESP_LOGI(kLogTag, "Local voice stopped; microphone and models released");
   running_.store(false);
 }
 
@@ -310,7 +322,7 @@ void VoiceService::task_loop() {
   unsigned consecutive_errors = 0;
   ESP_LOGI(kLogTag, "Local voice ready: Hi ESP, %u English aliases",
            static_cast<unsigned>(kAliases.size()));
-  while (!stop_requested_.load()) {
+  while (!stop_requested_.load() && wanted(true, audio_->enabled(), audio_->volume())) {
     const int read_result = esp_codec_dev_read(
         microphone, input, samples * static_cast<int>(sizeof(std::int16_t)));
     if (read_result != ESP_CODEC_DEV_OK) {
@@ -321,7 +333,7 @@ void VoiceService::task_loop() {
       continue;
     }
     consecutive_errors = 0;
-    if (stop_requested_.load()) break;
+    if (stop_requested_.load() || !wanted(true, audio_->enabled(), audio_->volume())) break;
 
     const bool playing = audio_->playback_active();
     if (playing && (state == ListenState::wake_word || state == ListenState::command)) {

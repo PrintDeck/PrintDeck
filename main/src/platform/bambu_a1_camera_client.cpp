@@ -177,12 +177,8 @@ void BambuA1CameraClient::set_enabled(bool enabled) {
     refresh_requested_.store(true);
   }
   if (enabled != was_enabled) {
-    TaskHandle_t task = nullptr;
-    {
-      const std::lock_guard<std::mutex> lock(task_mutex_);
-      task = task_handle_;
-    }
-    if (task != nullptr) xTaskNotifyGive(task);
+    const std::lock_guard<std::mutex> lock(task_mutex_);
+    if (task_handle_ != nullptr) xTaskNotifyGive(task_handle_);
   }
 }
 
@@ -212,12 +208,10 @@ void BambuA1CameraClient::stop() {
   enabled_.store(false, std::memory_order_release);
   refresh_requested_.store(false, std::memory_order_release);
   stop_requested_.store(true, std::memory_order_release);
-  TaskHandle_t task = nullptr;
   {
     const std::lock_guard<std::mutex> lock(task_mutex_);
-    task = task_handle_;
+    if (task_handle_ != nullptr) xTaskNotifyGive(task_handle_);
   }
-  if (task != nullptr) xTaskNotifyGive(task);
   publish_status(connection().is_ready(), false, false, "Camera off", true);
 }
 

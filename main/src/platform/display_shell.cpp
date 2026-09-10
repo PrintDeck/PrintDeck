@@ -1,3 +1,5 @@
+#include "printdeck/core/preview_policy.hpp"
+#include "printdeck/core/print_time.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/display_shell.hpp"
 
@@ -23,6 +25,7 @@
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/embedded_resources.hpp"
 #include "printdeck/platform/task_affinity.hpp"
+#include "printdeck/platform/status_numeric_font.hpp"
 #include "printdeck/platform/network_service.hpp"
 #include "printdeck/platform/power_service.hpp"
 #include "printdeck/platform/printer_animation_renderer.hpp"
@@ -112,18 +115,8 @@ std::string duration_text(std::uint32_t seconds) {
   return text;
 }
 
-std::string duration_hms(std::uint32_t seconds) {
-  char text[32]{};
-  const unsigned hours = seconds / 3600U;
-  const unsigned minutes = (seconds % 3600U) / 60U;
-  const unsigned remaining_seconds = seconds % 60U;
-  if (hours > 0U) {
-    std::snprintf(text, sizeof(text), "%uh %02um %02us", hours, minutes,
-                  remaining_seconds);
-  } else {
-    std::snprintf(text, sizeof(text), "%um %02us", minutes, remaining_seconds);
-  }
-  return text;
+void set_label_text_if_changed(lv_obj_t* label, const char* text) {
+  if (std::strcmp(lv_label_get_text(label), text) != 0) lv_label_set_text(label, text);
 }
 
 std::string uppercase_ascii(std::string value) {
@@ -1435,6 +1428,14 @@ void DisplayShell::start_horizontal_transition(int target_page, bool show_printe
   horizontal_transition_target_printer_list_ = show_printer_list;
   horizontal_transition_target_profile_id_ = target_profile_id;
   horizontal_transition_target_depth_ = show_printer_list ? 0 : std::max(1, target_printer_subpage);
+  if (camera_page_active() &&
+      (horizontal_transition_target_page_ != page_.load() ||
+       horizontal_transition_target_depth_ != horizontal_depth_.load())) {
+    // Publish the barrier in the input callback, before the switch timer can
+    // change depth. The core-0 worker then stops and drains the camera.
+    camera_cleanup_pending_.store(true);
+    ESP_LOGI("camera-exit", "Gesture requested camera stop");
+  }
   lv_obj_set_size(horizontal_transition_overlay_, LV_PCT(100), LV_PCT(100));
   lv_obj_center(horizontal_transition_overlay_);
   lv_obj_remove_flag(horizontal_transition_overlay_, LV_OBJ_FLAG_SCROLLABLE);
@@ -1512,6 +1513,13 @@ void DisplayShell::cancel_horizontal_transition_locked(bool stop_reveal_animatio
 void DisplayShell::horizontal_transition_timeout(lv_timer_t* timer) {
   auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
   if (shell == nullptr || !shell->horizontal_transition_active_) return;
+  if (shell->camera_cleanup_pending_.load()) {
+    shell->horizontal_transition_timeout_timer_ =
+        lv_timer_create(horizontal_transition_timeout, 1000, shell);
+    if (shell->horizontal_transition_timeout_timer_)
+      lv_timer_set_repeat_count(shell->horizontal_transition_timeout_timer_, 1);
+    return;
+  }
   // This one-shot timer is deleted by LVGL after the callback. Clearing the
   // member first prevents cancel_horizontal_transition_locked() from deleting
   // the timer while its callback is running.
@@ -1531,6 +1539,7 @@ void DisplayShell::finish_horizontal_transition(int rendered_page,
                                                 std::uint32_t rendered_profile_id) {
   if (board_display_lock(250) != ESP_OK) return;
   if (!horizontal_transition_active_ || horizontal_transition_overlay_ == nullptr ||
+      camera_cleanup_pending_.load() ||
       !horizontal_transition_target_applied_ || horizontal_transition_reveal_started_ ||
       rendered_page != horizontal_transition_target_page_ ||
       (rendered_page == 0 && rendered_printer_list !=
@@ -1546,6 +1555,12 @@ void DisplayShell::finish_horizontal_transition(int rendered_page,
     return;
   }
   horizontal_transition_reveal_started_ = true;
+  // Once the destination is ready, the fallback timer must not send the user
+  // home during the reveal animation (especially after a long camera cleanup).
+  if (horizontal_transition_timeout_timer_ != nullptr) {
+    lv_timer_delete(horizontal_transition_timeout_timer_);
+    horizontal_transition_timeout_timer_ = nullptr;
+  }
   lv_anim_delete(horizontal_transition_overlay_, nullptr);
   lv_anim_t reveal;
   lv_anim_init(&reveal);
@@ -2165,6 +2180,9 @@ void DisplayShell::clear_capture_overlay_name(const char* expected_screen_name) 
 }
 
 void DisplayShell::prepare_active_screen(const char* screen_name) {
+  status_time_caption_label_ = nullptr;
+  compact_timer_primary_ = compact_timer_secondary_ = nullptr;
+  compact_timer_caption_ = compact_timer_date_ = nullptr;
   if (resin_status_timer_) { lv_timer_delete(resin_status_timer_); resin_status_timer_ = nullptr; }
   if (resin_cycle_switch_timer_) { lv_timer_delete(resin_cycle_switch_timer_); resin_cycle_switch_timer_ = nullptr; }
   resin_cycle_spinner_ = nullptr;
@@ -2256,6 +2274,7 @@ void DisplayShell::prepare_active_screen(const char* screen_name) {
   printer_animation_canvas_ = nullptr;
   printer_animation_gif_ = nullptr;
   camera_spinner_ = nullptr;
+  camera_wait_label_ = nullptr;
   camera_activity_dot_ = nullptr;
   camera_activity_label_ = nullptr;
   camera_mode_row_ = nullptr;
@@ -2390,6 +2409,12 @@ bool DisplayShell::camera_page_active() const {
          horizontal_depth_.load() == camera_depth;
 }
 
+bool DisplayShell::printer_status_page_active() const {
+  return core::print_preview_page(page_.load(), horizontal_depth_.load(),
+      printer_subpage_.load(), printer_subpage_count_.load(), selected_is_resin_.load(),
+      camera_cleanup_pending_.load());
+}
+
 std::uint32_t DisplayShell::background_render_delay_ms() const {
   const std::int64_t remaining =
       background_render_quiet_until_us_.load(std::memory_order_acquire) -
@@ -2398,17 +2423,33 @@ std::uint32_t DisplayShell::background_render_delay_ms() const {
   return static_cast<std::uint32_t>((remaining + 999) / 1000);
 }
 
-void DisplayShell::release_camera_frame() {
-  if (board_display_lock(1000) != ESP_OK) return;
-  if (view_ == 22 && media_image_ != nullptr && lv_obj_is_valid(media_image_)) {
+void DisplayShell::begin_camera_cleanup() {
+  camera_cleanup_pending_.store(true);
+  if (board_display_lock(250) != ESP_OK) return;
+  if (!horizontal_transition_active_)
+    start_horizontal_transition(page_.load(), horizontal_depth_.load() == 0,
+                                1, 0, horizontal_depth_.load());
+  board_display_unlock();
+}
+
+bool DisplayShell::finish_camera_cleanup() {
+  if (board_display_lock(250) != ESP_OK) return false;
+  // Release the last displayed frame and lift the navigation barrier under
+  // the same lock; a busy renderer must leave the whole cleanup pending.
+  if (media_image_ != nullptr && lv_obj_is_valid(media_image_))
     lv_image_set_src(media_image_, nullptr);
-  }
-  if (view_ == 22 && media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
+  if (media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
   lv_image_cache_drop(&camera_image_dsc_);
   camera_pixels_.reset();
   camera_image_dsc_ = {};
   camera_was_refreshing_ = false;
+  if (horizontal_transition_timeout_timer_ != nullptr) {
+    lv_timer_set_period(horizontal_transition_timeout_timer_, kHorizontalLoadingTimeoutMs);
+    lv_timer_reset(horizontal_transition_timeout_timer_);
+  }
+  camera_cleanup_pending_.store(false);
   board_display_unlock();
+  return true;
 }
 
 void DisplayShell::release_printer_preview() {
@@ -3039,6 +3080,7 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
 
 void DisplayShell::return_to_printer_list() {
   const bool locked = board_display_lock(1000) == ESP_OK;
+  if (camera_page_active()) camera_cleanup_pending_.store(true);
   if (locked) close_resin_confirmation();
   if (locked && horizontal_transition_active_) {
     cancel_horizontal_transition_locked();
@@ -3190,6 +3232,9 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
   capture_animation_override_active_ = animation_preview;
   capture_animation_override_ = preview_activity;
   capture_animation_screen_name_ = animation_preview ? std::string(screen_name) : std::string{};
+  if (camera_page_active() &&
+      (target_page != page_.load() || target_depth != horizontal_depth_.load()))
+    camera_cleanup_pending_.store(true);
   page_.store(target_page);
   horizontal_depth_.store(target_depth);
   printer_subpage_.store(target_subpage);
@@ -3213,6 +3258,7 @@ void DisplayShell::open_printer_when_ready(std::uint32_t profile_id) {
 void DisplayShell::show_printer(const core::PrinterProfile& profile,
                                 const core::PrinterSnapshot& snapshot,
                                 const PowerSnapshot& power, const char* ipv4) {
+  if (camera_cleanup_pending_.load()) return;
   selected_profile_ = profile.id;
   selected_online_.store(snapshot.profile_id == profile.id &&
                          snapshot.link == core::LinkState::online);
@@ -4965,34 +5011,51 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
     lv_label_set_long_mode(detail_label_, LV_LABEL_LONG_DOT);
     lv_obj_align(detail_label_, LV_ALIGN_CENTER, 0, -116);
 
-    create_mdi_icon(screen, kMdiClock, 16, -17, theme_style_.accent_secondary);
+    lv_obj_t* remaining_caption = lv_label_create(screen);
+    apply_text_style(remaining_caption, lv_color_hex(theme_style_.text_secondary),
+                     &lv_font_montserrat_12);
+    lv_obj_set_size(remaining_caption, 174, 17);
+    lv_obj_set_style_text_align(remaining_caption, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_label_set_long_mode(remaining_caption, LV_LABEL_LONG_DOT);
+    lv_label_set_text_fmt(remaining_caption, "%s:", tr("Time left"));
+    lv_obj_align(remaining_caption, LV_ALIGN_TOP_LEFT, 236, 151);
     remaining_label_ = lv_label_create(screen);
     apply_text_style(remaining_label_, lv_color_hex(theme_style_.accent_secondary),
                      &lv_font_montserrat_24);
     lv_obj_set_style_text_align(remaining_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-    // One line ending at x=410, before the vertical pager. Reserve height too:
-    // long multi-day durations must ellipsize rather than move the timer rows.
-    lv_obj_set_size(remaining_label_, 132, 26);
+    // Fixed single-row slots ending at x=410, before the vertical pager.
+    // Numeric text is fitted below, including multi-day durations.
+    lv_obj_set_size(remaining_label_, 174, 30);
     lv_label_set_long_mode(remaining_label_, LV_LABEL_LONG_DOT);
-    lv_obj_align(remaining_label_, LV_ALIGN_CENTER, 111, -26);
+    lv_obj_align(remaining_label_, LV_ALIGN_TOP_LEFT, 236, 168);
+    status_time_caption_label_ = lv_label_create(screen);
+    apply_text_style(status_time_caption_label_, lv_color_hex(theme_style_.text_secondary),
+                     &lv_font_montserrat_12);
+    lv_obj_set_style_text_align(status_time_caption_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_obj_set_size(status_time_caption_label_, 174, 17);
+    lv_label_set_long_mode(status_time_caption_label_, LV_LABEL_LONG_DOT);
+    lv_obj_align(status_time_caption_label_, LV_ALIGN_TOP_LEFT, 236, 204);
     total_time_label_ = lv_label_create(screen);
-    apply_text_style(total_time_label_, lv_color_hex(theme_style_.text_secondary), &lv_font_montserrat_16);
+    apply_text_style(total_time_label_, lv_color_hex(theme_style_.text_secondary), &lv_font_montserrat_24);
     lv_obj_set_style_text_align(total_time_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-    lv_obj_set_size(total_time_label_, 132, 20);
+    lv_obj_set_size(total_time_label_, 174, 30);
     lv_label_set_long_mode(total_time_label_, LV_LABEL_LONG_DOT);
-    lv_obj_align(total_time_label_, LV_ALIGN_CENTER, 111, -2);
+    lv_obj_align(total_time_label_, LV_ALIGN_TOP_LEFT, 236, 221);
+    lv_obj_t* layer_caption = lv_label_create(screen);
+    apply_text_style(layer_caption, lv_color_hex(theme_style_.text_secondary),
+                     &lv_font_montserrat_16);
+    lv_obj_set_size(layer_caption, 174, 22);
+    lv_obj_set_style_text_align(layer_caption, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_label_set_long_mode(layer_caption, LV_LABEL_LONG_DOT);
+    lv_label_set_text_fmt(layer_caption, "%s:", tr("Current layer"));
+    lv_obj_align(layer_caption, LV_ALIGN_TOP_LEFT, 236, 257);
     layer_label_ = lv_label_create(screen);
-    // UNSCII is monospaced and substantially wider than Montserrat at the
-    // same nominal size. Keep three-digit current/total layer values on one
-    // line in Retro Terminal without changing the other themes.
-    const lv_font_t* layer_font = theme_style_.terminal_typography
-                                      ? &lv_font_montserrat_14
-                                      : &lv_font_montserrat_24;
     apply_text_style(layer_label_, lv_color_hex(theme_style_.text_primary),
-                     layer_font);
-    lv_obj_set_width(layer_label_, 190);
+                     &lv_font_montserrat_24);
+    lv_obj_set_size(layer_label_, 174, 30);
+    lv_label_set_long_mode(layer_label_, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(layer_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-    lv_obj_align(layer_label_, LV_ALIGN_CENTER, 92, 30);
+    lv_obj_align(layer_label_, LV_ALIGN_TOP_LEFT, 236, 279);
 
     constexpr std::uint32_t kNozzleColor = 0xFF7043;
     constexpr std::uint32_t kBedColor = 0xFFB020;
@@ -5030,9 +5093,10 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
     lv_obj_align(status_label_, LV_ALIGN_BOTTOM_MID, 0, -50);
     view_ = 3;
     visible_profile_ = profile.id;
+    printer_status_detail_.clear();
   }
 
-  lv_label_set_text(title_label_, profile.display_name.c_str());
+  set_label_text_if_changed(title_label_, profile.display_name.c_str());
   const std::uint32_t state_color =
       core::phase_color(theme_colors_, snapshot.job.phase, snapshot.job.reachable);
   const bool active_job = snapshot.job.phase == core::JobPhase::printing ||
@@ -5040,52 +5104,69 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
                           snapshot.job.phase == core::JobPhase::paused;
   update_printer_progress(snapshot);
   const std::string display_job_name = core::job_name_for_display(snapshot.job.name);
-  lv_label_set_text(detail_label_, snapshot.job.kind == core::JobKind::calibration
+  const char* detail = snapshot.job.kind == core::JobKind::calibration
                                        ? tr("Printer calibration")
                                        : display_job_name.empty()
                                              ? tr(snapshot.job.phase == core::JobPhase::idle ? "No active print" : core::job_status_label(snapshot.job))
-                                             : display_job_name.c_str());
-  const std::string remaining = active_job && snapshot.job.remaining_known ? duration_hms(snapshot.job.remaining_seconds) : "--m";
-  const std::uint32_t total_seconds = snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
-  const std::string total = active_job && snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0 ? duration_hms(total_seconds) : "--";
-  // Measure a full seconds/minutes field to avoid font changes as digits tick.
-  const auto hours = snapshot.job.remaining_seconds / 3600;
-  std::string widest_remaining = hours > 0 ? std::string(std::to_string(hours).size(), '8') + "h " : "";
-  widest_remaining += "88m 88s";
-  const lv_font_t* timer_font = localized_font(&lv_font_montserrat_24);
-  lv_point_t timer_size{};
-  lv_text_get_size(&timer_size, widest_remaining.c_str(), timer_font,
-                  lv_obj_get_style_text_letter_space(remaining_label_, LV_PART_MAIN),
-                  0, 132, LV_TEXT_FLAG_EXPAND);
-  if (timer_size.x > 132) {
-    timer_font = localized_font(&lv_font_montserrat_16);
+                                             : display_job_name.c_str();
+  // LVGL inserts dots into the label's stored text. Retain the original name
+  // so an unchanged ellipsized filename does not trigger another full redraw.
+  if (printer_status_detail_ != detail) {
+    printer_status_detail_ = detail;
+    lv_label_set_text(detail_label_, detail);
   }
-  lv_obj_set_style_text_font(remaining_label_, timer_font, LV_PART_MAIN);
-  lv_label_set_text(remaining_label_, remaining.c_str());
-  lv_label_set_text(total_time_label_, total.c_str());
+  const auto set_number = [this](lv_obj_t* label, const char* text, int width) {
+    if (std::strcmp(lv_label_get_text(label), text) == 0) return;
+    const lv_font_t* font = status_numeric_font(text, width, 30,
+        lv_obj_get_style_text_letter_space(label, LV_PART_MAIN),
+        {localized_font(&lv_font_montserrat_24), localized_font(&lv_font_montserrat_16),
+         localized_font(&lv_font_montserrat_14), localized_font(&lv_font_montserrat_12, false)});
+    if (lv_obj_get_style_text_font(label, LV_PART_MAIN) != font)
+      lv_obj_set_style_text_font(label, font, LV_PART_MAIN);
+    lv_label_set_text(label, text);
+  };
+  const std::string remaining = active_job && snapshot.job.remaining_known
+      ? core::print_duration_units(snapshot.job.remaining_seconds) : "--";
+  const auto secondary_time = core::print_time_display(snapshot.job, std::time(nullptr),
+                                                        clock_date_format_.load());
+  set_number(remaining_label_, remaining.c_str(), 174);
+  set_number(total_time_label_, secondary_time.value.c_str(), 174);
+  char caption[96]{};
+  if (secondary_time.kind != core::PrintTimeDisplay::Kind::unavailable) {
+    std::snprintf(caption, sizeof(caption), "%s:%s%s",
+        tr(secondary_time.kind == core::PrintTimeDisplay::Kind::end_at ? "End at" : "Print time"),
+        secondary_time.date.empty() ? "" : " ", secondary_time.date.c_str());
+  }
+  set_label_text_if_changed(status_time_caption_label_, caption);
+  char value[32]{};
   if (snapshot.job.current_layer > 0 || snapshot.job.total_layers > 0) {
-    lv_label_set_text_fmt(layer_label_, "%s: %u / %u", tr("Layer"),
-                          snapshot.job.current_layer, snapshot.job.total_layers);
+    std::snprintf(value, sizeof(value), "%u/%u", snapshot.job.current_layer, snapshot.job.total_layers);
   } else {
-    lv_label_set_text_fmt(layer_label_, "%s: -- / --", tr("Layer"));
+    std::snprintf(value, sizeof(value), "--/--");
   }
-  if (snapshot.job.temperatures.nozzle_known) lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C", snapshot.job.temperatures.nozzle_c);
-  else lv_label_set_text(nozzle_temperature_label_, "--°C");
-  if (snapshot.job.temperatures.bed_known) lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
-  else lv_label_set_text(bed_temperature_label_, "--°C");
+  set_number(layer_label_, value, 174);
+  if (snapshot.job.temperatures.nozzle_known) {
+    std::snprintf(value, sizeof(value), "%.0f°C", snapshot.job.temperatures.nozzle_c);
+    set_label_text_if_changed(nozzle_temperature_label_, value);
+  } else set_label_text_if_changed(nozzle_temperature_label_, "--°C");
+  if (snapshot.job.temperatures.bed_known) {
+    std::snprintf(value, sizeof(value), "%.0f°C", snapshot.job.temperatures.bed_c);
+    set_label_text_if_changed(bed_temperature_label_, value);
+  } else set_label_text_if_changed(bed_temperature_label_, "--°C");
   if (snapshot.job.temperatures.chamber_known) {
-    lv_label_set_text_fmt(chamber_temperature_label_, "%.0f°C",
-                          snapshot.job.temperatures.chamber_c);
+    std::snprintf(value, sizeof(value), "%.0f°C", snapshot.job.temperatures.chamber_c);
+    set_label_text_if_changed(chamber_temperature_label_, value);
   } else {
-    lv_label_set_text(chamber_temperature_label_, "--°C");
+    set_label_text_if_changed(chamber_temperature_label_, "--°C");
   }
   const char* ready_text = snapshot.link == core::LinkState::online
                                ? (profile.protocol == core::PrinterProtocol::moonraker
                                       ? "Klipper ready" : "Printer ready")
                                : link_label(snapshot.link);
-  lv_label_set_text(metrics_label_, active_job ? "" : tr(ready_text));
-  lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
-  lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
+  set_label_text_if_changed(metrics_label_, active_job ? "" : tr(ready_text));
+  if (!lv_color_eq(lv_obj_get_style_text_color(status_label_, LV_PART_MAIN), lv_color_hex(state_color)))
+    lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
+  set_label_text_if_changed(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   update_power_header(power);
   board_display_unlock();
 }
@@ -5325,6 +5406,110 @@ void DisplayShell::show_printer_nozzles(const core::PrinterProfile& profile,
   board_display_unlock();
 }
 
+void DisplayShell::create_compact_timers() {
+  constexpr bool large = kDisplayUsesLargeLayout;
+  constexpr int width = large ? 320 : 204;
+  constexpr int column = large ? 150 : 100;
+  constexpr int height = large ? 67 : 34;
+  const auto box = [](lv_obj_t* parent, int w, int h) {
+    lv_obj_t* object = lv_obj_create(parent);
+    lv_obj_set_size(object, w, h);
+    lv_obj_set_style_bg_opa(object, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(object, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(object, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(object, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(object, LV_OBJ_FLAG_SCROLLABLE);
+    make_gesture_passthrough(object);
+    return object;
+  };
+  lv_obj_t* band = box(lv_screen_active(), width, height);
+  // Optical offset from the centered proposal: 8 px on AMOLED, 4 px on 240 px panels.
+  lv_obj_align(band, LV_ALIGN_TOP_MID, large ? 8 : 4, large ? 318 : 164);
+  compact_timer_primary_ = box(band, column, height);
+  compact_timer_secondary_ = box(band, column, height);
+  lv_obj_set_pos(compact_timer_primary_, 0, 0);
+  lv_obj_set_pos(compact_timer_secondary_, width - column, 0);
+  const auto label = [this](lv_obj_t* parent, int y, int h, const lv_font_t* font,
+                            std::uint32_t color) {
+    lv_obj_t* object = lv_label_create(parent);
+    apply_text_style(object, lv_color_hex(color), font);
+    lv_obj_set_size(object, lv_pct(100), h);
+    lv_obj_set_pos(object, 0, y);
+    lv_obj_set_style_text_align(object, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_label_set_long_mode(object, LV_LABEL_LONG_DOT);
+    lv_label_set_text(object, "");
+    make_gesture_passthrough(object);
+    return object;
+  };
+  const lv_font_t* caption_font = large ? &lv_font_montserrat_14 : &lv_font_montserrat_12;
+  const lv_font_t* number_font = large ? &lv_font_montserrat_24 : &lv_font_montserrat_16;
+  compact_timer_caption_ = label(compact_timer_primary_, 0, large ? 20 : 14,
+                                  caption_font, theme_style_.text_secondary);
+  status_time_caption_label_ = label(compact_timer_secondary_, 0, large ? 20 : 14,
+                                      caption_font, theme_style_.text_secondary);
+  remaining_label_ = label(compact_timer_primary_, large ? 20 : 14, large ? 30 : 20,
+                            number_font, theme_style_.accent_secondary);
+  total_time_label_ = label(compact_timer_secondary_, large ? 20 : 14, large ? 30 : 20,
+                             number_font, theme_style_.text_secondary);
+  if constexpr (large) {
+    compact_timer_date_ = label(compact_timer_secondary_, 51, 16, &lv_font_montserrat_12,
+                                 theme_style_.text_secondary);
+  }
+}
+
+void DisplayShell::update_compact_timers(const core::JobState& job) {
+  constexpr bool large = kDisplayUsesLargeLayout;
+  const auto finish = core::print_time_display(job, std::time(nullptr), clock_date_format_.load());
+  const bool running = job.phase == core::JobPhase::printing || job.phase == core::JobPhase::preparing;
+  const bool remaining = running && job.remaining_known && job.remaining_seconds > 0;
+  const bool end_at = remaining && finish.kind == core::PrintTimeDisplay::Kind::end_at;
+  const bool elapsed = !remaining && finish.kind == core::PrintTimeDisplay::Kind::elapsed;
+  const auto hide = [](lv_obj_t* object, bool hidden) {
+    if (hidden) lv_obj_add_flag(object, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_remove_flag(object, LV_OBJ_FLAG_HIDDEN);
+  };
+  hide(compact_timer_primary_, !remaining && !elapsed);
+  hide(compact_timer_secondary_, !end_at);
+  const int width = end_at ? (large ? 150 : 100) : (large ? 320 : 204);
+  lv_obj_set_width(compact_timer_primary_, width);
+  for (auto* object : {compact_timer_caption_, remaining_label_})
+    lv_obj_set_style_text_align(object, end_at ? LV_TEXT_ALIGN_LEFT : LV_TEXT_ALIGN_CENTER,
+                                LV_PART_MAIN);
+  const std::uint32_t seconds = remaining ? job.remaining_seconds : job.elapsed_seconds;
+  std::string duration = core::print_duration_units(seconds, false);
+  if constexpr (!large) {
+    if (end_at && seconds >= 100U * 3600U) {
+      // Keep long durations readable on a single line on the small panels.
+      char text[32]{};
+      std::snprintf(text, sizeof(text), "%uh %02um", static_cast<unsigned>(seconds / 3600U),
+                    static_cast<unsigned>((seconds / 60U) % 60U));
+      duration = text;
+    }
+  }
+  const auto number = [this](lv_obj_t* object, const char* text, int slot_width) {
+    const lv_font_t* font = status_numeric_font(text, slot_width, kDisplayUsesLargeLayout ? 30 : 20, 0,
+        {localized_font(kDisplayUsesLargeLayout ? &lv_font_montserrat_24 : &lv_font_montserrat_16),
+         localized_font(&lv_font_montserrat_16), localized_font(&lv_font_montserrat_14),
+         localized_font(&lv_font_montserrat_12, false)});
+    if (lv_obj_get_style_text_font(object, LV_PART_MAIN) != font)
+      lv_obj_set_style_text_font(object, font, LV_PART_MAIN);
+    set_label_text_if_changed(object, text);
+  };
+  const std::string caption = std::string(tr(remaining ? "Time left" : "Print time")) + ":";
+  set_label_text_if_changed(compact_timer_caption_, caption.c_str());
+  number(remaining_label_, remaining || elapsed ? duration.c_str() : "", width);
+  const auto color = lv_color_hex(remaining ? theme_style_.accent_secondary : theme_style_.text_secondary);
+  if (!lv_color_eq(lv_obj_get_style_text_color(remaining_label_, LV_PART_MAIN), color))
+    lv_obj_set_style_text_color(remaining_label_, color, LV_PART_MAIN);
+  std::string end_caption = std::string(tr("End at")) + ":";
+  if constexpr (!large) {
+    if (!finish.date.empty()) end_caption += " " + finish.date;
+  }
+  set_label_text_if_changed(status_time_caption_label_, end_caption.c_str());
+  number(total_time_label_, end_at ? finish.value.c_str() : "", large ? 150 : 100);
+  if (compact_timer_date_) set_label_text_if_changed(compact_timer_date_, end_at ? finish.date.c_str() : "");
+}
+
 void DisplayShell::show_printer_compact(const core::PrinterProfile& profile,
                                         const core::PrinterSnapshot& snapshot,
                                         const PowerSnapshot& power) {
@@ -5458,17 +5643,7 @@ void DisplayShell::show_printer_compact(const core::PrinterProfile& profile,
     lv_obj_set_style_text_align(chamber_temperature_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
     lv_obj_align(chamber_temperature_label_, LV_ALIGN_CENTER, 156, 62);
 
-    create_mdi_icon(screen, kMdiClock, -110, 105, theme_style_.accent_secondary, 190);
-    remaining_label_ = lv_label_create(screen);
-    apply_text_style(remaining_label_, lv_color_hex(theme_style_.accent_secondary), &lv_font_montserrat_24);
-    lv_obj_set_width(remaining_label_, 190);
-    lv_obj_align(remaining_label_, LV_ALIGN_CENTER, 28, 101);
-
-    total_time_label_ = lv_label_create(screen);
-    apply_text_style(total_time_label_, lv_color_hex(theme_style_.text_secondary), &lv_font_montserrat_14);
-    lv_obj_set_width(total_time_label_, 300);
-    lv_obj_set_style_text_line_space(total_time_label_, 3, LV_PART_MAIN);
-    lv_obj_align(total_time_label_, LV_ALIGN_TOP_MID, 0, 359);
+    create_compact_timers();
 
     status_label_ = lv_label_create(screen);
     apply_text_style(status_label_, lv_color_hex(accent_color_), &lv_font_montserrat_24);
@@ -5583,17 +5758,7 @@ void DisplayShell::show_printer_compact(const core::PrinterProfile& profile,
   } else {
     lv_label_set_text(chamber_temperature_label_, "--°C");
   }
-  const bool active_job = snapshot.job.phase == core::JobPhase::printing ||
-                          snapshot.job.phase == core::JobPhase::preparing ||
-                          snapshot.job.phase == core::JobPhase::paused;
-  const std::string remaining = active_job && snapshot.job.remaining_known ? duration_text(snapshot.job.remaining_seconds) : "--m";
-  const std::string elapsed = snapshot.job.elapsed_known && snapshot.job.elapsed_seconds > 0
-                                  ? duration_text(snapshot.job.elapsed_seconds) : "--";
-  const std::uint32_t total_seconds = snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
-  const std::string total = snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0 ? duration_text(total_seconds) : "--";
-  lv_label_set_text(remaining_label_, remaining.c_str());
-  lv_label_set_text_fmt(total_time_label_, "%s                         %s\n%s                         %s",
-                        tr("PRINT"), tr("TOTAL"), elapsed.c_str(), total.c_str());
+  update_compact_timers(snapshot.job);
   lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
   update_printer_progress(snapshot);
@@ -6018,6 +6183,16 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
                                LV_PART_INDICATOR);
     lv_obj_align(camera_spinner_, LV_ALIGN_CENTER, 0, 7);
 
+    camera_wait_label_ = lv_label_create(lv_screen_active());
+    apply_text_style(camera_wait_label_, lv_color_hex(theme_style_.text_muted),
+                     &lv_font_montserrat_14);
+    lv_obj_set_size(camera_wait_label_, 320, 44);
+    lv_label_set_long_mode(camera_wait_label_, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(camera_wait_label_, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_label_set_text(camera_wait_label_, tr("This may take a while."));
+    lv_obj_align(camera_wait_label_, LV_ALIGN_CENTER, 0, 69);
+    make_gesture_passthrough(camera_wait_label_);
+
     camera_empty_label_ = lv_label_create(lv_screen_active());
     apply_text_style(camera_empty_label_, lv_color_hex(theme_style_.text_secondary),
                      &lv_font_montserrat_16);
@@ -6116,6 +6291,7 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
   } else {
     lv_obj_add_flag(camera_mode_row_, LV_OBJ_FLAG_HIDDEN);
   }
+  lv_obj_add_flag(camera_wait_label_, LV_OBJ_FLAG_HIDDEN);
   if (snapshot.job.camera_frame && !snapshot.job.camera_frame->empty() &&
       snapshot.job.camera_width > 0 && snapshot.job.camera_height > 0) {
     update_camera_image(snapshot.job);
@@ -6145,6 +6321,7 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
       lv_obj_remove_flag(camera_spinner_, LV_OBJ_FLAG_HIDDEN);
       lv_obj_add_flag(camera_empty_label_, LV_OBJ_FLAG_HIDDEN);
       lv_label_set_text(detail_label_, tr("Detecting camera…"));
+      lv_obj_remove_flag(camera_wait_label_, LV_OBJ_FLAG_HIDDEN);
     }
   }
   board_display_unlock();
@@ -7372,6 +7549,11 @@ void DisplayShell::hide_update_overlay() {
 void DisplayShell::set_configuration_backup_activity(
     core::ConfigurationBackupActivity activity) {
   if (!display_ready_.load(std::memory_order_acquire)) return;
+  // Only this monitor-thread method owns the backup overlay. With no backup
+  // active there is no LVGL work to do; waiting for a busy camera redraw here
+  // would delay camera startup and every other monitor service by a second.
+  if (activity == core::ConfigurationBackupActivity::idle &&
+      configuration_backup_overlay_ == nullptr) return;
   if (activity != core::ConfigurationBackupActivity::idle) {
     reset_inactivity_and_wake();
   }

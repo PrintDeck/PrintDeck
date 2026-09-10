@@ -1,0 +1,36 @@
+/* Shared marketing hero typography, using the Unified API scale.
+   Load after page-specific artwork styles so language and layout overrides
+   cannot enlarge a title after its text column has stopped growing. */
+.site-page:not(.home-page) {
+  --hero-title-size: clamp(2.8rem, 3.65vw, 4.3rem);
+}
+
+.site-page:not(.home-page) :is(.api-hero, .ha-hero, .case-campaign-hero, .knomi-hero, .gifs-hero, .voice-hero, .support-hero) h1 {
+  max-width: 100%;
+  font-size: var(--hero-title-size);
+  line-height: 1.06;
+  white-space: normal;
+  text-wrap: wrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* The support title can use part of the existing gap beside its column. */
+@media (min-width: 1101px) {
+  .site-page.support-page .support-hero h1 {
+    width: max-content;
+    max-width: calc(100% + 48px);
+  }
+}
+
+@media (max-width: 1100px) {
+  .site-page:not(.home-page) {
+    --hero-title-size: clamp(2.8rem, 5.8vw, 4rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .site-page:not(.home-page) {
+    --hero-title-size: clamp(2.4rem, 9.2vw, 3.3rem);
+  }
+}

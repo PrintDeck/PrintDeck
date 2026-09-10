@@ -3,7 +3,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>支持 · PrintDeck</title>
-  <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
+  <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/support-hero.css?v=20260910-3">
+    <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
   <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏","Automatic appearance":"自动外观"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -36,7 +38,7 @@
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"支持 · PrintDeck","description":"使用指南、常见问题解决方法和联系方式，尽在一处。","url":"https://printdeck.xyz/zh-cn/support/","inLanguage":"zh-CN","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
-  <body class="site-page support-page" data-page-title="支持 · PrintDeck">
+  <body class="site-page wide-hero-page support-page" data-page-title="支持 · PrintDeck">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/zh-cn/" aria-label="首页">
@@ -48,50 +50,34 @@
           <a class="site-tab" href="/zh-cn/firmware/">固件</a>
           <a class="site-tab" href="/zh-cn/gifs/">GIFs</a>
           <a class="site-tab" href="/zh-cn/case-designs/">外壳设计</a>
-          <a class="site-tab" href="/zh-cn/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/zh-cn/knomi/">KNOMI</a>
           <a class="site-tab" href="/zh-cn/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/zh-cn/support/" aria-current="page">支持</a>
+          <a class="site-tab" href="/zh-cn/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
 
     <main class="support-content">
-      <section class="support-hero">
+      <section class="support-hero support-workshop-hero">
         <div class="support-inner support-hero-grid">
           <div class="support-hero-copy">
             <span class="support-eyebrow">支持</span>
-            <h1>需要帮助？</h1>
+            <h1>需要帮忙吗？<br><strong>我们在这里。</strong></h1>
             <p class="support-lead">使用指南、常见问题解决方法和联系方式，尽在一处。</p>
-          </div>
-
-          <nav class="support-hero-resources" aria-label="帮助资源">
-            <a class="support-hero-resource" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">
-              <span class="support-resource-index">01</span>
-              <span class="support-resource-copy"><strong>使用说明</strong><span>了解如何设置和使用 PrintDeck。</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <a class="support-hero-resource" href="mailto:support@printdeck.xyz">
-              <span class="support-resource-index">02</span>
-              <span class="support-resource-copy"><strong>联系我们</strong><span>欢迎咨询硬件兼容性、个性化组装协助或固件商业授权。</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <a class="support-hero-resource support-hero-resource-wide" href="/zh-cn/unified-printer-api/">
-              <span class="support-resource-index">03</span>
-              <span class="support-resource-copy"><strong>Unified API</strong><span>使用统一的只读 JSON 格式，为受支持的打印机构建本地软件。</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <div class="support-contact-prompt">
-              <span class="support-contact-icon" aria-hidden="true">?</span>
-              <p><span>没有找到答案？</span><br><a href="mailto:support@printdeck.xyz">联系我们</a><span> — 我们很乐意提供帮助。</span><br><a href="/zh-cn/legal/privacy/#support-messages">我们如何处理你的邮件</a></p>
+            <div class="site-actions">
+              <a class="site-button support-manual" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener"><span>用户手册</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg></a>
+              <a class="support-email" href="mailto:support@printdeck.xyz"><span>邮件联系支持</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"></path></svg></a>
             </div>
-          </nav>
+          </div>
+        </div>
+        <div class="support-workshop-scene">
+          <img src="/assets/marketing/support/workshop-guide.webp" width="2206" height="713" alt="" fetchpriority="high">
         </div>
       </section>
 
       <div class="campaign-signal support-signal" aria-label="帮助资源">
         <span>清晰文档</span>
         <span>报告不含隐私数据</span>
-        <span>Unified API</span>
         <span>直接联系</span>
       </div>
 
@@ -124,6 +110,11 @@
               <p><a href="/printdeck-user-manual.pdf#page=12">运行兼容性检查</a>。PrintDeck 会在本地收集所需数据，从报告中移除隐私信息，并供你下载。报告不会自动发送；请下载后通过电子邮件发给我们。</p>
               <p>这份报告能帮助我们支持你的打印机型号。</p>
             </article>
+            <article class="faq-item" id="resin-printers">
+              <h3>PrintDeck 支持树脂打印机吗？</h3>
+              <p>支持！我们已经用 Uniformation GK3 Ultra 测试过 PrintDeck，预计它也能用于 GK3 系列的其他机型。我们目前还没有其他树脂打印机可供测试，因此暂时无法确认兼容性。</p>
+              <p>你有树脂打印机吗？试试 PrintDeck，告诉我们使用情况。我们会尽力让它与你的打印机配合使用。</p>
+            </article>
             <article class="faq-item">
               <h3>在哪里可以找到其他外壳？</h3>
               <p>我们提供三款可自行打印的免费外壳模型。你也可以设计自己的改装方案和外壳。</p>
@@ -132,11 +123,33 @@
             </article>
           </div>
         </section>
+
+        <nav class="support-hero-resources support-body-resources" aria-label="帮助资源">
+          <a class="support-hero-resource" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">
+            <span class="support-resource-index">01</span>
+            <span class="support-resource-copy"><strong>使用说明</strong><span>了解如何设置和使用 PrintDeck。</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="support-hero-resource" href="mailto:support@printdeck.xyz">
+            <span class="support-resource-index">02</span>
+            <span class="support-resource-copy"><strong>联系我们</strong><span>欢迎咨询硬件兼容性、个性化组装协助或固件商业授权。</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="support-hero-resource support-hero-resource-wide" href="/zh-cn/unified-printer-api/">
+            <span class="support-resource-index">03</span>
+            <span class="support-resource-copy"><strong>Unified API</strong><span>使用统一的只读 JSON 格式，为受支持的打印机构建本地软件。</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <div class="support-contact-prompt">
+            <span class="support-contact-icon" aria-hidden="true">?</span>
+            <p><span>没有找到答案？</span><br><a href="mailto:support@printdeck.xyz">联系我们</a><span> — 我们很乐意提供帮助。</span><br><a href="/zh-cn/legal/privacy/#support-messages">我们如何处理你的邮件</a></p>
+          </div>
+        </nav>
       </div>
     </main>
 
     <footer class="site-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
       <div class="footer-controls">
         <label hidden="" for="support-language">语言</label>
         <select class="installer-language" id="support-language" aria-label="语言" data-site-language=""><option value="/support/">English</option><option value="/pl/support/">Polski</option><option value="/es/support/">Español</option><option value="/fr/support/">Français</option><option value="/de/support/">Deutsch</option><option value="/zh-cn/support/" selected="">简体中文</option></select>

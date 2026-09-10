@@ -34,6 +34,7 @@ class AudioService {
   struct SpokenPrintStatus {
     bool printer_available = false;
     bool print_active = false;
+    bool completion_available = false;
     bool timing_available = false;
     bool eta_available = false;
     std::uint8_t completion_percent = 0;

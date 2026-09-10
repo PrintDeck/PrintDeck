@@ -69,7 +69,8 @@ class PrusaLinkClient {
                  std::uint32_t profile_id, bool allow_loopback = false);
   PrusaLinkPollResult poll(std::uint64_t deadline_ms,
                           const std::function<bool()>& cancelled,
-                          bool include_metadata = true);
+                          bool include_metadata = true,
+                          const std::function<bool()>& want_preview = {});
   const PrusaLinkIdentity& identity() const { return identity_; }
   PrusaLinkDialect dialect() const { return dialect_; }
   std::uint64_t session_revision() const { return session_revision_; }
@@ -77,7 +78,7 @@ class PrusaLinkClient {
  private:
   PrusaLinkPollResult poll_once(std::uint64_t deadline_ms,
                                const std::function<bool()>& cancelled,
-                               bool include_metadata);
+                               bool include_metadata, const std::function<bool()>& want_preview);
   PrusaLinkHttpResponse get(std::string_view path, std::size_t maximum_body,
                             std::uint64_t deadline_ms,
                             const std::function<bool()>& cancelled);

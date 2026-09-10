@@ -67,11 +67,14 @@ class DisplayShell {
   void return_to_printer_list();
   void open_printer_when_ready(std::uint32_t profile_id);
   bool camera_page_active() const;
+  bool printer_status_page_active() const;
   // Core-0 background rendering waits for this short, touch-driven quiet
   // window instead of contending with the core-1 LVGL event handler. The
   // newest runtime snapshot is rendered immediately after the window closes.
   std::uint32_t background_render_delay_ms() const;
-  void release_camera_frame();
+  void begin_camera_cleanup();
+  bool finish_camera_cleanup();
+  bool camera_cleanup_pending() const { return camera_cleanup_pending_.load(); }
   void release_printer_preview();
   bool content_hidden() const { const int mode = screen_power_mode_.load(); return mode == 2 || mode == 3; }
   int power_mode() const { return screen_power_mode_.load(); }
@@ -264,6 +267,8 @@ class DisplayShell {
   void show_printer_compact(const core::PrinterProfile& profile,
                             const core::PrinterSnapshot& snapshot,
                             const PowerSnapshot& power);
+  void create_compact_timers();
+  void update_compact_timers(const core::JobState& job);
   void show_printer_telemetry(const core::PrinterProfile& profile,
                               const core::PrinterSnapshot& snapshot,
                               const PowerSnapshot& power);
@@ -335,6 +340,11 @@ class DisplayShell {
   lv_obj_t* header_battery_fill_ = nullptr;
   lv_obj_t* remaining_label_ = nullptr;
   lv_obj_t* total_time_label_ = nullptr;
+  lv_obj_t* status_time_caption_label_ = nullptr;
+  lv_obj_t* compact_timer_primary_ = nullptr;
+  lv_obj_t* compact_timer_secondary_ = nullptr;
+  lv_obj_t* compact_timer_caption_ = nullptr;
+  lv_obj_t* compact_timer_date_ = nullptr;
   lv_obj_t* layer_label_ = nullptr;
   lv_obj_t* nozzle_temperature_label_ = nullptr;
   lv_obj_t* bed_temperature_label_ = nullptr;
@@ -465,6 +475,7 @@ class DisplayShell {
   lv_obj_t* printer_animation_gif_ = nullptr;
   void* printer_animation_canvas_buffer_ = nullptr;
   lv_obj_t* camera_spinner_ = nullptr;
+  lv_obj_t* camera_wait_label_ = nullptr;
   lv_obj_t* camera_empty_label_ = nullptr;
   lv_obj_t* camera_activity_dot_ = nullptr;
   lv_obj_t* camera_activity_label_ = nullptr;
@@ -495,6 +506,7 @@ class DisplayShell {
   std::array<lv_point_precise_t, 2> minute_points_{};
   std::array<lv_point_precise_t, 2> second_points_{};
   std::uint32_t visible_profile_ = 0;
+  std::string printer_status_detail_;
   int view_ = 0;
   std::atomic<int> page_{0};
   std::atomic<int> printer_subpage_{0};
@@ -563,6 +575,7 @@ class DisplayShell {
   int remote_input_end_y_ = 0;
   std::uint32_t remote_input_duration_ms_ = 0;
   bool horizontal_transition_active_ = false;
+  std::atomic<bool> camera_cleanup_pending_{false};
   bool horizontal_transition_target_applied_ = false;
   bool horizontal_transition_reveal_started_ = false;
   int horizontal_transition_direction_ = -1;

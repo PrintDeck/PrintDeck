@@ -427,6 +427,78 @@ std::string_view moonraker_telemetry_fields(std::string_view object_name) {
   return {};
 }
 
+namespace {
+const cJSON* current_job_metadata(const cJSON* status) {
+  const cJSON* stats = member(status, "print_stats");
+  const auto filename = string_member(stats, "filename");
+  const auto phase = moonraker_phase(string_member(stats, "state"));
+  const cJSON* current = member(member(status, "virtual_sdcard"), "cur_print_data");
+  if (filename.empty() || string_member(current, "filename") != filename ||
+      (phase != core::JobPhase::printing && phase != core::JobPhase::paused)) return nullptr;
+  const cJSON* metadata = member(current, "metadata");
+  return cJSON_IsObject(metadata) ? metadata : nullptr;
+}
+
+const cJSON* progress_value(const cJSON* status) {
+  const cJSON* file = member(member(status, "virtual_sdcard"), "progress");
+  const cJSON* display = member(member(status, "display_status"), "progress");
+  // Appliances exposing a matching current-job record use virtual_sdcard for
+  // their native progress. Their M73/display value may describe a different
+  // estimate (observed 39% versus 89% on the physical display).
+  if (current_job_metadata(status) && bounded_number(file, 0, 1)) return file;
+  if (bounded_number(display, 0, 1)) return display;
+  return bounded_number(file, 0, 1) ? file : nullptr;
+}
+}  // namespace
+
+double moonraker_progress(const cJSON* status) {
+  const cJSON* value = progress_value(status);
+  return value ? value->valuedouble : 0;
+}
+
+MoonrakerJobTiming moonraker_job_timing(const cJSON* status,
+                                      std::uint32_t estimated_seconds) {
+  MoonrakerJobTiming result;
+  const cJSON* value = progress_value(status);
+  const double progress = value ? value->valuedouble : 0;
+  result.completion_known = value != nullptr;
+  result.completion = static_cast<float>(progress * 100.0);
+  const cJSON* duration = member(member(status, "print_stats"), "print_duration");
+  result.elapsed_known = bounded_number(duration, 0, 4294967295.0);
+  if (!result.elapsed_known) return result;
+  const double elapsed = duration->valuedouble;
+  result.elapsed_seconds = static_cast<std::uint32_t>(elapsed);
+  const cJSON* estimate = member(current_job_metadata(status), "estimated_time");
+  if (bounded_number(estimate, 1, 4294967295.0))
+    estimated_seconds = static_cast<std::uint32_t>(estimate->valuedouble);
+  // A slicer estimate is not a deadline: a live job can outlast it. Once it
+  // expires, project the remaining layers at the observed average layer time.
+  // Fall back to the same validated progress source used by the dashboard.
+  if (estimated_seconds > elapsed) {
+    result.remaining_seconds = estimated_seconds - result.elapsed_seconds;
+    result.remaining_known = true;
+  } else if (elapsed > 0) {
+    const auto phase = moonraker_phase(string_member(member(status, "print_stats"), "state"));
+    const bool active = phase == core::JobPhase::printing || phase == core::JobPhase::paused;
+    double fraction = progress;
+    if (estimated_seconds > 0) {
+      const cJSON* info = member(member(status, "print_stats"), "info");
+      const cJSON* sd = member(status, "virtual_sdcard");
+      const auto layer = first_layer_value({member(info, "current_layer"), member(sd, "layer")});
+      const auto total = first_layer_value({member(info, "total_layer"), member(sd, "layer_count"),
+                                            member(current_job_metadata(status), "layer_count")});
+      if (layer > 0 && total > layer) fraction = static_cast<double>(layer) / total;
+    }
+    const double remaining = fraction > 0.001 && fraction < 1.0
+                                 ? elapsed * (1.0 - fraction) / fraction : 0;
+    if (active && std::isfinite(remaining) && remaining > 0 && remaining <= 4294967295.0) {
+      result.remaining_seconds = static_cast<std::uint32_t>(std::ceil(remaining));
+      result.remaining_known = true;
+    }
+  }
+  return result;
+}
+
 MoonrakerStatusParseResult parse_moonraker_status(
     const char* payload, std::size_t length, std::uint32_t profile_id,
     std::uint64_t updated_at_ms, const MoonrakerStatusParseContext& context) {
@@ -449,7 +521,6 @@ MoonrakerStatusParseResult parse_moonraker_status(
 
   const cJSON* stats = member(status, "print_stats");
   const cJSON* virtual_sd = member(status, "virtual_sdcard");
-  const cJSON* display = member(status, "display_status");
   next.job.phase = moonraker_phase(string_member(stats, "state"));
   next.job.gcode_file = string_member(stats, "filename");
   const cJSON* current_print = member(virtual_sd, "cur_print_data");
@@ -460,21 +531,13 @@ MoonrakerStatusParseResult parse_moonraker_status(
   next.job.name = display_job_name(next.job.gcode_file);
   next.job.preview = context.preview;
   next.job.detail = string_member(stats, "message");
-  const double progress = std::clamp(
-      number_member(display, "progress", number_member(virtual_sd, "progress")), 0.0, 1.0);
-  const double elapsed = std::max(0.0, number_member(stats, "print_duration"));
-  next.job.completion = static_cast<float>(progress * 100.0);
-  next.job.elapsed_seconds = static_cast<std::uint32_t>(elapsed);
-  next.job.completion_known = cJSON_IsNumber(member(display, "progress")) ||
-                              cJSON_IsNumber(member(virtual_sd, "progress"));
-  next.job.elapsed_known = cJSON_IsNumber(member(stats, "print_duration"));
-  if (progress > 0.001 && progress < 1.0 && elapsed > 0.0) {
-    next.job.remaining_seconds = static_cast<std::uint32_t>(elapsed / progress - elapsed);
-    next.job.remaining_known = true;
-  } else if (context.estimated_seconds > elapsed) {
-    next.job.remaining_seconds = context.estimated_seconds - static_cast<std::uint32_t>(elapsed);
-    next.job.remaining_known = true;
-  }
+  const auto timing = moonraker_job_timing(status, context.estimated_seconds);
+  next.job.completion = timing.completion;
+  next.job.completion_known = timing.completion_known;
+  next.job.elapsed_seconds = timing.elapsed_seconds;
+  next.job.elapsed_known = timing.elapsed_known;
+  next.job.remaining_seconds = timing.remaining_seconds;
+  next.job.remaining_known = timing.remaining_known;
   const cJSON* layer_info = member(stats, "info");
   next.job.current_layer = first_layer_value(
       {member(layer_info, "current_layer"), member(virtual_sd, "layer")});

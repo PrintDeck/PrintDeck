@@ -1,0 +1,66 @@
+/* The guide and Riverstone stay together in the approved workshop photograph. */
+.support-page .support-workshop-hero {
+  min-height: clamp(420px, 32.32vw, 660px);
+  padding: 0;
+  isolation: isolate;
+  background: #101310;
+}
+.support-page .support-workshop-hero::after,
+.support-page .support-workshop-hero h1::after { display: none; }
+.support-page .support-workshop-hero > .support-inner {
+  display: flex;
+  align-items: center;
+  width: min(1530px, calc(100% - 96px));
+  min-height: inherit;
+  gap: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.support-page .support-workshop-hero .support-hero-copy { width: 38%; max-width: 660px; padding: 42px 0; text-align: left; pointer-events: auto; }
+.support-page .support-workshop-hero .support-eyebrow { color: #2bd1a7; font-size: .8rem; letter-spacing: .12em; }
+.support-page .support-workshop-hero h1 { margin: 18px 0 24px; color: #fff; }
+.support-page .support-workshop-hero h1 strong { color: #2bd1a7; font-weight: inherit; }
+.support-page .support-workshop-hero .support-lead { max-width: 520px; color: #e2e7e4; font-size: clamp(.95rem, 1.08vw, 1.15rem); line-height: 1.6; }
+.support-page .support-workshop-hero .site-actions { align-items: center; justify-content: flex-start; gap: 24px; margin: 28px 0 0; }
+.support-page .support-workshop-hero .support-manual { min-height: 50px; padding: 13px 24px; gap: 16px; border-color: #2bd1a7; color: #071c17; background: #2bd1a7; font-size: .95rem; }
+.support-page .support-workshop-hero .support-manual:hover { background: #59dfbc; border-color: #59dfbc; }
+.support-page .support-email { display: inline-flex; align-items: center; gap: 8px; color: #fff; font-size: .95rem; font-weight: 600; text-decoration: none; }
+.support-page .support-email:hover { color: #2bd1a7; }
+.support-page .support-workshop-hero .site-actions svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.support-page .support-workshop-scene { position: absolute; z-index: 1; inset: 0; overflow: hidden; }
+.support-page .support-workshop-scene > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+
+/* Keep the existing help resources and privacy link in the page content. */
+.support-page .support-body-resources { width: 100%; margin: 52px 0 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.support-page .support-body-resources .support-hero-resource { grid-column: auto; min-height: 225px; border-color: var(--line); color: var(--strong); background: var(--panel); box-shadow: 0 18px 48px var(--shadow); }
+.support-page .support-body-resources .support-hero-resource:hover { border-color: #2bd1a7; background: var(--surface-raised); }
+.support-page .support-body-resources .support-resource-copy > strong { color: var(--strong); }
+.support-page .support-body-resources .support-resource-copy > span { color: var(--muted); }
+.support-page .support-body-resources .support-resource-index { color: var(--accent); border-color: var(--line); background: var(--surface); }
+.support-page .support-body-resources .support-resource-arrow { color: var(--accent); }
+.support-page .support-body-resources .support-contact-prompt { grid-column: 1 / -1; border-color: var(--line); margin-top: 8px; }
+.support-page .support-body-resources .support-contact-prompt p { color: var(--muted); font-size: .9rem; }
+.support-page .support-body-resources .support-contact-prompt a { color: var(--accent); }
+.support-page .support-body-resources .support-contact-icon { color: var(--accent); }
+@media (max-width: 1100px) {
+  .support-page .support-workshop-hero { min-height: 0; }
+  .support-page .support-workshop-hero > .support-inner { display: block; width: 100%; }
+  .support-page .support-workshop-hero .support-hero-copy { width: auto; max-width: 700px; padding: 38px 24px 0; }
+  .support-page .support-workshop-hero .support-lead { font-size: .95rem; }
+  .support-page .support-workshop-hero .site-actions { gap: 18px; margin-top: 24px; }
+  .support-page .support-workshop-scene { position: relative; height: clamp(200px, 52vw, 420px); margin-top: 18px; }
+  .support-page .support-workshop-scene > img { object-position: right center; }
+  .support-page .support-workshop-scene::after { content: ""; position: absolute; inset: 0; background: linear-gradient(#101310, transparent 14%); pointer-events: none; }
+}
+@media (max-width: 720px) {
+  .support-page .support-body-resources { grid-template-columns: 1fr; }
+  .support-page .support-body-resources .support-hero-resource { min-height: 0; grid-template-columns: 42px minmax(0, 1fr) 24px; grid-template-rows: auto; align-items: center; gap: 14px; padding: 20px; }
+  .support-page .support-body-resources .support-resource-index { grid-column: 1; grid-row: 1; margin: 0; width: 40px; height: 40px; }
+  .support-page .support-body-resources .support-resource-copy { grid-column: 2; grid-row: 1; }
+  .support-page .support-body-resources .support-resource-arrow { grid-column: 3; grid-row: 1; margin: 0; align-self: center; }
+}
+@media (max-width: 560px) {
+  .support-page .support-workshop-hero .support-eyebrow { font-size: .69rem; }
+  .support-page .support-workshop-hero .support-manual { min-height: 46px; padding: 12px 18px; font-size: .85rem; }
+  .support-page .support-email { font-size: .85rem; }
+}

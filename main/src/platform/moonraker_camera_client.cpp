@@ -3,6 +3,7 @@
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/mjpeg_stream_parser.hpp"
 #include "printdeck/platform/camera_snapshot_timing.hpp"
+#include "printdeck/platform/camera_receive_slice.hpp"
 
 #include <algorithm>
 #include <array>
@@ -40,9 +41,32 @@ constexpr char kTag[] = "printdeck.mrcam";
 std::atomic<TickType_t> decoder_idle_tick{0};
 std::uint32_t decoder_yield_count = 0;
 std::int64_t decoder_yield_us = 0;
+const std::atomic<bool>* decoder_stop_requested = nullptr;
+const std::atomic<std::uint32_t>* decoder_session = nullptr;
+std::uint32_t decoder_session_started = 0;
+bool decoder_cancelled() {
+  return decoder_stop_requested && (decoder_stop_requested->load() ||
+      decoder_session->load() != decoder_session_started);
+}
 bool observe_decoder_idle() {
   decoder_idle_tick.store(xTaskGetTickCount(), std::memory_order_relaxed);
   return true;
+}
+void yield_camera_services(const std::atomic<bool>* stop = nullptr) {
+  static const bool registered =
+      esp_register_freertos_idle_hook_for_cpu(observe_decoder_idle, kServiceCore) == ESP_OK;
+  const TickType_t observed = decoder_idle_tick.load(std::memory_order_relaxed);
+  const TickType_t started = xTaskGetTickCount();
+  if (registered && static_cast<TickType_t>(started - observed) < pdMS_TO_TICKS(500)) return;
+  // Both camera workers wait for the same real idle observation. Independent
+  // short delays can alternate forever, keeping IDLE0 starved even though
+  // each worker appears to yield. Bound the rendezvous and check cancellation
+  // on every tick so navigation never waits for a full decode.
+  do {
+    if (stop != nullptr && stop->load(std::memory_order_acquire)) return;
+    vTaskDelay(1);
+  } while (registered && decoder_idle_tick.load(std::memory_order_relaxed) == observed &&
+           static_cast<TickType_t>(xTaskGetTickCount() - started) < pdMS_TO_TICKS(50));
 }
 constexpr std::size_t kMaximumJpegBytes = 1024U * 1024U;
 constexpr std::uint16_t kOutputWidth = 400;
@@ -587,7 +611,15 @@ void append_annex_b(std::vector<std::uint8_t>* output,
 
 std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
     const std::uint8_t* data, std::size_t size, std::uint16_t* output_width,
-    std::uint16_t* output_height) {
+    std::uint16_t* output_height, const std::atomic<bool>& stop,
+    const std::atomic<std::uint32_t>& session, std::uint32_t generation) {
+  struct DecodeScope {
+    ~DecodeScope() { decoder_stop_requested = nullptr; decoder_session = nullptr; }
+  } scope;
+  decoder_stop_requested = &stop;
+  decoder_session = &session;
+  decoder_session_started = generation;
+  if (decoder_cancelled()) return {};
   if (!contains_h264_nal(data, size, 5)) return {};
   // K2's SDP avcC parameters describe a dummy 128x96 stream.  Its in-band
   // keyframes use these real 1920x1080 Main/CABAC parameters.
@@ -631,12 +663,12 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
     // call and can overwrite an already-ready IDR's iBufferStatus with zero.
     // K2 gives us a complete RTP access unit, so retain the first result and
     // flush only when that call genuinely has no picture yet.
-    if (info.iBufferStatus == 0) {
+    if (!decoder_cancelled() && info.iBufferStatus == 0) {
       state = static_cast<DECODING_STATE>(
           static_cast<int>(state) |
           static_cast<int>(decoder->DecodeFrame2(nullptr, 0, planes, &info)));
     }
-    if (info.iBufferStatus == 0) {
+    if (!decoder_cancelled() && info.iBufferStatus == 0) {
       int buffered_frames = 0;
       if (decoder->GetOption(DECODER_OPTION_NUM_OF_FRAMES_REMAINING_IN_BUFFER,
                              &buffered_frames) == 0 &&
@@ -659,7 +691,7 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
     // OpenH264 can flag recoverable bitstream damage when a receiver joins an
     // already-running WebRTC stream.  A complete output buffer is nevertheless
     // a valid snapshot; do not discard it solely because state is non-zero.
-    if (info.iBufferStatus == 1 && planes[0] != nullptr &&
+    if (!decoder_cancelled() && info.iBufferStatus == 1 && planes[0] != nullptr &&
         planes[1] != nullptr && planes[2] != nullptr &&
         info.UsrData.sSystemBuffer.iWidth > 0 &&
         info.UsrData.sSystemBuffer.iHeight > 0) {
@@ -696,26 +728,16 @@ void websocket_event(void* argument, esp_event_base_t, std::int32_t event_id, vo
 
 }  // namespace
 
-// Called by the bounded IDR-only port between macroblock groups. A fixed
-// delay can be consumed entirely by networking; wait for actual IDLE0 time
-// before resuming CPU-bound work, while keeping every wait bounded.
-extern "C" void printdeck_h264_yield() {
-  static const bool registered =
-      esp_register_freertos_idle_hook_for_cpu(observe_decoder_idle, kServiceCore) == ESP_OK;
-  if (!registered) {
-    vTaskDelay(pdMS_TO_TICKS(10));
-    return;
-  }
-  const TickType_t observed = decoder_idle_tick.load(std::memory_order_relaxed);
-  const TickType_t started = xTaskGetTickCount();
-  if (static_cast<TickType_t>(started - observed) < pdMS_TO_TICKS(500)) return;
+// Called by the IDR-only port between macroblock groups. Both decoding and
+// receive callbacks allow actual IDLE0 time, with bounded cancellation latency.
+extern "C" bool printdeck_h264_yield() {
+  if (decoder_cancelled()) return false;
   const std::int64_t yield_started = esp_timer_get_time();
   ++decoder_yield_count;
-  do {
-    vTaskDelay(1);
-  } while (decoder_idle_tick.load(std::memory_order_relaxed) == observed &&
-           static_cast<TickType_t>(xTaskGetTickCount() - started) < pdMS_TO_TICKS(1000));
+  vTaskDelay(1);
+  yield_camera_services(decoder_stop_requested);
   decoder_yield_us += esp_timer_get_time() - yield_started;
+  return !decoder_cancelled();
 }
 
 void MoonrakerCameraClient::configure(const core::PrinterProfile* profile) {
@@ -745,15 +767,9 @@ void MoonrakerCameraClient::set_enabled(bool enabled) {
     // visible session and must not be published when the page is reopened.
     camera_session_generation_.fetch_add(1, std::memory_order_acq_rel);
   }
-  TaskHandle_t task = nullptr;
-  TaskHandle_t decoder = nullptr;
-  {
-    const std::lock_guard<std::mutex> lock(task_mutex_);
-    task = task_;
-    decoder = decoder_task_;
-  }
-  if (task != nullptr) xTaskNotifyGive(task);
-  if (decoder != nullptr) xTaskNotifyGive(decoder);
+  const std::lock_guard<std::mutex> lock(task_mutex_);
+  if (task_ != nullptr) xTaskNotifyGive(task_);
+  if (decoder_task_ != nullptr) xTaskNotifyGive(decoder_task_);
 }
 
 void MoonrakerCameraClient::set_mode(bool live, int snapshot_fps) {
@@ -797,15 +813,11 @@ void MoonrakerCameraClient::stop() {
   enabled_.store(false, std::memory_order_release);
   stop_requested_.store(true, std::memory_order_release);
   camera_session_generation_.fetch_add(1, std::memory_order_acq_rel);
-  TaskHandle_t task = nullptr;
-  TaskHandle_t decoder = nullptr;
   {
     const std::lock_guard<std::mutex> lock(task_mutex_);
-    task = task_;
-    decoder = decoder_task_;
+    if (task_ != nullptr) xTaskNotifyGive(task_);
+    if (decoder_task_ != nullptr) xTaskNotifyGive(decoder_task_);
   }
-  if (task != nullptr) xTaskNotifyGive(task);
-  if (decoder != nullptr) xTaskNotifyGive(decoder);
   publish_status(false, "Camera off", true);
 }
 
@@ -1210,6 +1222,9 @@ int MoonrakerCameraClient::peer_video_callback(esp_peer_video_frame_t* frame,
   if (camera == nullptr || frame == nullptr || frame->data == nullptr || frame->size <= 0) {
     return 0;
   }
+  // The peer can drain many RTP packets within one main_loop() call. Yield
+  // inside delivery as well, so receiver and decoder both allow IDLE0 to run.
+  yield_camera_services(&camera->stop_requested_);
   if (!camera->enabled_.load()) return 0;
   camera->last_creality_video_us_.store(
       static_cast<std::uint64_t>(esp_timer_get_time()));
@@ -1318,6 +1333,7 @@ bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& prof
 
 void MoonrakerCameraClient::stop_creality_peer() {
   const bool peer_was_active = peer_ != nullptr || h264_decoder_ != nullptr;
+  if (peer_was_active) ESP_LOGI(kTag, "Camera transport close started");
   camera_session_generation_.fetch_add(1);
   {
     const std::lock_guard<std::mutex> lock(pending_idr_mutex_);
@@ -1343,6 +1359,7 @@ void MoonrakerCameraClient::stop_creality_peer() {
     h264_decoder_ = nullptr;
   }
   if (peer_was_active) esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+  if (peer_was_active) ESP_LOGI(kTag, "Camera transport closed");
 }
 
 bool MoonrakerCameraClient::exchange_creality_offer(const core::PrinterProfile& profile) {
@@ -1518,13 +1535,10 @@ bool MoonrakerCameraClient::decode_creality_frame(const std::uint8_t* data,
       last_creality_idr_queued_us_.store(now);
     }
     set_refreshing(true);
-    TaskHandle_t decoder = nullptr;
     {
       const std::lock_guard<std::mutex> lock(task_mutex_);
-      decoder = decoder_task_;
-    }
-    if (decoder != nullptr && !stop_requested_.load(std::memory_order_acquire)) {
-      xTaskNotifyGive(decoder);
+      if (decoder_task_ != nullptr && !stop_requested_.load(std::memory_order_acquire))
+        xTaskNotifyGive(decoder_task_);
     }
     return true;
   }
@@ -1612,6 +1626,7 @@ void MoonrakerCameraClient::decoder_task_entry(void* context) {
 }
 
 void MoonrakerCameraClient::finish_task(bool decoder) {
+  ESP_LOGI(kTag, "Camera %s task finished", decoder ? "decoder" : "receiver");
   {
     const std::lock_guard<std::mutex> lock(task_mutex_);
     if (decoder) decoder_task_ = nullptr;
@@ -1707,13 +1722,16 @@ void MoonrakerCameraClient::decoder_loop() {
       }
       const std::int64_t decode_started = esp_timer_get_time();
       const UBaseType_t previous_priority = uxTaskPriorityGet(nullptr);
-      // This bounded decoder yields between groups of macroblocks. Let its
-      // useful work run ahead of background rendering on the service core.
+      // Short per-macroblock yields let the receiver run without allowing
+      // continuous receive work to starve the decoder and its cleanup.
       vTaskPrioritySet(nullptr, 5);
-      auto pixels = decode_idr_snapshot(encoded->data(), encoded->size(), &width, &height);
+      auto pixels = decode_idr_snapshot(encoded->data(), encoded->size(), &width, &height,
+                                        stop_requested_, camera_session_generation_, generation);
       vTaskPrioritySet(nullptr, previous_priority);
       if (!pixels) {
-        ESP_LOGW(kTag, "Creality Main/CABAC keyframe decode failed");
+        if (stop_requested_.load() || generation != camera_session_generation_.load())
+          ESP_LOGI(kTag, "Camera decode cancelled; workspace released");
+        else ESP_LOGW(kTag, "Creality Main/CABAC keyframe decode failed");
         if (generation == camera_session_generation_.load()) set_refreshing(false);
         creality_decoder_busy_.store(false);
         continue;
@@ -1816,11 +1834,20 @@ void MoonrakerCameraClient::task_loop() {
         // Drain a keyframe burst before yielding: one datagram per millisecond
         // can overflow the UDP mailbox even though average bandwidth is low.
         // Bound work by both call count and time so other core-0 tasks run.
-        const std::int64_t receive_deadline = esp_timer_get_time() + 2000;
-        for (unsigned received = 0; received < 8; ++received) {
-          esp_peer_main_loop(static_cast<esp_peer_handle_t>(peer_));
-          if (esp_timer_get_time() >= receive_deadline) break;
+        const std::int64_t receive_deadline = esp_timer_get_time() + 8000;
+        {
+          // Bound actual packet work rather than elapsed time: voice/UI
+          // preemption must not consume the receive allowance before the
+          // pending IDR burst can be drained. Stop still applies per packet.
+          // DTLS negotiation needs its own bounded handshake waits; the
+          // short receive budget applies only after the stream is connected.
+          CameraReceiveSlice slice(stop_requested_, peer_connected_.load() ? 64 : 0);
+          for (unsigned received = 0; received < 8 && !stop_requested_.load(); ++received) {
+            esp_peer_main_loop(static_cast<esp_peer_handle_t>(peer_));
+            if (esp_timer_get_time() >= receive_deadline) break;
+          }
         }
+        if (stop_requested_.load()) break;
         if (offer_ready_.load() && !exchange_creality_offer(current)) {
           ESP_LOGW(kTag, "Creality WebRTC signaling exchange failed");
           stop_creality_peer();
@@ -1838,18 +1865,24 @@ void MoonrakerCameraClient::task_loop() {
           ESP_LOGW(kTag, "Creality WebRTC stream stalled; reconnecting");
           stop_creality_peer();
           next_peer_start_us = esp_timer_get_time() + 1000000;
-        } else if (!frame_received_.load() && peer_started_us != 0 &&
-                   esp_timer_get_time() - peer_started_us > 30000000) {
-          ESP_LOGW(kTag, "No frame for SDP codec attempt %u; trying next candidate",
-                   static_cast<unsigned>(creality_codec_attempt_));
+        } else if (!frame_received_.load() && camera_first_frame_timed_out(
+                       esp_timer_get_time(), peer_started_us,
+                       last_creality_idr_queued_us_.load())) {
+          const bool video_arrived = video_callback_count_.load() != 0;
+          ESP_LOGW(kTag, "First camera frame timed out; retrying %s negotiation",
+                   video_arrived ? "established" : "next");
           stop_creality_peer();
-          ++creality_codec_attempt_;
+          // Delivered H264 already proves that the selected SDP/cipher works.
+          // Changing it because a late IDR is still decoding can replace a
+          // healthy transport with a cipher the printer cannot negotiate.
+          if (!video_arrived) ++creality_codec_attempt_;
           ++failures;
           next_peer_start_us = esp_timer_get_time() + 1000000;
         }
       }
       // Notifications must not consume this scheduling window: decoding and
       // rendering need time even while another caller refreshes camera mode.
+      yield_camera_services(&stop_requested_);
       vTaskDelay(pdMS_TO_TICKS(2));
       continue;
     }

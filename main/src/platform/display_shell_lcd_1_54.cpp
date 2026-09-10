@@ -9,6 +9,8 @@
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "printdeck/core/localization.hpp"
+#include "printdeck/core/print_time.hpp"
+#include "printdeck/platform/status_numeric_font.hpp"
 #include "printdeck/core/printer_driver.hpp"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/firmware_update_service.hpp"
@@ -1289,12 +1291,14 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     // Keep the summary structurally symmetric: a fixed thumbnail column and a
     // fixed details column. Children are positioned inside their own section,
     // so text length cannot move neighboring content.
-    lv_obj_t* summary = square_layout_box(lv_screen_active(), 222, 80);
-    lv_obj_align(summary, LV_ALIGN_TOP_MID, 0, 67);
+    lv_obj_t* summary = square_layout_box(lv_screen_active(), kDisplayUsesCompactRoundLayout ? 216 : 222,
+                                               kDisplayUsesCompactRoundLayout ? 102 : 80);
+    lv_obj_align(summary, LV_ALIGN_TOP_MID, 0, kDisplayUsesCompactRoundLayout ? 69 : 67);
 
     lv_obj_t* media_frame = lv_obj_create(summary);
     const bool has_preview = preview_pixels_ && !preview_pixels_->empty();
-    lv_obj_set_size(media_frame, 70, 70);
+    const int thumbnail_size = kDisplayUsesCompactRoundLayout ? 102 : 70;
+    lv_obj_set_size(media_frame, thumbnail_size, thumbnail_size);
     lv_obj_align(media_frame, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_set_style_radius(media_frame, themed_radius(10), LV_PART_MAIN);
     lv_obj_set_style_bg_color(media_frame, lv_color_black(), LV_PART_MAIN);
@@ -1308,7 +1312,7 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     if (has_preview) {
       media_image_ = lv_image_create(media_frame);
       lv_image_set_src(media_image_, &preview_image_dsc_);
-      lv_obj_set_size(media_image_, 64, 64);
+      lv_obj_set_size(media_image_, thumbnail_size - 6, thumbnail_size - 6);
       lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
       lv_obj_center(media_image_);
       square_route_screen_gestures(media_image_);
@@ -1346,6 +1350,36 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     lv_label_set_long_mode(status_label_, LV_LABEL_LONG_DOT);
     lv_obj_align(status_label_, LV_ALIGN_TOP_MID, 0, 198);
 
+    if constexpr (kDisplayUsesCompactRoundLayout) {
+      // The three two-line fields occupy exactly the thumbnail's 102 px height.
+      lv_obj_t* details = square_layout_box(summary, 100, 102);
+      lv_obj_align(details, LV_ALIGN_TOP_RIGHT, -8, 0);
+      const auto caption = [&](const char* text, int y) {
+        auto* label = lv_label_create(details);
+        apply_text_style(label, lv_color_hex(theme_style_.text_secondary), &lv_font_montserrat_12);
+        lv_obj_set_size(label, 100, 14);
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+        lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+        lv_label_set_text(label, text);
+        lv_obj_set_pos(label, 0, y);
+        return label;
+      };
+      caption((std::string(tr("Time left")) + ":").c_str(), 0);
+      status_time_caption_label_ = caption("", 34);
+      caption((std::string(tr("Layer")) + ":").c_str(), 68);
+      const auto number = [&](int y, std::uint32_t color) {
+        auto* label = lv_label_create(details);
+        apply_text_style(label, lv_color_hex(color), &lv_font_montserrat_16);
+        lv_obj_set_size(label, 100, 20);
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+        lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+        lv_obj_set_pos(label, 0, y);
+        return label;
+      };
+      remaining_label_ = number(14, theme_style_.accent_secondary);
+      total_time_label_ = number(48, theme_style_.text_secondary);
+      layer_label_ = number(82, theme_style_.text_primary);
+    } else {
     lv_obj_t* details = square_layout_box(summary, 138, 80);
     lv_obj_align(details, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_t* timers = square_layout_box(details, 138, 44);
@@ -1376,18 +1410,25 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     lv_obj_set_style_text_align(layer_label_, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_align(layer_label_, LV_ALIGN_BOTTOM_MID, 0, 0);
 
-    // Divide the temperature band into three identical 70 px cells. Each cell
-    // centers the complete icon + value group, rather than centering the value
-    // alone, which keeps all three visual centers exactly evenly spaced. The
-    // narrower 210 px band leaves a dedicated gutter for the vertical pager.
+    }
+
+    // Keep the outside groups inside the 210 px band, away from the pager.
+    // KNOMI centers the bed group between their visible edges after updating
+    // the values, since equal column centers leave unequal gaps around it.
     lv_obj_t* temperature_row = square_layout_box(lv_screen_active(), 210, 24);
-    lv_obj_align(temperature_row, LV_ALIGN_TOP_MID, 0, 154);
+    lv_obj_align(temperature_row, LV_ALIGN_TOP_MID, 0, kDisplayUsesCompactRoundLayout ? 176 : 154);
     lv_obj_add_flag(temperature_row, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
     lv_obj_t* temperature_cells[3]{};
     for (auto*& cell : temperature_cells) {
       cell = square_layout_box(temperature_row, 70, 24);
       lv_obj_add_flag(cell, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+      if constexpr (kDisplayUsesCompactRoundLayout) {
+        lv_obj_set_flex_flow(cell, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(cell, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                             LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_column(cell, 3, LV_PART_MAIN);
+      }
     }
     lv_obj_align(temperature_cells[0], LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_align(temperature_cells[1], LV_ALIGN_CENTER, 0, 0);
@@ -1414,7 +1455,7 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
                      &lv_font_montserrat_14);
     for (auto* label : {nozzle_temperature_label_, bed_temperature_label_,
                         chamber_temperature_label_}) {
-      lv_obj_set_size(label, 48, 18);
+      lv_obj_set_size(label, kDisplayUsesCompactRoundLayout ? LV_SIZE_CONTENT : 48, 18);
       lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
       lv_obj_align(label, LV_ALIGN_LEFT_MID, 22, 0);
       square_route_screen_gestures(label);
@@ -1426,38 +1467,67 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     lv_obj_align(metrics_label_, LV_ALIGN_TOP_MID, 0, 181);
     view_ = 3;
     visible_profile_ = profile.id;
+    printer_status_detail_.clear();
   }
-  const int progress = std::clamp(static_cast<int>(snapshot.job.completion), 0, 100);
   const std::uint32_t color = core::phase_color(theme_colors_, snapshot.job.phase,
                                                 snapshot.job.reachable);
   const bool active = snapshot.job.phase == core::JobPhase::printing ||
                       snapshot.job.phase == core::JobPhase::preparing ||
                       snapshot.job.phase == core::JobPhase::paused;
-  lv_bar_set_value(progress_arc_, progress, LV_ANIM_OFF);
-  lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_style_.track), LV_PART_MAIN);
-  lv_obj_set_style_bg_color(progress_arc_, lv_color_hex(theme_colors_.printing),
-                            LV_PART_INDICATOR);
-  if (snapshot.job.completion_known) lv_label_set_text_fmt(progress_label_, "%d%%", progress);
-  else lv_label_set_text(progress_label_, "--%");
-  lv_obj_set_style_text_color(progress_label_, lv_color_hex(theme_colors_.printing),
-                              LV_PART_MAIN);
+  const auto set_text = [](lv_obj_t* label, const char* text) {
+    if (std::strcmp(lv_label_get_text(label), text) != 0) lv_label_set_text(label, text);
+  };
+  update_printer_progress(snapshot);
   const std::string display_job_name = core::job_name_for_display(snapshot.job.name);
-  lv_label_set_text(detail_label_, snapshot.job.kind == core::JobKind::calibration
+  const char* detail = snapshot.job.kind == core::JobKind::calibration
                                        ? tr("Printer calibration")
                                        : display_job_name.empty()
                                              ? tr(snapshot.job.phase == core::JobPhase::idle ? "No active print" : core::job_status_label(snapshot.job))
-                                             : display_job_name.c_str());
-  lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
-  lv_obj_set_style_text_color(status_label_, lv_color_hex(color), LV_PART_MAIN);
-  lv_label_set_text(remaining_label_, active && snapshot.job.remaining_known ? short_duration(snapshot.job.remaining_seconds).c_str()
-                                             : "--");
-  const std::uint32_t total_seconds =
-      snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
-  lv_label_set_text(total_time_label_,
-                    active && snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0 ? short_duration(total_seconds).c_str() : "--");
-  if (snapshot.job.total_layers > 0) lv_label_set_text_fmt(layer_label_, "%s: %u/%u", tr("Layer"), snapshot.job.current_layer,
-                        snapshot.job.total_layers);
-  else lv_label_set_text_fmt(layer_label_, "%s: --/--", tr("Layer"));
+                                             : display_job_name.c_str();
+  if (printer_status_detail_ != detail) {
+    printer_status_detail_ = detail;
+    lv_label_set_text(detail_label_, detail);
+  }
+  set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
+  if (!lv_color_eq(lv_obj_get_style_text_color(status_label_, LV_PART_MAIN), lv_color_hex(color)))
+    lv_obj_set_style_text_color(status_label_, lv_color_hex(color), LV_PART_MAIN);
+  if constexpr (kDisplayUsesCompactRoundLayout) {
+    const auto set_number = [this, &set_text](lv_obj_t* label, const char* text) {
+      if (std::strcmp(lv_label_get_text(label), text) == 0) return;
+      const auto* font = status_numeric_font(text, 100, 20, 0,
+          {localized_font(&lv_font_montserrat_16), localized_font(&lv_font_montserrat_14),
+           localized_font(&lv_font_montserrat_12, false)});
+      if (lv_obj_get_style_text_font(label, LV_PART_MAIN) != font)
+        lv_obj_set_style_text_font(label, font, LV_PART_MAIN);
+      set_text(label, text);
+    };
+    const std::string remaining = !active || !snapshot.job.remaining_known ? "--"
+        : snapshot.job.remaining_seconds >= 100U * 3600U
+            ? short_duration(snapshot.job.remaining_seconds)
+            : core::print_duration_units(snapshot.job.remaining_seconds);
+    set_number(remaining_label_, remaining.c_str());
+    const auto secondary = core::print_time_display(snapshot.job, std::time(nullptr),
+                                                     clock_date_format_.load());
+    set_number(total_time_label_, secondary.value.c_str());
+    const std::string caption = secondary.kind == core::PrintTimeDisplay::Kind::unavailable
+        ? "" : std::string(tr(secondary.kind == core::PrintTimeDisplay::Kind::end_at
+                           ? "End at" : "Print time")) + ":" +
+            (secondary.date.empty() ? "" : " " + secondary.date);
+    set_text(status_time_caption_label_, caption.c_str());
+    char layers[32]{};
+    if (snapshot.job.current_layer > 0 || snapshot.job.total_layers > 0)
+      std::snprintf(layers, sizeof(layers), "%u/%u", snapshot.job.current_layer, snapshot.job.total_layers);
+    else std::snprintf(layers, sizeof(layers), "--/--");
+    set_number(layer_label_, layers);
+  } else {
+    set_text(remaining_label_, active && snapshot.job.remaining_known
+        ? short_duration(snapshot.job.remaining_seconds).c_str() : "--");
+    const std::uint32_t total_seconds = snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
+    set_text(total_time_label_, active && snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0
+        ? short_duration(total_seconds).c_str() : "--");
+    if (snapshot.job.total_layers > 0) lv_label_set_text_fmt(layer_label_, "%s: %u/%u", tr("Layer"), snapshot.job.current_layer, snapshot.job.total_layers);
+    else lv_label_set_text_fmt(layer_label_, "%s: --/--", tr("Layer"));
+  }
   if (snapshot.job.temperatures.nozzle_known) lv_label_set_text_fmt(nozzle_temperature_label_, "%.0f°C", snapshot.job.temperatures.nozzle_c);
   else lv_label_set_text(nozzle_temperature_label_, "--°C");
   if (snapshot.job.temperatures.bed_known) lv_label_set_text_fmt(bed_temperature_label_, "%.0f°C", snapshot.job.temperatures.bed_c);
@@ -1466,7 +1536,23 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     lv_label_set_text_fmt(chamber_temperature_label_, "%.0f°C",
                           snapshot.job.temperatures.chamber_c);
   } else lv_label_set_text(chamber_temperature_label_, "--°C");
-  lv_label_set_text(metrics_label_, snapshot.link == core::LinkState::online
+  if constexpr (kDisplayUsesCompactRoundLayout) {
+    lv_obj_t* bed_cell = lv_obj_get_parent(bed_temperature_label_);
+    lv_obj_t* row = lv_obj_get_parent(bed_cell);
+    lv_obj_t* chamber_cell = lv_obj_get_parent(chamber_temperature_label_);
+    lv_obj_t* thermometer_slot = lv_obj_get_child(chamber_cell, 0);
+    lv_obj_t* thermometer = lv_obj_get_child(thermometer_slot, 0);
+    lv_obj_t* bulb = lv_obj_get_child(thermometer, 1);
+    lv_obj_update_layout(row);
+    lv_area_t nozzle_bounds{}, bulb_bounds{}, row_bounds{};
+    lv_obj_get_coords(nozzle_temperature_label_, &nozzle_bounds);
+    lv_obj_get_coords(bulb, &bulb_bounds);
+    lv_obj_get_coords(row, &row_bounds);
+    const int bed_center = (nozzle_bounds.x2 + bulb_bounds.x1) / 2;
+    lv_obj_align(bed_cell, LV_ALIGN_TOP_LEFT,
+                 bed_center - row_bounds.x1 - lv_obj_get_width(bed_cell) / 2, 0);
+  }
+  lv_label_set_text(metrics_label_, kDisplayUsesCompactRoundLayout ? "" : snapshot.link == core::LinkState::online
       ? tr(snapshot.job.condition == core::PrinterCondition::normal || snapshot.job.condition == core::PrinterCondition::ready
                ? "Printer ready" : core::job_status_label(snapshot.job))
       : tr(square_link_label(snapshot.link)));
@@ -1842,41 +1928,7 @@ void DisplayShell::square_show_printer_compact(const core::PrinterProfile& profi
       square_route_screen_gestures(label);
     }
 
-    // Three timers share one compact two-line band: captions on top and values
-    // below. This preserves all useful timing data without a separate clock row.
-    lv_obj_t* timers = square_layout_box(screen, 210, 30);
-    lv_obj_align(timers, LV_ALIGN_TOP_MID, 0, 165);
-    lv_obj_t* timer_columns[3]{};
-    for (auto*& column : timer_columns) {
-      column = square_layout_box(timers, 70, 30);
-    }
-    lv_obj_align(timer_columns[0], LV_ALIGN_LEFT_MID, 0, 0);
-    lv_obj_align(timer_columns[1], LV_ALIGN_CENTER, 0, 0);
-    lv_obj_align(timer_columns[2], LV_ALIGN_RIGHT_MID, 0, 0);
-
-    const char* timer_captions[]{"LEFT", "PRINT", "TOTAL"};
-    lv_obj_t* timer_values[3]{};
-    remaining_label_ = timer_values[0] = lv_label_create(timer_columns[0]);
-    total_time_label_ = timer_values[1] = lv_label_create(timer_columns[1]);
-    metrics_label_ = timer_values[2] = lv_label_create(timer_columns[2]);
-    for (int index = 0; index < 3; ++index) {
-      lv_obj_t* caption = lv_label_create(timer_columns[index]);
-      lv_label_set_text(caption, tr(timer_captions[index]));
-      apply_text_style(caption, lv_color_hex(theme_style_.text_muted), &lv_font_montserrat_12);
-      lv_obj_set_width(caption, 70);
-      lv_obj_set_style_text_align(caption, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-      lv_obj_align(caption, LV_ALIGN_TOP_MID, 0, 0);
-      square_route_screen_gestures(caption);
-
-      apply_text_style(timer_values[index],
-                       lv_color_hex(index == 0 ? theme_style_.accent_secondary : theme_style_.text_secondary),
-                       &lv_font_montserrat_12);
-      lv_obj_set_width(timer_values[index], 70);
-      lv_obj_set_style_text_align(timer_values[index], LV_TEXT_ALIGN_CENTER,
-                                  LV_PART_MAIN);
-      lv_obj_align(timer_values[index], LV_ALIGN_BOTTOM_MID, 0, 0);
-      square_route_screen_gestures(timer_values[index]);
-    }
+    create_compact_timers();
 
     status_label_ = lv_label_create(screen);
     apply_text_style(status_label_, lv_color_hex(accent_color_), &lv_font_montserrat_16);
@@ -1988,17 +2040,7 @@ void DisplayShell::square_show_printer_compact(const core::PrinterProfile& profi
   if (snapshot.job.total_layers > 0) lv_label_set_text_fmt(layer_label_, "%s: %u / %u", tr("Layer"),
                         snapshot.job.current_layer, snapshot.job.total_layers);
   else lv_label_set_text_fmt(layer_label_, "%s: -- / --", tr("Layer"));
-  const bool active_job = snapshot.job.phase == core::JobPhase::printing ||
-                          snapshot.job.phase == core::JobPhase::preparing ||
-                          snapshot.job.phase == core::JobPhase::paused;
-  lv_label_set_text(remaining_label_, active_job && snapshot.job.remaining_known
-        ? short_duration(snapshot.job.remaining_seconds).c_str() : "--");
-  lv_label_set_text(total_time_label_, snapshot.job.elapsed_known && snapshot.job.elapsed_seconds > 0
-        ? short_duration(snapshot.job.elapsed_seconds).c_str() : "--");
-  const std::uint32_t total_seconds =
-      snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
-  lv_label_set_text(metrics_label_, snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0
-        ? short_duration(total_seconds).c_str() : "--");
+  update_compact_timers(snapshot.job);
   lv_label_set_text(status_label_, core::localized_job_status(language_, snapshot.job).c_str());
   lv_obj_set_style_text_color(status_label_, lv_color_hex(state_color), LV_PART_MAIN);
   const int progress = std::clamp(static_cast<int>(snapshot.job.completion), 0, 100);
@@ -2447,6 +2489,16 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
     lv_obj_align(camera_spinner_, LV_ALIGN_TOP_MID, 0, 104);
     square_route_screen_gestures(camera_spinner_);
 
+    camera_wait_label_ = lv_label_create(lv_screen_active());
+    apply_text_style(camera_wait_label_, lv_color_hex(theme_style_.text_muted),
+                     &lv_font_montserrat_12);
+    lv_obj_set_size(camera_wait_label_, 190, 34);
+    lv_label_set_long_mode(camera_wait_label_, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(camera_wait_label_, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_label_set_text(camera_wait_label_, tr("This may take a while."));
+    lv_obj_align(camera_wait_label_, LV_ALIGN_TOP_MID, 0, 157);
+    square_route_screen_gestures(camera_wait_label_);
+
     camera_empty_label_ = lv_label_create(lv_screen_active());
     apply_text_style(camera_empty_label_, lv_color_hex(theme_style_.text_secondary),
                      &lv_font_montserrat_12);
@@ -2546,6 +2598,7 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
     lv_obj_set_style_bg_color(camera_live_button_,
                               lv_color_hex(live ? accent_color_ : theme_style_.surface_soft), LV_PART_MAIN);
   } else lv_obj_add_flag(camera_mode_row_, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(camera_wait_label_, LV_OBJ_FLAG_HIDDEN);
   if (snapshot.job.camera_frame && !snapshot.job.camera_frame->empty() &&
       snapshot.job.camera_width > 0 && snapshot.job.camera_height > 0) {
     update_camera_image(snapshot.job);
@@ -2575,6 +2628,7 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
       lv_obj_remove_flag(camera_spinner_, LV_OBJ_FLAG_HIDDEN);
       lv_obj_add_flag(camera_empty_label_, LV_OBJ_FLAG_HIDDEN);
       lv_label_set_text(detail_label_, tr("Detecting camera…"));
+      lv_obj_remove_flag(camera_wait_label_, LV_OBJ_FLAG_HIDDEN);
     }
   }
   update_printer_progress(snapshot);

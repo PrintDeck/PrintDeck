@@ -599,12 +599,16 @@ void ElegooSdcpAdapter::run() {
           }
           // A changed job is published without the previous image before a
           // bounded download. Failed/missing previews never take status offline.
+          if (!preview_requested_.load()) { preview.reset(); preview_attempts = 0; next_preview = 0; }
           state->job.preview = preview;
-          if (!preview_task.empty() && !preview && preview_attempts < 3 && now >= next_preview) {
+          if (preview_requested_.load() && !preview_task.empty() && !preview &&
+              preview_attempts < 3 && now >= next_preview) {
             { const std::lock_guard<std::mutex> lock(mutex_);
               if (generation == generation_ && !stopping_) snapshots_.replace(*state); }
             ++preview_attempts; next_preview = now + 30000;
-            preview = session->preview(preview_task, cancelled);
+            preview = session->preview(preview_task, [&] {
+              return cancelled() || !preview_requested_.load();
+            });
             // Read the queued status before publishing an image: the print
             // may have changed while HTTP was in flight.
             continue;

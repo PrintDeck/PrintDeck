@@ -3,9 +3,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#101010">
     <title>GIF · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
-    <link rel="stylesheet" href="/assets/reactions.css?v=20260906-1">
+    <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/reactions.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/gifs-hero.css?v=20260910-3">
+    <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
     <script>window.printDeckInstallerI18n={language:"es",t:(source,values={})=>{let result=({"Play":"Reproducir","Pause":"Pausar","Seek":"Buscar","{currentTime} of {duration}":"{currentTime} de {duration}","Played":"Reproducido","Buffered":"En búfer","Current time":"Tiempo actual","Volume":"Volumen","Mute":"Silenciar","Unmute":"Activar sonido","Enter fullscreen":"Entrar en pantalla completa","Exit fullscreen":"Salir de pantalla completa","Automatic appearance":"Apariencia automática"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
+    <script src="/assets/gifs-hero.js?v=20260910-1" defer=""></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
@@ -37,7 +40,7 @@
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"GIF · PrintDeck","description":"Convierte GIF, archivos WebP animados e imágenes estáticas en reacciones personalizadas de PrintDeck con recorte, selección de fragmento, optimización y carga directa desde el navegador.","url":"https://printdeck.xyz/es/gifs/","inLanguage":"es","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
-  <body class="site-page reactions-page" data-page-title="GIF · PrintDeck">
+  <body class="site-page wide-hero-page reactions-page" data-page-title="GIF · PrintDeck">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/es/" aria-label="Inicio">
@@ -49,50 +52,57 @@
           <a class="site-tab" href="/es/firmware/">Firmware</a>
           <a class="site-tab" href="/es/gifs/" aria-current="page">GIFs</a>
           <a class="site-tab" href="/es/case-designs/">Diseños de carcasas</a>
-          <a class="site-tab" href="/es/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/es/knomi/">KNOMI</a>
           <a class="site-tab" href="/es/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/es/support/">Soporte</a>
+          <a class="site-tab" href="/es/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
 
     <main class="reactions-content">
-      <section class="reactions-hero">
+      <section class="reactions-hero gifs-hero is-paused" data-gifs-hero="">
         <div class="reactions-inner reactions-hero-grid">
           <div class="reactions-hero-copy">
-            <span class="reactions-eyebrow">GIF PERSONALIZADOS · SIN RECOMPILAR EL FIRMWARE</span>
-            <h1>Da a cada estado de la impresora<br><strong>un aspecto propio.</strong></h1>
-            <p class="reactions-lead">Suelta una animación o imagen en Web Config. PrintDeck te permite recortar, ampliar, elegir el mejor momento y previsualizar el resultado optimizado antes de enviarlo a la pantalla.</p>
+            <span class="reactions-eyebrow">GIF PERSONALIZADOS · A TU GUSTO</span>
+            <h1>Tus ideas.<br><strong>Tus GIF.</strong></h1>
+            <p class="reactions-lead"><span>Convierte tus archivos en reacciones animadas de PrintDeck.</span><br><span>Suelta, recorta y dales tu estilo.</span></p>
             <div class="site-actions">
-              <a class="site-button" href="#reaction-film">Ver el proceso completo</a>
-              <a class="site-button secondary" href="#free-gallery">Ver ejemplos gratuitos</a>
+              <a class="site-button gifs-browse" href="#free-gallery"><span>Explorar GIF gratuitos</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg></a>
+              <a class="gifs-flow-link" href="#reaction-film"><span>Descubre cómo funciona</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"></path></svg></a>
             </div>
           </div>
-          <div class="reactions-hero-art" aria-label="Ejemplos de GIF personalizados de PrintDeck">
-            <figure class="reactions-hero-device reactions-hero-device-round">
-              <img src="/assets/marketing/knomi2/blue-eye.gif" alt="Ojo azul animado usado como reacción personalizada de la impresora" fetchpriority="high">
-              <figcaption>IMPRIMIENDO · PERSONALIZADA</figcaption>
-            </figure>
-            <figure class="reactions-hero-device reactions-hero-device-square">
-              <img src="/assets/marketing/knomi2/reactions/filament-loading.gif" alt="Animación de reacción de carga de filamento" fetchpriority="high">
-              <figcaption>CARGA DE FILAMENTO</figcaption>
-            </figure>
-            <div class="reactions-hero-files" aria-label="Extensiones de archivo compatibles">
-              <span class="reactions-hero-file">animation<strong>.gif</strong></span>
-              <span class="reactions-hero-file">motion<strong>.webp</strong></span>
-              <span class="reactions-hero-file">photo<strong>.png</strong></span>
-              <span class="reactions-hero-file">picture<strong>.jpg</strong></span>
-              <span class="reactions-hero-file">portrait<strong>.jpeg</strong></span>
-              <span class="reactions-hero-file">artwork<strong>.avif</strong></span>
-              <span class="reactions-hero-file">image<strong>.bmp</strong></span>
-              <span class="reactions-hero-file">photo<strong>.heic</strong></span>
-              <span class="reactions-hero-file">photo<strong>.heif</strong></span>
+        </div>
+        <div class="gifs-workshop" aria-label="Ejemplos de GIF personalizados de PrintDeck">
+          <div class="gifs-workshop-stage">
+            <div class="gifs-workshop-art">
+              <img class="gifs-workshop-photo" src="/assets/marketing/gifs/workshop-compact.webp" width="2171" height="724" alt="" fetchpriority="high">
+              <div class="gifs-round-screen">
+                <img src="/assets/marketing/gifs/blue-eye-poster.webp" data-gifs-animation="/assets/marketing/knomi2/blue-eye.gif" alt="Ojo azul animado usado como reacción personalizada de la impresora" width="466" height="466">
+              </div>
+              <svg class="gifs-square-projection" viewBox="0 0 2171 724" aria-label="Animación de reacción de calentamiento de boquilla">
+                <foreignObject x="0" y="0" width="466" height="466" transform="matrix(.291845 .012875 0 .283262 1517 407)">
+                  <div xmlns="http://www.w3.org/1999/xhtml" class="gifs-square-screen">
+                    <img src="/assets/marketing/gifs/cartoon-poster.webp" data-gifs-animation="/assets/marketing/home/nozzle-heating-cartoon.gif" alt="" width="466" height="466">
+                  </div>
+                </foreignObject>
+              </svg>
+              <div class="gifs-files" aria-label="Extensiones de archivo compatibles" translate="no">
+                <span class="gifs-file gifs-file-animation"><i aria-hidden="true">+</i><span>animation<strong>.gif</strong></span></span>
+                <span class="gifs-file gifs-file-motion"><i aria-hidden="true">+</i><span>motion<strong>.webp</strong></span></span>
+                <span class="gifs-file gifs-file-png"><i aria-hidden="true">+</i><span>photo<strong>.png</strong></span></span>
+                <span class="gifs-file gifs-file-jpg"><i aria-hidden="true">+</i><span>picture<strong>.jpg</strong></span></span>
+                <span class="gifs-file gifs-file-jpeg"><i aria-hidden="true">+</i><span>portrait<strong>.jpeg</strong></span></span>
+                <span class="gifs-file gifs-file-avif"><i aria-hidden="true">+</i><span>artwork<strong>.avif</strong></span></span>
+                <span class="gifs-file gifs-file-bmp"><i aria-hidden="true">+</i><span>image<strong>.bmp</strong></span></span>
+                <span class="gifs-file gifs-file-heic"><i aria-hidden="true">+</i><span>photo<strong>.heic</strong></span></span>
+                <span class="gifs-file gifs-file-heif"><i aria-hidden="true">+</i><span>photo<strong>.heif</strong></span></span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <div class="reactions-signal" aria-label="Aspectos destacados de los GIF personalizados">
+      <div class="campaign-signal reactions-signal" aria-label="Aspectos destacados de los GIF personalizados">
         <span>18 espacios de reacción</span>
         <span>Fragmentos de 1 a 5 segundos</span>
         <span>Varios formatos de archivo</span>
@@ -299,7 +309,7 @@
     </main>
 
     <footer class="site-footer reactions-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/es/support/">Contactar con soporte</a> · <a href="/es/legal/license/">Licencia</a> · <a href="/es/legal/notice/">Avisos</a> · <a href="/es/legal/privacy/">Privacidad</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/es/support/">Contactar con soporte</a> · <a href="/es/legal/license/">Licencia</a> · <a href="/es/legal/notice/">Avisos</a> · <a href="/es/legal/privacy/">Privacidad</a></span>
       <div class="footer-controls">
         <label hidden="" for="reactions-language">Idioma</label>
         <select class="installer-language" id="reactions-language" aria-label="Idioma" data-site-language=""><option value="/gifs/">English</option><option value="/pl/gifs/">Polski</option><option value="/es/gifs/" selected="">Español</option><option value="/fr/gifs/">Français</option><option value="/de/gifs/">Deutsch</option><option value="/zh-cn/gifs/">简体中文</option></select>

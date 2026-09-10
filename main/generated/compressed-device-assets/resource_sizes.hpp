@@ -3,7 +3,7 @@
 #include <array>
 namespace printdeck::platform::embedded_assets {
 inline constexpr std::size_t kLatinFontBytes = 48216;
-inline constexpr std::size_t kCjkFontBytes = 160976;
+inline constexpr std::size_t kCjkFontBytes = 161456;
 inline constexpr std::size_t kTerminalFontBytes = 6784;
 inline constexpr std::size_t kSmallLogoBytes = 1216;
 inline constexpr std::size_t kSmallLogosBytes = 19456;

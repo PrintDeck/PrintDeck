@@ -3,7 +3,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>法律声明 · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
+    <link rel="stylesheet" href="/assets/site.css?v=20260910-3">
+    <link rel="stylesheet" href="/assets/legal-hero.css?v=20260910-2">
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏","Automatic appearance":"自动外观"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -48,9 +49,9 @@
           <a class="site-tab" href="/zh-cn/firmware/">固件</a>
           <a class="site-tab" href="/zh-cn/gifs/">GIFs</a>
           <a class="site-tab" href="/zh-cn/case-designs/">外壳设计</a>
-          <a class="site-tab" href="/zh-cn/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/zh-cn/knomi/">KNOMI</a>
           <a class="site-tab" href="/zh-cn/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/zh-cn/support/">支持</a>
+          <a class="site-tab" href="/zh-cn/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
@@ -59,6 +60,7 @@
       <header class="legal-heading">
         <span class="legal-eyebrow">法律声明</span>
         <h1>版权和法律声明</h1>
+        <a class="legal-hero-support" href="/zh-cn/support/">联系支持</a>
       </header>
 
       <div class="campaign-signal legal-signal">
@@ -91,6 +93,13 @@
           <p><a href="/zh-cn/legal/notice/components/">组件列表及其许可证</a></p>
         </section>
 
+        <section id="knomi-hardware">
+          <h2>KNOMI 硬件与兼容性</h2>
+          <p>KNOMI 设备及 BIGTREETECH 提供的 KNOMI 挤出机面板均为 BIGTREETECH 产品。其商标和设计权仍归各自权利人所有。</p>
+          <p>PrintDeck 仅提供独立的替代固件。PrintDeck 与 BIGTREETECH 无隶属关系，也未获得其背书， <em>欢迎来信。😉</em></p>
+          <p>由于硬件不兼容，PrintDeck 不支持 KNOMI v1。受硬件限制，KNOMI 无法使用部分 PrintDeck 功能，包括音频和 HI ESP!。</p>
+        </section>
+
         <section>
           <h2>商标</h2>
           <p>第三方名称和标志归各自所有者所有，仅用于标识兼容的产品和浏览器。PrintDeck 与这些公司没有关联，也未获得其认可或背书。</p>
@@ -101,7 +110,7 @@
     </main>
 
     <footer class="site-footer legal-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
       <div class="footer-controls">
         <label hidden="" for="notice-language">语言</label>
         <select class="installer-language" id="notice-language" aria-label="语言" data-site-language=""><option value="/legal/notice/">English</option><option value="/pl/legal/notice/">Polski</option><option value="/es/legal/notice/">Español</option><option value="/fr/legal/notice/">Français</option><option value="/de/legal/notice/">Deutsch</option><option value="/zh-cn/legal/notice/" selected="">简体中文</option></select>

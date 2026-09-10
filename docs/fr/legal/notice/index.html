@@ -3,7 +3,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>Mentions légales · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
+    <link rel="stylesheet" href="/assets/site.css?v=20260910-3">
+    <link rel="stylesheet" href="/assets/legal-hero.css?v=20260910-2">
     <script>window.printDeckInstallerI18n={language:"fr",t:(source,values={})=>{let result=({"Play":"Lire","Pause":"Pause","Seek":"Rechercher","{currentTime} of {duration}":"{currentTime} sur {duration}","Played":"Lu","Buffered":"Mis en mémoire tampon","Current time":"Temps actuel","Volume":"Volume","Mute":"Couper le son","Unmute":"Rétablir le son","Enter fullscreen":"Passer en plein écran","Exit fullscreen":"Quitter le plein écran","Automatic appearance":"Apparence automatique"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -48,9 +49,9 @@
           <a class="site-tab" href="/fr/firmware/">Micrologiciel</a>
           <a class="site-tab" href="/fr/gifs/">GIFs</a>
           <a class="site-tab" href="/fr/case-designs/">Modèles de boîtiers</a>
-          <a class="site-tab" href="/fr/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/fr/knomi/">KNOMI</a>
           <a class="site-tab" href="/fr/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/fr/support/">Assistance</a>
+          <a class="site-tab" href="/fr/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
@@ -59,6 +60,7 @@
       <header class="legal-heading">
         <span class="legal-eyebrow">MENTIONS LÉGALES</span>
         <h1>Copyright et mentions légales</h1>
+        <a class="legal-hero-support" href="/fr/support/">Contacter l’assistance</a>
       </header>
 
       <div class="campaign-signal legal-signal">
@@ -91,6 +93,13 @@
           <p><a href="/fr/legal/notice/components/">Liste des composants et de leurs licences</a></p>
         </section>
 
+        <section id="knomi-hardware">
+          <h2>Matériel KNOMI et compatibilité</h2>
+          <p>Les appareils KNOMI et les façades d’extrudeur KNOMI de BIGTREETECH sont des produits BIGTREETECH. Leurs marques et droits sur les modèles restent la propriété de leurs détenteurs respectifs.</p>
+          <p>PrintDeck fournit uniquement un firmware alternatif indépendant. PrintDeck n’est ni affilié à BIGTREETECH ni approuvé par cette société, <em>notre boîte mail vous est ouverte. 😉</em></p>
+          <p>PrintDeck n’est pas disponible pour KNOMI v1 en raison de l’incompatibilité de son matériel. Certaines fonctions de PrintDeck, dont l’audio et HI ESP!, ne sont pas disponibles sur KNOMI en raison de limitations matérielles.</p>
+        </section>
+
         <section>
           <h2>Marques</h2>
           <p>Les noms et logos de tiers appartiennent à leurs propriétaires respectifs et servent à identifier les produits et navigateurs compatibles. PrintDeck n’est ni affilié à ces entreprises ni approuvé par elles.</p>
@@ -101,7 +110,7 @@
     </main>
 
     <footer class="site-footer legal-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/fr/support/">Contacter l’assistance</a> · <a href="/fr/legal/license/">Licence</a> · <a href="/fr/legal/notice/">Mentions</a> · <a href="/fr/legal/privacy/">Confidentialité</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/fr/support/">Contacter l’assistance</a> · <a href="/fr/legal/license/">Licence</a> · <a href="/fr/legal/notice/">Mentions</a> · <a href="/fr/legal/privacy/">Confidentialité</a></span>
       <div class="footer-controls">
         <label hidden="" for="notice-language">Langue</label>
         <select class="installer-language" id="notice-language" aria-label="Langue" data-site-language=""><option value="/legal/notice/">English</option><option value="/pl/legal/notice/">Polski</option><option value="/es/legal/notice/">Español</option><option value="/fr/legal/notice/" selected="">Français</option><option value="/de/legal/notice/">Deutsch</option><option value="/zh-cn/legal/notice/">简体中文</option></select>

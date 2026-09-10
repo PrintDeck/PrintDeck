@@ -799,6 +799,11 @@ void AudioService::play_voice_now(RequestKind kind, const SpokenPrintStatus& sta
     return;
   }
   if (kind == RequestKind::voice_status) {
+    if (!status.completion_available) {
+      say(voice_printer_unavailable_start, voice_printer_unavailable_end);
+      write_silence(codec, 1024);
+      return;
+    }
     say(voice_print_is_start, voice_print_is_end);
     write_voice_number(codec, status.completion_percent, volume, control);
     say(voice_percent_complete_start, voice_percent_complete_end);

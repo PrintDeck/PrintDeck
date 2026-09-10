@@ -1,6 +1,8 @@
 #include "printdeck/platform/moonraker_adapter.hpp"
 #include "printdeck/platform/moonraker_status_parser.hpp"
 #include "printdeck/platform/task_affinity.hpp"
+#include "printdeck/platform/bounded_response_buffer.hpp"
+#include "printdeck/platform/image_workspace.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -47,27 +49,6 @@ struct JsonDeleter {
 };
 using JsonDocument = std::unique_ptr<cJSON, JsonDeleter>;
 
-struct ResponseBuffer {
-  std::string body;
-  std::size_t maximum_bytes = kMaximumStatusBytes;
-  bool overflow = false;
-};
-
-esp_err_t response_event(esp_http_client_event_t* event) {
-  if (event == nullptr || event->user_data == nullptr || event->event_id != HTTP_EVENT_ON_DATA ||
-      event->data == nullptr || event->data_len <= 0) {
-    return ESP_OK;
-  }
-  auto* response = static_cast<ResponseBuffer*>(event->user_data);
-  const std::size_t bytes = static_cast<std::size_t>(event->data_len);
-  if (response->body.size() + bytes > response->maximum_bytes) {
-    response->overflow = true;
-    return ESP_FAIL;
-  }
-  response->body.append(static_cast<const char*>(event->data), bytes);
-  return ESP_OK;
-}
-
 std::string base_url(std::string endpoint) {
   while (!endpoint.empty() && endpoint.back() == '/') endpoint.pop_back();
   if (endpoint.rfind("http://", 0) != 0 && endpoint.rfind("https://", 0) != 0) {
@@ -79,16 +60,14 @@ std::string base_url(std::string endpoint) {
 bool http_request(const core::PrinterProfile& profile, const char* path,
                   esp_http_client_method_t method, std::string* body = nullptr,
                   std::size_t maximum_bytes = kMaximumStatusBytes,
-                  const char* range = nullptr, const char* accept = "application/json") {
-  ResponseBuffer response;
-  response.maximum_bytes = maximum_bytes;
+                  const char* range = nullptr, const char* accept = "application/json",
+                  const std::atomic<bool>* requested = nullptr) {
+  BoundedResponseBuffer response(maximum_bytes);
   const std::string url = base_url(profile.endpoint) + path;
   esp_http_client_config_t config{};
   config.url = url.c_str();
   config.method = method;
   config.timeout_ms = 5000;
-  config.event_handler = response_event;
-  config.user_data = &response;
   config.buffer_size = 2048;
   config.buffer_size_tx = 512;
   if (url.rfind("https://", 0) == 0) config.crt_bundle_attach = esp_crt_bundle_attach;
@@ -100,11 +79,41 @@ bool http_request(const core::PrinterProfile& profile, const char* path,
   }
   if (range != nullptr) esp_http_client_set_header(client, "Range", range);
   esp_http_client_set_header(client, "Accept", accept);
-  const esp_err_t result = esp_http_client_perform(client);
-  const int status = result == ESP_OK ? esp_http_client_get_status_code(client) : 0;
+  const std::int64_t deadline = esp_timer_get_time() + 5'000'000;
+  bool ok = esp_http_client_open(client, 0) == ESP_OK;
+  if (ok) ok = esp_http_client_fetch_headers(client) >= 0;
+  const int status = ok ? esp_http_client_get_status_code(client) : 0;
+  ok = ok && status >= 200 && status < 300;
+  char chunk[2048];
+  // fetch_headers may already receive the entire body into the HTTP client's
+  // cache. Drain read() even when the transport reports a complete response;
+  // otherwise small status/metadata replies are silently discarded.
+  while (ok) {
+    if ((requested && !requested->load()) || esp_timer_get_time() >= deadline) {
+      ok = false;
+      break;
+    }
+    const int bytes = esp_http_client_read(client, chunk, sizeof(chunk));
+    if (bytes <= 0) {
+      ok = bytes == 0 && esp_http_client_is_complete_data_received(client);
+      break;
+    }
+    if (body != nullptr && !response.append(chunk, static_cast<std::size_t>(bytes))) {
+      ok = false;
+      break;
+    }
+  }
+  esp_http_client_close(client);
   esp_http_client_cleanup(client);
-  if (body != nullptr) *body = std::move(response.body);
-  return result == ESP_OK && !response.overflow && status >= 200 && status < 300;
+  if (requested && !requested->load()) ok = false;
+  if (ok && body != nullptr) {
+    // The remaining string is temporary parsing input, never the image cache.
+    if (response.size() && heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) <
+                               response.size() + 32768U) return false;
+    if (response.size()) body->assign(response.data(), response.size());
+    else body->clear();
+  }
+  return ok;
 }
 
 std::string url_encode(std::string_view value, bool preserve_slashes) {
@@ -580,7 +589,12 @@ bool MoonrakerAdapter::poll(const core::PrinterProfile& profile) {
       return false;
     }
   }
-  if (preview_requested_.load() && preview_pending_) {
+  const bool active_preview_job = job_is_active(parsed.snapshot.job.phase);
+  if (!active_preview_job && parsed.snapshot.job.phase != core::JobPhase::unknown) {
+    cached_preview_.reset();
+    parsed.snapshot.job.preview.reset();
+  }
+  if (active_preview_job && preview_requested_.load() && preview_pending_) {
     refresh_job_preview(profile);
     parsed.snapshot.job.preview = cached_preview_;
   }
@@ -667,15 +681,22 @@ void MoonrakerAdapter::refresh_job_preview(const core::PrinterProfile& profile) 
   }
   const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
   if (now_ms < preview_retry_after_ms_) return;
-  // Leaving the camera can race a preview fetch or a temporary HTTP failure.
-  // Keep the request pending until an image is available, with bounded retries.
+  // Wait for the final off-page camera decode to release its large workspace.
+  // Never hold a display lock while doing flash or network work.
+  ImageWorkspaceLock workspace(50);
+  if (!workspace || !preview_requested_.load()) return;
   preview_retry_after_ms_ = now_ms + 5000;
+  // Parsing a bounded header plus PNG conversion can temporarily use several
+  // buffers. Defer safely when other services occupy that workspace.
+  if (heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) <
+      2 * kMaximumThumbnailBytes + 128 * 1024) return;
+  ESP_LOGI(kLogTag, "Fetching print thumbnail for status screen");
   if (!thumbnail_path.empty()) {
     std::string image;
     const std::string image_path =
         "/server/files/gcodes/" + url_encode(thumbnail_path, true);
     if (http_request(profile, image_path.c_str(), HTTP_METHOD_GET, &image,
-                     kMaximumThumbnailBytes, nullptr, "image/png") &&
+                     kMaximumThumbnailBytes, nullptr, "image/png", &preview_requested_) &&
         preview_requested_.load() && is_png(image)) {
       cached_preview_ = std::make_shared<std::vector<std::uint8_t>>(image.begin(), image.end());
       preview_pending_ = false;
@@ -690,7 +711,7 @@ void MoonrakerAdapter::refresh_job_preview(const core::PrinterProfile& profile) 
   std::string header;
   const std::string gcode_path = "/server/files/gcodes/" + url_encode(filename, true);
   if (http_request(profile, gcode_path.c_str(), HTTP_METHOD_GET, &header,
-                   kMaximumGcodeHeaderBytes, "bytes=0-262143", "application/octet-stream")) {
+                   kMaximumGcodeHeaderBytes, "bytes=0-262143", "application/octet-stream", &preview_requested_)) {
     if (!preview_requested_.load()) return;
     cached_preview_ = extract_embedded_png(header);
     if (cached_preview_) {

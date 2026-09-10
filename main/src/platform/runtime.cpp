@@ -208,6 +208,8 @@ void Runtime::start() {
     return;
   }
   verify_heap("network startup");
+  const esp_err_t preview_result = print_preview_.start();
+  if (preview_result != ESP_OK) ESP_LOGW(kLogTag, "Print thumbnail cache worker unavailable");
   const esp_err_t reactions_result = reaction_assets_.start(network_);
   if (reactions_result != ESP_OK) {
     ESP_LOGW(kLogTag, "Reaction asset service is unavailable: %s",
@@ -1258,7 +1260,18 @@ void Runtime::update_audio_state(const core::PrinterSnapshot& snapshot) {
 }
 
 void Runtime::monitor_loop() {
+  std::int64_t camera_cleanup_started_us = 0;
   while (true) {
+    // Handle a gesture's stop barrier before any display-lock wait or other
+    // background work, so a frame can be cancelled while it is being decoded.
+    if (display_.camera_cleanup_pending() && !camera_cleanup_pending_) {
+      camera_cleanup_pending_ = true;
+      camera_cleanup_started_us = esp_timer_get_time();
+      ESP_LOGI(kLogTag, "Camera stop dispatched");
+      moonraker_camera_.stop();
+      bambu_a1_camera_.stop();
+      display_.begin_camera_cleanup();
+    }
     // Physical touch and the transition-switch callback run inside the core-1
     // LVGL task. Coalesce background state while they are active, then render
     // the newest snapshot once the short quiet window closes. This prevents a
@@ -1361,28 +1374,39 @@ void Runtime::monitor_loop() {
          selected->protocol == core::PrinterProtocol::uniformation_sdcp);
     const bool want_elegoo_cc2_connection = full_connection_active &&
         selected->protocol == core::PrinterProtocol::elegoo_cc2;
-    moonraker_.set_preview_requested(want_moonraker_connection &&
-        display_.background_content_needed() && display_.page() == 0 &&
-        printer_detail_active && !display_.camera_page_active());
-    const bool camera_page_visible = display_.camera_page_active() && screen_visible;
+    const bool preview_visible = display_.background_content_needed() &&
+        display_.printer_status_page_active() && !camera_cleanup_pending_;
+    if (printer_preview_visible_ && !preview_visible) display_.release_printer_preview();
+    printer_preview_visible_ = preview_visible;
+    if (!preview_visible) {
+      moonraker_.set_preview_requested(false);
+      bambu_a1_preview_.set_preview_requested(false);
+      prusalink_.set_preview_requested(false);
+      elegoo_sdcp_.set_preview_requested(false);
+    }
+    const bool camera_page_visible = display_.camera_page_active() && screen_visible &&
+        !display_.camera_cleanup_pending();
     const bool bambu_print_active = selected_is_bambu &&
         active_phase(bambu_lan_.snapshot().job.phase);
     const bool want_bambu_preview =
-        want_bambu_connection && screen_visible && bambu_print_active;
+        want_bambu_connection && preview_visible && bambu_print_active;
     const bool bambu_uses_rtsps =
         bambu_lan_.capabilities().camera == BambuCameraProtocol::rtsps;
     const bool want_bambu_camera =
         want_bambu_connection && camera_page_visible && !bambu_uses_rtsps;
     const bool want_moonraker_camera = want_moonraker_connection && camera_page_visible;
 
-    // Disable camera network/decode work immediately off-page, but keep the
-    // small PSRAM-backed control tasks asleep. Re-entering CAMERA is therefore
-    // immediate and does not repeatedly allocate/free task stacks.
-    if (moonraker_camera_requested_ && !want_moonraker_camera) {
-      moonraker_camera_.set_enabled(false);
-    }
-    if (bambu_camera_requested_ && !want_bambu_camera) {
-      bambu_a1_camera_.set_enabled(false);
+    // The loading curtain remains until both camera workers have finished
+    // releasing sockets, decoder workspace, queued frames and their task stacks.
+    if (!camera_cleanup_pending_ &&
+        (display_.camera_cleanup_pending() ||
+         (moonraker_camera_requested_ && !want_moonraker_camera) ||
+         (bambu_camera_requested_ && !want_bambu_camera))) {
+      camera_cleanup_pending_ = true;
+      camera_cleanup_started_us = esp_timer_get_time();
+      moonraker_camera_.stop();
+      bambu_a1_camera_.stop();
+      display_.begin_camera_cleanup();
     }
     if (bambu_preview_requested_ && !want_bambu_preview) {
       bambu_a1_preview_.stop();
@@ -1396,9 +1420,13 @@ void Runtime::monitor_loop() {
     if (bambu_connection_requested_ && !want_bambu_connection) {
       bambu_lan_.stop();
     }
-    if ((moonraker_camera_requested_ || bambu_camera_requested_) &&
-        !want_moonraker_camera && !want_bambu_camera) {
-      display_.release_camera_frame();
+    if (camera_cleanup_pending_) {
+      if (!moonraker_camera_.running() && !bambu_a1_camera_.running() &&
+          display_.finish_camera_cleanup()) {
+        camera_cleanup_pending_ = false;
+        ESP_LOGI(kLogTag, "Camera resources released in %lld ms; destination may render",
+                 (esp_timer_get_time() - camera_cleanup_started_us) / 1000);
+      }
     }
     if (bambu_preview_requested_ && !want_bambu_preview) {
       display_.release_printer_preview();
@@ -1420,43 +1448,25 @@ void Runtime::monitor_loop() {
             : pending_profile);
 
     const bool full_adapter_ready = full_connection_active && ensure_selected_adapter_started(selected);
-    if (want_bambu_preview && full_adapter_ready) ensure_bambu_preview_started();
+    if (want_bambu_preview && full_adapter_ready && !camera_cleanup_pending_) ensure_bambu_preview_started();
     const bool bambu_camera_ready = !want_bambu_camera ||
-        (full_adapter_ready && ensure_bambu_camera_started());
+        (full_adapter_ready && !camera_cleanup_pending_ && ensure_bambu_camera_started());
     const bool moonraker_camera_ready = !want_moonraker_camera ||
-        (full_adapter_ready && ensure_moonraker_camera_started());
+        (full_adapter_ready && !camera_cleanup_pending_ && ensure_moonraker_camera_started());
     bambu_a1_camera_.set_enabled(want_bambu_camera && bambu_camera_ready);
     moonraker_camera_.set_enabled(want_moonraker_camera && moonraker_camera_ready);
 
     const InactivePrinterSnapshot inactive = inactive_printer_poller_.snapshot();
     const auto lightweight_snapshot = [&inactive](const core::PrinterProfile& profile) {
-      core::PrinterSnapshot snapshot;
-      snapshot.profile_id = profile.id;
       const auto status = std::find_if(
           inactive.printers.begin(), inactive.printers.end(),
           [&profile](const InactivePrinterStatus& candidate) {
             return candidate.profile_id == profile.id;
           });
-      if (status == inactive.printers.end() || !status->available) {
-        snapshot.link = core::LinkState::connecting;
-        snapshot.link_detail = "Waiting for printer status probe";
-        return snapshot;
-      }
-      snapshot.link = status->checking ? core::LinkState::connecting
-                                      : status->connected ? core::LinkState::online
-                                                          : core::LinkState::failed;
-      snapshot.link_detail = status->checking ? "Checking printer status"
-                                              : status->connected ? "Printer available"
-                                                                  : "Printer unavailable";
-      snapshot.job.reachable = status->connected;
-      snapshot.job.phase = status->phase;
-      snapshot.job.kind = status->kind;
-      snapshot.job.name = status->job_name;
-      snapshot.job.remaining_seconds = status->remaining_seconds;
-      snapshot.job.remaining_known = status->remaining_known;
-      snapshot.job.condition = status->condition;
-      snapshot.updated_at_ms = status->updated_at_ms;
-      return snapshot;
+      if (status != inactive.printers.end()) return status->printer_snapshot();
+      InactivePrinterStatus waiting;
+      waiting.profile_id = profile.id;
+      return waiting.printer_snapshot();
     };
     if (network.station_connected) {
       if (!time_sync_started_) {
@@ -1648,9 +1658,31 @@ void Runtime::monitor_loop() {
           }
         }
       }
+      const bool thumbnail_visible = display_.background_content_needed() &&
+          display_.printer_status_page_active() && !camera_cleanup_pending_;
+      // Lightweight list probes do not contain the full job identity. Preserve
+      // the flash entry while away; confirmed terminal states still invalidate it.
+      const auto preview_link = selected_snapshot.link;
+      if (!full_connection_active && active_phase(selected_snapshot.job.phase))
+        selected_snapshot.link = core::LinkState::connecting;
+      print_preview_.update(selected, selected_snapshot, thumbnail_visible);
+      selected_snapshot.link = preview_link;
+      const auto cached_thumbnail = print_preview_.snapshot();
+      const bool matching_thumbnail = selected && selected_snapshot_ready &&
+          cached_thumbnail.key == PrintPreviewService::key(*selected, selected_snapshot.job);
+      const bool request_thumbnail = matching_thumbnail && thumbnail_visible &&
+          cached_thumbnail.fetch_needed && selected_snapshot.link == core::LinkState::online &&
+          active_phase(selected_snapshot.job.phase);
+      moonraker_.set_preview_requested(want_moonraker_connection && request_thumbnail);
+      bambu_a1_preview_.set_preview_requested(want_bambu_connection && request_thumbnail);
+      prusalink_.set_preview_requested(want_prusalink_connection && request_thumbnail);
+      elegoo_sdcp_.set_preview_requested(want_elegoo_sdcp_connection && request_thumbnail);
+      selected_snapshot.job.preview = matching_thumbnail && thumbnail_visible
+          ? cached_thumbnail.image : nullptr;
       const int rendered_page = display_.page();
       const bool rendered_printer_list = display_.printer_list_visible();
-      if (display_.background_content_needed() || wake_after_snapshot) {
+      if (!camera_cleanup_pending_ && !display_.camera_cleanup_pending() &&
+          (display_.background_content_needed() || wake_after_snapshot)) {
       switch (rendered_page) {
         case 0:
           if (selected == nullptr || display_.printer_list_visible()) {
@@ -1711,6 +1743,8 @@ void Runtime::monitor_loop() {
         selected_snapshot.link == core::LinkState::online;
     if (voice_status.printer_available) {
       voice_status.print_active = active_phase(selected_snapshot.job.phase);
+      voice_status.completion_available = selected_snapshot.job.completion_known &&
+          std::isfinite(selected_snapshot.job.completion);
       voice_status.completion_percent = static_cast<std::uint8_t>(std::lround(
           std::clamp(std::isfinite(selected_snapshot.job.completion)
                          ? selected_snapshot.job.completion : 0.0F, 0.0F, 100.0F)));
@@ -1762,11 +1796,12 @@ void Runtime::monitor_loop() {
     orientation_.set_power_suspended(content_hidden &&
         !settings_.display_power.wake_on_orientation_change);
 #if defined(PRINTDECK_LOCAL_VOICE)
-    // An explicit opt-in keeps the wake phrase active even with the panel off.
-    // No worker, microphone stream or expanded model exists while disabled.
+    // Muting releases the microphone, models and worker. Keep the voice opt-in
+    // saved so restoring sound resumes listening without another setting change.
     const auto voice_now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-    if (!settings_.voice_enabled) {
+    if (!VoiceService::wanted(settings_.voice_enabled, audio_.enabled(), audio_.volume())) {
       voice_.request_stop();
+      voice_retry_after_ms_ = 0;
     } else if (!voice_.running() && voice_now_ms >= voice_retry_after_ms_) {
       voice_retry_after_ms_ = voice_now_ms + 30'000;
       const esp_err_t result = voice_.start(audio_, [](void* context) {

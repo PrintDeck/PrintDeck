@@ -1,0 +1,81 @@
+/* The approved workshop composition keeps the laptop and Riverstone together. */
+.api-page .api-hero {
+  --api-scene-height: clamp(500px, 35vw, 660px);
+  min-height: var(--api-scene-height);
+  isolation: isolate;
+  background: #0b1310;
+}
+.api-page .api-hero::after { display: none; }
+.api-page .api-hero-scene { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
+.api-page .api-hero-scene img { position: absolute; right: 0; bottom: 0; display: block; width: auto; max-width: none; height: 100%; mask-image: linear-gradient(90deg, transparent, #000 100px); }
+.api-page .api-hero-scene::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #08100b42, transparent 49%); }
+.wide-hero-page.api-page .api-hero-grid {
+  display: flex;
+  align-items: center;
+  width: min(1530px, calc(100% - 96px));
+  min-height: inherit;
+  padding: 0;
+}
+.api-page .api-hero-copy { width: 54%; max-width: 830px; padding: 38px 0 42px; text-align: left; }
+.api-page .api-hero .api-eyebrow { color: var(--accent-button); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.api-page .api-hero h1 { max-width: 650px; margin: 19px 0 21px; font-size: clamp(2.8rem, 3.65vw, 4.3rem); line-height: 1.06; }
+.api-page .api-hero h1 strong { color: var(--accent-button); }
+.api-page .api-hero .api-lead { max-width: 600px; color: #e8ede9; font-size: clamp(.98rem, 1.12vw, 1.16rem); line-height: 1.65; }
+.api-page .api-hero .site-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 12px; margin-top: 24px; }
+.api-page .api-hero .site-button { width: auto; min-width: 0; padding: 12px 25px; font-size: .95rem; }
+.api-page .api-hero .site-button.secondary { color: #fff; background: #09140d33; }
+.api-page .api-hero .api-integrations-rail {
+  position: absolute;
+  z-index: 3;
+  /* The device group is centered at 72% of the 3:1 photograph. */
+  right: calc(var(--api-scene-height) * .84 - min(235px, 21vw));
+  bottom: 26px;
+  display: flex;
+  width: min(470px, 42%);
+  max-width: 42%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin: 0;
+  padding: 6px 15px;
+  border-color: #64766b66;
+  border-radius: 18px;
+  background: #0f1813d9;
+  box-shadow: 0 14px 30px #0002;
+  backdrop-filter: blur(12px);
+}
+.api-page .api-hero .api-integrations-rail > span { color: #91b1a6; font-size: .65rem; font-weight: 700; letter-spacing: .09em; }
+.api-page .api-hero .api-integrations-viewport { width: auto; max-width: 100%; }
+.api-page .api-hero .api-integration-chip { background: #ffffff0b; padding: 6px 12px 6px 7px; }
+.api-page .api-hero .api-integration-chip:hover,
+.api-page .api-hero .api-integration-chip:focus-visible { background: #ffffff16; transform: translateY(-1px); }
+.api-page .api-hero .api-integration-chip:focus-visible { outline-offset: -2px; }
+.api-page .api-hero .api-integration-chip strong { color: #fff; font-size: .94rem; }
+.api-page .api-hero .api-integration-chip img { width: 34px; height: 34px; }
+@media (max-width: 1100px) {
+  .api-page .api-hero { display: flex; flex-direction: column; min-height: 0; }
+  .wide-hero-page.api-page .api-hero-grid { order: -1; width: calc(100% - 48px); }
+  .api-page .api-hero-copy { width: 100%; max-width: 760px; padding: 38px 0 0; }
+  .api-page .api-hero h1 { max-width: 760px; font-size: clamp(2.8rem, 5.8vw, 4rem); }
+  .api-page .api-hero .api-lead { max-width: 620px; }
+  .api-page .api-hero-scene { position: relative; height: clamp(280px, 48vw, 470px); margin-top: 16px; }
+  .api-page .api-hero-scene img { position: static; width: 100%; height: 100%; object-fit: cover; object-position: right center; mask-image: none; }
+  .api-page .api-hero-scene::after { background: linear-gradient(#0b1310, transparent 24%); }
+  .api-page .api-hero .api-integrations-rail { position: static; order: 1; width: fit-content; max-width: calc(100% - 48px); margin: -16px 24px 24px auto; z-index: 1; }
+}
+@media (max-width: 560px) {
+  .wide-hero-page.api-page .api-hero-grid { width: calc(100% - 40px); }
+  .api-page .api-hero-copy { padding-top: 30px; }
+  .api-page .api-hero h1 { font-size: clamp(2.4rem, 9.2vw, 3.3rem); margin-block: 19px 22px; }
+  .api-page .api-hero .api-lead { font-size: .96rem; }
+  .api-page .api-hero .site-actions { display: grid; grid-template-columns: 1fr; margin-top: 25px; }
+  .api-page .api-hero .site-button { width: 100%; }
+  .api-page .api-hero .api-integrations-rail { width: calc(100% - 40px); max-width: none; margin: -8px 20px 20px; gap: 7px 12px; padding: 6px 12px; }
+  .api-page .api-hero .api-integrations-rail > span { font-size: .63rem; }
+  .api-page .api-hero .api-integration-chip { gap: 8px; }
+  .api-page .api-hero .api-integration-chip strong { font-size: .82rem; }
+  .api-page .api-hero .api-integration-chip img { width: 29px; height: 29px; }
+  .api-page .api-hero-scene { height: clamp(235px, 62vw, 330px); margin-top: 6px; }
+}

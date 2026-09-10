@@ -13,6 +13,9 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,6 +26,7 @@ namespace {
 constexpr char kLogTag[] = "usb_dev";
 constexpr std::string_view kEnableCommand = "PRINTDECK.DEV ENABLE SCREEN-CAPTURE/1";
 constexpr std::string_view kCaptureCommand = "PRINTDECK.DEV SCREENSHOT";
+constexpr std::string_view kProfileCommand = "PRINTDECK.DEV PROFILE";
 constexpr std::string_view kNavigatePrefix = "PRINTDECK.DEV NAVIGATE ";
 constexpr std::uint64_t kSessionDurationUs = 5ULL * 60ULL * 1'000'000ULL;
 constexpr std::array<std::uint8_t, 8> kFrameMagic = {'P', 'D', 'S', 'C', 'R', 'N', '2', '\0'};
@@ -84,6 +88,81 @@ bool write_all(const std::uint8_t* data, std::size_t size) {
 
 bool write_text(std::string_view text) {
   return write_all(reinterpret_cast<const std::uint8_t*>(text.data()), text.size());
+}
+
+bool send_runtime_profile() {
+#if configGENERATE_RUN_TIME_STATS && configUSE_TRACE_FACILITY
+  constexpr UBaseType_t maximum_tasks = 96;
+  struct Snapshot {
+    TaskStatus_t tasks[maximum_tasks];
+    char names[maximum_tasks][configMAX_TASK_NAME_LEN];
+    UBaseType_t count;
+    configRUN_TIME_COUNTER_TYPE total;
+  };
+  const auto internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+  const auto internal_largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+  const auto psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+  const auto psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+  using OwnedSnapshot = std::unique_ptr<Snapshot, decltype(&heap_caps_free)>;
+  OwnedSnapshot before(static_cast<Snapshot*>(heap_caps_calloc(
+      1, sizeof(Snapshot), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)), heap_caps_free);
+  OwnedSnapshot after(static_cast<Snapshot*>(heap_caps_calloc(
+      1, sizeof(Snapshot), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)), heap_caps_free);
+  if (!before || !after) return write_text("PRINTDECK.DEV ERROR PROFILE MEMORY\n");
+  const auto sample = [](Snapshot& snapshot) {
+    // All service-task creation/deletion belongs to core 0. Copy task names
+    // before resuming that scheduler; task-name pointers must not be retained
+    // during the measurement or USB transmission.
+    vTaskSuspendAll();
+    snapshot.count = uxTaskGetSystemState(snapshot.tasks, maximum_tasks, &snapshot.total);
+    for (UBaseType_t i = 0; i < snapshot.count; ++i) {
+      std::snprintf(snapshot.names[i], sizeof(snapshot.names[i]), "%s",
+                    snapshot.tasks[i].pcTaskName);
+    }
+    xTaskResumeAll();
+  };
+  if (!write_text("PRINTDECK.DEV PROFILE BEGIN\n")) return false;
+  sample(*before);
+  if (before->count == 0) return write_text("PRINTDECK.DEV ERROR PROFILE TASK-LIMIT\n");
+  vTaskDelay(pdMS_TO_TICKS(5000));
+  sample(*after);
+  const configRUN_TIME_COUNTER_TYPE elapsed = after->total - before->total;
+  if (after->count == 0 || elapsed == 0)
+    return write_text("PRINTDECK.DEV ERROR PROFILE SAMPLE\n");
+  char line[240];
+  std::snprintf(line, sizeof(line),
+                "PRINTDECK.DEV PROFILE HEAP internal=%u internal_largest=%u psram=%u psram_largest=%u window_us=%llu\n",
+                static_cast<unsigned>(internal_free), static_cast<unsigned>(internal_largest),
+                static_cast<unsigned>(psram_free), static_cast<unsigned>(psram_largest),
+                static_cast<unsigned long long>(elapsed));
+  if (!write_text(line)) return false;
+  for (UBaseType_t i = 0; i < after->count; ++i) {
+    const TaskStatus_t& current = after->tasks[i];
+    configRUN_TIME_COUNTER_TYPE previous = 0;
+    for (UBaseType_t j = 0; j < before->count; ++j) {
+      if (before->tasks[j].xTaskNumber == current.xTaskNumber &&
+          before->tasks[j].xHandle == current.xHandle) {
+        previous = before->tasks[j].ulRunTimeCounter;
+        break;
+      }
+    }
+    const configRUN_TIME_COUNTER_TYPE consumed = current.ulRunTimeCounter - previous;
+    const auto basis_points = static_cast<unsigned>(
+        static_cast<std::uint64_t>(consumed) * 10000ULL / elapsed);
+    int core = -1;
+#if configTASKLIST_INCLUDE_COREID
+    core = static_cast<int>(current.xCoreID);
+#endif
+    std::snprintf(line, sizeof(line),
+                  "PRINTDECK.DEV PROFILE TASK name=%s core=%d priority=%u cpu_bp=%u stack_free=%u\n",
+                  after->names[i], core, static_cast<unsigned>(current.uxCurrentPriority),
+                  basis_points, static_cast<unsigned>(current.usStackHighWaterMark * sizeof(StackType_t)));
+    if (!write_text(line)) return false;
+  }
+  return write_text("PRINTDECK.DEV PROFILE END\n");
+#else
+  return write_text("PRINTDECK.DEV ERROR PROFILE STATS-DISABLED\n");
+#endif
 }
 
 }  // namespace
@@ -176,6 +255,8 @@ void UsbDeveloperService::task_loop() {
                 sizeof(response) - 1U);
     } else if (line == kCaptureCommand && enabled_until > now) {
       s_status.store(send_screenshot() ? "capture-sent" : "capture-failed");
+    } else if (line == kProfileCommand && enabled_until > now) {
+      s_status.store(send_runtime_profile() ? "profile-sent" : "profile-failed");
     } else if (line.starts_with(kNavigatePrefix) && enabled_until > now) {
       const std::string_view screen_name = line.substr(kNavigatePrefix.size());
       const esp_err_t result = valid_screen_name(screen_name) && display_ != nullptr

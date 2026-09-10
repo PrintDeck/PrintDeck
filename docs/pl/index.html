@@ -11,7 +11,7 @@
 
     <title>PrintDeck · Firmware do ekranu drukarki 3D</title>
     <link rel="stylesheet" href="/assets/vendor/plyr/plyr.css?v=3.8.4">
-    <link rel="stylesheet" href="/assets/site.css?v=20260908-4">
+    <link rel="stylesheet" href="/assets/site.css?v=20260910-api-2">
     <script src="/assets/vendor/plyr/plyr.min.js?v=3.8.4" defer=""></script>
     <script>window.printDeckInstallerI18n={language:"pl",t:(source,values={})=>{let result=({"Play":"Odtwórz","Pause":"Wstrzymaj","Seek":"Przewiń","{currentTime} of {duration}":"{currentTime} z {duration}","Played":"Odtworzono","Buffered":"Zbuforowano","Current time":"Bieżący czas","Volume":"Głośność","Mute":"Wycisz","Unmute":"Włącz dźwięk","Enter fullscreen":"Włącz pełny ekran","Exit fullscreen":"Wyjdź z pełnego ekranu","Automatic appearance":"Automatyczny wygląd"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260908-4"></script>
 
@@ -57,9 +57,9 @@
           <a class="site-tab" href="/pl/firmware/">Firmware</a>
           <a class="site-tab" href="/pl/gifs/">GIFs</a>
           <a class="site-tab" href="/pl/case-designs/">Projekty obudów</a>
-          <a class="site-tab" href="/pl/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/pl/knomi/">KNOMI</a>
           <a class="site-tab" href="/pl/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/pl/support/">Pomoc</a>
+          <a class="site-tab" href="/pl/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
@@ -127,10 +127,12 @@
         </div>
       </section>
 
-      <div class="home-compatibility" aria-label="Obsługiwane platformy PrintDeck">
+      <div class="campaign-signal home-compatibility" aria-label="Obsługiwane platformy PrintDeck">
         <span>Klipper · Moonraker</span>
-        <span>Bambu Lab · Sieć lokalna</span>
-        <span>Prusa · Eksperymentalne · KNOMI2</span>
+        <span>Bambu Lab</span>
+        <span translate="no">Prusa</span>
+        <span translate="no">Uniformation GK3</span>
+        <span>KNOMI</span>
         <span>Gotowy na wiele narzędzi</span>
         <span>Bez konta w chmurze</span>
       </div>
@@ -311,14 +313,14 @@
         </div>
       </section>
 
-      <section class="home-section home-community home-unified-api" id="unified-api">
+      <section class="home-section home-community home-unified-api unified-story" id="unified-api">
         <div class="home-inner home-unified-grid">
           <header class="home-unified-heading">
             <span class="home-kicker">Unified Printer API</span>
             <h2>Jedno API drukarek. <strong>Wiele formatów drukarek.</strong></h2>
           </header>
           <div class="home-unified-visual">
-            <div class="home-unified-flow" aria-label="Formaty drukarek ujednolicane przez PrintDeck do jednego API JSON">
+            <a class="home-unified-flow" href="/pl/unified-printer-api/" aria-label="Unified Printer API">
               <div class="home-unified-sources">
                 <article class="home-unified-source">
                   <strong>Bambu Lab</strong>
@@ -336,7 +338,7 @@
                   <strong>Prusa</strong>
                   <span class="home-unified-printer-art home-unified-printer-art-prusa" aria-hidden="true"></span>
                   <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><g fill="#a27bca"><rect x="2" y="10" width="9" height="9" rx="1.5"></rect><rect x="20" y="10" width="9" height="9" rx="1.5"></rect><rect x="38" y="10" width="6" height="9" rx="1.5"></rect><rect x="51" y="10" width="9" height="9" rx="1.5"></rect><rect x="67" y="10" width="6" height="9" rx="1.5"></rect><rect x="84" y="10" width="12" height="9" rx="1.5"></rect></g></svg>
-                  <small>Eksperymentalne · KNOMI2</small>
+                  <small>Różne formaty</small>
                 </article>
                 <article class="home-unified-source">
                   <strong>Snapmaker</strong>
@@ -378,12 +380,12 @@
                   <span class="home-unified-app" aria-hidden="true">
                     <img src="/assets/marketing/home/unified-api-mobile.svg" alt="">
                   </span>
-                  <a class="home-unified-app home-unified-app-ha" href="/pl/unified-printer-api/home-assistant/" aria-label="Przewodnik konfiguracji REST w Home Assistant">
+                  <span class="home-unified-app home-unified-app-ha" aria-hidden="true">
                     <img src="/assets/integrations/home-assistant.png" alt="">
-                  </a>
+                  </span>
                 </div>
               </div>
-            </div>
+            </a>
             <div class="home-unified-caption">
               <span>Tylko sieć lokalna</span>
               <span>Z założenia tylko do odczytu</span>
@@ -414,7 +416,7 @@
     </main>
 
     <footer class="site-footer home-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/pl/support/">Skontaktuj się z pomocą</a> · <a href="/pl/legal/license/">Licencja</a> · <a href="/pl/legal/notice/">Informacje prawne</a> · <a href="/pl/legal/privacy/">Prywatność</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/pl/support/">Skontaktuj się z pomocą</a> · <a href="/pl/legal/license/">Licencja</a> · <a href="/pl/legal/notice/">Informacje prawne</a> · <a href="/pl/legal/privacy/">Prywatność</a></span>
       <div class="footer-controls">
         <label hidden="" for="site-language">Język</label>
         <select class="installer-language" id="site-language" aria-label="Język" data-site-language=""><option value="/">English</option><option value="/pl/" selected="">Polski</option><option value="/es/">Español</option><option value="/fr/">Français</option><option value="/de/">Deutsch</option><option value="/zh-cn/">简体中文</option></select>

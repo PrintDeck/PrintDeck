@@ -1,0 +1,93 @@
+/* A single photograph keeps every case edge and shadow in the workshop scene. */
+.case-page .case-campaign-hero {
+  min-height: clamp(400px, 36.22vw, 660px);
+  padding: 0;
+  isolation: isolate;
+  background: #101310;
+}
+.case-page .case-campaign-hero::after { display: none; }
+.case-page .case-image-credit { position: absolute; z-index: 4; right: 16px; bottom: 14px; padding: 4px 7px; border-radius: 3px; background: #101310b8; color: #fff; font-size: 10px; font-weight: 650; line-height: 1.4; letter-spacing: .09em; pointer-events: none; }
+.case-page .case-campaign-hero > .case-campaign-inner {
+  display: flex;
+  align-items: center;
+  width: min(1530px, calc(100% - 96px));
+  min-height: inherit;
+  z-index: 4;
+  pointer-events: none;
+}
+@media (max-width: 680px) {
+  .case-page .case-image-credit { right: 10px; bottom: 9px; }
+}
+.case-page .case-campaign-hero-copy { width: 35%; max-width: 580px; padding: 48px 0; pointer-events: auto; }
+.case-page .case-campaign-eyebrow { font-size: .8rem; letter-spacing: .12em; }
+.case-page .case-campaign-hero h1 {
+  margin: 20px 0 26px;
+  font-size: clamp(3.2rem, 5.4vw, 5.6rem);
+  font-weight: 650;
+  line-height: 1.02;
+  letter-spacing: -.055em;
+}
+.case-page .case-campaign-hero h1 strong { color: #2bd1a7; font-weight: inherit; }
+.case-page:lang(pl) .case-campaign-hero h1,
+.case-page:lang(de) .case-campaign-hero h1,
+.case-page:lang(fr) .case-campaign-hero h1 { font-size: clamp(2.7rem, 4.1vw, 4.5rem); }
+.case-page .case-campaign-lead { max-width: 480px; font-size: clamp(.95rem, 1.08vw, 1.1rem); line-height: 1.6; color: #e2e7e4; }
+.case-page .case-campaign-hero .site-actions { margin: 30px 0 0; }
+.case-page .case-explore { min-height: 54px; padding: 14px 26px; border-color: #2bd1a7; color: #071c17; background: #2bd1a7; font-size: .95rem; }
+.case-page .case-explore:hover { color: #071c17; background: #59dfbc; border-color: #59dfbc; }
+.case-page .case-explore svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.case-page .case-campaign-hero .case-collection {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.case-page .case-campaign-hero .case-collection-stage { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; container-type: size; }
+/* Scale and crop the photograph, screen overlays and links as one plane. */
+.case-page .case-campaign-hero .case-collection-art {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100cqw, calc(100cqh * 2083 / 755));
+  height: auto;
+  aspect-ratio: 2083 / 755;
+  transform: translate(-50%, -50%);
+}
+.case-page .case-campaign-hero .case-collection-photo { width: 100%; height: 100%; object-fit: fill; }
+/* Apertures measured on the 2083 × 755 workshop photograph. */
+.case-page .case-live-screen-riverstone { left: 61.018%; top: 48.079%; width: 10.226%; height: 27.947%; }
+/* Keep the full round screen inside the bezel, including its status ring. */
+.case-page .case-live-screen-riverstone .case-screen-slide img { object-fit: contain; transform: none; }
+/* Crop the photographed bezel and centre the display at (398.5, 387.5)
+   so its status ring matches the full-frame camera capture. */
+.case-page .case-live-screen-riverstone .case-screen-slide .case-screen-photo { transform: translate(.2%, 1.8%) scale(1.15); }
+.case-page .case-live-screen-cinquefoil { left: 51.800%; top: 39.338%; width: 6.769%; height: 18.675%; }
+.case-page .case-live-screen-trillium { left: 73.116%; top: 42.517%; width: 6.721%; height: 18.808%; }
+.case-page .case-live-screen-scuttle { left: 82.718%; top: 47.020%; width: 10.610%; height: 27.682%; }
+.case-page .case-hero-link-u1 { left: 35.0%; top: 39%; width: 16%; height: 43%; }
+.case-page .case-hero-link-cinquefoil { left: 49.5%; top: 34.5%; width: 10%; height: 30%; }
+.case-page .case-hero-link-riverstone { left: 57.5%; top: 40%; width: 15%; height: 43%; }
+.case-page .case-hero-link-trillium { left: 71%; top: 34.5%; width: 10%; height: 29%; }
+.case-page .case-hero-link-scuttle { left: 80%; top: 43%; width: 15.5%; height: 42%; }
+@media (max-width: 1100px) {
+  .case-page .case-campaign-hero { min-height: 0; }
+  .case-page .case-campaign-hero > .case-campaign-inner { display: block; width: 100%; }
+  .case-page .case-campaign-hero-copy { width: auto; max-width: 580px; padding: 40px 24px 0; text-align: left; }
+  .case-page .case-campaign-hero h1 { margin: 18px 0 20px; font-size: clamp(2.7rem, 9.5vw, 4rem); }
+  .case-page:lang(pl) .case-campaign-hero h1,
+  .case-page:lang(de) .case-campaign-hero h1,
+  .case-page:lang(fr) .case-campaign-hero h1 { font-size: clamp(2rem, 8.3vw, 3.8rem); }
+  .case-page .case-campaign-lead { font-size: .95rem; }
+  .case-page .case-campaign-hero .site-actions { margin-top: 24px; }
+  .case-page .case-explore { min-height: 50px; padding: 12px 22px; }
+  .case-page .case-campaign-hero .case-collection { position: relative; height: clamp(220px, 55vw, 380px); margin-top: 12px; }
+  .case-page .case-campaign-hero .case-collection-art { left: auto; right: 0; width: 153%; top: 50%; transform: translateY(-50%); }
+  .case-page .case-collection-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(#101310, transparent 24%); }
+}

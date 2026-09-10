@@ -11,7 +11,7 @@
 
     <title>PrintDeck · 3D 打印机显示屏固件</title>
     <link rel="stylesheet" href="/assets/vendor/plyr/plyr.css?v=3.8.4">
-    <link rel="stylesheet" href="/assets/site.css?v=20260908-4">
+    <link rel="stylesheet" href="/assets/site.css?v=20260910-api-2">
     <script src="/assets/vendor/plyr/plyr.min.js?v=3.8.4" defer=""></script>
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏","Automatic appearance":"自动外观"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260908-4"></script>
 
@@ -57,9 +57,9 @@
           <a class="site-tab" href="/zh-cn/firmware/">固件</a>
           <a class="site-tab" href="/zh-cn/gifs/">GIFs</a>
           <a class="site-tab" href="/zh-cn/case-designs/">外壳设计</a>
-          <a class="site-tab" href="/zh-cn/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/zh-cn/knomi/">KNOMI</a>
           <a class="site-tab" href="/zh-cn/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/zh-cn/support/">支持</a>
+          <a class="site-tab" href="/zh-cn/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
@@ -100,7 +100,7 @@
             <p class="site-lead">PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。</p>
             <p class="home-origin-line">独立固件。由 3D 打印爱好者打造，为整个社区而生。</p>
             <div class="site-actions">
-              <a class="site-button secondary" href="#at-a-glance">了解工作原理</a>
+              <a class="site-button secondary" href="#at-a-glance">了解使用方法</a>
               <a class="site-button" href="/zh-cn/firmware/">安装固件</a>
             </div><div class="home-hero-benefits" aria-label="PrintDeck 实用亮点">
               <span><img src="/assets/marketing/home/icons/ico_ekrany.svg" alt="" aria-hidden="true">2 种显示屏规格</span>
@@ -127,10 +127,12 @@
         </div>
       </section>
 
-      <div class="home-compatibility" aria-label="PrintDeck 支持的平台">
+      <div class="campaign-signal home-compatibility" aria-label="PrintDeck 支持的平台">
         <span>Klipper · Moonraker</span>
-        <span>Bambu Lab · 本地网络</span>
-        <span>Prusa · 实验性 · KNOMI2</span>
+        <span>Bambu Lab</span>
+        <span translate="no">Prusa</span>
+        <span translate="no">Uniformation GK3</span>
+        <span>KNOMI</span>
         <span>多工具就绪</span>
         <span>无需云账户</span>
       </div>
@@ -311,14 +313,14 @@
         </div>
       </section>
 
-      <section class="home-section home-community home-unified-api" id="unified-api">
+      <section class="home-section home-community home-unified-api unified-story" id="unified-api">
         <div class="home-inner home-unified-grid">
           <header class="home-unified-heading">
             <span class="home-kicker">Unified Printer API</span>
             <h2>一个打印机 API。 <strong>多种打印机格式。</strong></h2>
           </header>
           <div class="home-unified-visual">
-            <div class="home-unified-flow" aria-label="PrintDeck 将打印机格式统一为一个 JSON API">
+            <a class="home-unified-flow" href="/zh-cn/unified-printer-api/" aria-label="Unified Printer API">
               <div class="home-unified-sources">
                 <article class="home-unified-source">
                   <strong>Bambu Lab</strong>
@@ -336,7 +338,7 @@
                   <strong>Prusa</strong>
                   <span class="home-unified-printer-art home-unified-printer-art-prusa" aria-hidden="true"></span>
                   <svg class="home-unified-signal" viewBox="0 0 100 28" aria-hidden="true"><g fill="#a27bca"><rect x="2" y="10" width="9" height="9" rx="1.5"></rect><rect x="20" y="10" width="9" height="9" rx="1.5"></rect><rect x="38" y="10" width="6" height="9" rx="1.5"></rect><rect x="51" y="10" width="9" height="9" rx="1.5"></rect><rect x="67" y="10" width="6" height="9" rx="1.5"></rect><rect x="84" y="10" width="12" height="9" rx="1.5"></rect></g></svg>
-                  <small>实验性 · KNOMI2</small>
+                  <small>多种格式</small>
                 </article>
                 <article class="home-unified-source">
                   <strong>Snapmaker</strong>
@@ -378,12 +380,12 @@
                   <span class="home-unified-app" aria-hidden="true">
                     <img src="/assets/marketing/home/unified-api-mobile.svg" alt="">
                   </span>
-                  <a class="home-unified-app home-unified-app-ha" href="/zh-cn/unified-printer-api/home-assistant/" aria-label="Home Assistant REST 设置指南">
+                  <span class="home-unified-app home-unified-app-ha" aria-hidden="true">
                     <img src="/assets/integrations/home-assistant.png" alt="">
-                  </a>
+                  </span>
                 </div>
               </div>
-            </div>
+            </a>
             <div class="home-unified-caption">
               <span>仅限本地网络</span>
               <span>设计为只读</span>
@@ -414,7 +416,7 @@
     </main>
 
     <footer class="site-footer home-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>
       <div class="footer-controls">
         <label hidden="" for="site-language">语言</label>
         <select class="installer-language" id="site-language" aria-label="语言" data-site-language=""><option value="/">English</option><option value="/pl/">Polski</option><option value="/es/">Español</option><option value="/fr/">Français</option><option value="/de/">Deutsch</option><option value="/zh-cn/" selected="">简体中文</option></select>

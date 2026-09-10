@@ -3,7 +3,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f6">
     <title>Support · PrintDeck</title>
-  <link rel="stylesheet" href="/assets/site.css?v=20260905-7">
+  <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/support-hero.css?v=20260910-3">
+    <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
   <script>window.printDeckInstallerI18n={language:"de",t:(source,values={})=>{let result=({"Play":"Abspielen","Pause":"Pause","Seek":"Spulen","{currentTime} of {duration}":"{currentTime} von {duration}","Played":"Abgespielt","Buffered":"Gepuffert","Current time":"Aktuelle Zeit","Volume":"Lautstärke","Mute":"Stummschalten","Unmute":"Ton einschalten","Enter fullscreen":"Vollbild aktivieren","Exit fullscreen":"Vollbild beenden","Automatic appearance":"Automatische Darstellung"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -36,7 +38,7 @@
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Support · PrintDeck","description":"Hier findest du die Anleitung, Lösungen für häufige Probleme und Kontaktmöglichkeiten – alles an einem Ort.","url":"https://printdeck.xyz/de/support/","inLanguage":"de","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
-  <body class="site-page support-page" data-page-title="Support · PrintDeck">
+  <body class="site-page wide-hero-page support-page" data-page-title="Support · PrintDeck">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/de/" aria-label="Startseite">
@@ -48,50 +50,34 @@
           <a class="site-tab" href="/de/firmware/">Firmware</a>
           <a class="site-tab" href="/de/gifs/">GIFs</a>
           <a class="site-tab" href="/de/case-designs/">Gehäusedesigns</a>
-          <a class="site-tab" href="/de/knomi2/">KNOMI2</a>
+          <a class="site-tab" href="/de/knomi/">KNOMI</a>
           <a class="site-tab" href="/de/unified-printer-api/">Unified API</a>
-          <a class="site-tab" href="/de/support/" aria-current="page">Support</a>
+          <a class="site-tab" href="/de/hi-esp/" translate="no">HI ESP!</a>
         </nav>
       </div>
     </header>
 
     <main class="support-content">
-      <section class="support-hero">
+      <section class="support-hero support-workshop-hero">
         <div class="support-inner support-hero-grid">
           <div class="support-hero-copy">
             <span class="support-eyebrow">Support</span>
-            <h1>Brauchst du Hilfe?</h1>
+            <h1>Brauchst du Hilfe?<br><strong>Wir sind für dich da.</strong></h1>
             <p class="support-lead">Hier findest du die Anleitung, Lösungen für häufige Probleme und Kontaktmöglichkeiten – alles an einem Ort.</p>
-          </div>
-
-          <nav class="support-hero-resources" aria-label="Hilfsangebote">
-            <a class="support-hero-resource" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">
-              <span class="support-resource-index">01</span>
-              <span class="support-resource-copy"><strong>Bedienungsanleitung</strong><span>Hier erfährst du, wie du PrintDeck einrichtest und verwendest.</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <a class="support-hero-resource" href="mailto:support@printdeck.xyz">
-              <span class="support-resource-index">02</span>
-              <span class="support-resource-copy"><strong>Schreib uns</strong><span>Frag uns zur Hardware-Kompatibilität, zu individueller Hilfe beim Zusammenbau oder zu gewerblichen Firmware-Lizenzen.</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <a class="support-hero-resource support-hero-resource-wide" href="/de/unified-printer-api/">
-              <span class="support-resource-index">03</span>
-              <span class="support-resource-copy"><strong>Unified API</strong><span>Entwickle lokale Software mit einem einheitlichen schreibgeschützten JSON-Format für unterstützte Drucker.</span></span>
-              <span class="support-resource-arrow" aria-hidden="true">↗</span>
-            </a>
-            <div class="support-contact-prompt">
-              <span class="support-contact-icon" aria-hidden="true">?</span>
-              <p><span>Keine Antwort gefunden?</span><br><a href="mailto:support@printdeck.xyz">Schreib uns</a><span> — wir helfen dir gerne.</span><br><a href="/de/legal/privacy/#support-messages">Wie wir deine Nachricht verarbeiten</a></p>
+            <div class="site-actions">
+              <a class="site-button support-manual" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener"><span>Benutzerhandbuch</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg></a>
+              <a class="support-email" href="mailto:support@printdeck.xyz"><span>Support per E-Mail</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"></path></svg></a>
             </div>
-          </nav>
+          </div>
+        </div>
+        <div class="support-workshop-scene">
+          <img src="/assets/marketing/support/workshop-guide.webp" width="2206" height="713" alt="" fetchpriority="high">
         </div>
       </section>
 
       <div class="campaign-signal support-signal" aria-label="Hilfsangebote">
         <span>Klare Dokumentation</span>
         <span>Berichte ohne private Daten</span>
-        <span>Unified API</span>
         <span>Direkter Kontakt</span>
       </div>
 
@@ -124,6 +110,11 @@
               <p><a href="/printdeck-user-manual.pdf#page=12">Kompatibilitätsprüfung starten</a>. PrintDeck erfasst die erforderlichen Daten lokal, entfernt private Angaben aus dem Bericht und stellt ihn zum Download bereit. Der Bericht wird nicht automatisch gesendet – lade ihn herunter und schicke ihn uns.</p>
               <p>Mit diesem Bericht können wir dein Druckermodell unterstützen.</p>
             </article>
+            <article class="faq-item" id="resin-printers">
+              <h3>Unterstützt PrintDeck Resin-Drucker?</h3>
+              <p>Ja! Wir haben PrintDeck mit dem Uniformation GK3 Ultra getestet und gehen davon aus, dass es auch mit anderen Modellen der GK3-Serie funktioniert. Andere Resin-Drucker standen uns bisher nicht zur Verfügung, daher können wir deren Kompatibilität noch nicht bestätigen.</p>
+              <p>Du hast einen Resin-Drucker? Probiere PrintDeck aus und erzähl uns, wie es läuft. Wir geben unser Bestes, damit es auch mit deinem Drucker funktioniert.</p>
+            </article>
             <article class="faq-item">
               <h3>Wo finde ich andere Gehäuse?</h3>
               <p>Wir stellen kostenlose Modelle für drei Gehäuse zum Selbstdrucken bereit. Du kannst auch eigene Modifikationen und Entwürfe erstellen.</p>
@@ -132,11 +123,33 @@
             </article>
           </div>
         </section>
+
+        <nav class="support-hero-resources support-body-resources" aria-label="Hilfsangebote">
+          <a class="support-hero-resource" href="/printdeck-user-manual.pdf" target="_blank" rel="noopener">
+            <span class="support-resource-index">01</span>
+            <span class="support-resource-copy"><strong>Bedienungsanleitung</strong><span>Hier erfährst du, wie du PrintDeck einrichtest und verwendest.</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="support-hero-resource" href="mailto:support@printdeck.xyz">
+            <span class="support-resource-index">02</span>
+            <span class="support-resource-copy"><strong>Schreib uns</strong><span>Frag uns zur Hardware-Kompatibilität, zu individueller Hilfe beim Zusammenbau oder zu gewerblichen Firmware-Lizenzen.</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="support-hero-resource support-hero-resource-wide" href="/de/unified-printer-api/">
+            <span class="support-resource-index">03</span>
+            <span class="support-resource-copy"><strong>Unified API</strong><span>Entwickle lokale Software mit einem einheitlichen schreibgeschützten JSON-Format für unterstützte Drucker.</span></span>
+            <span class="support-resource-arrow" aria-hidden="true">↗</span>
+          </a>
+          <div class="support-contact-prompt">
+            <span class="support-contact-icon" aria-hidden="true">?</span>
+            <p><span>Keine Antwort gefunden?</span><br><a href="mailto:support@printdeck.xyz">Schreib uns</a><span> — wir helfen dir gerne.</span><br><a href="/de/legal/privacy/#support-messages">Wie wir deine Nachricht verarbeiten</a></p>
+          </div>
+        </nav>
       </div>
     </main>
 
     <footer class="site-footer">
-      <span class="footer-copy">Copyright 2026 © PrintDeck · <a href="/de/support/">Support kontaktieren</a> · <a href="/de/legal/license/">Lizenz</a> · <a href="/de/legal/notice/">Hinweise</a> · <a href="/de/legal/privacy/">Datenschutz</a></span>
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/de/support/">Support kontaktieren</a> · <a href="/de/legal/license/">Lizenz</a> · <a href="/de/legal/notice/">Hinweise</a> · <a href="/de/legal/privacy/">Datenschutz</a></span>
       <div class="footer-controls">
         <label hidden="" for="support-language">Sprache</label>
         <select class="installer-language" id="support-language" aria-label="Sprache" data-site-language=""><option value="/support/">English</option><option value="/pl/support/">Polski</option><option value="/es/support/">Español</option><option value="/fr/support/">Français</option><option value="/de/support/" selected="">Deutsch</option><option value="/zh-cn/support/">简体中文</option></select>

@@ -40,7 +40,7 @@
 
 
 #if defined(WELS_IDR_ONLY) && defined(ESP_PLATFORM)
-extern "C" void printdeck_h264_yield();
+extern "C" bool printdeck_h264_yield();
 #endif
 
 #include "deblocking.h"
@@ -1715,7 +1715,8 @@ int32_t WelsDecodeAndConstructSlice (PWelsDecoderContext pCtx) {
 #if defined(ESP_PLATFORM)
     // Bound each CPU-bound snapshot slice so IDLE0 and device services can
     // run without lowering the decoder below every background task.
-    if ((iNextMbXyIndex & 63) == 0) printdeck_h264_yield();
+    if ((iNextMbXyIndex & 63) == 0 && !printdeck_h264_yield())
+      return ERR_INFO_INVALID_ACCESS;
 #endif
     // A single coefficient block is reused by every macroblock.  Clear it even
     // when the bitstream says that the current intra block has no residuals.

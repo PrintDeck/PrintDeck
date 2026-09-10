@@ -164,6 +164,7 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"Klipper ready", "Klipper gotowy", "Klipper listo", "Klipper prêt", "Klipper bereit", "Klipper 已就绪"},
       {"Printer ready", "Drukarka gotowa", "Impresora lista", "Imprimante prête", "Drucker bereit", "打印机已就绪"},
       {"Layer", "Warstwa", "Capa", "Couche", "Schicht", "层"},
+      {"Current layer", "Bieżąca warstwa", "Capa actual", "Couche actuelle", "Aktuelle Schicht", "当前层"},
       {"SET", "CEL", "OBJ.", "CIBLE", "SOLL", "目标"},
       {"Target", "Cel", "Objetivo", "Cible", "Soll", "目标"},
       {"LEFT", "POZOSTAŁO", "RESTANTE", "RESTANT", "RESTZEIT", "剩余"},
@@ -192,6 +193,7 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"Live local snapshot", "Lokalny podgląd na żywo", "Vista local en directo", "Aperçu local en direct", "Lokale Live-Ansicht", "本地实时画面"},
       {"Connecting to the local camera…", "Łączenie z lokalną kamerą…", "Conectando a la cámara local…", "Connexion à la caméra locale…", "Verbindung zur lokalen Kamera…", "正在连接本地摄像头…"},
       {"Detecting camera…", "Wykrywanie kamery…", "Detectando cámara…", "Détection de la caméra…", "Kamera wird erkannt…", "正在检测摄像头…"},
+      {"This may take a while.", "To może chwilę potrwać.", "Esto puede tardar un poco.", "Cela peut prendre un moment.", "Dies kann etwas dauern.", "这可能需要一些时间。"},
       {"Camera unavailable", "Kamera niedostępna", "Cámara no disponible", "Caméra indisponible", "Kamera nicht verfügbar", "摄像头不可用"},
       {"This display does not support RTSPS cameras", "Ten ekran nie obsługuje kamer RTSPS", "Esta pantalla no admite cámaras RTSPS", "Cet écran ne prend pas en charge les caméras RTSPS", "Dieses Display unterstützt keine RTSPS-Kameras", "此显示设备不支持 RTSPS 摄像头"},
       {"No camera detected\nHave a camera? Contact support.", "Nie wykryto kamery\nMasz kamerę? Skontaktuj się ze wsparciem.", "No se detectó ninguna cámara\n¿Tienes una cámara? Contacta con soporte.", "Aucune caméra détectée\nVous avez une caméra ? Contactez l’assistance.", "Keine Kamera erkannt\nKamera vorhanden? Support kontaktieren.", "未检测到摄像头\n有摄像头？请联系支持。"},
@@ -277,6 +279,9 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"Exposure test", "Test naświetlania", "Prueba de exposición", "Test d’exposition", "Belichtungstest", "曝光测试"},
       {"Remaining", "Pozostało", "Restante", "Restant", "Verbleibend", "剩余"},
       {"Elapsed", "Upłynęło", "Transcurrido", "Écoulé", "Vergangen", "已用"},
+      {"End at", "Koniec o", "Fin a las", "Fin à", "Ende um", "结束于"},
+      {"Time left", "Pozostało", "Restante", "Temps restant", "Restzeit", "剩余时间"},
+      {"Print time", "Czas druku", "Tiempo imp.", "Temps impr.", "Druckzeit", "打印用时"},
       {"Filename unavailable", "Brak nazwy pliku", "Nombre no disponible", "Nom indisponible", "Dateiname fehlt", "文件名不可用"},
       {"Homing toolhead", "Bazowanie głowicy", "Referenciando el cabezal", "Référencement de la tête", "Werkzeugkopf wird referenziert", "正在归零工具头"},
       {"Leveling the bed", "Poziomowanie stołu", "Nivelando la cama", "Nivellement du plateau", "Druckbett wird nivelliert", "正在调平热床"},
@@ -368,6 +373,8 @@ const char* localized_text(std::string_view language, std::string_view english) 
   };
   const int column = language == "pl" ? 1 : language == "es" ? 2 : language == "fr" ? 3 :
                      language == "de" ? 4 : language == "zh-CN" ? 5 : 0;
+  // Keep the translation key stable when refining the English caption.
+  if (column == 0 && english == "End at") return "Ends at";
   for (const Entry& entry : entries) {
     if (english == entry.en) {
       const char* values[]{entry.en, entry.pl, entry.es, entry.fr, entry.de, entry.zh};

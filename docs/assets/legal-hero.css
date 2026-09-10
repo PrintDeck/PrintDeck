@@ -1,0 +1,99 @@
+body.site-page.legal-page {
+  padding: 0;
+}
+
+.legal-page .legal-content {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.legal-page .legal-content .legal-heading {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 300px;
+  padding: 48px max(48px, calc((100% - 1530px) / 2)) 64px;
+  background:
+    linear-gradient(90deg, #0b111088, #0b111055 70%, #0b111066),
+    url('./marketing/unified-api/workshop-scene.webp') center 65% / cover;
+}
+
+.legal-page .legal-heading .legal-eyebrow {
+  margin-bottom: 19px;
+  color: var(--accent-button);
+  font-size: .76rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+}
+
+.legal-page .legal-content .legal-heading h1 {
+  max-width: 100%;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(2.8rem, 3.65vw, 4.3rem);
+  font-weight: 620;
+  letter-spacing: -.052em;
+  line-height: 1.06;
+  overflow-wrap: normal;
+}
+
+.legal-page .legal-heading .legal-hero-support {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid #ffffff66;
+  border-radius: 5px;
+  background: #101310b8;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: .08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: background-color .18s ease, border-color .18s ease;
+}
+
+.legal-page .legal-heading .legal-hero-support:hover {
+  border-color: var(--accent-button);
+  background: #21473df0;
+}
+
+.legal-page .legal-heading .legal-hero-support:focus-visible {
+  outline: 2px solid var(--accent-button);
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .legal-page .legal-content .legal-heading {
+    min-height: 230px;
+    padding: 36px 24px 70px;
+  }
+
+  .legal-page .legal-content .legal-heading h1 {
+    font-size: clamp(2.1rem, 8vw, 3rem);
+  }
+
+  .legal-page .legal-heading .legal-hero-support {
+    right: 16px;
+    bottom: 14px;
+  }
+}
+
+@media (pointer: coarse) {
+  .legal-page .legal-heading .legal-hero-support {
+    min-height: 44px;
+  }
+}

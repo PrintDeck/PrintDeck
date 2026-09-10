@@ -16,6 +16,9 @@ namespace printdeck::platform {
 class VoiceService {
  public:
   using WakeCallback = void (*)(void*);
+  static constexpr bool wanted(bool voice_enabled, bool sound_enabled, int volume) {
+    return voice_enabled && sound_enabled && volume > 0;
+  }
   esp_err_t start(AudioService& audio, WakeCallback wake, void* context);
   void request_stop() { stop_requested_.store(true); ready_.store(false); }
   bool running() const { return running_.load(); }

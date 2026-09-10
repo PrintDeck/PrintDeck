@@ -7,6 +7,19 @@
 
 namespace printdeck::platform {
 
+// A late first keyframe must get time to finish instead of being discarded by
+// the connection timeout. Failed streams still reconnect within a fixed bound.
+constexpr bool camera_first_frame_timed_out(std::int64_t now_us,
+                                            std::int64_t started_us,
+                                            std::int64_t candidate_us) {
+  if (started_us <= 0) return false;
+  const auto normal_deadline = started_us + 30'000'000;
+  const auto decode_deadline = candidate_us > 0
+      ? std::min(candidate_us + 8'000'000, normal_deadline + 8'000'000)
+      : normal_deadline;
+  return now_us >= std::max(normal_deadline, decode_deadline);
+}
+
 // A requested snapshot cadence includes HTTP and decoding time. Scheduling
 // from completion would add both to every interval. When processing overruns
 // the interval, skip missed slots and still leave time for core-0 services.

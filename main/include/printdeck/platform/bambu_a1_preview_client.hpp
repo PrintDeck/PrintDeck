@@ -32,6 +32,10 @@ class BambuA1PreviewClient {
                bool active);
   esp_err_t start();
   void stop();
+  void set_preview_requested(bool requested) {
+    if (preview_requested_.exchange(requested) != requested && requested)
+      fetch_requested_.store(true);
+  }
   bool running() const { return running_.load(std::memory_order_acquire); }
   BambuA1PreviewSnapshot snapshot() const;
 
@@ -64,6 +68,7 @@ class BambuA1PreviewClient {
   TaskHandle_t task_handle_ = nullptr;
   std::atomic<bool> network_ready_{false};
   std::atomic<bool> fetch_requested_{false};
+  std::atomic<bool> preview_requested_{false};
   std::atomic<bool> reconfigure_requested_{false};
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> running_{false};

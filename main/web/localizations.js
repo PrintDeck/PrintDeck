@@ -10,6 +10,7 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "All commands and example answers":["Wszystkie polecenia i przykładowe odpowiedzi", "Todos los comandos y ejemplos de respuestas", "Toutes les commandes et exemples de réponses", "Alle Befehle und Beispielantworten", "全部指令和回答示例"],
   "Shut down PrintDeck":["Wyłącz PrintDeck", "Apagar PrintDeck", "Arrêter PrintDeck", "PrintDeck herunterfahren", "关闭 PrintDeck"],
   "PrintDeck stays powered on.":["PrintDeck pozostaje włączony.", "PrintDeck permanece encendido.", "PrintDeck reste allumé.", "PrintDeck bleibt eingeschaltet.", "PrintDeck 保持开启。"],
   "Display turns off first. PrintDeck shuts down {time} later on battery.":["Najpierw gaśnie ekran. Na baterii PrintDeck wyłączy się {time} później.", "Primero se apaga la pantalla. Con batería, PrintDeck se apaga {time} después.", "L’écran s’éteint d’abord. Sur batterie, PrintDeck s’arrête {time} plus tard.", "Zuerst geht das Display aus. Im Akkubetrieb schaltet sich PrintDeck {time} später aus.", "先关闭屏幕。使用电池时，PrintDeck 将在 {time}后关机。"],

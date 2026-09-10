@@ -20,6 +20,7 @@ class PrusaLinkAdapter {
   esp_err_t start(const core::PrinterProfile* profile, const NetworkService& network);
   void configure(const core::PrinterProfile* profile);
   void stop();
+  void set_preview_requested(bool requested) { preview_requested_ = requested; }
   bool running() const { return running_.load(); }
   core::PrinterSnapshot snapshot() const { return snapshots_.read(); }
   void snapshot_into(core::PrinterSnapshot& value) const { snapshots_.read_into(value); }
@@ -33,6 +34,7 @@ class PrusaLinkAdapter {
   TaskHandle_t task_ = nullptr;
   std::atomic<bool> running_{false};
   std::atomic<bool> stopping_{false};
+  std::atomic<bool> preview_requested_{false};
   std::atomic<std::uint32_t> generation_{0};
 };
 
