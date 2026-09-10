@@ -1465,6 +1465,9 @@ esp_err_t WebConfig::serve_reaction_set_preview(httpd_req_t* request) const {
 
 esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   const NetworkStatus network = network_->status();
+  wifi_ap_record_t access_point{};
+  const bool wifi_details_available = network.station_connected &&
+      esp_wifi_sta_get_ap_info(&access_point) == ESP_OK;
   core::DeviceSettings current;
   PowerSnapshot power;
   core::JobPhase selected_phase = core::JobPhase::unknown;
@@ -1486,6 +1489,8 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
           (kBoardHasAudio ? std::string("true") : std::string("false")) +
       ",\"wifi_connected\":";
   body += network.station_connected ? "true" : "false";
+  body += ",\"wifi_rssi_dbm\":";
+  body += wifi_details_available ? std::to_string(static_cast<int>(access_point.rssi)) : "null";
   body += ",\"hostname\":";
   append_json_string(body, network.local_hostname);
   body += ",\"stable_hostname\":";
