@@ -1,6 +1,6 @@
 {
   "name": "PrintDeck",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "new_install_prompt_erase": true,
   "builds": [
     {
@@ -15,6 +15,10 @@
           "offset": 32768
         },
         {
+          "path": "firmware/nvs-reset.bin",
+          "offset": 36864
+        },
+        {
           "path": "firmware/ota_data_initial.bin",
           "offset": 61440
         },
@@ -23,8 +27,12 @@
           "offset": 131072
         },
         {
-          "path": "firmware/assets.bin",
+          "path": "firmware/models.bin",
           "offset": 10616832
+        },
+        {
+          "path": "firmware/assets.bin",
+          "offset": 12386304
         }
       ]
     }

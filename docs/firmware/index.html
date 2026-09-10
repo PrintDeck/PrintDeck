@@ -598,8 +598,9 @@
             <label class="firmware-version" for="firmware-version">
               <span class="firmware-version-label">Firmware version</span>
               <select id="firmware-version" aria-label="Firmware version">
-                <option value="1.0.13" hidden="" disabled="">1.0.13</option>
-                <option value="1.0.12" selected="">1.0.12 (latest)</option>
+                <option value="1.0.14" hidden="" disabled="">1.0.14 (FR!)</option>
+                <option value="1.0.13" selected="">1.0.13 (latest) (FR!)</option>
+                <option value="1.0.12">1.0.12</option>
                 <option value="1.0.11">1.0.11</option>
                 <option value="1.0.10">1.0.10</option>
                 <option value="1.0.9">1.0.9</option>
@@ -745,6 +746,7 @@
           </div>
 
           <section class="instructions" id="install-panel" hidden="">
+          <p class="note warning" id="factory-install-guidance" role="status" hidden=""></p>
             <div class="step-label">FIRST INSTALLATION / FACTORY RESET</div>
             <h2>Prepare and connect your screen</h2>
             <ol class="steps">
@@ -755,7 +757,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>Start the installer below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB…. Confirm the full erase when asked, then wait until installation reaches 100%.</li>
             </ol>
             <esp-web-install-button id="install-button" manifest="../manifest-install.json">
-              <button slot="activate" id="install-button-label">Install 1.0.12 or factory reset</button>
+              <button slot="activate" id="install-button-label">Install 1.0.13 or factory reset</button>
               <span slot="not-allowed">USB access requires this page to be opened over HTTPS.</span>
             </esp-web-install-button>
             <div class="tip" data-hardware-instruction="waveshare"><strong>If no device appears:</strong> unplug the cable. Hold the display's <strong>BOOT</strong> button, reconnect USB-C, release BOOT after two seconds and try again.</div>
@@ -783,7 +785,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>Start the USB update below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB… when prompted.</li>
               <li><strong>Wait for the screen to restart.</strong> Do not disconnect USB while the update progress is visible.</li>
             </ol>
-            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Update to 1.0.12 over USB</button>
+            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Update to 1.0.13 over USB</button>
             <div class="tip" data-hardware-instruction="knomi2" hidden=""><strong>If KNOMI2 is missing:</strong> follow the USB driver instructions in the red section above, reconnect it, then start the update again.</div>
             <p class="warning" id="full-install-required" role="status"></p>
             <div class="update-progress" id="update-progress" role="status" aria-live="polite" hidden="">
@@ -864,7 +866,8 @@
       </footer>
     </div>
 
-    <script src="/localizations.js?v=20260904-1"></script>
+    <script src="/localizations.js?v=20260910-1"></script>
+    <script src="/firmware/update-policy.js"></script>
     <script type="module">
       import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.6.0/bundle.js';
 
@@ -880,7 +883,7 @@
         }
       };
 
-      window.printDeckUsbUpdate = async ({ applicationUrl, otaDataUrl, onProgress }) => {
+      window.printDeckUsbUpdate = async ({ applicationUrl, otaDataUrl, target, selectedVersion, onProgress }) => {
         const port = await navigator.serial.requestPort();
         const transport = new Transport(port);
         const loader = new ESPLoader({ transport, baudrate: 115200, enableTracing: false });
@@ -907,6 +910,34 @@
             throw new Error(t('The USB update failed. Reconnect the screen and try again.'));
           }
           const installedPartitionTable = await loader.readFlash(0x8000, expectedPartitionTable.length);
+          const policy = window.PrintDeckUpdatePolicy;
+          const catalogResponse = await fetch(`/ota/${target}/releases.json`, {cache:'no-store'});
+          if (!catalogResponse.ok) throw new Error(t('The official release list is unavailable.'));
+          const catalogText = await catalogResponse.text();
+          if (catalogText.length > 16384) throw new Error(t('The official release list is unavailable.'));
+          let catalog, installed, partitionMap, layout;
+          try {
+            catalog = policy.validate(JSON.parse(catalogText), target);
+            partitionMap = policy.partitions(installedPartitionTable);
+            const selector = await loader.readFlash(partitionMap.selector.offset, partitionMap.selector.size);
+            const slot = policy.bootSlot(selector);
+            installed = policy.identity(await loader.readFlash(partitionMap.ota[slot].offset, 388));
+            layout = [...new Uint8Array(await crypto.subtle.digest('SHA-256', installedPartitionTable))]
+              .map(byte=>byte.toString(16).padStart(2,'0')).join('');
+            if (!installed.legacy && (installed.target !== target || installed.layout !== layout)) throw Error('identity');
+          } catch (_) {
+            throw new Error(t('The installed firmware could not be identified. No data was written. Use the USB factory installer.'));
+          }
+          const required = catalog.factory_releases.filter(release =>
+            policy.compare(release.version, installed.version) > 0 &&
+            policy.compare(release.version, selectedVersion) <= 0).at(-1);
+          if (required) {
+            const error = new Error(t('Required version: {version}.', {version:required.version})+' '+
+              t('This firmware cannot be installed while keeping settings. Back up your configuration, then use First installation / Factory reset.'));
+            error.factoryRelease = required;
+            throw error;
+          }
+
           const storageLayoutMatches = installedPartitionTable.length === expectedPartitionTable.length &&
             expectedPartitionTable.every((byte, index) => installedPartitionTable[index] === byte);
           if (!storageLayoutMatches) {
@@ -922,17 +953,24 @@
           if (!otaDataResponse.ok) throw new Error(t('Boot data download failed ({status}).', { status: otaDataResponse.status }));
           const application = new Uint8Array(await applicationResponse.arrayBuffer());
           const otaData = new Uint8Array(await otaDataResponse.arrayBuffer());
-          if (application.length < 32 || application[0] !== 0xE9) {
+          if (application.length < 388 || application[0] !== 0xE9 || application.length > partitionMap.ota[0].size) {
             throw new Error(t('The selected application image is not a valid ESP32 firmware file.'));
           }
-          if (otaData.length !== 8192) {
+          let incoming;
+          try { incoming = policy.identity(application);
+            await policy.validateImage(application, selectedVersion===catalog.latest.version ? catalog.latest.sha256 : null);
+          } catch (_) { throw new Error(t('The selected application image is not a valid ESP32 firmware file.')); }
+          if (incoming.version !== selectedVersion || (!incoming.legacy && (incoming.target !== target || incoming.layout !== layout))) {
+            throw new Error(t('This firmware cannot be installed while keeping settings. Back up your configuration, then use First installation / Factory reset.'));
+          }
+          if (otaData.length !== 8192 || !otaData.every(byte=>byte===255)) {
             throw new Error(t('The selected boot data has an unexpected size.'));
           }
 
           const totalBytes = application.length + otaData.length;
           const files = [
-            { data: application, address: 0x20000 },
-            { data: otaData, address: 0xF000 }
+            { data: application, address: partitionMap.ota[0].offset },
+            { data: otaData, address: partitionMap.selector.offset }
           ];
           let completedBytes = 0;
           onProgress(6, t('Writing the application without erasing saved settings…'));
@@ -1016,7 +1054,7 @@
 
       if (supported) {
         let activeInstallMode = 'install';
-        let activeVersion = '1.0.12';
+        let activeVersion = '1.0.13';
         let activeHardware = 'amoled_1_75';
         let activeInstallHardware = 'amoled_1_75';
         const versionSelect = document.getElementById('firmware-version');
@@ -1031,6 +1069,7 @@
         const updateProgressFill = document.getElementById('update-progress-fill');
         const updateProgressText = document.getElementById('update-progress-text');
         const fullInstallRequired = document.getElementById('full-install-required');
+        const factoryInstallGuidance = document.getElementById('factory-install-guidance');
         const usbUpdateHeading = document.getElementById('usb-update-heading');
         const usbUpdateIntro = document.getElementById('usb-update-intro');
         const usbUpdateSteps = document.getElementById('usb-update-steps');
@@ -1046,19 +1085,33 @@
         let setupNetworkName = '';
         const releaseBase = 'https://raw.githubusercontent.com/PrintDeck/PrintDeck';
         const versions = {
-          '1.0.13': {
+          '1.0.14': {
             knomi2: {
-              releaseTag: 'knomi2-v1.0.13',
+              releaseTag: 'knomi2-v1.0.14',
               installManifest: '../manifest-install-knomi2.json',
               application: '../firmware/knomi2/printdeck.bin',
-              otaData: '../firmware/knomi2/ota_data_initial.bin'
+              otaData: '../firmware/knomi2/ota_data_initial.bin',
+              fullOnly: true
+            }
+          },
+          '1.0.13': {
+            releaseTag: 'amoled_1_75-v1.0.13',
+            installManifest: '../manifest-install.json',
+            application: '../firmware/printdeck.bin',
+            otaData: '../firmware/ota_data_initial.bin',
+            fullOnly: true,
+            knomi2: {
+              releaseTag: 'knomi2-v1.0.13',
+              installManifest: '../manifests/manifest-install-knomi2-1.0.13.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.13/docs/firmware/knomi2/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.13/docs/firmware/knomi2/ota_data_initial.bin'
             }
           },
           '1.0.12': {
             releaseTag: 'amoled_1_75-v1.0.12',
-            installManifest: '../manifest-install.json',
-            application: '../firmware/printdeck.bin',
-            otaData: '../firmware/ota_data_initial.bin',
+            installManifest: '../manifests/manifest-install-amoled_1_75-1.0.12.json',
+            application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.12/docs/firmware/printdeck.bin',
+            otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.12/docs/firmware/ota_data_initial.bin',
             knomi2: {
               releaseTag: 'knomi2-v1.0.12',
               installManifest: '../manifests/manifest-install-knomi2-1.0.12.json',
@@ -1301,6 +1354,35 @@
         const selectedConfiguration = (version = versionSelect.value) => {
           return configurationForHardware(versions[version], activeHardware);
         };
+        const factoryVersionsByHardware = new Map();
+        const factoryCatalogRequests = new Map();
+        const refreshFactoryVersionLabels = () => {
+          const factoryVersions = factoryVersionsByHardware.get(activeHardware);
+          [...versionSelect.options].forEach((option) => {
+            option.dataset.factoryRequired = String(Boolean(
+              factoryVersions?.has(option.value) || selectedConfiguration(option.value)?.fullOnly
+            ));
+          });
+          window.printDeckInstallerI18n.refreshVersionLabels();
+        };
+        const loadFactoryVersionLabels = (hardware) => {
+          if (factoryVersionsByHardware.has(hardware) || factoryCatalogRequests.has(hardware)) return;
+          const request = fetch(`/ota/${hardware}/releases.json`, {
+            cache: 'no-store', signal: AbortSignal.timeout(10000)
+          }).then(async (response) => {
+            if (!response.ok) throw new Error('catalog');
+            const text = await response.text();
+            if (text.length > 16384) throw new Error('catalog');
+            const catalog = window.PrintDeckUpdatePolicy.validate(JSON.parse(text), hardware);
+            factoryVersionsByHardware.set(hardware, new Set(catalog.factory_releases.map(release => release.version)));
+          }).catch(() => {
+            // Unknown catalog state adds no labels; installation still performs its own checks.
+          }).finally(() => {
+            factoryCatalogRequests.delete(hardware);
+            if (activeHardware === hardware) refreshFactoryVersionLabels();
+          });
+          factoryCatalogRequests.set(hardware, request);
+        };
         const minimumSelectableVersionByHardware = {
           amoled_1_75: '1.0.0',
           lcd_1_54: '1.0.0',
@@ -1341,7 +1423,13 @@
           const version = versionSelect.value;
           const configuration = selectedConfiguration(version);
           if (!configuration) return;
+          refreshFactoryVersionLabels();
           const factoryOnly = Boolean(configuration.fullOnly);
+          factoryInstallGuidance.hidden = !factoryOnly;
+          factoryInstallGuidance.textContent = factoryOnly
+            ? window.printDeckInstallerI18n.t('Required version: {version}.', {version})+' '+
+              window.printDeckInstallerI18n.t('A USB factory installation is required. Back up your configuration and follow the instructions at printdeck.xyz/firmware/. Saved settings and custom images will be erased.')
+            : '';
           const updateModeButton = modeButtons.find((button) => button.dataset.mode === 'update');
           updateModeButton.disabled = factoryOnly;
           updateModeButton.setAttribute('aria-disabled', String(factoryOnly));
@@ -1364,7 +1452,7 @@
             .forEach((element) => { element.hidden = Boolean(configuration.fullOnly); });
           fullInstallRequired.hidden = !configuration.fullOnly;
           fullInstallRequired.textContent = configuration.fullOnly
-            ? window.printDeckInstallerI18n.t('Version {version} uses a new storage layout. Install it with First installation / Factory reset. Saved settings will be erased.', { version })
+            ? window.printDeckInstallerI18n.t('Version {version} requires a factory installation. Install it with First installation / Factory reset. Saved settings will be erased.', { version })
             : '';
         };
 
@@ -1411,6 +1499,7 @@
               ? 'PrintDeck square status display'
               : 'PrintDeck round status display'));
           applySelectedVersion();
+          loadFactoryVersionLabels(activeHardware);
         };
         hardwareInputs.forEach((input) => input.addEventListener('change', applySelectedHardware));
         versionSelect.addEventListener('change', () => {
@@ -1420,7 +1509,38 @@
         window.addEventListener('printdeck-installer-language-changed', () => {
           applySelectedHardware();
         });
+        const requested = new URLSearchParams(location.search);
+        if (['amoled_1_75','lcd_1_54','knomi2'].includes(requested.get('target'))) {
+          hardwareInputs.forEach(input=>input.checked=input.value===requested.get('target'));
+        }
         applySelectedHardware();
+        if(requested.get('mode')==='install') selectMode('install');
+        if(requested.get('version')) {
+          const wanted=requested.get('version');
+          if(versionAvailableForHardware(wanted,activeHardware)) {
+            versionSelect.value=wanted;applySelectedVersion();
+          } else {
+            installButton.disabled=true;installButtonLabel.disabled=true;knomiInstallStart.disabled=true;
+            fetch(`/ota/${activeHardware}/releases.json`,{cache:'no-store'}).then(r=>{
+              if(!r.ok)throw Error();return r.text();
+            }).then(text=>{
+              if(text.length>16384)throw Error();
+              const catalog=window.PrintDeckUpdatePolicy.validate(JSON.parse(text),activeHardware);
+              const release=catalog.factory_releases.find(r=>r.version===wanted);
+              if(!release)throw Error();
+              versions[wanted] ||= {};
+              const configuration={releaseTag:activeHardware+'-v'+wanted,installManifest:release.install_manifest,fullOnly:true};
+              if(activeHardware==='amoled_1_75')Object.assign(versions[wanted],configuration);
+              else versions[wanted][activeHardware]=configuration;
+              versionSelect.add(new Option(wanted,wanted));versionSelect.value=wanted;
+              selectedVersionByHardware[activeHardware]=wanted;
+              installButton.disabled=false;installButtonLabel.disabled=false;knomiInstallStart.disabled=false;applySelectedVersion();
+            }).catch(()=>{
+              factoryInstallGuidance.hidden=false;
+              factoryInstallGuidance.textContent=window.printDeckInstallerI18n.t('The official release list is unavailable.');
+            });
+          }
+        }
 
         modeButtons.forEach((button) => {
           button.addEventListener('click', () => selectMode(button.dataset.mode, true));
@@ -1535,6 +1655,8 @@
             if (!window.printDeckUsbUpdate) throw new Error(window.printDeckInstallerI18n.t('The USB updater did not load. Refresh the page and try again.'));
             await window.printDeckUsbUpdate({
               applicationUrl: configuration.application,
+              target: activeHardware,
+              selectedVersion: activeVersion,
               otaDataUrl: configuration.otaData,
               onProgress: (percentage, message) => {
                 updateProgressFill.style.width = `${percentage}%`;
@@ -1546,6 +1668,18 @@
             if (error?.name === 'NotFoundError') {
               updateProgress.hidden = true;
             } else {
+              if (error.factoryRelease) {
+                const release = error.factoryRelease;
+                const configuration = {releaseTag:activeHardware+'-v'+release.version,
+                  installManifest:release.install_manifest, fullOnly:true};
+                versions[release.version] ||= {};
+                if(activeHardware==='amoled_1_75')Object.assign(versions[release.version],configuration);
+                else versions[release.version][activeHardware]=configuration;
+                if(![...versionSelect.options].some(o=>o.value===release.version))versionSelect.add(new Option(release.version,release.version));
+                versionSelect.value=release.version;
+                selectedVersionByHardware[activeHardware]=release.version;
+                applySelectedVersion();
+              }
               updateProgressText.classList.add('error');
               updateProgressText.textContent = error?.message || window.printDeckInstallerI18n.t('The USB update failed. Reconnect the screen and try again.');
             }

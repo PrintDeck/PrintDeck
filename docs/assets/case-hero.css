@@ -61,6 +61,12 @@
   transform: translate(-50%, -50%);
 }
 .case-page .case-campaign-hero .case-collection-photo { width: 100%; height: 100%; object-fit: fill; }
+/* Clip the composited HTML screen at the outer SVG boundary as well: Safari
+   can paint transformed foreignObject content outside its inner SVG clip. */
+.case-page .case-u1-display {
+  clip-path: polygon(41.863% 58.278%, 48.968% 56.159%, 49.352% 56.159%,
+    49.352% 76.026%, 48.968% 77.351%, 41.911% 80%, 41.527% 80%, 41.479% 59.735%);
+}
 /* Apertures measured on the 2083 × 755 workshop photograph. */
 .case-page .case-live-screen-riverstone { left: 61.018%; top: 48.079%; width: 10.226%; height: 27.947%; }
 /* Keep the full round screen inside the bezel, including its status ring. */
