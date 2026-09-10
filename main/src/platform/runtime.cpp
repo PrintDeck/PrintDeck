@@ -1676,9 +1676,12 @@ void Runtime::monitor_loop() {
       moonraker_.set_preview_requested(want_moonraker_connection && request_thumbnail);
       bambu_a1_preview_.set_preview_requested(want_bambu_connection && request_thumbnail);
       prusalink_.set_preview_requested(want_prusalink_connection && request_thumbnail);
-      elegoo_sdcp_.set_preview_requested(want_elegoo_sdcp_connection && request_thumbnail);
+      elegoo_sdcp_.set_preview_requested(want_elegoo_sdcp_connection && request_thumbnail,
+          want_elegoo_sdcp_connection && selected->protocol == core::PrinterProtocol::uniformation_sdcp && thumbnail_visible);
       selected_snapshot.job.preview = matching_thumbnail && thumbnail_visible
           ? cached_thumbnail.image : nullptr;
+      if (thumbnail_visible && selected_snapshot.job.exposure_preview)
+        selected_snapshot.job.preview = selected_snapshot.job.exposure_preview;
       const int rendered_page = display_.page();
       const bool rendered_printer_list = display_.printer_list_visible();
       if (!camera_cleanup_pending_ && !display_.camera_cleanup_pending() &&

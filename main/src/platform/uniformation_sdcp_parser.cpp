@@ -1,4 +1,5 @@
 #include "printdeck/platform/uniformation_sdcp_parser.hpp"
+#include "printdeck/platform/ctb_preview.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -199,6 +200,7 @@ ElegooSdcpMessage UniformationSdcpParser::ingest(std::string_view message, std::
           std::any_of(candidate.begin(), candidate.end(), [](unsigned char c) { return c < 32 || c == 127; })) continue;
       task_name_ = candidate.substr(candidate.find_last_of("/\\") + 1);
       task_begin_ms_ = uptime(member(item, "BeginTime"));
+      preview_path_ = ctb_preview_path(candidate).value_or("");
       task_details_known_ = true;
       task_settings_ = {};
       const auto* settings = member(item, "SliceInformation");
@@ -265,7 +267,7 @@ ElegooSdcpMessage UniformationSdcpParser::ingest(std::string_view message, std::
   auto task = text(member(info, "TaskId"), 36).value_or("");
   if (!uniformation_valid_task_id(task)) task.clear();
   if (task != task_id_) {
-    task_id_ = task; task_name_.clear(); task_settings_ = {}; task_details_known_ = false;
+    task_id_ = task; task_name_.clear(); preview_path_.clear(); task_settings_ = {}; task_details_known_ = false;
     task_begin_ms_.reset(); execution_.reset(); exposure_started_ms_.reset();
   }
   auto& job = snapshot_->job;
@@ -458,7 +460,8 @@ bool uniformation_valid_task_id(std::string_view value) {
 }
 
 bool uniformation_decode_preview_bmp(const std::vector<std::uint8_t>& encoded,
-    std::vector<std::uint8_t>& pixels, std::uint16_t& width, std::uint16_t& height) {
+    std::vector<std::uint8_t>& pixels, std::uint16_t& width, std::uint16_t& height,
+    std::size_t maximum_decoded_bytes) {
   pixels.clear(); width = height = 0;
   if (encoded.size() < 54 || encoded.size() > 1048576 || encoded[0] != 'B' || encoded[1] != 'M') return false;
   const auto u16 = [&](std::size_t at) -> std::uint16_t { return encoded[at] | (encoded[at + 1] << 8); };
@@ -467,6 +470,7 @@ bool uniformation_decode_preview_bmp(const std::vector<std::uint8_t>& encoded,
   const auto signed_h = static_cast<std::int32_t>(u32(22));
   if (dib != 40 || w == 0 || w > 512 || signed_h == 0 || signed_h < -512 || signed_h > 512 || u16(26) != 1) return false;
   const std::uint32_t h = signed_h < 0 ? -signed_h : signed_h;
+  if (w * h * 4 > maximum_decoded_bytes) return false;
   const auto bpp = u16(28); const auto compression = u32(30);
   if ((bpp != 24 && bpp != 32 && bpp != 16) || (compression != 0 && !(bpp == 16 && compression == 3))) return false;
   std::size_t offset = u32(10);

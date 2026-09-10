@@ -33,12 +33,15 @@ class UniformationSdcpParser {
   void ingest_layer_execution(const UniformationLayerExecution&, std::uint64_t now_ms);
   bool active_layer_cycle() const;
   std::uint16_t current_layer() const { return snapshot_->job.current_layer; }
+  const std::string& preview_path() const { return preview_path_; }
+  std::optional<std::uint64_t> task_begin_ms() const { return task_begin_ms_; }
  private:
   void update_exposure();
   std::unique_ptr<core::PrinterSnapshot> snapshot_;
   ElegooIdentity identity_;
   std::string expected_id_, outer_id_;
   std::string task_id_, task_name_;
+  std::string preview_path_;
   core::ResinPrintSettings task_settings_;
   std::uint64_t last_status_ms_ = 0;
   std::optional<std::uint64_t> task_begin_ms_, printer_uptime_ms_, exposure_started_ms_;
@@ -58,7 +61,8 @@ std::optional<std::string> uniformation_sdcp_control_request(core::ResinControl 
 bool uniformation_valid_task_id(std::string_view value);
 // Decode only bounded, uncompressed printer BMP previews; output is BGRA.
 bool uniformation_decode_preview_bmp(const std::vector<std::uint8_t>& encoded,
-    std::vector<std::uint8_t>& pixels, std::uint16_t& width, std::uint16_t& height);
+    std::vector<std::uint8_t>& pixels, std::uint16_t& width, std::uint16_t& height,
+    std::size_t maximum_decoded_bytes = 1048576);
 ElegooPollResult uniformation_sdcp_probe(const core::PrinterProfile& profile,
     std::uint64_t deadline_ms, const std::function<bool()>& cancelled,
     ElegooIdentity* identity = nullptr);

@@ -489,6 +489,8 @@ class DisplayShell {
   lv_image_dsc_t preview_image_dsc_{};
   lv_image_dsc_t camera_image_dsc_{};
   std::shared_ptr<std::vector<std::uint8_t>> preview_encoded_;
+  std::string preview_task_;
+  std::uint64_t preview_retry_at_ms_ = 0;
   std::shared_ptr<std::vector<std::uint8_t>> preview_pixels_;
   std::shared_ptr<std::vector<std::uint8_t>> camera_pixels_;
   std::int64_t camera_activity_updated_until_us_ = 0;

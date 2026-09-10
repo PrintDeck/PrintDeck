@@ -323,11 +323,12 @@ bool decode_preview_png(const std::shared_ptr<std::vector<std::uint8_t>>& encode
                         lv_image_dsc_t& descriptor) {
   if (!encoded || encoded->empty()) return false;
   if (encoded->size() >= 2 && (*encoded)[0] == 'B' && (*encoded)[1] == 'M') {
-    if (heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) <
-        kMaximumDecodedPreviewBytes + kPreviewDecodeHeapMarginBytes) return false;
+    const auto available = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (available <= kPreviewDecodeHeapMarginBytes) return false;
     auto decoded = std::make_shared<std::vector<std::uint8_t>>();
     std::uint16_t width = 0, height = 0;
-    if (!uniformation_decode_preview_bmp(*encoded, *decoded, width, height)) return false;
+    if (!uniformation_decode_preview_bmp(*encoded, *decoded, width, height,
+        available - kPreviewDecodeHeapMarginBytes)) return false;
     descriptor = {};
     descriptor.header.magic = LV_IMAGE_HEADER_MAGIC;
     descriptor.header.cf = LV_COLOR_FORMAT_ARGB8888;
@@ -2461,6 +2462,8 @@ void DisplayShell::release_printer_preview() {
   if (view_ != 22 && media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
   lv_image_cache_drop(&preview_image_dsc_);
   preview_encoded_.reset();
+  preview_task_.clear();
+  preview_retry_at_ms_ = 0;
   preview_pixels_.reset();
   preview_image_dsc_ = {};
   board_display_unlock();
@@ -3942,6 +3945,8 @@ void DisplayShell::update_power_header(const PowerSnapshot& power) {
 
 void DisplayShell::update_printer_preview(const core::PrinterSnapshot& snapshot) {
   if (preview_encoded_.get() == snapshot.job.preview.get()) return;
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000;
+  if (now < preview_retry_at_ms_) return;
   // Decode on the core-0 display-state worker. Retire the old LVGL source and
   // cache under the display lock before releasing its backing pixels.
   std::shared_ptr<std::vector<std::uint8_t>> decoded;
@@ -3949,14 +3954,36 @@ void DisplayShell::update_printer_preview(const core::PrinterSnapshot& snapshot)
   if (snapshot.job.preview && !snapshot.job.preview->empty())
     decode_preview_png(snapshot.job.preview, decoded, descriptor);
   if (board_display_lock(1000) != ESP_OK) return;
+  const bool replace_in_place = view_ == 60 && visible_profile_ == snapshot.profile_id &&
+      !preview_task_.empty() && preview_task_ == snapshot.job.preview_hint &&
+      media_image_ != nullptr && lv_obj_is_valid(media_image_);
+  if (media_zoom_root_ && !lv_obj_has_flag(media_zoom_root_, LV_OBJ_FLAG_HIDDEN) && !replace_in_place && view_ == 60)
+    ESP_LOGI(kLogTag, "Preview context changed in zoom: profile_match=%u task_match=%u image_valid=%u",
+        unsigned(visible_profile_ == snapshot.profile_id), unsigned(preview_task_ == snapshot.job.preview_hint),
+        unsigned(media_image_ != nullptr && lv_obj_is_valid(media_image_)));
   if (media_image_ != nullptr && lv_obj_is_valid(media_image_))
     lv_image_set_src(media_image_, nullptr);
   if (view_ != 22 && media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
   lv_image_cache_drop(&preview_image_dsc_);
   preview_encoded_ = snapshot.job.preview;
+  preview_retry_at_ms_ = 0;
+  if (replace_in_place && snapshot.job.preview && !decoded) {
+    // A capture or decode workspace may temporarily exhaust a contiguous
+    // block. Keep the view open, clear the stale image and retry shortly.
+    preview_encoded_.reset(); preview_retry_at_ms_ = now + 500;
+  }
+  preview_task_ = snapshot.job.preview_hint;
   preview_pixels_ = std::move(decoded);
   preview_image_dsc_ = descriptor;
-  view_ = -1;
+  if (replace_in_place) {
+    // The same resin job changes image at exposure boundaries. Keep the
+    // dashboard, zoom overlay, capture name and pan position intact.
+    lv_image_set_src(media_image_, preview_pixels_ ? &preview_image_dsc_ : nullptr);
+    if (media_zoom_image_ != nullptr && lv_obj_is_valid(media_zoom_image_)) {
+      lv_image_set_src(media_zoom_image_, preview_pixels_ ? &preview_image_dsc_ : nullptr);
+      update_media_zoom_geometry();
+    }
+  } else view_ = -1;
   board_display_unlock();
 }
 
@@ -7450,8 +7477,10 @@ void DisplayShell::media_zoom_event(lv_event_t* event) {
   if (shell == nullptr || shell->media_pan_moved_) return;
   const bool camera = shell->view_ == 22;
   const bool preview = shell->view_ == 3 || shell->view_ == 60;
+  const bool zoom_open = shell->media_zoom_root_ != nullptr &&
+      !lv_obj_has_flag(shell->media_zoom_root_, LV_OBJ_FLAG_HIDDEN);
   if (camera ? (!shell->camera_page_active() || !shell->camera_pixels_ || shell->camera_pixels_->empty())
-             : (!preview || !shell->preview_pixels_ || shell->preview_pixels_->empty())) return;
+             : (!preview || (!zoom_open && (!shell->preview_pixels_ || shell->preview_pixels_->empty())))) return;
   const char* zoom_name = camera ? "local-camera-zoom" : shell->view_ == 60 ? "resin-print-preview" : "print-preview";
   const char* base_name = camera ? "local-camera" : shell->view_ == 60 ? "resin-printer-status" : "printer-status";
   // A custom carousel swipe can also finish as a short click in LVGL. Only a

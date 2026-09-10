@@ -201,6 +201,8 @@ struct JobState {
   std::uint16_t current_layer = 0;
   std::uint16_t total_layers = 0;
   std::shared_ptr<std::vector<std::uint8_t>> preview;
+  // Transient exposure image; never stored in the model-thumbnail flash cache.
+  std::shared_ptr<std::vector<std::uint8_t>> exposure_preview;
   std::shared_ptr<std::vector<std::uint8_t>> camera_frame;
   std::uint16_t camera_width = 0;
   std::uint16_t camera_height = 0;

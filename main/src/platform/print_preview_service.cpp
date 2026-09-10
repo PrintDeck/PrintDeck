@@ -17,7 +17,9 @@ std::string printer_key(const core::PrinterProfile& profile) {
 std::string PrintPreviewService::key(const core::PrinterProfile& profile,
                                     const core::JobState& job) {
   if (job.preview_hint.empty() && job.gcode_file.empty() && job.name.empty()) return {};
-  return printer_key(profile) + "\n" + job.preview_hint + "\n" + job.gcode_file +
+  // Retire stock GK3 black-history thumbnails cached by earlier firmware.
+  const auto format = profile.protocol == core::PrinterProtocol::uniformation_sdcp ? "ctb-model-v1\n" : "";
+  return printer_key(profile) + "\n" + format + job.preview_hint + "\n" + job.gcode_file +
       "\n" + job.name + "\n" + job.preview_plate_hint;
 }
 esp_err_t PrintPreviewService::start() {

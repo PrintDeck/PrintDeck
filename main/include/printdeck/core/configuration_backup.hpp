@@ -56,6 +56,8 @@ struct ConfigurationBackupResult {
   explicit operator bool() const { return error == ConfigurationBackupError::none; }
 };
 
+bool configuration_backup_password_long_enough(std::string_view password);
+
 std::string serialize_configuration_backup(const DeviceSettings& settings,
                                            std::string_view hardware_id,
                                            const ConfigurationBackupReactions& reactions);

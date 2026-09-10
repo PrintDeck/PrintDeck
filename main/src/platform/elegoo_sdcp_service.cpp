@@ -183,42 +183,6 @@ class HostLease {
   std::string* slot_ = nullptr;
 };
 
-// The history preview path is derived solely from the current task UUID and
-// the already verified local peer. No redirects, arbitrary paths or credentials.
-std::shared_ptr<std::vector<std::uint8_t>> fetch_resin_preview(
-    const std::string& address, std::uint16_t port, const std::string& task,
-    const Cancel& cancelled) {
-  if (!uniformation_valid_task_id(task) || cancelled()) return {};
-  const std::string url = "http://" + address + ":" + std::to_string(port) +
-      "/media/emmc0/history_image/" + task + ".bmp";
-  esp_http_client_config_t config{};
-  config.url = url.c_str(); config.timeout_ms = 500;
-  config.disable_auto_redirect = true; config.buffer_size = 1024;
-  const auto client = esp_http_client_init(&config);
-  if (!client) return {};
-  std::unique_ptr<std::remove_pointer_t<esp_http_client_handle_t>, decltype(&esp_http_client_cleanup)>
-      guard(client, esp_http_client_cleanup);
-  esp_http_client_set_header(client, "Connection", "close");
-  if (esp_http_client_open(client, 0) != ESP_OK) return {};
-  const auto length = esp_http_client_fetch_headers(client);
-  if (esp_http_client_get_status_code(client) != 200 || length < 0 || length > 1048576) return {};
-  const auto deadline = now_ms() + 3000;
-  auto bytes = std::make_shared<std::vector<std::uint8_t>>();
-  if (length > 0) bytes->reserve(static_cast<std::size_t>(length));
-  std::array<char, 2048> buffer{};
-  while (!done(deadline, cancelled)) {
-    const int count = esp_http_client_read(client, buffer.data(), buffer.size());
-    if (count < 0) return {};
-    if (count == 0) break;
-    if (bytes->size() + count > 1048576) return {};
-    bytes->insert(bytes->end(), buffer.data(), buffer.data() + count);
-  }
-  if (done(deadline, cancelled) || !esp_http_client_is_complete_data_received(client)) return {};
-  std::vector<std::uint8_t> decoded; std::uint16_t width = 0, height = 0;
-  if (!uniformation_decode_preview_bmp(*bytes, decoded, width, height)) return {};
-  return bytes;
-}
-
 std::optional<UniformationLayerExecution> fetch_resin_execution(
     const std::string& address, std::uint16_t port, const Cancel& cancelled) {
   if (cancelled()) return {};
@@ -381,8 +345,9 @@ class Session {
   const ElegooIdentity& identity() const { return uniformation_ ? uniformation_parser_->identity() : parser_->identity(); }
   ElegooError parser_error() const { return uniformation_ ? uniformation_parser_->error() : parser_->error(); }
   std::uint64_t last_status_ms() const { return uniformation_ ? uniformation_parser_->last_status_ms() : parser_->last_status_ms(); }
-  std::shared_ptr<std::vector<std::uint8_t>> preview(const std::string& task, const Cancel& cancelled) const {
-    return fetch_resin_preview(address_, port_, task, cancelled);
+  void update_previews(UniformationPreviewService& previews, core::PrinterSnapshot& state, bool model, bool visible) const {
+    if (uniformation_) previews.update(address_, port_, uniformation_parser_->preview_path(),
+        uniformation_parser_->task_begin_ms(), state, model, visible);
   }
   void snapshot_into(core::PrinterSnapshot& out, std::uint64_t now) const {
     if (uniformation_) uniformation_parser_->snapshot_into(out, now); else parser_->snapshot_into(out, now);
@@ -528,6 +493,7 @@ void ElegooSdcpAdapter::configure(const core::PrinterProfile* profile) {
       profile->protocol == core::PrinterProtocol::uniformation_sdcp) ? *profile : core::PrinterProfile{};
   if (core::same_printer_connection(profile_, next)) return;
   profile_ = next; ++generation_;
+  previews_.clear();
   controls_live_ = false;
   if (controls_) xQueueReset(controls_);
   snapshots_.invalidate(next.id, next.id ? core::LinkState::connecting : core::LinkState::stopped);
@@ -541,6 +507,7 @@ esp_err_t ElegooSdcpAdapter::start(const core::PrinterProfile* profile, const Ne
   if (!controls_) controls_ = xQueueCreate(1, sizeof(QueuedControl));
   if (!controls_) return ESP_ERR_NO_MEM;
   xQueueReset(controls_);
+  if (profile_.protocol == core::PrinterProtocol::uniformation_sdcp && previews_.start() != ESP_OK) return ESP_ERR_NO_MEM;
   network_ = &network; stopping_ = false; running_ = true;
   if (xTaskCreatePinnedToCoreWithCaps(task_entry, "elegoo_sdcp", 49152, this, 4, &task_, kServiceCore,
       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
@@ -551,7 +518,7 @@ esp_err_t ElegooSdcpAdapter::start(const core::PrinterProfile* profile, const Ne
 void ElegooSdcpAdapter::stop() {
   const std::lock_guard<std::mutex> lock(mutex_);
   controls_live_ = false;
-  stopping_ = true; if (task_) xTaskNotifyGive(task_);
+  stopping_ = true; previews_.clear(); if (task_) xTaskNotifyGive(task_);
 }
 bool ElegooSdcpAdapter::request_control(const core::ResinControlRequest& request) {
   if (!running_ || stopping_ || !controls_live_ || !controls_) return false;
@@ -569,10 +536,6 @@ void ElegooSdcpAdapter::run() {
     const auto cancelled = [&] { return stopping_ || generation != generation_ || !network_->status().station_connected; };
     auto session = std::make_unique<Session>();
     auto state = std::make_unique<core::PrinterSnapshot>();
-    std::string preview_task;
-    std::shared_ptr<std::vector<std::uint8_t>> preview;
-    std::uint64_t next_preview = 0;
-    unsigned preview_attempts = 0;
     if (!cancelled() && session->open(profile, false, now_ms() + 7000, cancelled)) {
       if (controls_) xQueueReset(controls_);
       controls_live_ = profile.protocol == core::PrinterProtocol::uniformation_sdcp;
@@ -592,28 +555,9 @@ void ElegooSdcpAdapter::run() {
             if (!session->control(control.request.action, cancelled)) break;
           }
         }
-        if (profile.protocol == core::PrinterProtocol::uniformation_sdcp) {
-          const auto& task = state->job.preview_hint;
-          if (task != preview_task) {
-            preview_task = task; preview.reset(); next_preview = 0; preview_attempts = 0;
-          }
-          // A changed job is published without the previous image before a
-          // bounded download. Failed/missing previews never take status offline.
-          if (!preview_requested_.load()) { preview.reset(); preview_attempts = 0; next_preview = 0; }
-          state->job.preview = preview;
-          if (preview_requested_.load() && !preview_task.empty() && !preview &&
-              preview_attempts < 3 && now >= next_preview) {
-            { const std::lock_guard<std::mutex> lock(mutex_);
-              if (generation == generation_ && !stopping_) snapshots_.replace(*state); }
-            ++preview_attempts; next_preview = now + 30000;
-            preview = session->preview(preview_task, [&] {
-              return cancelled() || !preview_requested_.load();
-            });
-            // Read the queued status before publishing an image: the print
-            // may have changed while HTTP was in flight.
-            continue;
-          }
-        }
+        if (profile.protocol == core::PrinterProtocol::uniformation_sdcp)
+          session->update_previews(previews_, *state, preview_requested_.load(),
+              preview_requested_.load() || exposure_visible_.load());
         { const std::lock_guard<std::mutex> lock(mutex_);
           if (generation == generation_ && !stopping_) snapshots_.replace(std::move(*state)); }
         published_at = now;
@@ -621,6 +565,7 @@ void ElegooSdcpAdapter::run() {
     }
     controls_live_ = false;
     if (controls_) xQueueReset(controls_);
+    previews_.clear();
     session.reset();  // release the socket before any backoff/reconfiguration
     { const std::lock_guard<std::mutex> lock(mutex_);
       if (generation == generation_ && !stopping_) {

@@ -350,8 +350,12 @@ bool parse_backup_envelope(SecureBuffer& body, BackupEnvelope& envelope) {
   const std::size_t password_bytes =
       static_cast<std::size_t>(data[1]) |
       (static_cast<std::size_t>(data[2]) << 8U);
-  if (password_bytes < 12 || password_bytes > kMaximumBackupPasswordBytes ||
+  if (password_bytes > kMaximumBackupPasswordBytes ||
       kBackupEnvelopeFixedBytes + password_bytes > body.size) {
+    return false;
+  }
+  if (!core::configuration_backup_password_long_enough(std::string_view(
+          reinterpret_cast<const char*>(data + kBackupEnvelopeFixedBytes), password_bytes))) {
     return false;
   }
   envelope.salt = std::span<const std::uint8_t>(data + 3, kBackupSaltBytes);

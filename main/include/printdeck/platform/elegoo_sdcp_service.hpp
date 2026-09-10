@@ -11,6 +11,7 @@
 #include "printdeck/core/resin_controls.hpp"
 #include "printdeck/platform/elegoo_sdcp_parser.hpp"
 #include "printdeck/platform/network_service.hpp"
+#include "printdeck/platform/uniformation_preview_service.hpp"
 
 namespace printdeck::platform {
 
@@ -23,7 +24,10 @@ class ElegooSdcpAdapter {
   esp_err_t start(const core::PrinterProfile* profile, const NetworkService& network);
   void configure(const core::PrinterProfile* profile);
   void stop();
-  void set_preview_requested(bool requested) { preview_requested_ = requested; }
+  void set_preview_requested(bool requested, bool exposure_visible = false) {
+    preview_requested_ = requested; exposure_visible_ = exposure_visible;
+    if (!requested && !exposure_visible) previews_.clear();
+  }
   bool request_control(const core::ResinControlRequest& request);
   bool running() const { return running_.load(); }
   core::PrinterSnapshot snapshot() const { return snapshots_.read(); }
@@ -39,6 +43,8 @@ class ElegooSdcpAdapter {
   std::atomic<bool> running_{false};
   std::atomic<bool> stopping_{false};
   std::atomic<bool> preview_requested_{false};
+  std::atomic<bool> exposure_visible_{false};
+  UniformationPreviewService previews_;
   std::atomic<std::uint32_t> generation_{0};
   struct QueuedControl {
     core::ResinControlRequest request;

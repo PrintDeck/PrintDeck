@@ -324,9 +324,8 @@ bool read_reactions(const cJSON* root, ConfigurationBackupReactions& reactions) 
 
 bool add_settings(cJSON* root, const DeviceSettings& settings) {
   cJSON* object = cJSON_AddObjectToObject(root, "settings");
-  // A device name belongs to the physical PrintDeck, so restoring a backup on
-  // another unit must not copy it or its local-network alias.
-  return object && add_string(object, "wifi_name", settings.wifi_name) &&
+  return object && add_string(object, "device_name", settings.device_name) &&
+         add_string(object, "wifi_name", settings.wifi_name) &&
          add_string(object, "wifi_password", settings.wifi_password) &&
          add_profiles(object, settings.profiles) &&
          add_number(object, "selected_profile", settings.selected_profile) &&
@@ -359,7 +358,9 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
   const cJSON* object = item(root, "settings");
   if (!cJSON_IsObject(object)) return false;
   const bool required = source_schema >= 11;
-  return read_string(object, "wifi_name", settings.wifi_name, 32, required) &&
+  // Earlier backups omitted the name, including backups with the current schema.
+  return read_string(object, "device_name", settings.device_name, kMaximumDeviceNameBytes, false) &&
+         read_string(object, "wifi_name", settings.wifi_name, 32, required) &&
          read_string(object, "wifi_password", settings.wifi_password, 64, required) &&
          read_profiles(object, settings.profiles, source_schema) &&
          read_unsigned(object, "selected_profile", settings.selected_profile,
@@ -400,6 +401,13 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
 }
 
 }  // namespace
+
+bool configuration_backup_password_long_enough(std::string_view password) {
+  // Browser passwords are UTF-8; continuation bytes do not add characters.
+  return std::count_if(password.begin(), password.end(), [](unsigned char byte) {
+    return (byte & 0xC0U) != 0x80U;
+  }) >= 3;
+}
 
 std::string serialize_configuration_backup(const DeviceSettings& settings,
                                            std::string_view hardware_id,
