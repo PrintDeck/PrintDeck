@@ -332,7 +332,7 @@
     ['Update firmware','Zaktualizuj firmware','Actualizar firmware','Mettre à jour le firmware','aktualisieren','更新固件'],
     ['Firmware version','Wersja firmware','Versión del firmware','Version du firmware','Firmware-Version','固件版本'],
     ['(latest)','(najnowsza)','(más reciente)','(dernière)','(neueste)','（最新）'],
-    ['(Factory reset only!)','(Tylko reset fabryczny!)','(¡Solo reset de fábrica!)','(Restauration usine uniquement !)','(Nur Werksreset!)','(仅限恢复出厂设置！)'],
+    ['(Factory reset required!)','(Wymagany reset fabryczny!)','(¡Reset de fábrica obligatorio!)','(Restauration usine requise !)','(Werksreset erforderlich!)','(需要恢复出厂设置！)'],
     ['Supported hardware','Obsługiwany sprzęt','Hardware compatible','Matériel pris en charge','Unterstützte Hardware','支持的硬件'],
     ['Choose your display','Wybierz ekran','Elige tu pantalla','Choisissez votre écran','Wähle dein Display','选择你的屏幕'],
     ['Round','Okrągły','Redondo','Rond','Rund','圆形'],
@@ -812,7 +812,7 @@
       option.textContent = option.dataset.latest === 'true'
         ? `${option.value} ${t('(latest)')}`
         : option.value;
-      if (option.dataset.factoryRequired === 'true') option.textContent += ` ${t('(Factory reset only!)')}`;
+      if (option.dataset.factoryRequired === 'true') option.textContent += ` ${t('(Factory reset required!)')}`;
     });
   };
   const apply = () => {
