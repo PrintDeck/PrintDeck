@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -37,6 +38,26 @@ class UniformationSdcpParser {
   std::optional<std::uint64_t> task_begin_ms() const { return task_begin_ms_; }
  private:
   void update_exposure();
+  void update_job_timing(std::optional<std::uint32_t> elapsed_ms,
+                        std::optional<std::uint32_t> total_ms, std::uint64_t now_ms);
+  struct JobTiming {
+    struct Cycle {
+      std::uint16_t layer = 0;
+      std::uint32_t lowering_ms = 0, exposing_ms = 0, lifting_ms = 0;
+      unsigned stage = 0;
+      std::uint32_t exposure_ms = 0;
+    };
+    std::optional<Cycle> cycle;
+    // Lowering, exposure and lifting include the printer's rests and overhead.
+    std::array<std::array<std::uint32_t, 4>, 8> normal_cycles{};
+    std::size_t count = 0, next = 0;
+    std::uint32_t elapsed_ms = 0;
+    std::uint64_t ticks_observed_ms = 0;
+    std::uint16_t layer = 0, total_layers = 0;
+    core::JobPhase phase = core::JobPhase::unknown;
+    std::optional<std::uint32_t> remaining_seconds;
+    bool known = false;
+  } timing_;
   std::unique_ptr<core::PrinterSnapshot> snapshot_;
   ElegooIdentity identity_;
   std::string expected_id_, outer_id_;

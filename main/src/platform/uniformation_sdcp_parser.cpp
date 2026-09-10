@@ -269,6 +269,7 @@ ElegooSdcpMessage UniformationSdcpParser::ingest(std::string_view message, std::
   if (task != task_id_) {
     task_id_ = task; task_name_.clear(); preview_path_.clear(); task_settings_ = {}; task_details_known_ = false;
     task_begin_ms_.reset(); execution_.reset(); exposure_started_ms_.reset();
+    timing_ = {};
   }
   auto& job = snapshot_->job;
   const bool observed_lowering = job.resin_stage == core::ResinStage::lowering &&
@@ -307,6 +308,7 @@ ElegooSdcpMessage UniformationSdcpParser::ingest(std::string_view message, std::
     job.phase = Phase::failed;
   }
   const bool has_job = job.phase != Phase::idle && (machine == 1 || !task.empty());
+  std::optional<std::uint32_t> elapsed_ticks, total_ticks;
   if (has_job) {
     job.preview_hint = task_id_;
     job.resin_settings = task_settings_;
@@ -325,16 +327,14 @@ ElegooSdcpMessage UniformationSdcpParser::ingest(std::string_view message, std::
       job.current_layer = current; job.total_layers = total;
       job.completion = 100.0F * current / total; job.completion_known = true;
     }
-    // SDCP resin ticks are milliseconds. Do not subtract an unknown total or
-    // let an overrun wrap into an enormous remaining time.
+    // SDCP resin ticks are milliseconds; TotalTicks is only an estimate.
     int elapsed_ms = 0, total_ms = 0;
     if (integer(member(info, "CurrentTicks"), 2147483647, elapsed_ms)) {
       job.elapsed_seconds = static_cast<std::uint32_t>(elapsed_ms / 1000);
       job.elapsed_known = true;
-      if (integer(member(info, "TotalTicks"), 2147483647, total_ms) && total_ms > 0) {
-        job.remaining_seconds = static_cast<std::uint32_t>(std::max(0, total_ms - elapsed_ms) / 1000);
-        job.remaining_known = true;
-      }
+      elapsed_ticks = elapsed_ms;
+      if (integer(member(info, "TotalTicks"), 2147483647, total_ms) && total_ms > 0)
+        total_ticks = total_ms;
     }
     if (job.phase == Phase::completed) {
       job.completion = 100; job.completion_known = true;
@@ -365,9 +365,124 @@ ElegooSdcpMessage UniformationSdcpParser::ingest(std::string_view message, std::
   else if (previous_stage != Stage::exposing && observed_lowering)
     exposure_started_ms_ = now_ms;
   update_exposure();
+  update_job_timing(elapsed_ticks, total_ticks, now_ms);
   status_known_ = true; last_status_ms_ = now_ms;
   snapshot_->updated_at_ms = now_ms;
   return ElegooSdcpMessage::status;
+}
+
+void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elapsed,
+    std::optional<std::uint32_t> total, std::uint64_t now_ms) {
+  auto& job = snapshot_->job;
+  using Phase = core::JobPhase;
+  using Stage = core::ResinStage;
+  const bool printing = job.phase == Phase::printing;
+  const bool paused = job.phase == Phase::paused;
+  if (!elapsed || (!printing && !paused) || task_id_.empty() ||
+      job.total_layers == 0 || job.current_layer >= job.total_layers) {
+    timing_ = {};
+    if (elapsed && total && *total > *elapsed &&
+        (printing || paused || job.phase == Phase::preparing)) {
+      job.remaining_seconds = (*total - *elapsed + 999U) / 1000U;
+      job.remaining_known = true;
+    }
+    return;
+  }
+  if (timing_.known && (now_ms < last_status_ms_ ||
+      now_ms - last_status_ms_ >= kElegooSdcpStatusLifetimeMs ||
+      *elapsed < timing_.elapsed_ms || job.current_layer < timing_.layer ||
+      job.total_layers != timing_.total_layers)) timing_ = {};
+
+  const bool normal = job.resin_settings.bottom_layers && job.resin_settings.transition_layers &&
+      job.current_layer >= static_cast<unsigned>(*job.resin_settings.bottom_layers) +
+                           *job.resin_settings.transition_layers;
+  if (!timing_.known || *elapsed != timing_.elapsed_ms || job.phase != timing_.phase ||
+      job.current_layer != timing_.layer) timing_.ticks_observed_ms = now_ms;
+  if (!normal) { timing_.count = 0; timing_.next = 0; }
+  if (!normal || !printing || timing_.phase != Phase::printing) timing_.cycle.reset();
+  if (normal && printing && timing_.known && timing_.phase == Phase::printing) {
+    auto& cycle = timing_.cycle;
+    if (job.current_layer > timing_.layer) {
+      if (job.resin_stage == Stage::lowering) {
+        if (cycle && cycle->layer + 1 == job.current_layer && cycle->stage == 3 &&
+            *elapsed > cycle->lifting_ms) {
+          const std::array<std::uint32_t, 4> sample = {
+            cycle->exposing_ms - cycle->lowering_ms,
+            cycle->lifting_ms - cycle->exposing_ms, *elapsed - cycle->lifting_ms, cycle->exposure_ms};
+          if (std::all_of(sample.begin(), sample.end(), [](auto ms) { return ms <= 86400000U; })) {
+            timing_.normal_cycles[timing_.next] = sample;
+            timing_.next = (timing_.next + 1) % timing_.normal_cycles.size();
+            timing_.count = std::min(timing_.count + 1, timing_.normal_cycles.size());
+          }
+        }
+        // Ignore a partial layer when joining a print. A layer transition
+        // establishes the first complete normal cycle, including all rests.
+        cycle = JobTiming::Cycle{job.current_layer, *elapsed, 0, 0, 1};
+      } else cycle.reset();
+    } else if (cycle && cycle->layer == job.current_layer) {
+      if (job.resin_stage == Stage::exposing && cycle->stage == 1 && *elapsed > cycle->lowering_ms) {
+        cycle->exposing_ms = *elapsed; cycle->stage = 2;
+      } else if (job.resin_stage == Stage::lifting && cycle->stage == 2 && *elapsed > cycle->exposing_ms) {
+        cycle->lifting_ms = *elapsed; cycle->stage = 3;
+      } else if ((job.resin_stage == Stage::lowering && cycle->stage != 1) ||
+                 (job.resin_stage == Stage::exposing && cycle->stage != 2) ||
+                 (job.resin_stage == Stage::lifting && cycle->stage != 3)) cycle.reset();
+    }
+  }
+
+  double remaining_ms = 0;
+  if (paused && timing_.remaining_seconds) {
+    // CurrentTicks may continue through a pause. Neither learn its duration
+    // as motor time nor count down the last estimate while the job is paused.
+    remaining_ms = static_cast<double>(*timing_.remaining_seconds) * 1000;
+  } else if (normal && timing_.count > 0) {
+    std::array<double, 3> stages{};
+    for (std::size_t i = 0; i < timing_.count; ++i)
+      for (std::size_t stage = 0; stage < stages.size(); ++stage)
+        stages[stage] += static_cast<double>(timing_.normal_cycles[i][stage]) / timing_.count;
+    // Use the most recent exposure interval so a changed UV duration is not
+    // diluted by earlier layers; smooth the mechanical intervals separately.
+    const auto& latest = timing_.normal_cycles[(timing_.next + timing_.normal_cycles.size() - 1) %
+                                             timing_.normal_cycles.size()];
+    stages[1] = latest[1];
+    if (execution_ && latest[3] > 0) {
+      // A verified live UV change is usable before that layer finishes. Keep
+      // the measured exposure-stage overhead instead of losing its rests.
+      stages[1] = execution_->exposure_ms + std::max(0.0, stages[1] - latest[3]);
+    }
+    const double cycle_ms = stages[0] + stages[1] + stages[2];
+    double current_ms = cycle_ms;
+    if (const auto& cycle = timing_.cycle; cycle && cycle->layer == job.current_layer) {
+      const auto stage = cycle->stage - 1;
+      const std::array<std::uint32_t, 3> starts = {cycle->lowering_ms, cycle->exposing_ms, cycle->lifting_ms};
+      // Stock status repeats a stage's CurrentTicks. Interpolate only the
+      // current stage between fresh reports; learn durations from printer ticks.
+      const double in_stage = *elapsed - starts[stage] +
+          static_cast<double>(now_ms - timing_.ticks_observed_ms);
+      current_ms = std::max(0.0, stages[stage] - in_stage);
+      for (std::size_t next = stage + 1; next < stages.size(); ++next) current_ms += stages[next];
+    }
+    // GK3 reports a zero-based active layer; TotalLayer is the count. Its
+    // final active layer still includes lifting before the completion event.
+    remaining_ms = (job.total_layers - job.current_layer - 1) * cycle_ms + current_ms;
+  } else if (total && *total > *elapsed) {
+    remaining_ms = *total - *elapsed;
+  } else if (job.current_layer > 0 && *elapsed > 0) {
+    // Reconnecting after the native estimate expired still has a useful,
+    // conservative starting point until a complete normal cycle is observed.
+    remaining_ms = static_cast<double>(*elapsed) / job.current_layer *
+                   (job.total_layers - job.current_layer);
+  }
+  if (std::isfinite(remaining_ms) && remaining_ms > 0 && remaining_ms <= 4294967295.0 * 1000) {
+    job.remaining_seconds = static_cast<std::uint32_t>(std::ceil(remaining_ms / 1000));
+    job.remaining_known = true;
+  }
+  // If the final motion itself outlasts the measured cycle, its duration is
+  // unknown. Only an explicit completed report warrants a zero countdown.
+  timing_.elapsed_ms = *elapsed; timing_.layer = job.current_layer;
+  timing_.total_layers = job.total_layers; timing_.phase = job.phase;
+  timing_.remaining_seconds = job.remaining_known ? std::optional(job.remaining_seconds) : std::nullopt;
+  timing_.known = true;
 }
 
 bool UniformationSdcpParser::active_layer_cycle() const {
@@ -388,6 +503,8 @@ void UniformationSdcpParser::ingest_layer_execution(const UniformationLayerExecu
       value.uptime_ms < *task_begin_ms_ || value.uptime_ms > *printer_uptime_ms_ + 2000 ||
       *printer_uptime_ms_ > value.uptime_ms + 120000) return;
   execution_ = value;
+  if (timing_.cycle && timing_.cycle->layer == value.layer)
+    timing_.cycle->exposure_ms = value.exposure_ms;
   update_exposure();
 }
 void UniformationSdcpParser::update_exposure() {
