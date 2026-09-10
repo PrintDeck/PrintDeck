@@ -398,7 +398,9 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
                            *job.resin_settings.transition_layers;
   if (!timing_.known || *elapsed != timing_.elapsed_ms || job.phase != timing_.phase ||
       job.current_layer != timing_.layer) timing_.ticks_observed_ms = now_ms;
-  if (!normal) { timing_.count = 0; timing_.next = 0; }
+  if (!normal) { timing_.count = 0; timing_.next = 0; timing_.calibrated_at_ms.reset(); }
+  if (timing_.phase == Phase::paused && timing_.calibrated_at_ms)
+    *timing_.calibrated_at_ms += now_ms - last_status_ms_;
   if (!normal || !printing || timing_.phase != Phase::printing) timing_.cycle.reset();
   if (normal && printing && timing_.known && timing_.phase == Phase::printing) {
     auto& cycle = timing_.cycle;
@@ -430,16 +432,32 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
     }
   }
 
+  const double native_ms = total ? std::max(0.0, static_cast<double>(*total) - *elapsed -
+      (printing ? static_cast<double>(now_ms - timing_.ticks_observed_ms) : 0.0)) : 0.0;
   double remaining_ms = 0;
   if (paused && timing_.remaining_seconds) {
     // CurrentTicks may continue through a pause. Neither learn its duration
     // as motor time nor count down the last estimate while the job is paused.
     remaining_ms = static_cast<double>(*timing_.remaining_seconds) * 1000;
-  } else if (normal && timing_.count > 0) {
+  } else if (normal && timing_.count == timing_.normal_cycles.size()) {
     std::array<double, 3> stages{};
-    for (std::size_t i = 0; i < timing_.count; ++i)
-      for (std::size_t stage = 0; stage < stages.size(); ++stage)
-        stages[stage] += static_cast<double>(timing_.normal_cycles[i][stage]) / timing_.count;
+    const auto median = [](auto values) {
+      std::sort(values.begin(), values.end());
+      return static_cast<double>(values[values.size() / 2]);
+    };
+    for (std::size_t stage = 0; stage < stages.size(); ++stage) {
+      std::array<std::uint32_t, JobTiming::kSamples> values{};
+      for (std::size_t i = 0; i < values.size(); ++i) values[i] = timing_.normal_cycles[i][stage];
+      stages[stage] = median(values);
+    }
+    // The median rejects isolated slow layers, yet follows a sustained motion
+    // change once it occupies most of the rolling window. Its typical deviation
+    // describes uncertainty that grows with the number of layers still ahead.
+    std::array<double, JobTiming::kSamples> deviations{};
+    for (std::size_t i = 0; i < deviations.size(); ++i)
+      deviations[i] = std::abs(timing_.normal_cycles[i][0] + timing_.normal_cycles[i][2] -
+                               stages[0] - stages[2]);
+    const double motion_deviation_ms = median(deviations);
     // Use the most recent exposure interval so a changed UV duration is not
     // diluted by earlier layers; smooth the mechanical intervals separately.
     const auto& latest = timing_.normal_cycles[(timing_.next + timing_.normal_cycles.size() - 1) %
@@ -465,11 +483,45 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
     // GK3 reports a zero-based active layer; TotalLayer is the count. Its
     // final active layer still includes lifting before the completion event.
     remaining_ms = (job.total_layers - job.current_layer - 1) * cycle_ms + current_ms;
-  } else if (total && *total > *elapsed) {
-    remaining_ms = *total - *elapsed;
+    if (!timing_.calibrated_at_ms) {
+      timing_.calibrated_at_ms = now_ms;
+      // If a severe error is discovered at the fifth sample, there was no
+      // earlier opportunity to blend it. Introduce it over the available time,
+      // finishing before native expiry; already-expired time needs rescue now.
+      timing_.initial_handover_ms = std::min(native_ms * 0.5,
+          2.0 * std::max(0.0, remaining_ms - native_ms));
+    }
+    if (native_ms > 0) {
+      // Native time stays primary until the end or a substantial underestimate
+      // approaches expiry. Do not amplify timing noise over a long print.
+      const double gap_ms = std::max(0.0, remaining_ms - native_ms);
+      const double uncertainty_ms = std::max(1000.0,
+          (job.total_layers - job.current_layer) * 3.0 * motion_deviation_ms);
+      const double credible_gap_ms = std::max(0.0, gap_ms - uncertainty_ms);
+      const auto smooth = [](double value) {
+        value = std::clamp(value, 0.0, 1.0);
+        return value * value * (3.0 - 2.0 * value);
+      };
+      const double completed_layers = job.current_layer +
+          std::clamp(1.0 - current_ms / cycle_ms, 0.0, 1.0);
+      const double end_weight = smooth((20.0 * completed_layers - 18.0 * job.total_layers) /
+                                       job.total_layers) *
+          std::clamp(credible_gap_ms / std::max(cycle_ms, uncertainty_ms), 0.0, 1.0);
+      // A larger deficit needs a longer handover. Start three deficits before
+      // native expiry and finish one deficit before it. The smooth two-deficit
+      // window limits the correction rate for steady cycles and avoids a jump
+      // from seconds to minutes when the printer reaches zero, even before 90%.
+      const double expiry_weight = credible_gap_ms > 0
+          ? smooth((3.0 * credible_gap_ms - native_ms) / (2.0 * credible_gap_ms)) : 0.0;
+      const double acquisition_weight = timing_.initial_handover_ms > 0
+          ? smooth((now_ms - *timing_.calibrated_at_ms) / timing_.initial_handover_ms) : 1.0;
+      remaining_ms = native_ms + acquisition_weight * std::max(end_weight, expiry_weight) * gap_ms;
+    }
+  } else if (native_ms > 0) {
+    remaining_ms = native_ms;
   } else if (job.current_layer > 0 && *elapsed > 0) {
     // Reconnecting after the native estimate expired still has a useful,
-    // conservative starting point until a complete normal cycle is observed.
+    // conservative starting point until five complete normal cycles are observed.
     remaining_ms = static_cast<double>(*elapsed) / job.current_layer *
                    (job.total_layers - job.current_layer);
   }

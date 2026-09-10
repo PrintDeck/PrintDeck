@@ -41,6 +41,7 @@ class UniformationSdcpParser {
   void update_job_timing(std::optional<std::uint32_t> elapsed_ms,
                         std::optional<std::uint32_t> total_ms, std::uint64_t now_ms);
   struct JobTiming {
+    static constexpr std::size_t kSamples = 5;
     struct Cycle {
       std::uint16_t layer = 0;
       std::uint32_t lowering_ms = 0, exposing_ms = 0, lifting_ms = 0;
@@ -49,10 +50,12 @@ class UniformationSdcpParser {
     };
     std::optional<Cycle> cycle;
     // Lowering, exposure and lifting include the printer's rests and overhead.
-    std::array<std::array<std::uint32_t, 4>, 8> normal_cycles{};
+    std::array<std::array<std::uint32_t, 4>, kSamples> normal_cycles{};
     std::size_t count = 0, next = 0;
     std::uint32_t elapsed_ms = 0;
     std::uint64_t ticks_observed_ms = 0;
+    std::optional<std::uint64_t> calibrated_at_ms;
+    double initial_handover_ms = 0;
     std::uint16_t layer = 0, total_layers = 0;
     core::JobPhase phase = core::JobPhase::unknown;
     std::optional<std::uint32_t> remaining_seconds;
