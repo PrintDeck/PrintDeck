@@ -2,11 +2,11 @@
   "schema": 2,
   "target": "knomi2",
   "latest": {
-    "version": "1.0.14",
+    "version": "1.0.15",
     "layout": "620eeab9a77e91ce5756ae42651b94007d2a7caecca0a1cb0a01b61fd6e05d58",
-    "sha256": "a310174cd742fdcc832407ae5ddaa5fbed007a98ba2f1295adf4f4c4d1375b37",
-    "url": "https://github.com/PrintDeck/PrintDeck/releases/download/knomi2-v1.0.14/printdeck_knomi2_layout_620eeab9a77e_ota-1.0.14.bin",
-    "install_manifest": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.14/docs/manifests/manifest-install-knomi2-1.0.14.json"
+    "sha256": "0abde7258b6edb241979fd380fab34af37ce23279cd7146ca7562ab8412a0dc7",
+    "url": "https://github.com/PrintDeck/PrintDeck/releases/download/knomi2-v1.0.15/printdeck_knomi2_layout_620eeab9a77e_ota-1.0.15.bin",
+    "install_manifest": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.15/docs/manifests/manifest-install-knomi2-1.0.15.json"
   },
   "factory_releases": [
     {
