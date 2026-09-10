@@ -5116,7 +5116,8 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
     lv_obj_align(metrics_label_, LV_ALIGN_CENTER, 0, 142);
     status_label_ = lv_label_create(screen);
     apply_text_style(status_label_, lv_color_hex(accent_color_), &lv_font_montserrat_24);
-    lv_obj_set_width(status_label_, 250);
+    lv_obj_set_size(status_label_, 300, 30);
+    lv_label_set_long_mode(status_label_, LV_LABEL_LONG_DOT);
     lv_obj_align(status_label_, LV_ALIGN_BOTTOM_MID, 0, -50);
     view_ = 3;
     visible_profile_ = profile.id;
@@ -5129,6 +5130,9 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
   const bool active_job = snapshot.job.phase == core::JobPhase::printing ||
                           snapshot.job.phase == core::JobPhase::preparing ||
                           snapshot.job.phase == core::JobPhase::paused;
+  // The wider activity row needs more clearance from the circular progress arc.
+  // Idle states keep the lower position below their connection-status caption.
+  lv_obj_align(status_label_, LV_ALIGN_BOTTOM_MID, 0, active_job ? -70 : -50);
   update_printer_progress(snapshot);
   const std::string display_job_name = core::job_name_for_display(snapshot.job.name);
   const char* detail = snapshot.job.kind == core::JobKind::calibration
