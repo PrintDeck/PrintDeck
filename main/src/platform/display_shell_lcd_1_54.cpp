@@ -1292,7 +1292,7 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     // fixed details column. Children are positioned inside their own section,
     // so text length cannot move neighboring content.
     lv_obj_t* summary = square_layout_box(lv_screen_active(), kDisplayUsesCompactRoundLayout ? 216 : 222,
-                                               kDisplayUsesCompactRoundLayout ? 102 : 80);
+                                               kDisplayUsesCompactRoundLayout ? 102 : 84);
     lv_obj_align(summary, LV_ALIGN_TOP_MID, 0, kDisplayUsesCompactRoundLayout ? 69 : 67);
 
     lv_obj_t* media_frame = lv_obj_create(summary);
@@ -1380,33 +1380,25 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
       total_time_label_ = number(48, theme_style_.text_secondary);
       layer_label_ = number(82, theme_style_.text_primary);
     } else {
-    lv_obj_t* details = square_layout_box(summary, 138, 80);
+    lv_obj_t* details = square_layout_box(summary, 138, 84);
     lv_obj_align(details, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_obj_t* timers = square_layout_box(details, 138, 44);
-    lv_obj_align(timers, LV_ALIGN_TOP_MID, 0,
-                 kDisplayUsesCompactRoundLayout ? 6 : 0);
-    lv_obj_t* clock_slot = square_mdi_icon_slot(
-        timers, kMdiClock, 26, 44, theme_style_.accent_secondary);
-    lv_obj_align(clock_slot, LV_ALIGN_LEFT_MID, 0, 0);
-    lv_obj_t* timer_values = square_layout_box(timers, 112, 44);
-    lv_obj_align(timer_values, LV_ALIGN_RIGHT_MID, 0, 0);
-
-    remaining_label_ = lv_label_create(timer_values);
-    apply_text_style(remaining_label_, lv_color_hex(theme_style_.accent_secondary),
-                     &lv_font_montserrat_16);
-    lv_obj_set_size(remaining_label_, 108, 22);
-    lv_label_set_long_mode(remaining_label_, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_align(remaining_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-    lv_obj_align(remaining_label_, LV_ALIGN_TOP_LEFT, 2, 0);
-    total_time_label_ = lv_label_create(timer_values);
-    apply_text_style(total_time_label_, lv_color_hex(theme_style_.text_secondary), &lv_font_montserrat_12);
-    lv_obj_set_size(total_time_label_, 108, 18);
-    lv_label_set_long_mode(total_time_label_, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_align(total_time_label_, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-    lv_obj_align(total_time_label_, LV_ALIGN_BOTTOM_LEFT, 2, 0);
+    const auto time_label = [&](int y, int height, const lv_font_t* font, std::uint32_t color) {
+      auto* label = lv_label_create(details);
+      apply_text_style(label, lv_color_hex(color), font);
+      lv_obj_set_pos(label, 2, y);
+      lv_obj_set_size(label, 134, height);
+      lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+      lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+      return label;
+    };
+    auto* remaining_caption = time_label(0, 14, &lv_font_montserrat_12, theme_style_.text_secondary);
+    lv_label_set_text(remaining_caption, (std::string(tr("Time left")) + ":").c_str());
+    remaining_label_ = time_label(14, 20, &lv_font_montserrat_16, theme_style_.accent_secondary);
+    status_time_caption_label_ = time_label(34, 14, &lv_font_montserrat_12, theme_style_.text_secondary);
+    total_time_label_ = time_label(48, 20, &lv_font_montserrat_16, theme_style_.text_secondary);
     layer_label_ = lv_label_create(details);
     apply_text_style(layer_label_, lv_color_hex(theme_style_.text_muted), &lv_font_montserrat_12);
-    lv_obj_set_size(layer_label_, 138, 20);
+    lv_obj_set_size(layer_label_, 138, 16);
     lv_obj_set_style_text_align(layer_label_, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_align(layer_label_, LV_ALIGN_BOTTOM_MID, 0, 0);
 
@@ -1506,14 +1498,7 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
             ? short_duration(snapshot.job.remaining_seconds)
             : core::print_duration_units(snapshot.job.remaining_seconds);
     set_number(remaining_label_, remaining.c_str());
-    const auto secondary = core::print_time_display(snapshot.job, std::time(nullptr),
-                                                     clock_date_format_.load());
-    set_number(total_time_label_, secondary.value.c_str());
-    const std::string caption = secondary.kind == core::PrintTimeDisplay::Kind::unavailable
-        ? "" : std::string(tr(secondary.kind == core::PrintTimeDisplay::Kind::end_at
-                           ? "End at" : "Print time")) + ":" +
-            (secondary.date.empty() ? "" : " " + secondary.date);
-    set_text(status_time_caption_label_, caption.c_str());
+    update_status_secondary_time(snapshot.job);
     char layers[32]{};
     if (snapshot.job.current_layer > 0 || snapshot.job.total_layers > 0)
       std::snprintf(layers, sizeof(layers), "%u/%u", snapshot.job.current_layer, snapshot.job.total_layers);
@@ -1522,9 +1507,7 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
   } else {
     set_text(remaining_label_, active && snapshot.job.remaining_known
         ? short_duration(snapshot.job.remaining_seconds).c_str() : "--");
-    const std::uint32_t total_seconds = snapshot.job.elapsed_seconds + snapshot.job.remaining_seconds;
-    set_text(total_time_label_, active && snapshot.job.elapsed_known && snapshot.job.remaining_known && total_seconds > 0
-        ? short_duration(total_seconds).c_str() : "--");
+    update_status_secondary_time(snapshot.job);
     if (snapshot.job.total_layers > 0) lv_label_set_text_fmt(layer_label_, "%s: %u/%u", tr("Layer"), snapshot.job.current_layer, snapshot.job.total_layers);
     else lv_label_set_text_fmt(layer_label_, "%s: --/--", tr("Layer"));
   }

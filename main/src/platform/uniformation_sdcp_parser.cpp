@@ -327,6 +327,14 @@ ElegooSdcpMessage UniformationSdcpParser::ingest(std::string_view message, std::
       job.current_layer = current; job.total_layers = total;
       job.completion = 100.0F * current / total; job.completion_known = true;
     }
+    // GK3 also reports stopping while parking after the last layer. Keep that
+    // nonterminal until its explicit completed/stopped report; a user stop
+    // before the final layer and every reported error retain their outcomes.
+    if (phase == 7 && job.phase == Phase::cancelled && job.total_layers > 0 &&
+        job.current_layer == job.total_layers && !task.empty()) {
+      job.phase = Phase::printing;
+      job.resin_stage = Stage::finishing;
+    }
     // SDCP resin ticks are milliseconds; TotalTicks is only an estimate.
     int elapsed_ms = 0, total_ms = 0;
     if (integer(member(info, "CurrentTicks"), 2147483647, elapsed_ms)) {
@@ -381,7 +389,7 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
   if (!elapsed || (!printing && !paused) || task_id_.empty() ||
       job.total_layers == 0 || job.current_layer >= job.total_layers) {
     timing_ = {};
-    if (elapsed && total && *total > *elapsed &&
+    if (elapsed && total && *total > *elapsed && job.resin_stage != Stage::finishing &&
         (printing || paused || job.phase == Phase::preparing)) {
       job.remaining_seconds = (*total - *elapsed + 999U) / 1000U;
       job.remaining_known = true;
@@ -434,7 +442,13 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
 
   const double native_ms = total ? std::max(0.0, static_cast<double>(*total) - *elapsed -
       (printing ? static_cast<double>(now_ms - timing_.ticks_observed_ms) : 0.0)) : 0.0;
+  // A revised native total is new authoritative input, not measurement jitter.
+  if (timing_.native_total_ms != total) {
+    timing_.smooth_correction = false;
+    timing_.recovering_time = false;
+  }
   double remaining_ms = 0;
+  double measured_ms = 0;
   if (paused && timing_.remaining_seconds) {
     // CurrentTicks may continue through a pause. Neither learn its duration
     // as motor time nor count down the last estimate while the job is paused.
@@ -483,6 +497,7 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
     // GK3 reports a zero-based active layer; TotalLayer is the count. Its
     // final active layer still includes lifting before the completion event.
     remaining_ms = (job.total_layers - job.current_layer - 1) * cycle_ms + current_ms;
+    measured_ms = remaining_ms;
     if (!timing_.calibrated_at_ms) {
       timing_.calibrated_at_ms = now_ms;
       // If a severe error is discovered at the fifth sample, there was no
@@ -516,6 +531,7 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
       const double acquisition_weight = timing_.initial_handover_ms > 0
           ? smooth((now_ms - *timing_.calibrated_at_ms) / timing_.initial_handover_ms) : 1.0;
       remaining_ms = native_ms + acquisition_weight * std::max(end_weight, expiry_weight) * gap_ms;
+      timing_.smooth_correction = true;
     }
   } else if (native_ms > 0) {
     remaining_ms = native_ms;
@@ -524,6 +540,25 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
     // conservative starting point until five complete normal cycles are observed.
     remaining_ms = static_cast<double>(*elapsed) / job.current_layer *
                    (job.total_layers - job.current_layer);
+  }
+  // Slew the displayed deadline, not individual rounded seconds. A fresh
+  // median or uncertainty window must not add tens of seconds in one report.
+  // Ordinarily the countdown can slow to 5% speed while absorbing a correction.
+  // A prediction missing over half the measured time needs a gradual increase.
+  // Keep that recovery active until the displayed estimate catches up, avoiding
+  // a second plateau as the deficit falls back below the entry threshold.
+  double display_clock_ms = *elapsed + (printing ?
+      static_cast<double>(now_ms - timing_.ticks_observed_ms) : 0.0);
+  if (printing && timing_.phase == Phase::printing && timing_.displayed_ms &&
+      timing_.native_total_ms == total && timing_.smooth_correction && remaining_ms > 0) {
+    display_clock_ms = std::max(display_clock_ms, timing_.display_clock_ms);
+    const double step_ms = display_clock_ms - timing_.display_clock_ms;
+    const double expected_ms = std::max(0.0, *timing_.displayed_ms - step_ms);
+    if (measured_ms > 2.0 * std::max(30000.0, expected_ms)) timing_.recovering_time = true;
+    if (measured_ms <= expected_ms + 1000.0) timing_.recovering_time = false;
+    const double recovery_rate = timing_.recovering_time ? 4.0 : 0.95;
+    remaining_ms = expected_ms + std::clamp(remaining_ms - expected_ms,
+        -step_ms, recovery_rate * step_ms);
   }
   if (std::isfinite(remaining_ms) && remaining_ms > 0 && remaining_ms <= 4294967295.0 * 1000) {
     job.remaining_seconds = static_cast<std::uint32_t>(std::ceil(remaining_ms / 1000));
@@ -534,6 +569,9 @@ void UniformationSdcpParser::update_job_timing(std::optional<std::uint32_t> elap
   timing_.elapsed_ms = *elapsed; timing_.layer = job.current_layer;
   timing_.total_layers = job.total_layers; timing_.phase = job.phase;
   timing_.remaining_seconds = job.remaining_known ? std::optional(job.remaining_seconds) : std::nullopt;
+  timing_.displayed_ms = job.remaining_known ? std::optional(remaining_ms) : std::nullopt;
+  timing_.display_clock_ms = display_clock_ms;
+  timing_.native_total_ms = total;
   timing_.known = true;
 }
 

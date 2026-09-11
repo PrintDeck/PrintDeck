@@ -39,15 +39,28 @@ struct PrintTimeDisplay {
   Kind kind = Kind::unavailable;
   std::string value;
   std::string date;
+
+  const char* caption_key(const JobState& job) const {
+    if (kind == Kind::end_at) return "End at";
+    if (kind == Kind::elapsed) {
+      return job.phase == JobPhase::printing || job.phase == JobPhase::preparing ||
+             job.phase == JobPhase::paused ? "Elapsed" : "Print time";
+    }
+    return "";
+  }
 };
 
 // TZ is configured by Runtime. Add the duration to UTC first so crossing a
 // daylight-saving boundary does not turn elapsed hours into wall-clock hours.
 inline PrintTimeDisplay print_time_display(const JobState& job, std::time_t now,
-                                           CalendarDateFormat date_format) {
+                                           CalendarDateFormat date_format,
+                                           std::uint64_t view_elapsed_ms = 0) {
   PrintTimeDisplay result;
   const bool running = job.phase == JobPhase::printing || job.phase == JobPhase::preparing;
-  if (running && job.remaining_known && job.remaining_seconds > 0 &&
+  // Rotate the secondary field on monotonic screen time. Printer counters and
+  // clock synchronization must not reset the interval or change its cadence.
+  const bool show_elapsed = job.elapsed_known && (view_elapsed_ms / 10'000U) % 2U != 0;
+  if (!show_elapsed && running && job.remaining_known && job.remaining_seconds > 0 &&
       now > 1'700'000'000 &&
       static_cast<std::uint64_t>(job.remaining_seconds) <=
           static_cast<std::uint64_t>(std::numeric_limits<std::time_t>::max() - now)) {

@@ -30,4 +30,14 @@ inline const lv_font_t* status_numeric_font(
   return selected;
 }
 
+// Fixed pixel styles are available immediately after creating a field. Its
+// coordinates may still describe the default size until LVGL runs layout.
+inline const lv_font_t* status_fixed_field_font(
+    const lv_obj_t* label, const char* text,
+    std::initializer_list<const lv_font_t*> candidates) {
+  return status_numeric_font(text, lv_obj_get_style_width(label, LV_PART_MAIN),
+      lv_obj_get_style_height(label, LV_PART_MAIN),
+      lv_obj_get_style_text_letter_space(label, LV_PART_MAIN), candidates);
+}
+
 }  // namespace printdeck::platform

@@ -185,6 +185,7 @@ const char* resin_status_label(const JobState& job) {
     case ResinStage::pausing: return "Pausing";
     case ResinStage::paused: return "Paused";
     case ResinStage::stopping: return "Stopping";
+    case ResinStage::finishing: return "Finishing";
     case ResinStage::stopped: return "Stopped";
     case ResinStage::completed: return "Complete";
     case ResinStage::checking_file: return "Checking file";

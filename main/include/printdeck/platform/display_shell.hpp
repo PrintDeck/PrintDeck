@@ -268,6 +268,8 @@ class DisplayShell {
                             const core::PrinterSnapshot& snapshot,
                             const PowerSnapshot& power);
   void create_compact_timers();
+  std::uint64_t print_time_view_ms() const;
+  void update_status_secondary_time(const core::JobState& job);
   void update_compact_timers(const core::JobState& job);
   void show_printer_telemetry(const core::PrinterProfile& profile,
                               const core::PrinterSnapshot& snapshot,
@@ -341,6 +343,7 @@ class DisplayShell {
   lv_obj_t* remaining_label_ = nullptr;
   lv_obj_t* total_time_label_ = nullptr;
   lv_obj_t* status_time_caption_label_ = nullptr;
+  std::uint64_t print_time_view_started_ms_ = 0;
   lv_obj_t* compact_timer_primary_ = nullptr;
   lv_obj_t* compact_timer_secondary_ = nullptr;
   lv_obj_t* compact_timer_caption_ = nullptr;
@@ -418,10 +421,14 @@ class DisplayShell {
   lv_obj_t* resin_reaction_symbol_ = nullptr;
   lv_obj_t* resin_reaction_caption_ = nullptr;
   std::optional<std::uint32_t> resin_reaction_remaining_;
+  std::optional<std::uint32_t> resin_reaction_elapsed_;
+  std::string resin_reaction_finish_;
+  std::string resin_reaction_finish_date_;
+  const char* resin_reaction_elapsed_caption_ = "Elapsed";
   std::uint16_t resin_reaction_layer_ = 0;
   std::uint16_t resin_reaction_total_ = 0;
   std::uint32_t resin_readout_started_ms_ = 0;
-  bool resin_readout_layers_ = false;
+  core::ResinReadout resin_readout_ = core::ResinReadout::remaining;
   std::array<lv_obj_t*, 4> resin_reaction_rays_{};
   std::array<lv_obj_t*, 3> resin_reaction_dots_{};
   core::ResinReaction resin_reaction_ = core::ResinReaction::standby;
@@ -470,7 +477,6 @@ class DisplayShell {
   std::int64_t camera_presentation_window_us_ = 0;
   lv_obj_t* printer_animation_root_ = nullptr;
   lv_obj_t* printer_animation_gesture_surface_ = nullptr;
-  lv_obj_t* printer_animation_label_ = nullptr;
   lv_obj_t* printer_animation_canvas_ = nullptr;
   lv_obj_t* printer_animation_gif_ = nullptr;
   void* printer_animation_canvas_buffer_ = nullptr;

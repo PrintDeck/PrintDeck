@@ -30,6 +30,7 @@ enum class JobKind : std::uint8_t {
 enum class ResinStage : std::uint8_t {
   unknown, standby, homing, lowering, exposing, lifting, pausing, paused,
   stopping, stopped, completed, checking_file, transferring_file, exposure_test, device_test,
+  finishing,
 };
 
 // A printer/service condition is independent of the outcome of a print job.

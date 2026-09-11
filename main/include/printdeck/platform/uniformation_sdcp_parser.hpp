@@ -59,6 +59,11 @@ class UniformationSdcpParser {
     std::uint16_t layer = 0, total_layers = 0;
     core::JobPhase phase = core::JobPhase::unknown;
     std::optional<std::uint32_t> remaining_seconds;
+    std::optional<double> displayed_ms;
+    double display_clock_ms = 0;
+    std::optional<std::uint32_t> native_total_ms;
+    bool smooth_correction = false;
+    bool recovering_time = false;
     bool known = false;
   } timing_;
   std::unique_ptr<core::PrinterSnapshot> snapshot_;

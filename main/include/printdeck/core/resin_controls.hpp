@@ -21,7 +21,8 @@ inline bool resin_control_available(ResinControl action, const PrinterSnapshot& 
   const auto& job = state.job;
   if (!state.profile_id || state.link != LinkState::online || !job.reachable ||
       now_ms < state.updated_at_ms || now_ms - state.updated_at_ms > 5000 ||
-      job.preview_hint.size() != 36 || job.condition == PrinterCondition::error) return false;
+      job.preview_hint.size() != 36 || job.condition == PrinterCondition::error ||
+      job.resin_stage == ResinStage::finishing) return false;
   switch (action) {
     case ResinControl::pause:
       return job.phase == JobPhase::printing || job.phase == JobPhase::preparing;

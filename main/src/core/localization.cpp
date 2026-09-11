@@ -273,12 +273,13 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"Lifting", "Podnoszenie", "Subiendo", "Montée", "Anheben", "上升"},
       {"Pausing", "Wstrzymywanie", "Pausando", "Mise en pause", "Pausieren", "正在暂停"},
       {"Stopping", "Zatrzymywanie", "Deteniendo", "Arrêt en cours", "Anhalten", "正在停止"},
+      {"Finishing", "Kończenie", "Finalizando", "Finalisation", "Abschluss", "正在结束"},
       {"Stopped", "Zatrzymano", "Detenido", "Arrêté", "Angehalten", "已停止"},
       {"Checking file", "Sprawdzanie pliku", "Verificando archivo", "Vérification du fichier", "Datei prüfen", "检查文件"},
       {"Device test", "Test drukarki", "Prueba de impresora", "Test de l’appareil", "Gerätetest", "设备测试"},
       {"Exposure test", "Test naświetlania", "Prueba de exposición", "Test d’exposition", "Belichtungstest", "曝光测试"},
       {"Remaining", "Pozostało", "Restante", "Restant", "Verbleibend", "剩余"},
-      {"Elapsed", "Upłynęło", "Transcurrido", "Écoulé", "Vergangen", "已用"},
+      {"Elapsed", "Drukuje od", "Imprimiendo", "Imprime depuis", "Druckt seit", "已打印"},
       {"End at", "Koniec o", "Fin a las", "Fin à", "Ende um", "结束于"},
       {"Time left", "Pozostało", "Restante", "Temps restant", "Restzeit", "剩余时间"},
       {"Print time", "Czas druku", "Tiempo imp.", "Temps impr.", "Druckzeit", "打印用时"},
@@ -375,6 +376,7 @@ const char* localized_text(std::string_view language, std::string_view english) 
                      language == "de" ? 4 : language == "zh-CN" ? 5 : 0;
   // Keep the translation key stable when refining the English caption.
   if (column == 0 && english == "End at") return "Ends at";
+  if (column == 0 && english == "Elapsed") return "Printing for";
   for (const Entry& entry : entries) {
     if (english == entry.en) {
       const char* values[]{entry.en, entry.pl, entry.es, entry.fr, entry.de, entry.zh};

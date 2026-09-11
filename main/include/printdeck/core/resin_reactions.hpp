@@ -12,6 +12,17 @@ enum class ResinReaction : std::uint8_t {
   stopped, complete, error, unavailable,
 };
 
+enum class ResinReadout : std::uint8_t { remaining, layers, end_at, elapsed };
+
+inline ResinReadout resin_reaction_readout(std::uint64_t elapsed_ms,
+                                           bool finish_known, bool elapsed_known) {
+  std::array<ResinReadout, 4> fields{ResinReadout::remaining, ResinReadout::layers};
+  std::size_t count = 2;
+  if (finish_known) fields[count++] = ResinReadout::end_at;
+  if (elapsed_known) fields[count++] = ResinReadout::elapsed;
+  return fields[(elapsed_ms / 5000U) % count];
+}
+
 inline ResinReaction resin_reaction(const JobState& job) {
   if (!job.reachable) return ResinReaction::unavailable;
   if (job.condition == PrinterCondition::error || job.phase == JobPhase::failed)
@@ -29,7 +40,7 @@ inline ResinReaction resin_reaction(const JobState& job) {
     case ResinStage::stopping: case ResinStage::stopped: return ResinReaction::stopped;
     case ResinStage::completed: return ResinReaction::complete;
     case ResinStage::checking_file: case ResinStage::transferring_file:
-    case ResinStage::device_test: return ResinReaction::waiting;
+    case ResinStage::device_test: case ResinStage::finishing: return ResinReaction::waiting;
     default: break;
   }
   if (job.phase == JobPhase::printing) return ResinReaction::printing;

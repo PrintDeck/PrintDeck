@@ -2181,6 +2181,9 @@ void DisplayShell::clear_capture_overlay_name(const char* expected_screen_name) 
 }
 
 void DisplayShell::prepare_active_screen(const char* screen_name) {
+  // Rebuilding a thumbnail or theme on the same page must not postpone rotation.
+  if (capture_screen_name_ != (screen_name == nullptr ? "" : screen_name))
+    print_time_view_started_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
   status_time_caption_label_ = nullptr;
   compact_timer_primary_ = compact_timer_secondary_ = nullptr;
   compact_timer_caption_ = compact_timer_date_ = nullptr;
@@ -2271,7 +2274,6 @@ void DisplayShell::prepare_active_screen(const char* screen_name) {
   camera_presentation_window_us_ = 0;
   printer_animation_root_ = nullptr;
   printer_animation_gesture_surface_ = nullptr;
-  printer_animation_label_ = nullptr;
   printer_animation_canvas_ = nullptr;
   printer_animation_gif_ = nullptr;
   camera_spinner_ = nullptr;
@@ -3466,20 +3468,6 @@ void DisplayShell::create_printer_animation(lv_obj_t* parent) {
   lv_obj_add_event_cb(printer_animation_root_, screen_event, LV_EVENT_PRESS_LOST, this);
   lv_obj_add_event_cb(printer_animation_root_, screen_event, LV_EVENT_LONG_PRESSED, this);
 
-  printer_animation_label_ = lv_label_create(printer_animation_root_);
-  apply_text_style(printer_animation_label_, lv_color_hex(theme_colors_.idle),
-                   kDisplayUsesLargeLayout ? &lv_font_montserrat_16 : &lv_font_montserrat_12);
-  lv_obj_set_width(printer_animation_label_, kDisplayUsesLargeLayout ? 330 : 190);
-  lv_obj_set_style_text_align(printer_animation_label_, LV_TEXT_ALIGN_CENTER,
-                              LV_PART_MAIN);
-  lv_obj_align(printer_animation_label_, LV_ALIGN_BOTTOM_MID, 0,
-               kDisplayUsesLargeLayout ? -64 : -40);
-  lv_obj_set_style_bg_color(printer_animation_label_, lv_color_black(), LV_PART_MAIN);
-  lv_obj_set_style_bg_opa(printer_animation_label_, LV_OPA_80, LV_PART_MAIN);
-  lv_obj_set_style_radius(printer_animation_label_, 5, LV_PART_MAIN);
-  lv_obj_set_style_pad_ver(printer_animation_label_, 3, LV_PART_MAIN);
-  make_gesture_passthrough(printer_animation_label_);
-
   printer_animation_gif_ = lv_gif_create(printer_animation_root_);
   // Web Config flattens custom uploads into opaque full frames. RGB565 keeps
   // the decoder buffer and display bandwidth bounded without relying on
@@ -3603,11 +3591,6 @@ void DisplayShell::show_printer_reactions(const core::PrinterProfile& profile,
                    kDisplayUsesLargeLayout ? kPrinterProgressTopOffsetPx : 7);
     }
     create_printer_animation(lv_screen_active());
-    // Ordinary reactions remain visual. Reported preparation details can add
-    // a compact caption without replacing the selected reaction image.
-    if (printer_animation_label_ != nullptr) {
-      lv_obj_add_flag(printer_animation_label_, LV_OBJ_FLAG_HIDDEN);
-    }
     // Keep the progress chrome above opaque custom GIFs.
     if (progress_arc_ != nullptr) lv_obj_move_foreground(progress_arc_);
     if (progress_label_ != nullptr) lv_obj_move_foreground(progress_label_);
@@ -3722,18 +3705,6 @@ void DisplayShell::update_printer_animation(const core::JobState& job) {
   }
   if (!found_color) use_slot_color(job.materials.external_spool);
 
-  const bool show_activity_detail = !capture_animation_override_active_ &&
-      job.activity_status_available && next != core::PrinterActivity::unknown &&
-      next != core::PrinterActivity::printing;
-  if (show_activity_detail) {
-    const std::string text = core::localized_activity_text(language_, job);
-    lv_label_set_text(printer_animation_label_, text.c_str());
-    lv_obj_remove_flag(printer_animation_label_, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_text_color(printer_animation_label_, lv_color_white(), LV_PART_MAIN);
-    lv_obj_move_foreground(printer_animation_label_);
-  } else {
-    lv_obj_add_flag(printer_animation_label_, LV_OBJ_FLAG_HIDDEN);
-  }
   render_printer_animation_frame();
 }
 
@@ -3857,9 +3828,6 @@ void DisplayShell::render_printer_animation_frame() {
   if (update_printer_animation_source()) return;
   if (!ensure_printer_animation_canvas()) return;
 
-  lv_obj_set_style_text_color(printer_animation_label_,
-                              lv_color_white(),
-                              LV_PART_MAIN);
   const PrinterAnimationPalette palette{
       .background = theme_style_.background,
       .primary = printer_animation_primary_color_,
@@ -4360,11 +4328,29 @@ void DisplayShell::show_resin_reactions(const core::PrinterProfile& profile,
       next != core::ResinReaction::standby && next != core::ResinReaction::stopped;
   const auto layer = valid_layers ? snapshot.job.current_layer : std::uint16_t{0};
   const auto total = valid_layers ? snapshot.job.total_layers : std::uint16_t{0};
+  const bool valid_time = snapshot.job.reachable && next != core::ResinReaction::error &&
+      next != core::ResinReaction::unavailable && next != core::ResinReaction::standby &&
+      next != core::ResinReaction::stopped;
+  const auto secondary = core::print_time_display(snapshot.job, std::time(nullptr),
+                                                   clock_date_format_.load());
+  const std::string finish = valid_time && next != core::ResinReaction::paused &&
+      next != core::ResinReaction::complete && secondary.kind == core::PrintTimeDisplay::Kind::end_at
+      ? secondary.value : "";
+  const std::string finish_date = finish.empty() ? "" : secondary.date;
+  const std::optional<std::uint32_t> elapsed = valid_time && snapshot.job.elapsed_known
+      ? std::optional<std::uint32_t>{snapshot.job.elapsed_seconds} : std::nullopt;
+  const char* elapsed_caption = next == core::ResinReaction::complete ? "Print time" : "Elapsed";
   const bool changed_readout = created || resin_reaction_remaining_ != remaining ||
-      resin_reaction_layer_ != layer || resin_reaction_total_ != total;
+      resin_reaction_layer_ != layer || resin_reaction_total_ != total ||
+      resin_reaction_finish_ != finish || resin_reaction_finish_date_ != finish_date ||
+      resin_reaction_elapsed_ != elapsed || std::strcmp(resin_reaction_elapsed_caption_, elapsed_caption) != 0;
   resin_reaction_remaining_ = remaining;
   resin_reaction_layer_ = layer;
   resin_reaction_total_ = total;
+  resin_reaction_finish_ = finish;
+  resin_reaction_finish_date_ = finish_date;
+  resin_reaction_elapsed_ = elapsed;
+  resin_reaction_elapsed_caption_ = elapsed_caption;
   update_resin_reaction_readout(changed_readout);
   const auto progress = core::resin_reaction_progress(snapshot.job);
   lv_obj_set_width(resin_reaction_footer_accent_, LV_PCT(progress));
@@ -4391,23 +4377,34 @@ void DisplayShell::resin_reaction_tick(lv_timer_t* timer) {
 }
 
 void DisplayShell::update_resin_reaction_readout(bool force) {
-  const bool layers = ((lv_tick_get() - resin_readout_started_ms_) / 5000U) % 2U != 0;
-  if (!force && layers == resin_readout_layers_) return;
-  resin_readout_layers_ = layers;
-  lv_label_set_text_fmt(resin_reaction_caption_, "%s:", tr(layers ? "Layer" : "Remaining"));
+  const auto readout = core::resin_reaction_readout(lv_tick_get() - resin_readout_started_ms_,
+      !resin_reaction_finish_.empty(), resin_reaction_elapsed_.has_value());
+  if (!force && readout == resin_readout_) return;
+  resin_readout_ = readout;
+  const bool layers = readout == core::ResinReadout::layers;
+  const bool finish = readout == core::ResinReadout::end_at;
+  const bool elapsed = readout == core::ResinReadout::elapsed;
+  std::string caption = std::string(tr(layers ? "Layer" : finish ? "End at"
+      : elapsed ? resin_reaction_elapsed_caption_ : "Remaining")) + ":";
+  if (finish && !resin_reaction_finish_date_.empty()) caption += " " + resin_reaction_finish_date_;
+  set_label_text_if_changed(resin_reaction_caption_, caption.c_str());
   char text[24]{};
   if (layers && resin_reaction_total_ > 0)
     std::snprintf(text, sizeof(text), "%u/%u", static_cast<unsigned>(resin_reaction_layer_),
                   static_cast<unsigned>(resin_reaction_total_));
   else if (layers) std::snprintf(text, sizeof(text), "--/--");
-  else if (const auto seconds = resin_reaction_remaining_)
+  else if (finish) std::snprintf(text, sizeof(text), "%s", resin_reaction_finish_.c_str());
+  else if (const auto seconds = elapsed ? resin_reaction_elapsed_ : resin_reaction_remaining_)
     std::snprintf(text, sizeof(text), "%u:%02u:%02u", static_cast<unsigned>(*seconds / 3600U),
                   static_cast<unsigned>((*seconds / 60U) % 60U), static_cast<unsigned>(*seconds % 60U));
   else std::snprintf(text, sizeof(text), "--:--:--");
-  if constexpr (!kDisplayUsesLargeLayout)
-    apply_text_style(remaining_label_, lv_color_hex(0xF4FAFF),
-                     std::strlen(text) > 9 ? &lv_font_montserrat_24 : &lv_font_montserrat_32);
-  lv_label_set_text(remaining_label_, text);
+  const auto* font = status_fixed_field_font(remaining_label_, text,
+      {resin_reaction_time_font_ ? resin_reaction_time_font_ : localized_font(&lv_font_montserrat_32),
+       localized_font(&lv_font_montserrat_32), localized_font(&lv_font_montserrat_24),
+       localized_font(&lv_font_montserrat_16), localized_font(&lv_font_montserrat_12, false)});
+  if (lv_obj_get_style_text_font(remaining_label_, LV_PART_MAIN) != font)
+    lv_obj_set_style_text_font(remaining_label_, font, LV_PART_MAIN);
+  set_label_text_if_changed(remaining_label_, text);
 }
 
 void DisplayShell::render_resin_reaction(bool update_scene) {
@@ -4914,9 +4911,8 @@ void DisplayShell::show_resin_status(const core::PrinterProfile& profile,
     lv_label_set_text(remaining_title, tr("Remaining"));
     remaining_label_ = label(x, large ? 199 : 96, width, large ? 30 : 22,
         large ? &lv_font_montserrat_24 : &lv_font_montserrat_16, theme_style_.accent_secondary);
-    auto* elapsed_title = label(x, large ? 246 : 125, width, large ? 22 : 17,
+    status_time_caption_label_ = label(x, large ? 246 : 125, width, large ? 22 : 17,
         large ? &lv_font_montserrat_16 : &lv_font_montserrat_12, theme_style_.text_muted);
-    lv_label_set_text(elapsed_title, tr("Elapsed"));
     total_time_label_ = label(x, large ? 271 : 142, width, large ? 28 : 22,
         large ? &lv_font_montserrat_24 : &lv_font_montserrat_16, theme_style_.text_secondary);
     layer_label_ = label(large ? 83 : 30, large ? 335 : 173, large ? 300 : 180,
@@ -4940,8 +4936,7 @@ void DisplayShell::show_resin_status(const core::PrinterProfile& profile,
       ? "No active print" : "Filename unavailable") : name.c_str());
   lv_label_set_text(remaining_label_, snapshot.job.remaining_known
       ? timer(snapshot.job.remaining_seconds).c_str() : "--");
-  lv_label_set_text(total_time_label_, snapshot.job.elapsed_known
-      ? timer(snapshot.job.elapsed_seconds).c_str() : "--");
+  update_status_secondary_time(snapshot.job);
   if (snapshot.job.total_layers > 0)
     lv_label_set_text_fmt(layer_label_, "%s: %u / %u", tr("Layer"), snapshot.job.current_layer, snapshot.job.total_layers);
   else lv_label_set_text_fmt(layer_label_, "%s: -- / --", tr("Layer"));
@@ -5158,17 +5153,8 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
   };
   const std::string remaining = active_job && snapshot.job.remaining_known
       ? core::print_duration_units(snapshot.job.remaining_seconds) : "--";
-  const auto secondary_time = core::print_time_display(snapshot.job, std::time(nullptr),
-                                                        clock_date_format_.load());
   set_number(remaining_label_, remaining.c_str(), 174);
-  set_number(total_time_label_, secondary_time.value.c_str(), 174);
-  char caption[96]{};
-  if (secondary_time.kind != core::PrintTimeDisplay::Kind::unavailable) {
-    std::snprintf(caption, sizeof(caption), "%s:%s%s",
-        tr(secondary_time.kind == core::PrintTimeDisplay::Kind::end_at ? "End at" : "Print time"),
-        secondary_time.date.empty() ? "" : " ", secondary_time.date.c_str());
-  }
-  set_label_text_if_changed(status_time_caption_label_, caption);
+  update_status_secondary_time(snapshot.job);
   char value[32]{};
   if (snapshot.job.current_layer > 0 || snapshot.job.total_layers > 0) {
     std::snprintf(value, sizeof(value), "%u/%u", snapshot.job.current_layer, snapshot.job.total_layers);
@@ -5437,6 +5423,28 @@ void DisplayShell::show_printer_nozzles(const core::PrinterProfile& profile,
   board_display_unlock();
 }
 
+std::uint64_t DisplayShell::print_time_view_ms() const {
+  return static_cast<std::uint64_t>(esp_timer_get_time() / 1000) - print_time_view_started_ms_;
+}
+
+void DisplayShell::update_status_secondary_time(const core::JobState& job) {
+  const auto time = core::print_time_display(job, std::time(nullptr),
+                                            clock_date_format_.load(), print_time_view_ms());
+  const auto* font = status_fixed_field_font(total_time_label_, time.value.c_str(),
+      {localized_font(kDisplayUsesLargeLayout ? &lv_font_montserrat_24 : &lv_font_montserrat_16),
+       localized_font(&lv_font_montserrat_16), localized_font(&lv_font_montserrat_14),
+       localized_font(&lv_font_montserrat_12, false)});
+  if (lv_obj_get_style_text_font(total_time_label_, LV_PART_MAIN) != font)
+    lv_obj_set_style_text_font(total_time_label_, font, LV_PART_MAIN);
+  set_label_text_if_changed(total_time_label_, time.value.c_str());
+  std::string caption;
+  if (time.kind != core::PrintTimeDisplay::Kind::unavailable) {
+    caption = std::string(tr(time.caption_key(job))) + ":";
+    if (!time.date.empty()) caption += " " + time.date;
+  }
+  set_label_text_if_changed(status_time_caption_label_, caption.c_str());
+}
+
 void DisplayShell::create_compact_timers() {
   constexpr bool large = kDisplayUsesLargeLayout;
   constexpr int width = large ? 320 : 204;
@@ -5490,26 +5498,28 @@ void DisplayShell::create_compact_timers() {
 
 void DisplayShell::update_compact_timers(const core::JobState& job) {
   constexpr bool large = kDisplayUsesLargeLayout;
-  const auto finish = core::print_time_display(job, std::time(nullptr), clock_date_format_.load());
+  const auto finish = core::print_time_display(job, std::time(nullptr),
+                                               clock_date_format_.load(), print_time_view_ms());
   const bool running = job.phase == core::JobPhase::printing || job.phase == core::JobPhase::preparing;
   const bool remaining = running && job.remaining_known && job.remaining_seconds > 0;
   const bool end_at = remaining && finish.kind == core::PrintTimeDisplay::Kind::end_at;
   const bool elapsed = !remaining && finish.kind == core::PrintTimeDisplay::Kind::elapsed;
+  const bool secondary = remaining && finish.kind != core::PrintTimeDisplay::Kind::unavailable;
   const auto hide = [](lv_obj_t* object, bool hidden) {
     if (hidden) lv_obj_add_flag(object, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_remove_flag(object, LV_OBJ_FLAG_HIDDEN);
   };
   hide(compact_timer_primary_, !remaining && !elapsed);
-  hide(compact_timer_secondary_, !end_at);
-  const int width = end_at ? (large ? 150 : 100) : (large ? 320 : 204);
+  hide(compact_timer_secondary_, !secondary);
+  const int width = secondary ? (large ? 150 : 100) : (large ? 320 : 204);
   lv_obj_set_width(compact_timer_primary_, width);
   for (auto* object : {compact_timer_caption_, remaining_label_})
-    lv_obj_set_style_text_align(object, end_at ? LV_TEXT_ALIGN_LEFT : LV_TEXT_ALIGN_CENTER,
+    lv_obj_set_style_text_align(object, secondary ? LV_TEXT_ALIGN_LEFT : LV_TEXT_ALIGN_CENTER,
                                 LV_PART_MAIN);
   const std::uint32_t seconds = remaining ? job.remaining_seconds : job.elapsed_seconds;
   std::string duration = core::print_duration_units(seconds, false);
   if constexpr (!large) {
-    if (end_at && seconds >= 100U * 3600U) {
+    if (secondary && seconds >= 100U * 3600U) {
       // Keep long durations readable on a single line on the small panels.
       char text[32]{};
       std::snprintf(text, sizeof(text), "%uh %02um", static_cast<unsigned>(seconds / 3600U),
@@ -5526,18 +5536,18 @@ void DisplayShell::update_compact_timers(const core::JobState& job) {
       lv_obj_set_style_text_font(object, font, LV_PART_MAIN);
     set_label_text_if_changed(object, text);
   };
-  const std::string caption = std::string(tr(remaining ? "Time left" : "Print time")) + ":";
+  const std::string caption = std::string(tr(remaining ? "Time left" : finish.caption_key(job))) + ":";
   set_label_text_if_changed(compact_timer_caption_, caption.c_str());
   number(remaining_label_, remaining || elapsed ? duration.c_str() : "", width);
   const auto color = lv_color_hex(remaining ? theme_style_.accent_secondary : theme_style_.text_secondary);
   if (!lv_color_eq(lv_obj_get_style_text_color(remaining_label_, LV_PART_MAIN), color))
     lv_obj_set_style_text_color(remaining_label_, color, LV_PART_MAIN);
-  std::string end_caption = std::string(tr("End at")) + ":";
+  std::string end_caption = std::string(tr(finish.caption_key(job))) + ":";
   if constexpr (!large) {
     if (!finish.date.empty()) end_caption += " " + finish.date;
   }
   set_label_text_if_changed(status_time_caption_label_, end_caption.c_str());
-  number(total_time_label_, end_at ? finish.value.c_str() : "", large ? 150 : 100);
+  number(total_time_label_, secondary ? finish.value.c_str() : "", large ? 150 : 100);
   if (compact_timer_date_) set_label_text_if_changed(compact_timer_date_, end_at ? finish.date.c_str() : "");
 }
 
