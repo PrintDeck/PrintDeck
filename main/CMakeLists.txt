@@ -252,9 +252,14 @@ foreach(font_size 12 14 16 24 32)
     target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=lv_font_montserrat_${font_size}")
 endforeach()
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Wpedantic)
-# Configuration and status parsing are not rendering hot paths. Prefer compact
-# code here to keep the application within the existing 5 MiB OTA slots.
+# Configuration, API serialization and bounded network management favor compact
+# code. Keep rendering, media decoding and runtime scheduling at the target's
+# normal optimization level while preserving room in the 5 MiB OTA slots.
 set_source_files_properties(
+    "src/core/configuration_backup.cpp"
+    "src/core/firmware_channel.cpp"
+    "src/core/settings.cpp"
+    "src/core/unified_printer_api.cpp"
     "src/platform/web_config.cpp"
     "src/platform/bambu_report_parser.cpp"
     "src/platform/elegoo_sdcp_parser.cpp"
@@ -265,4 +270,13 @@ set_source_files_properties(
     "src/platform/inactive_printer_poller.cpp"
     "src/platform/prusalink_client.cpp"
     "src/platform/moonraker_adapter.cpp"
+    "src/platform/settings_store.cpp"
+    "src/platform/network_service.cpp"
+    "src/platform/printer_discovery_service.cpp"
+    "src/platform/moonraker_connection_probe.cpp"
+    "src/platform/prusalink_discovery.cpp"
+    "src/platform/elegoo_connection_probe.cpp"
+    "src/platform/uniformation_connection_probe.cpp"
+    "src/platform/bambu_compatibility_probe.cpp"
+    "src/platform/firmware_update_service.cpp"
     PROPERTIES COMPILE_OPTIONS "-Os")

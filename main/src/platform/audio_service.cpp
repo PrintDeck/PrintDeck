@@ -153,17 +153,12 @@ void* allocate_audio_resource(std::size_t size) {
 }
 
 #define PRINTDECK_ADPCM_SAMPLE(name) audio_assets::name
-constexpr std::size_t kVoiceEventCount = 12;
+constexpr std::size_t kVoiceEventCount = 7;
 #define PRINTDECK_VOICE_SAMPLE_SET(language)                                    \
-  {{PRINTDECK_ADPCM_SAMPLE(voice_##language##_startup),                         \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_started),                   \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_progress_25),                     \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_progress_50),                     \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_progress_75),                     \
+  {{PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_started),                   \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_paused),                    \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_finished),                  \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_error),                     \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_hms_alert),                       \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_filament_attention),              \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_shutdown),                        \
     PRINTDECK_ADPCM_SAMPLE(voice_##language##_restarting)}}
@@ -179,19 +174,19 @@ const std::array<std::array<AdpcmSample, kVoiceEventCount>, 6> kVoiceSamples{{
 
 bool is_voice_event(AudioService::Event event) {
   switch (event) {
-    case AudioService::Event::startup:
     case AudioService::Event::print_started:
-    case AudioService::Event::progress_25:
-    case AudioService::Event::progress_50:
-    case AudioService::Event::progress_75:
     case AudioService::Event::print_paused:
     case AudioService::Event::print_finished:
     case AudioService::Event::print_error:
-    case AudioService::Event::hms_alert:
     case AudioService::Event::filament_attention:
     case AudioService::Event::shutdown:
     case AudioService::Event::restarting:
       return true;
+    case AudioService::Event::startup:
+    case AudioService::Event::hms_alert:
+    case AudioService::Event::progress_25:
+    case AudioService::Event::progress_50:
+    case AudioService::Event::progress_75:
     case AudioService::Event::navigation:
     case AudioService::Event::orientation:
     case AudioService::Event::shutdown_countdown:
@@ -203,18 +198,18 @@ bool is_voice_event(AudioService::Event event) {
 
 std::size_t voice_event_index(AudioService::Event event) {
   switch (event) {
-    case AudioService::Event::startup: return 0;
-    case AudioService::Event::print_started: return 1;
-    case AudioService::Event::progress_25: return 2;
-    case AudioService::Event::progress_50: return 3;
-    case AudioService::Event::progress_75: return 4;
-    case AudioService::Event::print_paused: return 5;
-    case AudioService::Event::print_finished: return 6;
-    case AudioService::Event::print_error: return 7;
-    case AudioService::Event::hms_alert: return 8;
-    case AudioService::Event::filament_attention: return 9;
-    case AudioService::Event::shutdown: return 10;
-    case AudioService::Event::restarting: return 11;
+    case AudioService::Event::print_started: return 0;
+    case AudioService::Event::print_paused: return 1;
+    case AudioService::Event::print_finished: return 2;
+    case AudioService::Event::print_error: return 3;
+    case AudioService::Event::filament_attention: return 4;
+    case AudioService::Event::shutdown: return 5;
+    case AudioService::Event::restarting: return 6;
+    case AudioService::Event::startup:
+    case AudioService::Event::hms_alert:
+    case AudioService::Event::progress_25:
+    case AudioService::Event::progress_50:
+    case AudioService::Event::progress_75:
     case AudioService::Event::navigation:
     case AudioService::Event::orientation:
     case AudioService::Event::shutdown_countdown:
@@ -231,10 +226,10 @@ AdpcmSample voice_sample_for(std::uint8_t language, AudioService::Event event) {
 
 AdpcmSample modern_sample_for(AudioService::Event event) {
   switch (event) {
-    case AudioService::Event::startup: return PRINTDECK_ADPCM_SAMPLE(modern_startup);
     case AudioService::Event::navigation: return PRINTDECK_ADPCM_SAMPLE(modern_navigation);
     case AudioService::Event::orientation: return PRINTDECK_ADPCM_SAMPLE(modern_orientation);
     case AudioService::Event::print_started: return PRINTDECK_ADPCM_SAMPLE(modern_print_started);
+    case AudioService::Event::startup:
     case AudioService::Event::progress_25:
     case AudioService::Event::progress_50:
     case AudioService::Event::progress_75:
@@ -259,7 +254,7 @@ AdpcmSample modern_sample_for(AudioService::Event event) {
 
 AdpcmSample arcade_sample_for(AudioService::Event event) {
   switch (event) {
-    PRINTDECK_ADPCM_CASE(arcade, startup);
+    case AudioService::Event::startup: return PRINTDECK_ADPCM_SAMPLE(arcade_test);
     PRINTDECK_ADPCM_CASE(arcade, navigation);
     PRINTDECK_ADPCM_CASE(arcade, orientation);
     PRINTDECK_ADPCM_CASE(arcade, print_started);
@@ -281,7 +276,7 @@ AdpcmSample arcade_sample_for(AudioService::Event event) {
 
 AdpcmSample scifi_sample_for(AudioService::Event event) {
   switch (event) {
-    PRINTDECK_ADPCM_CASE(scifi, startup);
+    case AudioService::Event::startup: return PRINTDECK_ADPCM_SAMPLE(scifi_test);
     PRINTDECK_ADPCM_CASE(scifi, navigation);
     PRINTDECK_ADPCM_CASE(scifi, orientation);
     PRINTDECK_ADPCM_CASE(scifi, print_started);
@@ -731,6 +726,8 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
     write_silence(codec, 1024);
     return;
   }
+  // The startup jingle keeps the Retro sound across every notification preset.
+  if (event == Event::startup) preset = Preset::oldschool;
   const Melody selected = melody_for(event);
   const SoundStyle style = style_for(preset);
   const int sample_volume = std::min(requested_volume, style.maximum_volume);
@@ -751,7 +748,8 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
     }
     ESP_LOGE(kLogTag, "Modern ADPCM asset is invalid");
   }
-  if (preset == Preset::arcade || preset == Preset::scifi || preset == Preset::clean) {
+  if (preset == Preset::arcade || preset == Preset::scifi ||
+      (preset == Preset::clean && !generated_progress && event != Event::hms_alert)) {
     const int effect_volume =
         preset == Preset::clean && event == Event::orientation
             ? std::max(1, sample_volume * 60 / 100)

@@ -470,23 +470,10 @@ ElegooSdcpMessage ElegooSdcpParser::ingest(std::string_view message, std::uint64
     if (cJSON_IsNull(fans)) { job.motion.fan_percent_known = false; job.motion.fan_percent = 0; }
     else metric(fans, "ModelFan", job.motion.fan_percent, job.motion.fan_percent_known, 100);
   }
-  if (const auto* coordinate = member(status, "CurrenCoord")) {
-    const auto value = text(coordinate, 96);
-    std::array<float, 3> parsed{};
-    bool valid = value.has_value();
-    std::string_view remaining = value ? std::string_view(*value) : std::string_view{};
-    for (unsigned i = 0; valid && i < 3; ++i) {
-      const auto comma = remaining.find(',');
-      const auto part = remaining.substr(0, comma);
-      const auto result = std::from_chars(part.data(), part.data() + part.size(), parsed[i]);
-      valid = !part.empty() && result.ec == std::errc{} && result.ptr == part.data() + part.size() && std::isfinite(parsed[i]) && std::abs(parsed[i]) <= 10000 && (i == 2 ? comma == std::string_view::npos : comma != std::string_view::npos);
-      if (i != 2 && comma != std::string_view::npos) remaining.remove_prefix(comma + 1);
-    }
-    job.motion.position_known = job.motion.x_known = job.motion.y_known = job.motion.z_known = valid;
-    job.motion.x_mm = valid ? parsed[0] : 0; job.motion.y_mm = valid ? parsed[1] : 0; job.motion.z_mm = valid ? parsed[2] : 0;
-  }
+  // CC1 coordinates are optional display telemetry. Leave them unavailable to
+  // avoid retaining a floating-point text converter for this readout alone.
   // Temperature-only deltas remain useful, but cannot supply the initial state baseline.
-  for (const auto* field : {"TempOfNozzle", "TempTargetNozzle", "TempOfHotbed", "TempTargetHotbed", "TempOfBox", "CurrenCoord", "CurrentFanSpeed"})
+  for (const auto* field : {"TempOfNozzle", "TempTargetNozzle", "TempOfHotbed", "TempTargetHotbed", "TempOfBox", "CurrentFanSpeed"})
     meaningful = meaningful || member(status, field);
   if (!meaningful) return ElegooSdcpMessage::ignored;
   job.toolhead_count = 1; job.active_toolhead = 0;
