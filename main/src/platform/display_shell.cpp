@@ -7575,7 +7575,9 @@ void DisplayShell::media_zoom_event(lv_event_t* event) {
   if (camera ? (!shell->camera_page_active() || !shell->camera_pixels_ || shell->camera_pixels_->empty())
              : (!preview || (!zoom_open && (!shell->preview_pixels_ || shell->preview_pixels_->empty())))) return;
   const char* zoom_name = camera ? "local-camera-zoom" : shell->view_ == 60 ? "resin-print-preview" : "print-preview";
-  const char* base_name = camera ? "local-camera" : shell->view_ == 60 ? "resin-printer-status" : "printer-status";
+  const char* base_name = camera
+      ? (shell->companion_camera_slot() >= 0 ? "printdeck-camera" : "local-camera")
+      : shell->view_ == 60 ? "resin-printer-status" : "printer-status";
   // A custom carousel swipe can also finish as a short click in LVGL. Only a
   // stationary tap toggles the image, and a long press remains Quick Menu.
   lv_indev_t* input = lv_indev_active();
