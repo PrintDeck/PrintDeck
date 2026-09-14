@@ -58,6 +58,8 @@ class Runtime {
   static void page_refresh_entry(void* context);
   static void chamber_light_changed_entry(void* context, bool enabled);
   static void camera_mode_changed_entry(void* context, bool live);
+  static void companion_action_entry(void* context,int action,const char* id,std::uint32_t printer);
+
   static void update_check_entry(void* context);
   static void update_install_entry(void* context);
   static bool selected_printer_snapshot_entry(
@@ -112,6 +114,12 @@ class Runtime {
   MoonrakerCameraClient moonraker_camera_;
   InactivePrinterPoller inactive_printer_poller_;
   PrinterDiscoveryService printer_discovery_;
+  CompanionCameraService companion_camera_;
+  std::atomic<int> pending_companion_scan_{0};
+  std::mutex companion_pair_mutex_;
+  std::string pending_companion_id_;
+  std::uint32_t pending_companion_printer_=0;
+
   FirmwareUpdateService firmware_update_;
   ReactionAssetService reaction_assets_;
   BambuLanAdapter bambu_lan_;

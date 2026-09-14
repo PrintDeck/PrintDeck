@@ -6,12 +6,13 @@
 #include <vector>
 
 #include "printdeck/core/device_state.hpp"
+#include "printdeck/core/companion_camera.hpp"
 #include "printdeck/core/theme.hpp"
 
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 15;
+constexpr std::uint8_t kSettingsSchemaVersion = 16;
 constexpr std::uint32_t kDisplayDurationUntilWake = 86401;
 constexpr std::uint8_t kScreenSaverCircles = 0;
 constexpr std::uint8_t kScreenSaverGoingToSleep = 1;
@@ -79,6 +80,7 @@ struct DeviceSettings {
   std::string wifi_name;
   std::string wifi_password;
   std::vector<PrinterProfile> profiles;
+  std::vector<CompanionCamera> companion_cameras;
   std::uint32_t selected_profile = 0;
   std::uint8_t brightness_percent = 75;
   bool printer_animations_enabled = false;

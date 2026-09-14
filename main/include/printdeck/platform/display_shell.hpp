@@ -10,6 +10,7 @@
 #include "esp_err.h"
 #include "esp_lcd_touch.h"
 #include "lvgl.h"
+#include "printdeck/platform/companion_camera_service.hpp"
 #include "printdeck/core/device_state.hpp"
 #include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/core/settings.hpp"
@@ -69,6 +70,12 @@ class DisplayShell {
   void return_to_printer_list();
   bool open_printer_when_ready(std::uint32_t profile_id);
   bool camera_page_active() const;
+  int companion_camera_slot() const;
+  bool camera_add_page_active() const;
+  void set_companion_cameras(const std::vector<core::CompanionCamera>& cameras);
+  using CompanionAction = void (*)(void*, int, const char*, std::uint32_t);
+  void set_companion_service(CompanionCameraService* service, CompanionAction action, void* context);
+
   bool printer_status_page_active() const;
   // Core-0 background rendering waits for this short, touch-driven quiet
   // window instead of contending with the core-1 LVGL event handler. The
@@ -143,6 +150,10 @@ class DisplayShell {
   static void printer_list_scroll_event(lv_event_t* event);
   static void printer_retry_wait_finished(lv_timer_t* timer);
   static void camera_mode_event(lv_event_t* event);
+  static void companion_action_event(lv_event_t* event);
+  void show_companion_add(const core::PrinterProfile& profile);
+  void configure_camera_pages(std::uint32_t printer, bool native);
+
   static void media_zoom_event(lv_event_t* event);
   void update_camera_image(const core::JobState& job);
   void update_media_zoom_geometry();
@@ -164,7 +175,7 @@ class DisplayShell {
   void show_wifi_setup_language_picker();
   void start_horizontal_transition(int target_page, bool show_printer_list,
                                    int direction, std::uint32_t target_profile_id = 0,
-                                   int target_printer_subpage = 0);
+                                   int target_printer_subpage = 0, bool play_feedback = true);
   void cancel_horizontal_transition_locked(bool stop_reveal_animation = true);
   bool horizontal_destination(bool forward, int* target_page,
                               bool* target_printer_list,
@@ -524,6 +535,18 @@ class DisplayShell {
   std::atomic<int> horizontal_depth_{0};
   std::atomic<int> horizontal_depth_count_{2};
   std::atomic<int> selected_camera_depth_{0};
+  std::atomic<int> camera_subpage_{0}, camera_page_count_{1};
+  std::atomic<bool> native_camera_page_{false};
+  std::array<std::atomic<int>, core::kMaximumCompanionCameras> companion_slots_{};
+  std::vector<core::CompanionCamera> companion_cameras_;
+  std::vector<std::string> pairing_camera_ids_;
+  CompanionCameraService* companion_service_=nullptr;
+  CompanionAction companion_action_=nullptr;
+  void* companion_context_=nullptr;
+  lv_obj_t* companion_results_=nullptr;
+  lv_obj_t* companion_progress_=nullptr;
+  lv_obj_t* companion_search_=nullptr;
+
   std::atomic<int> selected_light_depth_{0};
   std::atomic<bool> selected_is_bambu_{false};
   std::atomic<bool> selected_is_resin_{false};

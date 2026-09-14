@@ -16,6 +16,7 @@
 #include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/core/unified_printer_api.hpp"
 #include "printdeck/platform/network_service.hpp"
+#include "printdeck/platform/companion_camera_service.hpp"
 #include "printdeck/platform/power_service.hpp"
 #include "printdeck/platform/settings_store.hpp"
 #include "printdeck/platform/moonraker_connection_probe.hpp"
@@ -79,6 +80,8 @@ class WebConfig {
   esp_err_t save_audio(bool enabled, int volume_percent);
   esp_err_t save_audio_preset(std::string_view preset);
   esp_err_t save_camera_mode(bool live);
+  void set_companion_service(CompanionCameraService* service) { companion_service_=service; }
+  esp_err_t assign_camera(const core::CompanionCamera& camera, std::uint32_t printer);
   esp_err_t save_theme(const char* theme, bool& changed);
   esp_err_t save_language(std::string_view language);
   esp_err_t save_printer_animations(bool enabled);
@@ -88,6 +91,9 @@ class WebConfig {
   bool uniformation_check_running() const { return uniformation_probe_.snapshot().running; }
 
  private:
+  CompanionCameraService* companion_service_=nullptr;
+  static esp_err_t cameras_entry(httpd_req_t* request);
+  esp_err_t cameras_request(httpd_req_t* request);
   static esp_err_t root_entry(httpd_req_t* request);
   static esp_err_t world_map_entry(httpd_req_t* request);
   static esp_err_t localizations_entry(httpd_req_t* request);

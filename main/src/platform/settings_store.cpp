@@ -272,6 +272,26 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     if (profile.brand.empty()) profile.brand = driver.default_brand;
     if (result == ESP_OK) loaded.profiles.push_back(std::move(profile));
   }
+  if (result == ESP_OK && schema >= 16) {
+    std::uint8_t count=0;
+    result=read_optional_u8(handle,"pd_cam_count",count);
+    if (count>core::kMaximumCompanionCameras) result=ESP_ERR_INVALID_ARG;
+    for (unsigned i=0; result==ESP_OK && i<count; ++i) {
+      core::CompanionCamera camera;
+      const std::string prefix="pc"+std::to_string(i);
+      result=read_text(handle,(prefix+"id").c_str(),camera.id);
+      if (result==ESP_OK) result=read_text(handle,(prefix+"name").c_str(),camera.name);
+      if (result==ESP_OK) result=read_text(handle,(prefix+"host").c_str(),camera.host);
+      std::uint8_t refs=0;
+      if (result==ESP_OK) result=read_optional_u8(handle,(prefix+"refs").c_str(),refs);
+      if (refs>core::kMaximumProfiles) result=ESP_ERR_INVALID_ARG;
+      for (unsigned j=0;result==ESP_OK && j<refs;++j) {
+        std::uint32_t id=0; result=nvs_get_u32(handle,(prefix+"r"+std::to_string(j)).c_str(),&id);
+        camera.printers.push_back(id);
+      }
+      loaded.companion_cameras.push_back(std::move(camera));
+    }
+  }
   nvs_close(handle);
   if (result != ESP_OK) return result;
   if (!core::migrate_settings(schema, loaded)) return ESP_ERR_INVALID_VERSION;
@@ -326,6 +346,16 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   write(nvs_set_u32(handle, "audio_mute", settings.audio_muted_events));
   write(nvs_set_u32(handle, "list_poll_s",
                     settings.inactive_printer_poll_interval_s));
+  write(nvs_set_u8(handle,"pd_cam_count",settings.companion_cameras.size()));
+  for (std::size_t i=0;i<settings.companion_cameras.size();++i) {
+    const auto& camera=settings.companion_cameras[i]; const std::string prefix="pc"+std::to_string(i);
+    write(write_text(handle,(prefix+"id").c_str(),camera.id));
+    write(write_text(handle,(prefix+"name").c_str(),camera.name));
+    write(write_text(handle,(prefix+"host").c_str(),camera.host));
+    write(nvs_set_u8(handle,(prefix+"refs").c_str(),camera.printers.size()));
+    for (std::size_t j=0;j<camera.printers.size();++j)
+      write(nvs_set_u32(handle,(prefix+"r"+std::to_string(j)).c_str(),camera.printers[j]));
+  }
   write(write_text(handle, "cam_mode", settings.camera_mode));
   write(nvs_set_u8(handle, "cam_snap_fps", settings.camera_snapshot_fps));
   write(nvs_set_u32(handle, "start_idle", settings.display_power.start_timeout_idle_s));

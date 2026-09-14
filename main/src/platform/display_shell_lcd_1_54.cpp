@@ -2446,9 +2446,10 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
     camera_activity_updated_until_us_ = esp_timer_get_time() + 800000;
   }
   if (view_ != 22 || visible_profile_ != profile.id) {
-    prepare_active_screen("local-camera");
+    prepare_active_screen(companion_camera_slot()>=0?"printdeck-camera":"local-camera");
     square_create_printer_chrome(profile, snapshot, &power);
-    lv_label_set_text(title_label_, tr("CAMERA"));
+    const int camera_slot=companion_camera_slot();
+    lv_label_set_text(title_label_,camera_slot>=0?"PrintDeck Camera":tr("CAMERA"));
 
     // Keep the camera description above the image.  The two equal gaps around
     // it visually separate both the progress bar and the camera frame.

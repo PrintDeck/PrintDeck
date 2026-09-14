@@ -275,6 +275,10 @@ void Runtime::start() {
       bambu_local_connection(selected);
   bambu_a1_preview_.configure(bambu_connection);
   bambu_a1_camera_.configure(bambu_connection);
+  web_config_.set_companion_service(&companion_camera_);
+  companion_camera_.configure(settings_.companion_cameras);
+  display_.set_companion_cameras(settings_.companion_cameras);
+  display_.set_companion_service(&companion_camera_,companion_action_entry,this);
   // Reserve the display-state worker before printer-specific services allocate
   // their larger stacks. Web Config starts earlier, so exhausting task memory
   // here would otherwise leave a healthy, connected device permanently showing
@@ -679,6 +683,19 @@ void Runtime::chamber_light_changed_entry(void* context, bool enabled) {
   }
 }
 
+void Runtime::companion_action_entry(void* context,int action,const char* id,std::uint32_t printer) {
+  auto* runtime=static_cast<Runtime*>(context);
+  if(action==3) {
+    {std::lock_guard<std::mutex> lock(runtime->companion_pair_mutex_);
+     if(!runtime->pending_companion_id_.empty())return;
+     runtime->pending_companion_id_=id;runtime->pending_companion_printer_=printer;}
+    runtime->persistence_.request(PersistenceWorker::Slot::settings);
+  } else {
+    runtime->pending_companion_scan_.store(action);
+    if(runtime->monitor_task_)xTaskNotifyGive(runtime->monitor_task_);
+  }
+}
+
 void Runtime::camera_mode_changed_entry(void* context, bool live) {
   auto* runtime = static_cast<Runtime*>(context);
   if (runtime == nullptr) return;
@@ -707,6 +724,17 @@ void Runtime::page_refresh_entry(void* context) {
 }
 
 std::uint32_t Runtime::persist_ui_settings() {
+    std::string camera_id;std::uint32_t printer=0;
+    {std::lock_guard<std::mutex> lock(companion_pair_mutex_);
+     camera_id.swap(pending_companion_id_);printer=pending_companion_printer_;}
+    if(!camera_id.empty()) {
+      const auto discovered=companion_camera_.snapshot();
+      const auto camera=std::find_if(discovered.cameras.begin(),discovered.cameras.end(),[&](const auto& c){return c.id==camera_id;});
+      if(camera==discovered.cameras.end() || web_config_.assign_camera(*camera,printer)!=ESP_OK)
+        companion_camera_.message("Camera could not be added");
+      else companion_camera_.message("Camera added");
+    }
+
     const std::uint32_t selected_profile_write =
         pending_selected_profile_write_.exchange(0xffffffffU,
                                                  std::memory_order_acq_rel);
@@ -942,6 +970,8 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   if (!settings.voice_enabled) voice_.request_stop();
 #endif
   settings_ = settings;
+  companion_camera_.configure(settings.companion_cameras);
+  display_.set_companion_cameras(settings.companion_cameras);
   if (device_name_changed) {
     const esp_err_t name_result = network_.set_device_name(settings.device_name);
     if (name_result != ESP_OK) {
@@ -1288,6 +1318,7 @@ void Runtime::monitor_loop() {
       ESP_LOGI(kLogTag, "Camera stop dispatched");
       moonraker_camera_.stop();
       bambu_a1_camera_.stop();
+      companion_camera_.view(nullptr,1);
       display_.begin_camera_cleanup();
     }
     // Physical touch and the transition-switch callback run inside the core-1
@@ -1410,8 +1441,19 @@ void Runtime::monitor_loop() {
       prusalink_.set_preview_requested(false);
       elegoo_sdcp_.set_preview_requested(false);
     }
+    const int companion_scan=pending_companion_scan_.exchange(0);
+    if(companion_scan==1) {
+      if(companion_camera_.start()==ESP_OK)companion_camera_.search(network);
+      else companion_camera_.message("Camera search unavailable");
+    }
+    if(companion_scan==2)companion_camera_.cancel();
+    companion_camera_.maintain_search(display_.camera_add_page_active());
     const bool camera_page_visible = display_.camera_page_active() && screen_visible &&
         !display_.camera_cleanup_pending();
+    const int companion_slot=display_.companion_camera_slot();
+    const bool want_companion_camera=full_connection_active && camera_page_visible &&
+        network.station_connected && companion_slot>=0 &&
+        static_cast<std::size_t>(companion_slot)<settings_.companion_cameras.size();
     const bool bambu_print_active = selected_is_bambu &&
         active_phase(bambu_lan_.snapshot().job.phase);
     const bool want_bambu_preview =
@@ -1419,18 +1461,23 @@ void Runtime::monitor_loop() {
     const bool bambu_uses_rtsps =
         bambu_lan_.capabilities().camera == BambuCameraProtocol::rtsps;
     const bool want_bambu_camera =
-        want_bambu_connection && camera_page_visible && !bambu_uses_rtsps;
-    const bool want_moonraker_camera = want_moonraker_connection && camera_page_visible;
+        want_bambu_connection && camera_page_visible && companion_slot==-1 && !bambu_uses_rtsps;
+    const bool want_moonraker_camera = want_moonraker_connection && camera_page_visible && companion_slot==-1;
 
 #if defined(PRINTDECK_LOCAL_VOICE)
     voice_.reap_stopped();
-    const bool pause_voice_for_camera = want_bambu_camera || want_moonraker_camera ||
+    const bool pause_voice_for_camera = want_companion_camera || want_bambu_camera || want_moonraker_camera ||
         camera_cleanup_pending_ || bambu_a1_camera_.running() || moonraker_camera_.running();
     if (pause_voice_for_camera) voice_.request_stop();
     const bool camera_voice_ready = !voice_.running();
 #else
     constexpr bool camera_voice_ready = true;
 #endif
+
+    if(want_companion_camera && camera_voice_ready && !camera_cleanup_pending_) {
+      if(companion_camera_.start()==ESP_OK)
+        companion_camera_.view(&settings_.companion_cameras[companion_slot],settings_.camera_snapshot_fps);
+    } else companion_camera_.view(nullptr,1);
 
     // The loading curtain remains until both camera workers have finished
     // releasing sockets, decoder workspace, queued frames and their task stacks.
@@ -1442,6 +1489,7 @@ void Runtime::monitor_loop() {
       camera_cleanup_started_us = esp_timer_get_time();
       moonraker_camera_.stop();
       bambu_a1_camera_.stop();
+      companion_camera_.view(nullptr,1);
       display_.begin_camera_cleanup();
     }
     if (bambu_preview_requested_ && !want_bambu_preview) {
@@ -1458,7 +1506,7 @@ void Runtime::monitor_loop() {
       bambu_lan_.stop();
     }
     if (camera_cleanup_pending_) {
-      if (!moonraker_camera_.running() && !bambu_a1_camera_.running() &&
+      if (!companion_camera_.receiving() && !moonraker_camera_.running() && !bambu_a1_camera_.running() &&
           display_.finish_camera_cleanup()) {
         camera_cleanup_pending_ = false;
         ESP_LOGI(kLogTag, "Camera resources released in %lld ms; destination may render",
@@ -1541,6 +1589,17 @@ void Runtime::monitor_loop() {
         }
       } else if (selected != nullptr && !full_connection_active) {
         selected_snapshot = lightweight_snapshot(*selected);
+      }
+      if(want_companion_camera) {
+        const auto camera=companion_camera_.snapshot();
+        const auto& configured=settings_.companion_cameras[companion_slot];
+        selected_snapshot.job.camera_supported=true;
+        selected_snapshot.job.camera_live_supported=false;
+        selected_snapshot.job.camera_refreshing=camera.refreshing;
+        selected_snapshot.job.camera_detail=configured.name;
+        selected_snapshot.job.camera_frame=camera.frame_camera_id==configured.id?camera.frame:core::CameraFrame{};
+        selected_snapshot.job.camera_width=camera.width;
+        selected_snapshot.job.camera_height=camera.height;
       }
       if (selected != nullptr) {
         selected_snapshot_ready = selected_snapshot.profile_id == selected->id;

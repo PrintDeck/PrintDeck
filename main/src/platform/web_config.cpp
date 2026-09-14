@@ -549,7 +549,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 71;
+  constexpr unsigned route_capacity = 73;
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
@@ -562,6 +562,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/localizations.js", .method = HTTP_GET, .handler = localizations_entry, .user_ctx = this},
       {.uri = "/reactions.js", .method = HTTP_GET, .handler = reactions_script_entry, .user_ctx = this},
       {.uri = "/api/reactions/set-preview", .method = HTTP_GET, .handler = reaction_set_preview_entry, .user_ctx = this},
+      {.uri = "/api/cameras", .method = HTTP_GET, .handler = cameras_entry, .user_ctx = this},
+      {.uri = "/api/cameras", .method = HTTP_POST, .handler = cameras_entry, .user_ctx = this},
       {.uri = "/api/health", .method = HTTP_GET, .handler = health_entry, .user_ctx = this},
       {.uri = "/api/devices/discover", .method = HTTP_POST, .handler = device_discovery_entry, .user_ctx = this},
       {.uri = "/api/devices/discover", .method = HTTP_GET, .handler = device_discovery_entry, .user_ctx = this},
@@ -846,6 +848,88 @@ esp_err_t WebConfig::save_audio_preset(std::string_view preset) {
     settings_ = candidate;
   }
   notify_settings_changed(candidate, false);
+  return ESP_OK;
+}
+
+esp_err_t WebConfig::cameras_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->cameras_request(request);
+}
+
+esp_err_t WebConfig::cameras_request(httpd_req_t* request) {
+  if(!companion_service_)return send_json(request,"503 Service Unavailable","{\"error\":\"Camera settings are unavailable.\"}");
+  if(request->method==HTTP_POST) {
+    std::string body,action,id,printer_text;
+    if(!receive_form(request,body) || !form_value(body,"action",action))
+      return send_json(request,"400 Bad Request","{\"error\":\"Choose a valid camera action.\"}");
+    if(action=="search") {
+      if(!network_->status().station_connected || companion_service_->start()!=ESP_OK)
+        return send_json(request,"503 Service Unavailable","{\"error\":\"Camera search is unavailable.\"}");
+      companion_service_->search(network_->status(),true);
+    } else if(action=="cancel") companion_service_->cancel();
+    else {
+      std::uint32_t printer=0;
+      if(!form_value(body,"id",id) || id.size()!=36 ||
+         (action!="forget" && (!form_value(body,"printer",printer_text) || !parse_id(printer_text,printer) || printer==0)))
+        return send_json(request,"400 Bad Request","{\"error\":\"Choose a camera and printer.\"}");
+      esp_err_t result=ESP_ERR_INVALID_ARG;
+      if(action=="assign") {
+        const auto found=companion_service_->snapshot();
+        const auto camera=std::find_if(found.cameras.begin(),found.cameras.end(),[&](const auto& c){return c.id==id;});
+        if(camera!=found.cameras.end())result=assign_camera(*camera,printer);
+      } else if(action=="unassign" || action=="forget") {
+        const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+        core::DeviceSettings candidate;
+        {const std::lock_guard<std::mutex> lock(mutex_);candidate=settings_;}
+        auto camera=std::find_if(candidate.companion_cameras.begin(),candidate.companion_cameras.end(),[&](const auto& c){return c.id==id;});
+        if(camera!=candidate.companion_cameras.end()) {
+          if(action=="forget")core::forget_companion_camera(candidate.companion_cameras,id);
+          else core::unassign_companion_camera(candidate.companion_cameras,id,printer);
+          result=store_->save(candidate);
+          if(result==ESP_OK) {
+            {const std::lock_guard<std::mutex> lock(mutex_);settings_=candidate;}
+            if(action=="forget")companion_service_->forget(id);
+            companion_service_->configure(candidate.companion_cameras);
+            notify_settings_changed(candidate,true);
+          }
+        }
+      }
+      if(result!=ESP_OK)return send_json(request,"409 Conflict","{\"error\":\"Camera settings could not be saved.\"}");
+    }
+  }
+  if(std::string_view(request->uri).find("watch=1")!=std::string_view::npos)
+    companion_service_->keep_web_search_alive();
+  const auto scan=companion_service_->snapshot();
+  core::DeviceSettings current;
+  {const std::lock_guard<std::mutex> lock(mutex_);current=settings_;}
+  std::string json="{\"scanning\":"+std::string(scan.scanning?"true":"false")+",\"progress\":"+std::to_string(scan.progress)+",\"cameras\":[";
+  bool comma=false;
+  for(const auto& camera:scan.cameras) {
+    if(comma)json+=',';
+    comma=true;
+    const auto known=std::find_if(current.companion_cameras.begin(),current.companion_cameras.end(),[&](const auto& c){return c.id==camera.id;});
+    json+="{\"id\":";append_json_string(json,camera.id);json+=",\"name\":";append_json_string(json,camera.name);
+    json+=",\"host\":";append_json_string(json,camera.host);json+=",\"saved\":";json+=known==current.companion_cameras.end()?"false":"true";
+    json+=",\"printers\":[";
+    bool reference=false;
+    if(known!=current.companion_cameras.end())for(auto printer:known->printers){if(reference)json+=',';reference=true;json+=std::to_string(printer);}
+    json+="]}";
+  }
+  json+="],\"printers\":[";comma=false;
+  for(const auto& printer:current.profiles){if(comma)json+=',';comma=true;json+="{\"id\":"+std::to_string(printer.id)+",\"name\":";append_json_string(json,printer.display_name);json+='}';}
+  json+="]}";
+  return send_json(request,"200 OK",json.c_str());
+}
+
+esp_err_t WebConfig::assign_camera(const core::CompanionCamera& camera, std::uint32_t printer) {
+  const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+  core::DeviceSettings candidate;
+  { const std::lock_guard<std::mutex> lock(mutex_); candidate=settings_; }
+  if (std::none_of(candidate.profiles.begin(),candidate.profiles.end(),[&](const auto& p){return p.id==printer;}) ||
+      !core::assign_companion_camera(candidate.companion_cameras,camera,printer)) return ESP_ERR_INVALID_ARG;
+  const auto result=store_->save(candidate);
+  if (result!=ESP_OK) return result;
+  { const std::lock_guard<std::mutex> lock(mutex_); settings_=candidate; }
+  notify_settings_changed(candidate,true);
   return ESP_OK;
 }
 
@@ -1605,6 +1689,9 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   body += current.reaction_progress_bar_enabled ? "true" : "false";
   body += ",\"reaction_progress_percent_enabled\":";
   body += current.reaction_progress_percent_enabled ? "true" : "false";
+  body += ",\"camera_mode\":";
+  append_json_string(body, current.camera_mode);
+  body += ",\"camera_snapshot_fps\":" + std::to_string(current.camera_snapshot_fps);
   body += ",\"voice_available\":";
   body += kBoardHasLocalVoice ? "true" : "false";
   body += ",\"voice_enabled\":";
@@ -4211,6 +4298,8 @@ esp_err_t WebConfig::manage_printer(httpd_req_t* request) {
     candidate.selected_profile = id;
   } else {
     candidate.profiles.erase(found);
+    for(auto& camera:candidate.companion_cameras)
+      camera.printers.erase(std::remove(camera.printers.begin(),camera.printers.end(),id),camera.printers.end());
     if (candidate.selected_profile == id) {
       // Deleting the active printer must not silently activate another profile;
       // it may be confirmed offline and selection requires an explicit choice.

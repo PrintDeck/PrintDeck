@@ -322,12 +322,43 @@ bool read_reactions(const cJSON* root, ConfigurationBackupReactions& reactions) 
   return true;
 }
 
+bool add_companion_cameras(cJSON* object, const std::vector<CompanionCamera>& cameras) {
+  auto* array=cJSON_AddArrayToObject(object,"companion_cameras");if(!array)return false;
+  for(const auto& camera:cameras) {
+    auto* entry=cJSON_CreateObject();if(!entry)return false;
+    cJSON_AddItemToArray(array,entry);
+    if(!add_string(entry,"id",camera.id) || !add_string(entry,"name",camera.name) || !add_string(entry,"host",camera.host))return false;
+    auto* refs=cJSON_AddArrayToObject(entry,"printers");if(!refs)return false;
+    for(auto id:camera.printers)if(!cJSON_AddItemToArray(refs,cJSON_CreateNumber(id)))return false;
+  }
+  return true;
+}
+bool read_companion_cameras(const cJSON* object,std::vector<CompanionCamera>& cameras,std::uint8_t schema) {
+  cameras.clear();if(schema<16)return true;
+  const auto* array=item(object,"companion_cameras");
+  if(!cJSON_IsArray(array) || cJSON_GetArraySize(array)>static_cast<int>(kMaximumCompanionCameras))return false;
+  for(int i=0;i<cJSON_GetArraySize(array);++i) {
+    CompanionCamera camera;const auto* entry=cJSON_GetArrayItem(array,i);
+    if(!read_string(entry,"id",camera.id,36,true) || !read_string(entry,"name",camera.name,64,true) || !read_string(entry,"host",camera.host,253,true))return false;
+    const auto* refs=item(entry,"printers");if(!cJSON_IsArray(refs) || cJSON_GetArraySize(refs)>10)return false;
+    for(int j=0;j<cJSON_GetArraySize(refs);++j) {
+      const auto* value=cJSON_GetArrayItem(refs,j);
+      if(!cJSON_IsNumber(value) || value->valuedouble<1 || value->valuedouble>UINT32_MAX || value->valuedouble!=static_cast<std::uint32_t>(value->valuedouble))return false;
+      camera.printers.push_back(static_cast<std::uint32_t>(value->valuedouble));
+    }
+    if(!valid_companion_camera(camera))return false;
+    cameras.push_back(std::move(camera));
+  }
+  return true;
+}
+
 bool add_settings(cJSON* root, const DeviceSettings& settings) {
   cJSON* object = cJSON_AddObjectToObject(root, "settings");
   return object && add_string(object, "device_name", settings.device_name) &&
          add_string(object, "wifi_name", settings.wifi_name) &&
          add_string(object, "wifi_password", settings.wifi_password) &&
          add_profiles(object, settings.profiles) &&
+         add_companion_cameras(object, settings.companion_cameras) &&
          add_number(object, "selected_profile", settings.selected_profile) &&
          add_number(object, "brightness_percent", settings.brightness_percent) &&
          add_bool(object, "printer_animations_enabled", settings.printer_animations_enabled) &&
@@ -363,6 +394,7 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
          read_string(object, "wifi_name", settings.wifi_name, 32, required) &&
          read_string(object, "wifi_password", settings.wifi_password, 64, required) &&
          read_profiles(object, settings.profiles, source_schema) &&
+         read_companion_cameras(object, settings.companion_cameras, source_schema) &&
          read_unsigned(object, "selected_profile", settings.selected_profile,
                        std::numeric_limits<std::uint32_t>::max(), required) &&
          read_unsigned(object, "brightness_percent", settings.brightness_percent, 100,

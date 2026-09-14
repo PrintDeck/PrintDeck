@@ -871,7 +871,10 @@ void DisplayShell::screen_event(lv_event_t* event) {
     shell->activate_printer_card(pressed_printer_card);
     return;
   }
-  if (list_owned_vertical) return;
+  const bool camera_list_scroll=shell->view_==24 && shell->companion_results_ &&
+      lv_obj_is_valid(shell->companion_results_) &&
+      lv_indev_get_scroll_obj(input)==shell->companion_results_;
+  if (list_owned_vertical || camera_list_scroll) return;
   const int vertical_dy =
       kDisplayUsesLargeLayout ? dy : shell->square_gesture_peak_dy_;
   const int vertical_abs_dy = std::abs(vertical_dy);
@@ -892,12 +895,19 @@ void DisplayShell::screen_event(lv_event_t* event) {
         current = shell->printer_subpage_.load();
         next = vertical_dy > 0 ? (current + 1) % count
                                : (current + count - 1) % count;
+      } else if (shell->camera_page_active()) {
+        const int count=shell->camera_page_count_.load();
+        current=shell->camera_subpage_.load();
+        next=vertical_dy>0?(current+1)%count:(current+count-1)%count;
       } else {
         return;
       }
       if (next != current) {
         if (depth == 0) shell->page_.store(next);
-        else shell->printer_subpage_.store(next);
+        else if(shell->camera_page_active()) {
+          shell->camera_cleanup_pending_.store(true);
+          shell->camera_subpage_.store(next);
+        } else shell->printer_subpage_.store(next);
         shell->view_ = -1;
         if (shell->navigation_feedback_ != nullptr) {
           shell->navigation_feedback_(shell->navigation_feedback_context_);
@@ -1367,7 +1377,8 @@ bool DisplayShell::horizontal_destination(bool forward, int* target_page,
 void DisplayShell::start_horizontal_transition(int target_page, bool show_printer_list,
                                                int direction,
                                                std::uint32_t target_profile_id,
-                                               int target_printer_subpage) {
+                                               int target_printer_subpage,
+                                               bool play_feedback) {
   if (horizontal_transition_active_) return;
   set_capture_overlay_name("loading-printer");
   horizontal_transition_overlay_ = lv_obj_create(lv_layer_top());
@@ -1414,7 +1425,7 @@ void DisplayShell::start_horizontal_transition(int target_page, bool show_printe
   lv_obj_align(label, LV_ALIGN_CENTER, 0, 42);
   lv_obj_move_foreground(horizontal_transition_overlay_);
 
-  if (navigation_feedback_ != nullptr) {
+  if (play_feedback && navigation_feedback_ != nullptr) {
     navigation_feedback_(navigation_feedback_context_);
   }
   // Give the opaque curtain one LVGL refresh cycle before invalidating and
@@ -2304,9 +2315,12 @@ void DisplayShell::create_printer_view_dots(int right_offset) {
   if constexpr (kDisplayUsesCompactRoundLayout) {
     right_offset = std::max(right_offset, 9);
   }
-  const int count = std::max(1, printer_subpage_count_.load());
-  const int active = std::clamp(printer_subpage_.load(), 0, count - 1);
-  if (count <= 1 || horizontal_depth_.load() != 1) return;
+  const bool cameras = camera_page_active();
+  const int count = std::max(1, cameras ? camera_page_count_.load()
+                                      : printer_subpage_count_.load());
+  const int active = std::clamp(cameras ? camera_subpage_.load()
+                                      : printer_subpage_.load(), 0, count - 1);
+  if (count <= 1 || (!cameras && horizontal_depth_.load() != 1)) return;
   lv_obj_t* row = lv_obj_create(lv_screen_active());
   lv_obj_set_size(row, 12, count * 18);
   lv_obj_align(row, LV_ALIGN_RIGHT_MID, -right_offset, 0);
@@ -2386,9 +2400,11 @@ std::uint32_t DisplayShell::background_render_delay_ms() const {
 void DisplayShell::begin_camera_cleanup() {
   camera_cleanup_pending_.store(true);
   if (board_display_lock(250) != ESP_OK) return;
+  // The originating gesture already emitted its navigation feedback. This
+  // curtain only waits for camera resources; it is not another user action.
   if (!horizontal_transition_active_)
     start_horizontal_transition(page_.load(), horizontal_depth_.load() == 0,
-                                1, 0, horizontal_depth_.load());
+                                1, 0, horizontal_depth_.load(), false);
   board_display_unlock();
 }
 
@@ -3170,7 +3186,14 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
       return ESP_ERR_NOT_SUPPORTED;
     }
     target_depth = 2;
+  } else if(screen_name=="printdeck-camera" || screen_name=="add-printdeck-camera") {
+    target_depth=selected_camera_depth_.load();
+    if(!selected_online_.load() || target_depth<=0)return ESP_ERR_NOT_SUPPORTED;
+    const int index=screen_name=="add-printdeck-camera"?camera_page_count_.load()-1:(native_camera_page_.load()?1:0);
+    if(screen_name=="printdeck-camera" && index>=camera_page_count_.load()-1)return ESP_ERR_NOT_SUPPORTED;
+    camera_subpage_.store(index);
   } else if (screen_name == "local-camera") {
+    camera_subpage_.store(0);
     target_depth = selected_camera_depth_.load();
     if (!selected_online_.load() || target_depth <= 0) return ESP_ERR_NOT_SUPPORTED;
   } else if (screen_name == "printer-light") {
@@ -3234,14 +3257,22 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
   selected_is_resin_.store(resin);
   selected_is_tinymaker_.store(profile.protocol == core::PrinterProtocol::tinymaker);
   if (resin) {
+    const bool controls=profile.protocol==core::PrinterProtocol::uniformation_sdcp;
+    selected_camera_depth_.store(controls?4:2);
+    configure_camera_pages(profile.id,false);
+    if(horizontal_depth_.load()==selected_camera_depth_.load()) {
+      horizontal_depth_count_.store(controls?5:3);
+      if(camera_add_page_active())show_companion_add(profile);
+      else show_printer_camera(profile,snapshot,power);
+      return;
+    }
     // Resin uses procedural reactions and its own telemetry pages.
     selected_is_bambu_.store(false);
-    selected_camera_depth_.store(0); selected_light_depth_.store(0);
+    selected_light_depth_.store(0);
     const int reaction_offset = printer_animations_enabled_ ? 1 : 0;
     const auto pages = core::resin_telemetry_pages(selected_is_tinymaker_.load());
     const int subpage_count = pages.size() + reaction_offset;
-    const bool controls = profile.protocol == core::PrinterProtocol::uniformation_sdcp;
-    horizontal_depth_count_.store(controls ? 4 : 2); printer_subpage_count_.store(subpage_count);
+    horizontal_depth_count_.store(controls ? 5 : 3); printer_subpage_count_.store(subpage_count);
     horizontal_depth_.store(std::min(controls ? 3 : 1, horizontal_depth_.load()));
     if (controls && horizontal_depth_.load() >= 2) {
       show_resin_controls(profile, snapshot, horizontal_depth_.load() == 3);
@@ -3269,12 +3300,13 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
   const bool has_camera = profile.protocol == core::PrinterProtocol::moonraker ||
                           profile.protocol == core::PrinterProtocol::bambu_lan;
   const bool has_light = is_bambu || snapshot.job.chamber_light_supported;
-  const int camera_depth = has_camera ? (is_bambu ? 3 : 2) : 0;
-  const int light_depth = has_light ? 2 + (is_bambu ? 1 : 0) + (has_camera ? 1 : 0) : 0;
+  const int camera_depth = is_bambu ? 3 : 2;
+  configure_camera_pages(profile.id,has_camera);
+  const int light_depth = has_light ? camera_depth+1 : 0;
   selected_is_bambu_.store(is_bambu);
   selected_camera_depth_.store(camera_depth);
   selected_light_depth_.store(light_depth);
-  horizontal_depth_count_.store(2 + (is_bambu ? 1 : 0) + (has_camera ? 1 : 0) +
+  horizontal_depth_count_.store(3 + (is_bambu ? 1 : 0) +
                                 (has_light ? 1 : 0));
   const bool reactions_visible =
       printer_animations_enabled_ || capture_animation_override_active_;
@@ -3290,7 +3322,8 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
     return;
   }
   if (camera_depth > 0 && depth == camera_depth) {
-    show_printer_camera(profile, snapshot, power);
+    if(camera_add_page_active())show_companion_add(profile);
+    else show_printer_camera(profile, snapshot, power);
     return;
   }
   if (light_depth > 0 && depth == light_depth) {
@@ -6174,9 +6207,10 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
     camera_activity_updated_until_us_ = esp_timer_get_time() + 800000;
   }
   if (view_ != 22 || visible_profile_ != profile.id) {
-    prepare_active_screen("local-camera");
+    prepare_active_screen(companion_camera_slot()>=0?"printdeck-camera":"local-camera");
     create_printer_chrome(profile, snapshot, &power);
-    lv_label_set_text(title_label_, tr("CAMERA"));
+    const int camera_slot=companion_camera_slot();
+    lv_label_set_text(title_label_,camera_slot>=0?"PrintDeck Camera":tr("CAMERA"));
     detail_label_ = lv_label_create(lv_screen_active());
     apply_text_style(detail_label_, lv_color_hex(theme_style_.text_muted), &lv_font_montserrat_12);
     lv_obj_set_width(detail_label_, 390);
@@ -6186,7 +6220,9 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
     lv_obj_add_flag(media_image_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_EVENT_BUBBLE |
                                   LV_OBJ_FLAG_GESTURE_BUBBLE));
     lv_obj_set_size(media_image_, 360, 203);
-    lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
+    // Fill the AMOLED preview without containing a letterboxed square twice.
+    lv_image_set_inner_align(media_image_, camera_slot >= 0
+        ? LV_IMAGE_ALIGN_COVER : LV_IMAGE_ALIGN_CONTAIN);
     lv_obj_align(media_image_, LV_ALIGN_CENTER, 0, 7);
     camera_spinner_ = lv_spinner_create(lv_screen_active());
     lv_obj_set_size(camera_spinner_, 58, 58);
@@ -8315,6 +8351,95 @@ esp_err_t DisplayShell::capture_png(std::vector<std::uint8_t>& png,
   png_image_free(&image);
   lv_draw_buf_destroy(screen);
   return ESP_OK;
+}
+
+
+void DisplayShell::set_companion_service(CompanionCameraService* service,CompanionAction action,void* context) {
+  companion_service_=service;companion_action_=action;companion_context_=context;
+}
+void DisplayShell::set_companion_cameras(const std::vector<core::CompanionCamera>& cameras) {
+  if(board_display_lock(1000)!=ESP_OK)return;
+  companion_cameras_=cameras;view_=-1;
+  board_display_unlock();
+}
+void DisplayShell::configure_camera_pages(std::uint32_t printer,bool native) {
+  const bool previous_native=native_camera_page_.load();
+  const int previous_count=camera_page_count_.load();
+  native_camera_page_.store(native);
+  int count=0;
+  for(std::size_t i=0;i<companion_cameras_.size() && count<static_cast<int>(core::kMaximumCompanionCameras);++i)
+    if(companion_cameras_[i].assigned(printer))companion_slots_[count++].store(i);
+  camera_page_count_.store(count+(native?1:0)+1);
+  if(previous_native!=native || previous_count!=camera_page_count_.load())view_=-1;
+  camera_subpage_.store(std::clamp(camera_subpage_.load(),0,camera_page_count_.load()-1));
+}
+int DisplayShell::companion_camera_slot() const {
+  if(!camera_page_active())return -2;
+  const int page=camera_subpage_.load();
+  if(page==camera_page_count_.load()-1)return -2;
+  if(native_camera_page_.load() && page==0)return -1;
+  const int index=page-(native_camera_page_.load()?1:0);
+  return index>=0 && index<static_cast<int>(core::kMaximumCompanionCameras)?companion_slots_[index].load():-2;
+}
+bool DisplayShell::camera_add_page_active() const {
+  return camera_page_active() && camera_subpage_.load()==camera_page_count_.load()-1;
+}
+void DisplayShell::companion_action_event(lv_event_t* event) {
+  auto* shell=static_cast<DisplayShell*>(lv_event_get_user_data(event));
+  auto* target=static_cast<lv_obj_t*>(lv_event_get_current_target(event));
+  if(!shell || !shell->companion_action_)return;
+  const auto value=reinterpret_cast<std::intptr_t>(lv_obj_get_user_data(target));
+  const int action=value==-1?1:value==-2?2:3;
+  const char* id=value>=0 && static_cast<std::size_t>(value)<shell->pairing_camera_ids_.size()?shell->pairing_camera_ids_[value].c_str():"";
+  shell->companion_action_(shell->companion_context_,action,id,shell->selected_profile_);
+}
+void DisplayShell::show_companion_add(const core::PrinterProfile& profile) {
+  if(!companion_service_ || board_display_lock(300)!=ESP_OK)return;
+  const auto state=companion_service_->snapshot();
+  constexpr int width=kDisplayUsesLargeLayout?300:180;
+  if(view_!=24 || visible_profile_!=profile.id) {
+    prepare_active_screen("add-printdeck-camera");
+    create_page_header("PrintDeck Camera");
+    companion_progress_=lv_label_create(lv_screen_active());
+    lv_obj_set_width(companion_progress_,width);
+    lv_obj_set_style_text_align(companion_progress_,LV_TEXT_ALIGN_CENTER,0);
+    apply_text_style(companion_progress_,lv_color_hex(theme_style_.text_secondary),&lv_font_montserrat_14);
+    lv_obj_align(companion_progress_,LV_ALIGN_TOP_MID,0,kDisplayUsesLargeLayout?90:42);
+    companion_results_=lv_obj_create(lv_screen_active());
+    lv_obj_set_size(companion_results_,width,kDisplayUsesLargeLayout?180:90);
+    lv_obj_align(companion_results_,LV_ALIGN_CENTER,0,0);
+    lv_obj_set_style_bg_opa(companion_results_,LV_OPA_TRANSP,0);
+    lv_obj_set_style_border_width(companion_results_,0,0);
+    lv_obj_set_style_pad_all(companion_results_,0,0);
+    lv_obj_set_flex_flow(companion_results_,LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_scroll_dir(companion_results_,LV_DIR_VER);
+    pairing_camera_ids_.clear();
+    companion_search_=lv_button_create(lv_screen_active());
+    lv_obj_set_size(companion_search_,width,kDisplayUsesLargeLayout?44:32);
+    lv_obj_align(companion_search_,LV_ALIGN_BOTTOM_MID,0,kDisplayUsesLargeLayout?-78:-32);
+    lv_obj_set_user_data(companion_search_,reinterpret_cast<void*>(-1));
+    lv_obj_add_event_cb(companion_search_,companion_action_event,LV_EVENT_CLICKED,this);
+    auto* label=lv_label_create(companion_search_);lv_label_set_text(label,tr("Search PrintDeck Camera"));
+    apply_text_style(label,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_14);lv_obj_center(label);
+    create_printer_view_dots(kDisplayUsesLargeLayout ? 39 : 9);
+    create_depth_dots(kDisplayUsesLargeLayout ? 31 : 4);view_=24;visible_profile_=profile.id;
+  }
+  if(state.scanning)lv_label_set_text_fmt(companion_progress_,"%s %d%%",tr("Searching"),state.progress);
+  else lv_label_set_text(companion_progress_,tr(state.message.empty()?"Choose a camera or search":state.message.c_str()));
+  auto* search_label=lv_obj_get_child(companion_search_,0);
+  lv_label_set_text(search_label,tr(state.scanning?"Cancel":"Search PrintDeck Camera"));
+  lv_obj_set_user_data(companion_search_,reinterpret_cast<void*>(state.scanning?-2:-1));
+  for(const auto& camera:state.cameras) {
+    if(camera.assigned(profile.id) || std::find(pairing_camera_ids_.begin(),pairing_camera_ids_.end(),camera.id)!=pairing_camera_ids_.end())continue;
+    const auto index=pairing_camera_ids_.size();pairing_camera_ids_.push_back(camera.id);
+    auto* button=lv_button_create(companion_results_);lv_obj_set_width(button,LV_PCT(100));lv_obj_set_height(button,kDisplayUsesLargeLayout?48:34);
+    lv_obj_set_user_data(button,reinterpret_cast<void*>(index));
+    lv_obj_add_event_cb(button,companion_action_event,LV_EVENT_CLICKED,this);
+    auto* label=lv_label_create(button);lv_label_set_text(label,camera.name.c_str());
+    apply_text_style(label,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_14);
+    lv_obj_set_width(label,width-28);lv_label_set_long_mode(label,LV_LABEL_LONG_DOT);lv_obj_center(label);
+  }
+  board_display_unlock();
 }
 
 }  // namespace printdeck::platform

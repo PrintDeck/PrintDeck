@@ -244,6 +244,7 @@ bool valid_device_name(std::string_view name) {
 
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
+  if (source_schema < 16) settings.companion_cameras.clear();
   // Microphone listening requires an explicit choice, including after upgrade.
   if (source_schema < 15) settings.voice_enabled = false;
   if (settings.theme == "blue") settings.theme = "banana";
@@ -371,6 +372,14 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
   }
   if ((settings.audio_muted_events & ~kAudioEventMuteMask) != 0) {
     issues.push_back({"audio_muted_events", "Unsupported muted sound event"});
+  }
+  if (settings.companion_cameras.size() > kMaximumCompanionCameras)
+    issues.push_back({"companion_cameras", "Too many PrintDeck Cameras"});
+  for (std::size_t i=0;i<settings.companion_cameras.size();++i) {
+    const auto& camera=settings.companion_cameras[i];
+    if (!valid_companion_camera(camera) || !is_local_printer_endpoint(camera.host, PrinterProtocol::moonraker)) issues.push_back({"companion_cameras", "Invalid PrintDeck Camera"});
+    for (std::size_t j=0;j<i;++j) if (settings.companion_cameras[j].id==camera.id)
+      issues.push_back({"companion_cameras", "Duplicate PrintDeck Camera"});
   }
   if (settings.camera_mode != "snapshots" && settings.camera_mode != "live") {
     issues.push_back({"camera_mode", "Camera mode must be snapshots or live"});
