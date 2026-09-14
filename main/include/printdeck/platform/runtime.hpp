@@ -76,10 +76,10 @@ class Runtime {
   static bool restart_requested_entry(void* context);
   static void restart_audio_finished_entry(void* context);
   static void power_entry(void* context);
-  static void ui_settings_entry(void* context);
+  static std::uint32_t ui_settings_entry(void* context);
   void monitor_loop();
   void power_loop();
-  void ui_settings_loop();
+  std::uint32_t persist_ui_settings();
   void apply_pending_settings();
   void apply_settings(const core::DeviceSettings& settings, bool play_feedback);
   void apply_pending_printer_selection();
@@ -128,7 +128,9 @@ class Runtime {
   UsbDeveloperService usb_developer_;
   TaskHandle_t monitor_task_ = nullptr;
   TaskHandle_t power_task_ = nullptr;
-  TaskHandle_t ui_settings_task_ = nullptr;
+  PersistenceWorker persistence_;
+  int auto_rotation_to_save_ = -1;
+  std::uint64_t auto_rotation_save_due_ms_ = 0;
   std::atomic<int> pending_brightness_{-1};
   std::atomic<int> pending_audio_volume_{-1};
   std::atomic<int> pending_audio_preset_{-1};

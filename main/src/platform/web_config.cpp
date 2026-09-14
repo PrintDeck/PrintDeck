@@ -689,6 +689,12 @@ void WebConfig::set_selected_printer_snapshot_callback(
   selected_printer_snapshot_context_ = context;
 }
 
+void WebConfig::set_printer_selection_callback(PrinterSelectionCallback callback, void* context) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  printer_selection_callback_ = callback;
+  printer_selection_context_ = context;
+}
+
 void WebConfig::set_unified_api_activity_callback(
     UnifiedApiActivityCallback callback, void* context) {
   const std::lock_guard<std::mutex> lock(mutex_);
@@ -1556,6 +1562,7 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
     selected_phase = selected_phase_;
     selected_completion = selected_completion_;
   }
+  const auto voice_state = voice_state_.load();
   std::string body = "{\"product\":\"PrintDeck\",\"version\":\"" PRINTDECK_VERSION
       "\",\"hardware\":\"" + std::string(kBoardVariant) +
       "\",\"display_width\":" + std::to_string(kDisplayWidth) +
@@ -1603,7 +1610,9 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   body += ",\"voice_enabled\":";
   body += kBoardHasLocalVoice && current.voice_enabled ? "true" : "false";
   body += ",\"voice_ready\":";
-  body += kBoardHasLocalVoice && current.voice_enabled && voice_ready_.load() ? "true" : "false";
+  body += kBoardHasLocalVoice && current.voice_enabled && (voice_state == 1) ? "true" : "false";
+  body += ",\"voice_paused_for_camera\":";
+  body += kBoardHasLocalVoice && current.voice_enabled && voice_state == 2 ? "true" : "false";
   body += ",\"audio_enabled\":";
   body += kBoardHasAudio && current.audio_enabled ? "true" : "false";
   body += ",\"audio_volume\":" +
@@ -1894,6 +1903,7 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
     const std::lock_guard<std::mutex> lock(mutex_);
     current = settings_;
   }
+  const auto voice_state = voice_state_.load();
   std::string body = "{\"hardware\":\"" + std::string(kBoardVariant) +
       "\",\"audio_available\":" +
       (kBoardHasAudio ? std::string("true") : std::string("false"));
@@ -1919,7 +1929,9 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   body += ",\"voice_enabled\":";
   body += kBoardHasLocalVoice && current.voice_enabled ? "true" : "false";
   body += ",\"voice_ready\":";
-  body += kBoardHasLocalVoice && current.voice_enabled && voice_ready_.load() ? "true" : "false";
+  body += kBoardHasLocalVoice && current.voice_enabled && (voice_state == 1) ? "true" : "false";
+  body += ",\"voice_paused_for_camera\":";
+  body += kBoardHasLocalVoice && current.voice_enabled && voice_state == 2 ? "true" : "false";
   body += ",\"audio_enabled\":";
   body += kBoardHasAudio && current.audio_enabled ? "true" : "false";
   body += ",\"audio_volume\":" +
@@ -2006,12 +2018,15 @@ esp_err_t WebConfig::voice_settings(httpd_req_t* request) {
     notify_settings_changed(candidate, true);
   }
   const bool enabled = kBoardHasLocalVoice && candidate.voice_enabled;
+  const auto voice_state = voice_state_.load();
   std::string body = "{\"available\":";
   body += kBoardHasLocalVoice ? "true" : "false";
   body += ",\"enabled\":";
   body += enabled ? "true" : "false";
   body += ",\"ready\":";
-  body += enabled && voice_ready_.load() ? "true" : "false";
+  body += enabled && (voice_state == 1) ? "true" : "false";
+  body += ",\"paused_for_camera\":";
+  body += enabled && voice_state == 2 ? "true" : "false";
   body += "}";
   return send_json(request, "200 OK", body.c_str());
 }
@@ -4157,9 +4172,13 @@ esp_err_t WebConfig::manage_printer(httpd_req_t* request) {
                      "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
   }
   core::DeviceSettings candidate;
+  PrinterSelectionCallback selection_callback = nullptr;
+  void* selection_context = nullptr;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     candidate = settings_;
+    selection_callback = printer_selection_callback_;
+    selection_context = printer_selection_context_;
   }
   const auto found = std::find_if(candidate.profiles.begin(), candidate.profiles.end(),
                                   [id](const auto& value) { return value.id == id; });
@@ -4176,9 +4195,18 @@ esp_err_t WebConfig::manage_printer(httpd_req_t* request) {
         [id](const InactivePrinterStatus& value) {
           return value.profile_id == id && value.available;
         });
-    if (status != inactive.printers.end() && !status->connected) {
+    if (status != inactive.printers.end() && !status->checking && !status->connected) {
       return send_json(request, "409 Conflict",
                        "{\"error\":\"This printer is offline. Turn it on and wait for the printer list to refresh before selecting it.\"}");
+    }
+    if (candidate.selected_profile == id) {
+      // Selecting the saved profile is an explicit connection request even
+      // when no settings change. Do not report success if its queue is busy.
+      if (selection_callback == nullptr || !selection_callback(selection_context, id)) {
+        return send_json(request, "409 Conflict",
+                         "{\"error\":\"PrintDeck is already checking or monitoring this printer. Try again shortly.\"}");
+      }
+      return send_json(request, "200 OK", "{\"saved\":true}");
     }
     candidate.selected_profile = id;
   } else {

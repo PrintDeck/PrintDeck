@@ -1096,6 +1096,9 @@ Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
     "Hi ESP! deaktivieren",
     "停用 Hi ESP!"
   ],
+  "Paused while the camera is open": ["Wstrzymane podczas podglądu kamery", "En pausa mientras la cámara está abierta", "En pause pendant l’affichage de la caméra", "Während der Kameraansicht pausiert", "相机画面打开时暂停"],
+  "Hi ESP! paused while the camera is open": ["Hi ESP! wstrzymane podczas podglądu kamery", "Hi ESP! en pausa mientras la cámara está abierta", "Hi ESP! en pause pendant l’affichage de la caméra", "Hi ESP! während der Kameraansicht pausiert", "Hi ESP! 在相机画面打开时暂停"],
+  "Hi ESP! pauses while the camera is open and resumes when you leave it. Print notifications remain active.": ["Hi ESP! wstrzymuje nasłuch podczas podglądu kamery i wznawia go po wyjściu. Powiadomienia o druku pozostają aktywne.", "Hi ESP! pausa la escucha mientras la cámara está abierta y la reanuda al salir. Las notificaciones de impresión siguen activas.", "Hi ESP! suspend l’écoute pendant l’affichage de la caméra et la reprend à la fermeture. Les notifications d’impression restent actives.", "Hi ESP! pausiert die Spracherkennung während der Kameraansicht und setzt sie danach fort. Druckbenachrichtigungen bleiben aktiv.", "Hi ESP! 在相机画面打开时暂停聆听，退出后恢复。打印通知保持启用。"],
   "Hi ESP! enabled": [
     "Hi ESP! włączone",
     "Hi ESP! activado",

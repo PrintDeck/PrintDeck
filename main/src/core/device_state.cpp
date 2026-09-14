@@ -41,10 +41,12 @@ bool dashboard_available(std::uint32_t selected_profile,
 
 bool printer_selection_unavailable(std::uint32_t selected_profile,
                                    const PrinterSnapshot* snapshot,
-                                   bool connection_grace_elapsed) {
+                                   bool connection_grace_elapsed,
+                                   bool connection_attempt_active) {
   return connection_grace_elapsed && selected_profile != 0 && snapshot != nullptr &&
          snapshot->profile_id == selected_profile &&
-         snapshot->link != LinkState::online;
+         (snapshot->link == LinkState::failed ||
+          (connection_attempt_active && snapshot->link != LinkState::online));
 }
 
 bool retain_last_known_job_during_reconnect(PrinterSnapshot& current,
@@ -69,7 +71,7 @@ bool retain_last_known_job_during_reconnect(PrinterSnapshot& current,
 }
 
 bool printer_selectable(bool selected, PrinterReachability reachability) {
-  return !selected || reachability == PrinterReachability::online;
+  return !selected || reachability != PrinterReachability::offline;
 }
 
 bool printer_check_allowed(std::uint64_t now_ms,

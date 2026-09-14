@@ -25,6 +25,7 @@
 #include "mbedtls/sha256.h"
 #include "nvs.h"
 #include "printdeck/platform/board.hpp"
+#include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 
 namespace printdeck::platform {
@@ -1732,8 +1733,8 @@ void ReactionAssetService::sync_sd_locked() {
     const bool reset = (reset_mask_ & (1UL << i)) != 0;
     const bool owned = snapshot_.sd_selected && sd_store_.owned(i);
     const auto card_image = sd_store_.image(i);
-    if (card_image) snapshot_.sd_image_bytes += card_image->size();
-    if (card_image && flash_custom_present_[i] && !reset) snapshot_.sd_conflicts |= 1UL << i;
+    if (sd_store_.available(i)) snapshot_.sd_image_bytes += sd_store_.index().records[i].bytes;
+    if (sd_store_.available(i) && flash_custom_present_[i] && !reset) snapshot_.sd_conflicts |= 1UL << i;
     if (owned) sd_owned_mask_ |= 1UL << i;
     sd_cache_[i] = !reset && owned ? card_image : core::ReactionGif{};
     custom_present_[i] = !reset && (owned ? bool(sd_cache_[i]) : flash_custom_present_[i]);
@@ -1827,23 +1828,45 @@ void ReactionAssetService::storage_task(std::string action) {
   bool mode_changed = false;
   std::string detail;
   if (action == "use_sd") {
+    const bool was_selected = snapshot_.sd_selected;
+    // A reader may still own the old GIF after OFF. Include that existing
+    // memory in admission before allocating a new complete cache, and avoid
+    // overlap with camera/capture work. No LVGL callback waits for this work.
+    ImageWorkspaceLock workspace(0);
+    std::size_t required = 0, largest = 0;
+    for (std::size_t i = 0; i < core::kReactionEventCount; ++i) {
+      if (!sd_store_.available(i)) continue;
+      const auto bytes = sd_store_.index().records[i].bytes;
+      required += bytes;
+      largest = std::max(largest, static_cast<std::size_t>(bytes));
+    }
+    constexpr auto memory_caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+    constexpr std::size_t memory_reserve = 256 * 1024;
+    const bool hydrated = was_selected || ((required == 0 || (workspace &&
+        heap_caps_get_free_size(memory_caps) >= required + memory_reserve &&
+        heap_caps_get_largest_free_block(memory_caps) >= largest)) &&
+        sd_store_.set_payload_retention(true));
     std::uint32_t previous_reset = 0;
-    {
+    if (hydrated) {
       const std::lock_guard<std::mutex> lock(mutex_);
       previous_reset = reset_mask_;
       for (std::size_t i = 0; i < core::kReactionEventCount; ++i)
         if (sd_store_.owned(i)) reset_mask_ &= ~(1UL << i);
     }
-    sd_mode_override_ = 1;
-    mode_changed = persist_sd_index(sd_store_.index());
-    sd_mode_override_ = -1;
-    if (!mode_changed) { const std::lock_guard<std::mutex> lock(mutex_); reset_mask_ = previous_reset; }
+    if (hydrated) {
+      sd_mode_override_ = 1;
+      mode_changed = persist_sd_index(sd_store_.index());
+      sd_mode_override_ = -1;
+      if (!mode_changed) {
+        if (!was_selected) sd_store_.set_payload_retention(false);
+        const std::lock_guard<std::mutex> lock(mutex_); reset_mask_ = previous_reset;
+      }
+    }
     detail = mode_changed ? "New custom images will be saved on the SD card." : "The storage location could not be changed. Your images were kept.";
   } else if (action == "use_internal" || action == "copy_internal") {
     // The SD index and files stay intact in OFF mode. A missing card therefore
     // remains usable when it returns, even if an internal replacement was added.
     const bool copy = action == "copy_internal";
-    const auto images = sd_cache_;
     const bool copied = !copy || (storage_has_room(sd_store_.bytes()) &&
         sd_store_.copy_to_internal(kCustomPath));
     if (copied) {
@@ -1851,7 +1874,7 @@ void ReactionAssetService::storage_task(std::string action) {
       {
         const std::lock_guard<std::mutex> lock(mutex_);
         previous_reset = reset_mask_;
-        for (std::size_t i = 0; i < images.size(); ++i) {
+        for (std::size_t i = 0; i < core::kReactionEventCount; ++i) {
           if (!sd_store_.owned(i)) continue;
           if (copy) reset_mask_ &= ~(1UL << i);
           else reset_mask_ |= 1UL << i;
@@ -1863,15 +1886,16 @@ void ReactionAssetService::storage_task(std::string action) {
       const std::lock_guard<std::mutex> lock(mutex_);
       if (!mode_changed) reset_mask_ = previous_reset;
       else if (copy) {
-        for (std::size_t i = 0; i < images.size(); ++i) {
-          if (!images[i]) continue;
+        for (std::size_t i = 0; i < core::kReactionEventCount; ++i) {
+          if (!sd_store_.available(i)) continue;
           flash_custom_present_[i] = true;
-          flash_custom_sizes_[i] = images[i]->size();
+          flash_custom_sizes_[i] = sd_store_.index().records[i].bytes;
         }
       } else {
-        for (std::size_t i = 0; i < images.size(); ++i)
+        for (std::size_t i = 0; i < core::kReactionEventCount; ++i)
           if (sd_store_.owned(i)) { flash_custom_present_[i] = false; flash_custom_sizes_[i] = 0; }
       }
+      if (mode_changed) sd_store_.set_payload_retention(false);
     }
     detail = mode_changed ? (copy ? "Custom reactions are saved on the device." :
         "SD storage is off. Images on the card are kept; unavailable reactions use defaults.") :
@@ -1907,7 +1931,7 @@ void ReactionAssetService::storage_task(std::string action) {
         ensure_directory("/sdcard/PRINTDCK");
         char root[64];
         std::snprintf(root, sizeof(root), "/sdcard/PRINTDCK/%08lx", static_cast<unsigned long>(sd_store_.index().owner));
-        mounted_now = sd_store_.mount(root, identity);
+        mounted_now = sd_store_.mount(root, identity, snapshot_.sd_selected);
         if (!mounted_now) board_sd_unmount();
       }
       detail = mounted_now ? "New custom images will be saved on the SD card." : "No usable SD card. Insert a FAT32 card and check again.";

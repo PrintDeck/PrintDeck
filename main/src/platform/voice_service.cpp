@@ -108,6 +108,7 @@ esp_err_t VoiceService::start(AudioService& audio, WakeCallback wake, void* cont
   wake_context_ = context;
   stop_requested_.store(false);
   ready_.store(false);
+  resources_released_.store(false);
   running_.store(true);
   // Mapping and unmapping the model partition briefly disable the flash/PSRAM
   // cache. This worker therefore needs an internal stack; model data stays in
@@ -170,9 +171,7 @@ void VoiceService::task_entry(void* context) {
   if (result != ESP_OK || service->stop_requested_.load()) {
     if (!service->stop_requested_.load())
       ESP_LOGW(kLogTag, "Local voice initialization failed: %s", esp_err_to_name(result));
-    service->release_resources();
-    vTaskDeleteWithCaps(nullptr);
-    return;
+    service->finish_task();
   }
   service->task_loop();
 }
@@ -278,9 +277,25 @@ void VoiceService::release_resources() {
     esp_codec_dev_close(static_cast<esp_codec_dev_handle_t>(microphone_));
     microphone_ = nullptr;
   }
-  task_ = nullptr;
   ESP_LOGI(kLogTag, "Local voice stopped; microphone and models released");
-  running_.store(false);
+}
+
+void VoiceService::finish_task() {
+  release_resources();
+  resources_released_.store(true, std::memory_order_release);
+  // The owner reaps externally. Self-deletion WithCaps would allocate a
+  // temporary internal cleanup task exactly when memory is under pressure.
+  for (;;) ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
+}
+
+void VoiceService::reap_stopped() {
+  if (!resources_released_.load(std::memory_order_acquire)) return;
+  if (task_ != nullptr) {
+    vTaskDeleteWithCaps(task_);
+    task_ = nullptr;
+  }
+  resources_released_.store(false, std::memory_order_release);
+  running_.store(false, std::memory_order_release);
 }
 
 std::uint32_t VoiceService::speak_command(int command_id) {
@@ -308,9 +323,7 @@ void VoiceService::task_loop() {
                        MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
   if (input == nullptr) {
     ESP_LOGE(kLogTag, "No internal DMA buffer for microphone");
-    release_resources();
-    vTaskDeleteWithCaps(nullptr);
-    return;
+    finish_task();
   }
   ready_.store(true);
 
@@ -416,8 +429,7 @@ void VoiceService::task_loop() {
   }
   std::memset(input, 0, static_cast<std::size_t>(samples) * sizeof(std::int16_t));
   free(input);
-  release_resources();
-  vTaskDeleteWithCaps(nullptr);
+  finish_task();
 }
 
 }  // namespace printdeck::platform

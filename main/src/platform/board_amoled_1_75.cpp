@@ -5,6 +5,10 @@
 #include "driver/gpio.h"
 #include "esp_lcd_touch_cst9217.h"
 #include "esp_log.h"
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+#include "esp_timer.h"
+#include "freertos/task.h"
+#endif
 #include "printdeck/platform/rotating_panel.hpp"
 
 namespace printdeck::platform {
@@ -108,7 +112,19 @@ void board_touch_transform(int degrees, bool* swap_xy, bool* mirror_x, bool* mir
 }
 
 esp_err_t board_display_lock(std::uint32_t timeout_ms) {
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+  const auto started = esp_timer_get_time();
+  const auto result = bsp_display_lock(timeout_ms);
+  if (result != ESP_OK) {
+    ESP_LOGW("display_lock", "timeout=%u waited_us=%lld task=%s caller=%p",
+             static_cast<unsigned>(timeout_ms),
+             static_cast<long long>(esp_timer_get_time() - started),
+             pcTaskGetName(nullptr), __builtin_return_address(0));
+  }
+  return result;
+#else
   return bsp_display_lock(timeout_ms);
+#endif
 }
 
 void board_display_unlock() { bsp_display_unlock(); }

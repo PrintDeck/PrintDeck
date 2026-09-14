@@ -91,7 +91,7 @@ bool is_complete_jpeg(const std::vector<uint8_t>& data) {
 }
 
 bool decode_rgb565(const std::vector<uint8_t>& jpeg,
-                   std::shared_ptr<std::vector<uint8_t>>* frame, uint16_t* width,
+                   core::CameraFrame* frame, uint16_t* width,
                    uint16_t* height) {
   if (frame == nullptr || width == nullptr || height == nullptr) {
     return false;
@@ -131,8 +131,10 @@ bool decode_rgb565(const std::vector<uint8_t>& jpeg,
       break;
     }
 
-    auto output = std::make_shared<std::vector<uint8_t>>(static_cast<size_t>(decoded_bytes));
-    std::memcpy(output->data(), decoded, output->size());
+    auto output = core::CameraFrame::adopt(static_cast<uint8_t*>(decoded),
+                                          static_cast<size_t>(decoded_bytes), jpeg_free_align);
+    decoded = nullptr;  // adopt also releases the allocation if ownership fails.
+    if (!output) break;
     *frame = std::move(output);
     *width = config.scale.width == 0 ? header.width : config.scale.width;
     *height = config.scale.height == 0 ? header.height : config.scale.height;
@@ -193,6 +195,7 @@ esp_err_t BambuA1CameraClient::start() {
                                                            : ESP_OK;
   }
   stop_requested_.store(false, std::memory_order_release);
+  resources_released_.store(false, std::memory_order_release);
   running_.store(true, std::memory_order_release);
   const BaseType_t created = xTaskCreatePinnedToCoreWithCaps(
       &BambuA1CameraClient::task_entry, "a1_camera", 12288, this, 4, &task_handle_,
@@ -213,6 +216,18 @@ void BambuA1CameraClient::stop() {
     if (task_handle_ != nullptr) xTaskNotifyGive(task_handle_);
   }
   publish_status(connection().is_ready(), false, false, "Camera off", true);
+}
+
+void BambuA1CameraClient::reap_stopped() {
+  if (!resources_released_.load(std::memory_order_acquire)) return;
+  const std::lock_guard<std::mutex> lock(task_mutex_);
+  if (!resources_released_.load(std::memory_order_acquire)) return;
+  if (task_handle_ != nullptr) {
+    vTaskDeleteWithCaps(task_handle_);
+    task_handle_ = nullptr;
+  }
+  resources_released_.store(false, std::memory_order_release);
+  running_.store(false, std::memory_order_release);
 }
 
 BambuA1CameraSnapshot BambuA1CameraClient::snapshot() const {
@@ -239,7 +254,7 @@ void BambuA1CameraClient::publish_status(bool configured, bool enabled, bool con
   }
 }
 
-void BambuA1CameraClient::publish_frame(std::shared_ptr<std::vector<uint8_t>> frame,
+void BambuA1CameraClient::publish_frame(core::CameraFrame frame,
                                         uint16_t width, uint16_t height) {
   std::lock_guard<std::mutex> lock(snapshot_mutex_);
   snapshot_.configured = true;
@@ -304,7 +319,7 @@ bool BambuA1CameraClient::capture(const BambuLocalConnection& connection) {
       }
       if (!enabled_.load()) break;
 
-      std::shared_ptr<std::vector<uint8_t>> frame;
+      core::CameraFrame frame;
       uint16_t width = 0;
       uint16_t height = 0;
       if (decode_rgb565(jpeg, &frame, &width, &height) && enabled_.load()) {
@@ -323,12 +338,10 @@ bool BambuA1CameraClient::capture(const BambuLocalConnection& connection) {
 void BambuA1CameraClient::task_entry(void* context) {
   auto* camera = static_cast<BambuA1CameraClient*>(context);
   camera->task_loop();
-  {
-    const std::lock_guard<std::mutex> lock(camera->task_mutex_);
-    camera->task_handle_ = nullptr;
-  }
-  camera->running_.store(false, std::memory_order_release);
-  vTaskDeleteWithCaps(nullptr);
+  camera->resources_released_.store(true, std::memory_order_release);
+  // No resource or mutex is retained after task_loop returns. The owner
+  // deletes this parked task without allocating IDF's self-delete helper.
+  for (;;) ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
 }
 
 void BambuA1CameraClient::task_loop() {

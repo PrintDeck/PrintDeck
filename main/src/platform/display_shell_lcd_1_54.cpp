@@ -1184,9 +1184,9 @@ void DisplayShell::square_show_my_printers(
         const bool checking = has_status && inactive_status->checking;
         const bool connected = is_selected ? selected_online
                                            : has_status && inactive_status->connected;
-        const bool selectable = core::printer_driver(profile.protocol).dashboard && !checking && core::printer_selectable(
+        const bool selectable = core::printer_driver(profile.protocol).dashboard && (!checking || is_selected) && core::printer_selectable(
             is_selected, connected ? core::PrinterReachability::online
-                                   : has_status ? core::PrinterReachability::offline
+                                   : has_status && !checking ? core::PrinterReachability::offline
                                                 : core::PrinterReachability::unknown);
         lv_obj_t* card = lv_obj_create(list);
         lv_obj_set_size(card, kDisplayUsesCompactRoundLayout ? 176 : 202, 54);

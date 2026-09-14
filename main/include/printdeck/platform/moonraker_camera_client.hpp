@@ -22,7 +22,7 @@ struct MoonrakerCameraSnapshot {
   bool connected = false;
   bool refreshing = false;
   std::string detail = "Camera off";
-  std::shared_ptr<std::vector<std::uint8_t>> frame;
+  core::CameraFrame frame;
   std::uint16_t width = 0;
   std::uint16_t height = 0;
 };
@@ -38,6 +38,9 @@ class MoonrakerCameraClient {
   void set_mode(bool live, int snapshot_fps);
   esp_err_t start();
   void stop();
+  // The core-0 owner reaps each released worker before considering cleanup
+  // complete; running remains true until both stacks and TCBs are freed.
+  void reap_stopped();
   bool running() const { return running_.load(std::memory_order_acquire); }
   MoonrakerCameraSnapshot snapshot() const;
 
@@ -52,7 +55,7 @@ class MoonrakerCameraClient {
   };
   static void task_entry(void* context);
   static void decoder_task_entry(void* context);
-  void finish_task(bool decoder);
+  [[noreturn]] void finish_task(bool decoder);
   void task_loop();
   void decoder_loop();
   core::PrinterProfile profile() const;
@@ -72,7 +75,7 @@ class MoonrakerCameraClient {
   static int peer_video_callback(esp_peer_video_frame_t* frame, void* context);
   void publish_status(bool connected, const char* detail, bool clear_frame = false);
   void set_refreshing(bool refreshing);
-  void publish_frame(std::shared_ptr<std::vector<std::uint8_t>> frame,
+  void publish_frame(core::CameraFrame frame,
                      std::uint16_t width, std::uint16_t height);
 
   mutable std::mutex profile_mutex_{};
@@ -86,7 +89,8 @@ class MoonrakerCameraClient {
   std::atomic<bool> reconfigure_requested_{false};
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> running_{false};
-  std::atomic<std::uint8_t> active_tasks_{0};
+  std::atomic<bool> receiver_released_{false};
+  std::atomic<bool> decoder_released_{false};
   mutable std::mutex task_mutex_{};
   std::atomic<Backend> backend_{Backend::unknown};
   std::atomic<bool> live_mode_{false};
@@ -97,6 +101,10 @@ class MoonrakerCameraClient {
   std::string pending_offer_{};
   std::atomic<bool> offer_ready_{false};
   std::atomic<bool> peer_connected_{false};
+#ifdef PRINTDECK_K2_UDP_PREFETCH
+  // A broken pinned length contract disables prefetch until reboot.
+  bool udp_prefetch_contract_disabled_ = false;
+#endif
   std::atomic<bool> frame_received_{false};
   std::atomic<bool> h264_parameter_sets_sent_{false};
   std::atomic<bool> idr_snapshot_decoder_{false};

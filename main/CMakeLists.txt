@@ -34,6 +34,8 @@ set(PRINTDECK_SRCS
         "src/platform/moonraker_adapter.cpp"
         "src/platform/print_preview_cache.cpp"
         "src/platform/print_preview_service.cpp"
+        "src/platform/persistence_worker.cpp"
+        "src/platform/display_snapshot.cpp"
         "src/platform/moonraker_status_parser.cpp"
         "src/platform/prusalink_status_parser.cpp"
         "src/platform/prusalink_auth.cpp"
@@ -241,6 +243,54 @@ target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,-u,printdeck_firmware_iden
 target_link_libraries(${COMPONENT_LIB} INTERFACE
     "-Wl,-u,__wrap_lv_thread_init" "-Wl,--wrap=lv_thread_init")
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=lwip_recvfrom")
+option(PRINTDECK_K2_UDP_PREFETCH "Enable bounded K2 UDP receive buffering" ON)
+if(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS)
+    idf_component_get_property(srtp_component_dir espressif__esp_libsrtp COMPONENT_DIR)
+    set_property(SOURCE "src/platform/camera_receive_slice.cpp" APPEND PROPERTY
+        INCLUDE_DIRECTORIES "${srtp_component_dir}/libsrtp/include")
+    target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=srtp_unprotect"
+        "-Wl,-u,__wrap_udp_socket_sendto" "-Wl,--wrap=udp_socket_sendto")
+endif()
+if(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS OR PRINTDECK_K2_UDP_PREFETCH)
+    idf_component_get_property(peer_component_dir espressif__esp_peer COMPONENT_DIR)
+    target_sources(${COMPONENT_LIB} PRIVATE "src/platform/camera_transport_trace.c")
+    set_property(SOURCE "src/platform/camera_transport_trace.c" APPEND PROPERTY
+        INCLUDE_DIRECTORIES "${peer_component_dir}/src/transport" "${peer_component_dir}/include")
+    target_link_libraries(${COMPONENT_LIB} INTERFACE
+        "-Wl,-u,__wrap_udp_socket_recvfrom_nowait" "-Wl,--wrap=udp_socket_recvfrom_nowait")
+endif()
+if(PRINTDECK_K2_UDP_PREFETCH)
+    if(NOT IDF_TARGET STREQUAL "esp32s3")
+        message(FATAL_ERROR "K2 UDP prefetch requires the audited esp32s3 target; use PRINTDECK_K2_UDP_PREFETCH=OFF for other targets")
+    endif()
+    # The 1400-byte CONNECTED bound was audited for exactly this pinned code.
+    file(SHA256 "${peer_component_dir}/libs/esp32s3/libpeer_default.a" prefetch_identity)
+    if(NOT prefetch_identity STREQUAL "6a294d40e6daa6ad914e426aa097377f21681a99a005b328544307c307bc162c")
+        message(FATAL_ERROR "K2 UDP prefetch requires the audited esp_peer 1.5.4 libs/esp32s3/libpeer_default.a")
+    endif()
+    file(SHA256 "${peer_component_dir}/src/transport/udp.c" prefetch_identity)
+    if(NOT prefetch_identity STREQUAL "bbc77c7bbd378154089d50571dea7040702ccab44a361da0b7aafdb2a4400bb5")
+        message(FATAL_ERROR "K2 UDP prefetch requires the audited esp_peer 1.5.4 src/transport/udp.c")
+    endif()
+    file(SHA256 "${peer_component_dir}/src/transport/udp.h" prefetch_identity)
+    if(NOT prefetch_identity STREQUAL "e14464630223bf01f8b35c9809575ead1bed84e77fa21d4ad4675e9ac2cdaccd")
+        message(FATAL_ERROR "K2 UDP prefetch requires the audited esp_peer 1.5.4 src/transport/udp.h")
+    endif()
+    file(SHA256 "${peer_component_dir}/include/esp_peer_types.h" prefetch_identity)
+    if(NOT prefetch_identity STREQUAL "b5411d3a9a684dc31204910716833b230a02101382f9a450aea568dd47a6e0f0")
+        message(FATAL_ERROR "K2 UDP prefetch requires the audited esp_peer 1.5.4 include/esp_peer_types.h")
+    endif()
+    file(SHA256 "${peer_component_dir}/include/esp_peer.h" prefetch_identity)
+    if(NOT prefetch_identity STREQUAL "c4df8f07b049eb33a315deaba8c5f5889157985d1b3066f76bd03781943e7e42")
+        message(FATAL_ERROR "K2 UDP prefetch requires the audited esp_peer 1.5.4 include/esp_peer.h")
+    endif()
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE PRINTDECK_K2_UDP_PREFETCH=1)
+    target_sources(${COMPONENT_LIB} PRIVATE "src/platform/camera_udp_prefetch.c")
+    set_property(SOURCE "src/platform/camera_udp_prefetch.c" APPEND PROPERTY
+        INCLUDE_DIRECTORIES "${peer_component_dir}/src/transport" "${peer_component_dir}/include")
+    target_link_libraries(${COMPONENT_LIB} INTERFACE
+        "-Wl,-u,__wrap_udp_socket_close" "-Wl,--wrap=udp_socket_close")
+endif()
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_KNOMI2=1)
 elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")

@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "printdeck/platform/bambu_local_connection.hpp"
+#include "printdeck/core/camera_frame.hpp"
 
 namespace printdeck::platform {
 
@@ -19,7 +20,7 @@ struct BambuA1CameraSnapshot {
   bool supported = false;
   bool connected = false;
   std::string detail = "Camera off";
-  std::shared_ptr<std::vector<uint8_t>> frame;
+  core::CameraFrame frame;
   uint16_t width = 0;
   uint16_t height = 0;
 };
@@ -36,6 +37,9 @@ class BambuA1CameraClient {
   void request_refresh();
   esp_err_t start();
   void stop();
+  // Called by the core-0 owner before admitting another camera/voice session.
+  // running() stays true until the released worker's stack and TCB are freed.
+  void reap_stopped();
   bool running() const { return running_.load(std::memory_order_acquire); }
   BambuA1CameraSnapshot snapshot() const;
 
@@ -45,7 +49,7 @@ class BambuA1CameraClient {
   BambuLocalConnection connection() const;
   void publish_status(bool configured, bool enabled, bool connected, const char* detail,
                       bool clear_frame = false);
-  void publish_frame(std::shared_ptr<std::vector<uint8_t>> frame, uint16_t width,
+  void publish_frame(core::CameraFrame frame, uint16_t width,
                      uint16_t height);
   bool capture(const BambuLocalConnection& connection);
 
@@ -60,6 +64,7 @@ class BambuA1CameraClient {
   std::atomic<bool> reconfigure_requested_{false};
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> running_{false};
+  std::atomic<bool> resources_released_{false};
   mutable std::mutex task_mutex_{};
 };
 

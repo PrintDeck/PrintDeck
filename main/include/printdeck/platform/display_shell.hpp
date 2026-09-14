@@ -45,6 +45,8 @@ class DisplayShell {
   using UpdateInstallRequested = void (*)(void* context);
 
   esp_err_t start(int initial_rotation_degrees = 0);
+  // Application core, outside the display lock, once per monitor pass.
+  void service_resources();
   void show_boot_status(const char* text);
   void show_wifi_error(const char* network_name);
   void show_wifi_setup(const char* network_name, const char* local_hostname);
@@ -65,7 +67,7 @@ class DisplayShell {
   int page() const { return page_.load(); }
   bool printer_list_visible() const { return horizontal_depth_.load() == 0; }
   void return_to_printer_list();
-  void open_printer_when_ready(std::uint32_t profile_id);
+  bool open_printer_when_ready(std::uint32_t profile_id);
   bool camera_page_active() const;
   bool printer_status_page_active() const;
   // Core-0 background rendering waits for this short, touch-driven quiet
@@ -211,7 +213,7 @@ class DisplayShell {
   static std::uint32_t brand_color(const core::PrinterProfile& profile);
   static std::uint32_t brand_logo_color(const core::PrinterProfile& profile,
                                         std::uint32_t background);
-  static const lv_image_dsc_t* brand_logo(const core::PrinterProfile& profile);
+  static lv_obj_t* create_brand_logo(lv_obj_t* parent, const core::PrinterProfile& profile);
   static const lv_image_dsc_t* brand_logo_small(const core::PrinterProfile& profile);
   void create_printer_chrome(const core::PrinterProfile& profile,
                              const core::PrinterSnapshot& snapshot,
@@ -498,7 +500,7 @@ class DisplayShell {
   std::string preview_task_;
   std::uint64_t preview_retry_at_ms_ = 0;
   std::shared_ptr<std::vector<std::uint8_t>> preview_pixels_;
-  std::shared_ptr<std::vector<std::uint8_t>> camera_pixels_;
+  core::CameraFrame camera_pixels_;
   std::int64_t camera_activity_updated_until_us_ = 0;
   bool camera_was_refreshing_ = false;
   std::int64_t camera_chrome_update_after_us_ = 0;
@@ -583,7 +585,7 @@ class DisplayShell {
   int remote_input_end_x_ = 0;
   int remote_input_end_y_ = 0;
   std::uint32_t remote_input_duration_ms_ = 0;
-  bool horizontal_transition_active_ = false;
+  std::atomic<bool> horizontal_transition_active_{false};
   std::atomic<bool> camera_cleanup_pending_{false};
   bool horizontal_transition_target_applied_ = false;
   bool horizontal_transition_reveal_started_ = false;
@@ -657,6 +659,9 @@ class DisplayShell {
   std::array<lv_font_t*, 3> terminal_fonts_{};
   std::array<lv_font_t*, 5> localized_latin_fonts_{};
   std::array<lv_font_t*, 5> localized_cjk_fonts_{};
+  std::array<lv_font_t, 5> localized_cjk_request_fonts_{};
+  std::uint64_t cjk_font_retry_after_ms_ = 0;
+  std::uint64_t resource_lock_retry_after_ms_ = 0;
   std::string capture_screen_name_ = "boot-status";
   std::string capture_overlay_name_;
   core::ThemeColors custom_theme_colors_{};

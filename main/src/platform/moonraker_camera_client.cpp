@@ -4,6 +4,9 @@
 #include "printdeck/platform/mjpeg_stream_parser.hpp"
 #include "printdeck/platform/camera_snapshot_timing.hpp"
 #include "printdeck/platform/camera_receive_slice.hpp"
+#ifdef PRINTDECK_K2_UDP_PREFETCH
+#include "printdeck/platform/camera_udp_prefetch.h"
+#endif
 
 #include <algorithm>
 #include <array>
@@ -52,21 +55,49 @@ bool observe_decoder_idle() {
   decoder_idle_tick.store(xTaskGetTickCount(), std::memory_order_relaxed);
   return true;
 }
-void yield_camera_services(const std::atomic<bool>* stop = nullptr) {
+void yield_camera_services(const std::atomic<bool>* stop = nullptr
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+                           , CameraIdleTraceSite trace_site = CameraIdleTraceSite::none
+#endif
+) {
   static const bool registered =
       esp_register_freertos_idle_hook_for_cpu(observe_decoder_idle, kServiceCore) == ESP_OK;
   const TickType_t observed = decoder_idle_tick.load(std::memory_order_relaxed);
   const TickType_t started = xTaskGetTickCount();
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+  CameraIdleWaitTrace trace(trace_site,
+      static_cast<TickType_t>(started - observed) * portTICK_PERIOD_MS, registered);
+#endif
   if (registered && static_cast<TickType_t>(started - observed) < pdMS_TO_TICKS(500)) return;
   // Both camera workers wait for the same real idle observation. Independent
   // short delays can alternate forever, keeping IDLE0 starved even though
   // each worker appears to yield. Bound the rendezvous and check cancellation
   // on every tick so navigation never waits for a full decode.
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+  bool trace_within_deadline = true;
+#endif
   do {
-    if (stop != nullptr && stop->load(std::memory_order_acquire)) return;
+    if (stop != nullptr && stop->load(std::memory_order_acquire)) {
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+      trace.outcome(false, true);
+#endif
+      return;
+    }
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+    trace.will_wait();
+#endif
     vTaskDelay(1);
   } while (registered && decoder_idle_tick.load(std::memory_order_relaxed) == observed &&
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+           (trace_within_deadline =
+               static_cast<TickType_t>(xTaskGetTickCount() - started) < pdMS_TO_TICKS(50)));
+#else
            static_cast<TickType_t>(xTaskGetTickCount() - started) < pdMS_TO_TICKS(50));
+#endif
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+  const bool trace_cancelled = stop != nullptr && stop->load(std::memory_order_acquire);
+  trace.outcome(!trace_cancelled && !trace_within_deadline, trace_cancelled);
+#endif
 }
 constexpr std::size_t kMaximumJpegBytes = 1024U * 1024U;
 constexpr std::uint16_t kOutputWidth = 400;
@@ -207,7 +238,7 @@ bool complete_jpeg(const std::vector<std::uint8_t>& bytes) {
 }
 
 bool decode_rgb565(const std::vector<std::uint8_t>& jpeg,
-                   std::shared_ptr<std::vector<std::uint8_t>>* frame,
+                   core::CameraFrame* frame,
                    std::uint16_t* width, std::uint16_t* height) {
   jpeg_dec_config_t config = DEFAULT_JPEG_DEC_CONFIG();
   config.output_type = JPEG_PIXEL_FORMAT_RGB565_LE;
@@ -231,9 +262,10 @@ bool decode_rgb565(const std::vector<std::uint8_t>& jpeg,
     if (decoded == nullptr) break;
     io.outbuf = static_cast<std::uint8_t*>(decoded);
     if (jpeg_dec_process(decoder, &io) != JPEG_ERR_OK) break;
-    auto output = std::make_shared<std::vector<std::uint8_t>>(
-        static_cast<std::size_t>(decoded_bytes));
-    std::memcpy(output->data(), decoded, output->size());
+    auto output = core::CameraFrame::adopt(static_cast<std::uint8_t*>(decoded),
+        static_cast<std::size_t>(decoded_bytes), jpeg_free_align);
+    decoded = nullptr;  // adopt also releases the allocation if ownership fails.
+    if (!output) break;
     *frame = std::move(output);
     *width = kOutputWidth;
     *height = kOutputHeight;
@@ -245,6 +277,7 @@ bool decode_rgb565(const std::vector<std::uint8_t>& jpeg,
 }
 
 bool decode_stream_jpeg(const std::vector<std::uint8_t>& jpeg,
+                        const std::atomic<bool>& stop,
                         const std::atomic<std::uint32_t>& generation,
                         std::uint32_t expected_generation,
                         std::shared_ptr<std::vector<std::uint8_t>>* pixels,
@@ -284,7 +317,8 @@ bool decode_stream_jpeg(const std::vector<std::uint8_t>& jpeg,
     unsigned output_y = 0;
     bool valid = true;
     for (int index = 0; index < strips; ++index) {
-      if (generation.load() != expected_generation || esp_timer_get_time() - started > 2000000 ||
+      if (stop.load(std::memory_order_acquire) || generation.load() != expected_generation ||
+          esp_timer_get_time() - started > 2000000 ||
           jpeg_dec_process(decoder, &io) != JPEG_ERR_OK || io.out_size <= 0 ||
           io.out_size > strip_bytes || io.out_size % (header.width * 2) != 0) {
         valid = false;
@@ -305,9 +339,12 @@ bool decode_stream_jpeg(const std::vector<std::uint8_t>& jpeg,
         ++output_y;
       }
       source_y += rows;
+      yield_camera_services(&stop);
       vTaskDelay(pdMS_TO_TICKS(1));
     }
-    if (!valid || output_y != output_height || generation.load() != expected_generation) break;
+    if (!valid || output_y != output_height || stop.load(std::memory_order_acquire) ||
+        generation.load() != expected_generation ||
+        esp_timer_get_time() - started > 2000000) break;
     *width = static_cast<std::uint16_t>(output_width);
     *height = static_cast<std::uint16_t>(output_height);
     *pixels = std::move(output);
@@ -789,12 +826,13 @@ esp_err_t MoonrakerCameraClient::start() {
   }
   stop_requested_.store(false, std::memory_order_release);
   running_.store(true, std::memory_order_release);
-  active_tasks_.store(2, std::memory_order_release);
+  receiver_released_.store(false, std::memory_order_release);
+  decoder_released_.store(false, std::memory_order_release);
   const BaseType_t decoder_created = xTaskCreatePinnedToCoreWithCaps(
       decoder_task_entry, "camera_decoder", 12288, this, 3, &decoder_task_, kServiceCore,
       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (decoder_created != pdPASS) {
-    active_tasks_.store(0, std::memory_order_release);
+    decoder_task_ = nullptr;
     running_.store(false, std::memory_order_release);
     return ESP_ERR_NO_MEM;
   }
@@ -802,8 +840,10 @@ esp_err_t MoonrakerCameraClient::start() {
       task_entry, "moonraker_camera", 14336, this, 4, &task_, kServiceCore,
       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (created != pdPASS) {
+    task_ = nullptr;
     stop_requested_.store(true, std::memory_order_release);
-    active_tasks_.store(1, std::memory_order_release);
+    // Keep running true until the already-created decoder releases resources
+    // and is reaped, even though this start reports an allocation failure.
     xTaskNotifyGive(decoder_task_);
   }
   return created == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
@@ -819,6 +859,25 @@ void MoonrakerCameraClient::stop() {
     if (decoder_task_ != nullptr) xTaskNotifyGive(decoder_task_);
   }
   publish_status(false, "Camera off", true);
+}
+
+void MoonrakerCameraClient::reap_stopped() {
+  if (!receiver_released_.load(std::memory_order_acquire) &&
+      !decoder_released_.load(std::memory_order_acquire)) return;
+  const std::lock_guard<std::mutex> lock(task_mutex_);
+  if (receiver_released_.load(std::memory_order_acquire)) {
+    if (task_ != nullptr) vTaskDeleteWithCaps(task_);
+    task_ = nullptr;
+    receiver_released_.store(false, std::memory_order_release);
+  }
+  if (decoder_released_.load(std::memory_order_acquire)) {
+    if (decoder_task_ != nullptr) vTaskDeleteWithCaps(decoder_task_);
+    decoder_task_ = nullptr;
+    decoder_released_.store(false, std::memory_order_release);
+  }
+  if (task_ == nullptr && decoder_task_ == nullptr) {
+    running_.store(false, std::memory_order_release);
+  }
 }
 
 MoonrakerCameraSnapshot MoonrakerCameraClient::snapshot() const {
@@ -849,7 +908,7 @@ void MoonrakerCameraClient::set_refreshing(bool refreshing) {
   snapshot_.refreshing = refreshing;
 }
 
-void MoonrakerCameraClient::publish_frame(std::shared_ptr<std::vector<std::uint8_t>> frame,
+void MoonrakerCameraClient::publish_frame(core::CameraFrame frame,
                                           std::uint16_t width, std::uint16_t height) {
   std::lock_guard<std::mutex> lock(snapshot_mutex_);
   snapshot_.connected = true;
@@ -917,7 +976,7 @@ bool MoonrakerCameraClient::fetch_frame(const core::PrinterProfile& profile,
       return unchanged(source_changed);
     }
   }
-  std::shared_ptr<std::vector<std::uint8_t>> frame;
+  core::CameraFrame frame;
   std::uint16_t width = 0;
   std::uint16_t height = 0;
   if (!decode_rgb565(response.bytes, &frame, &width, &height)) return false;
@@ -1149,6 +1208,7 @@ bool MoonrakerCameraClient::stream_paxx_camera(const core::PrinterProfile& profi
               const std::lock_guard<std::mutex> lock(task_mutex_);
               if (decoder_task_ != nullptr) xTaskNotifyGive(decoder_task_);
             })) break;
+        yield_camera_services(&stop_requested_);
         vTaskDelay(pdMS_TO_TICKS(1));
       }
     }
@@ -1168,6 +1228,12 @@ int MoonrakerCameraClient::peer_state_callback(esp_peer_state_t state, void* con
   auto* camera = static_cast<MoonrakerCameraClient*>(context);
   if (camera == nullptr) return 0;
   ESP_LOGI(kTag, "Creality WebRTC state=%d", static_cast<int>(state));
+#ifdef PRINTDECK_K2_UDP_PREFETCH
+  // Track lifecycle states only. TRACK_ADDED is not proof of CONNECTED.
+  if (state <= ESP_PEER_STATE_CONNECT_FAILED)
+    printdeck_camera_udp_prefetch_connected(camera->camera_session_generation_.load(),
+                                            state == ESP_PEER_STATE_CONNECTED);
+#endif
   if (state == ESP_PEER_STATE_PAIRED && camera->peer_ != nullptr) {
     esp_peer_addr_t address{};
     if (esp_peer_get_paired_addr(static_cast<esp_peer_handle_t>(camera->peer_), &address) ==
@@ -1224,7 +1290,12 @@ int MoonrakerCameraClient::peer_video_callback(esp_peer_video_frame_t* frame,
   }
   // The peer can drain many RTP packets within one main_loop() call. Yield
   // inside delivery as well, so receiver and decoder both allow IDLE0 to run.
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+  yield_camera_services(&camera->stop_requested_, camera->idr_snapshot_decoder_.load()
+      ? CameraIdleTraceSite::callback : CameraIdleTraceSite::none);
+#else
   yield_camera_services(&camera->stop_requested_);
+#endif
   if (!camera->enabled_.load()) return 0;
   camera->last_creality_video_us_.store(
       static_cast<std::uint64_t>(esp_timer_get_time()));
@@ -1269,6 +1340,15 @@ bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& prof
   // is the exception: despite its SDP it sends 1080p Main/CABAC, decoded only
   // for a single keyframe by the bounded snapshot decoder below.
   idr_snapshot_decoder_.store(supports_creality_k2(profile));
+#ifdef PRINTDECK_K2_UDP_PREFETCH
+  if (idr_snapshot_decoder_.load() && !udp_prefetch_contract_disabled_) {
+    const bool allocated = printdeck_camera_udp_prefetch_begin(camera_session_generation_.load());
+    const auto stats = printdeck_camera_udp_prefetch_stats();
+    ESP_LOGI(kTag, "K2 UDP prefetch: enabled=%d requested=%u allocated=%u slots=64 bytes=1400",
+             allocated, static_cast<unsigned>(stats.allocation_requested),
+             static_cast<unsigned>(stats.allocation_actual));
+  }
+#endif
   last_creality_idr_queued_us_.store(0);
   last_creality_video_us_.store(0);
   if (!idr_snapshot_decoder_.load()) {
@@ -1285,7 +1365,11 @@ bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& prof
   }
 
   esp_peer_default_cfg_t peer_defaults{};
-  peer_defaults.agent_recv_timeout = 10;
+  // The peer aborts DTLS after eleven empty reads. Give K2 handshake replies
+  // a 100 ms receive window; ready UDP wakes immediately.
+  // The wait also applies after connection, so stopping may wait for an active
+  // receive. Other WebRTC cameras retain their existing timeout.
+  peer_defaults.agent_recv_timeout = supports_creality_k2(profile) ? 100 : 10;
   peer_defaults.max_candidates = 8;
   peer_defaults.alive_binding_retries = 3;
   peer_defaults.rtp_cfg.video_recv_jitter.cache_timeout = 500;
@@ -1332,6 +1416,17 @@ bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& prof
 }
 
 void MoonrakerCameraClient::stop_creality_peer() {
+#ifdef PRINTDECK_K2_UDP_PREFETCH
+  const auto prefetch = printdeck_camera_udp_prefetch_stats();
+  if (prefetch.allocation_requested) {
+    ESP_LOGI(kTag, "K2 UDP prefetch total: real=%u fill=%u delivered=%u cached=%u bytes=%llu peak=%u age_us=%llu faults=%u state_bytes=%u",
+             prefetch.real_attempts, prefetch.prefetch_attempts, prefetch.delivered,
+             prefetch.cached_deliveries, static_cast<unsigned long long>(prefetch.cached_bytes),
+             prefetch.peak_queued, static_cast<unsigned long long>(prefetch.max_age_us),
+             prefetch.contract_faults, static_cast<unsigned>(printdeck_camera_udp_prefetch_state_bytes()));
+  }
+  printdeck_camera_udp_prefetch_end();  // Before close callbacks and pointer reuse.
+#endif
   const bool peer_was_active = peer_ != nullptr || h264_decoder_ != nullptr;
   if (peer_was_active) ESP_LOGI(kTag, "Camera transport close started");
   camera_session_generation_.fetch_add(1);
@@ -1615,26 +1710,22 @@ void MoonrakerCameraClient::task_entry(void* context) {
   auto* camera = static_cast<MoonrakerCameraClient*>(context);
   camera->task_loop();
   camera->finish_task(false);
-  vTaskDeleteWithCaps(nullptr);
 }
 
 void MoonrakerCameraClient::decoder_task_entry(void* context) {
   auto* camera = static_cast<MoonrakerCameraClient*>(context);
   camera->decoder_loop();
   camera->finish_task(true);
-  vTaskDeleteWithCaps(nullptr);
 }
 
 void MoonrakerCameraClient::finish_task(bool decoder) {
-  ESP_LOGI(kTag, "Camera %s task finished", decoder ? "decoder" : "receiver");
-  {
-    const std::lock_guard<std::mutex> lock(task_mutex_);
-    if (decoder) decoder_task_ = nullptr;
-    else task_ = nullptr;
-  }
-  if (active_tasks_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-    running_.store(false, std::memory_order_release);
-  }
+  ESP_LOGI(kTag, "Camera %s task finished; stack high-water=%u bytes",
+           decoder ? "decoder" : "receiver",
+           static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+  (decoder ? decoder_released_ : receiver_released_).store(true, std::memory_order_release);
+  // All loop-local images, sockets and locks are gone. Retain the task handle
+  // until the owner can free its stack/TCB directly, without a cleanup task.
+  for (;;) ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
 }
 
 void MoonrakerCameraClient::decoder_loop() {
@@ -1659,7 +1750,7 @@ void MoonrakerCameraClient::decoder_loop() {
         std::shared_ptr<std::vector<std::uint8_t>> pixels;
         std::uint16_t width = 0;
         std::uint16_t height = 0;
-        const bool decoded = decode_stream_jpeg(*jpeg, camera_session_generation_,
+        const bool decoded = decode_stream_jpeg(*jpeg, stop_requested_, camera_session_generation_,
                                                 jpeg_generation, &pixels, &width, &height);
         if (decoded && jpeg_generation == camera_session_generation_.load() &&
             enabled_.load() && network_ready_.load() && live_mode_.load() &&
@@ -1853,13 +1944,33 @@ void MoonrakerCameraClient::task_loop() {
           // pending IDR burst can be drained. Stop still applies per packet.
           // DTLS negotiation needs its own bounded handshake waits; the
           // short receive budget applies only after the stream is connected.
-          CameraReceiveSlice slice(stop_requested_, peer_connected_.load() ? 64 : 0);
+          // K2 IDR bursts reached the 64-packet cap in target measurements.
+          // Keep other Creality modes at their existing allowance.
+          const std::size_t packet_limit = idr_snapshot_decoder_.load() ? 128 : 64;
+          CameraReceiveSlice slice(stop_requested_, peer_connected_.load() ? packet_limit : 0);
           for (unsigned received = 0; received < 8 && !stop_requested_.load(); ++received) {
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+            const bool trace_loop = idr_snapshot_decoder_.load();
+            const auto loop_started_us = trace_loop ? esp_timer_get_time() : 0;
+#endif
             esp_peer_main_loop(static_cast<esp_peer_handle_t>(peer_));
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+            if (trace_loop)
+              record_camera_receive_main_loop_duration(esp_timer_get_time() - loop_started_us);
+#endif
             if (esp_timer_get_time() >= receive_deadline) break;
           }
         }
         if (stop_requested_.load()) break;
+#ifdef PRINTDECK_K2_UDP_PREFETCH
+        if (printdeck_camera_udp_prefetch_faulted()) {
+          ESP_LOGW(kTag, "K2 UDP prefetch contract failed; disabling prefetch and restarting transport");
+          udp_prefetch_contract_disabled_ = true;
+          stop_creality_peer();
+          next_peer_start_us = esp_timer_get_time() + 3000000;
+          continue;
+        }
+#endif
 #if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
         const auto metrics_now = esp_timer_get_time();
         if (idr_snapshot_decoder_.load() &&
@@ -1872,6 +1983,92 @@ void MoonrakerCameraClient::task_loop() {
                    static_cast<unsigned>(metrics.packet_budget_blocks),
                    static_cast<long long>(metrics.maximum_receive_gap_us),
                    static_cast<long long>((metrics_now - receive_metrics_started_us) / 1000));
+          ESP_LOGI(kTag,
+                   "K2 RTP headers: session=%u pt=98 packets=%u unique=%u markers=%u reorder=%u dup=%u "
+                   "missing_final=%u pending=%u late_jump=%u reseed=%u untracked=%u invalid=%u "
+                   "first_rtp_us=%lld first_marker_us=%lld",
+                   static_cast<unsigned>(receive_metrics_generation),
+                   static_cast<unsigned>(metrics.rtp_header_packets),
+                   static_cast<unsigned>(metrics.rtp_unique_packets),
+                   static_cast<unsigned>(metrics.rtp_markers),
+                   static_cast<unsigned>(metrics.rtp_reordered),
+                   static_cast<unsigned>(metrics.rtp_duplicates),
+                   static_cast<unsigned>(metrics.rtp_missing_finalized),
+                   static_cast<unsigned>(metrics.rtp_missing_pending),
+                   static_cast<unsigned>(metrics.rtp_late_or_discontinuous),
+                   static_cast<unsigned>(metrics.rtp_reseeds),
+                   static_cast<unsigned>(metrics.rtp_untracked),
+                   static_cast<unsigned>(metrics.rtp_invalid_headers),
+                   static_cast<long long>(metrics.first_rtp_us),
+                   static_cast<long long>(metrics.first_marker_us));
+          ESP_LOGI(kTag, "K2 peer loop: session=%u calls=%u total_us=%lld max_us=%lld",
+                   static_cast<unsigned>(receive_metrics_generation),
+                   static_cast<unsigned>(metrics.main_loop_calls),
+                   static_cast<long long>(metrics.main_loop_total_us),
+                   static_cast<long long>(metrics.maximum_main_loop_us));
+          ESP_LOGI(kTag,
+                   "K2 SRTP unprotect: session=%u calls=%u input_bytes=%llu failures=%u total_us=%lld max_us=%lld",
+                   static_cast<unsigned>(receive_metrics_generation),
+                   static_cast<unsigned>(metrics.srtp_unprotect_calls),
+                   static_cast<unsigned long long>(metrics.srtp_unprotect_input_bytes),
+                   static_cast<unsigned>(metrics.srtp_unprotect_failures),
+                   static_cast<long long>(metrics.srtp_unprotect_total_us),
+                   static_cast<long long>(metrics.maximum_srtp_unprotect_us));
+          const auto& sent = metrics.udp_send;
+          ESP_LOGI(kTag,
+                   "K2 UDP send: session=%u calls=%u requested_bytes=%llu sent_bytes=%llu "
+                   "positive=%u zero=%u errors=%u minus200=%u total_us=%lld max_us=%lld",
+                   static_cast<unsigned>(receive_metrics_generation),
+                   static_cast<unsigned>(sent.timing.calls),
+                   static_cast<unsigned long long>(sent.requested_bytes),
+                   static_cast<unsigned long long>(sent.sent_bytes),
+                   static_cast<unsigned>(sent.positive), static_cast<unsigned>(sent.zero),
+                   static_cast<unsigned>(sent.errors), static_cast<unsigned>(sent.minus_200),
+                   static_cast<long long>(sent.timing.total_us),
+                   static_cast<long long>(sent.timing.maximum_us));
+          const auto& waited = metrics.udp_receive_wait;
+          const auto& polled = metrics.udp_receive_nowait;
+          // Each outcome tuple is calls/total wall microseconds/max wall microseconds.
+          ESP_LOGI(kTag,
+                   "K2 UDP recv: session=%u wait_pos=%u/%lld/%lld wait_zero=%u/%lld/%lld "
+                   "wait_error=%u/%lld/%lld nowait_pos=%u/%lld/%lld nowait_zero=%u/%lld/%lld "
+                   "nowait_error=%u/%lld/%lld wait_bytes=%llu nowait_bytes=%llu",
+                   static_cast<unsigned>(receive_metrics_generation),
+                   static_cast<unsigned>(waited.positive.calls),
+                   static_cast<long long>(waited.positive.total_us),
+                   static_cast<long long>(waited.positive.maximum_us),
+                   static_cast<unsigned>(waited.zero.calls),
+                   static_cast<long long>(waited.zero.total_us),
+                   static_cast<long long>(waited.zero.maximum_us),
+                   static_cast<unsigned>(waited.error.calls),
+                   static_cast<long long>(waited.error.total_us),
+                   static_cast<long long>(waited.error.maximum_us),
+                   static_cast<unsigned>(polled.positive.calls),
+                   static_cast<long long>(polled.positive.total_us),
+                   static_cast<long long>(polled.positive.maximum_us),
+                   static_cast<unsigned>(polled.zero.calls),
+                   static_cast<long long>(polled.zero.total_us),
+                   static_cast<long long>(polled.zero.maximum_us),
+                   static_cast<unsigned>(polled.error.calls),
+                   static_cast<long long>(polled.error.total_us),
+                   static_cast<long long>(polled.error.maximum_us),
+                   static_cast<unsigned long long>(waited.received_bytes),
+                   static_cast<unsigned long long>(polled.received_bytes));
+          const auto log_idle = [&](const char* site, const CameraIdleDiagnostics& idle) {
+            ESP_LOGI(kTag,
+                     "K2 idle wait: session=%u site=%s calls=%u waits=%u total_us=%lld max_us=%lld "
+                     "age_max_ms=%u expiries=%u cancelled=%u unregistered=%u",
+                     static_cast<unsigned>(receive_metrics_generation), site,
+                     static_cast<unsigned>(idle.calls), static_cast<unsigned>(idle.waits),
+                     static_cast<long long>(idle.wait_total_us),
+                     static_cast<long long>(idle.maximum_wait_us),
+                     static_cast<unsigned>(idle.maximum_idle_age_ms),
+                     static_cast<unsigned>(idle.expiries),
+                     static_cast<unsigned>(idle.cancellations),
+                     static_cast<unsigned>(idle.unregistered));
+          };
+          log_idle("callback", metrics.callback_idle);
+          log_idle("outer", metrics.outer_idle);
           receive_metrics_started_us = metrics_now;
         }
 #endif
@@ -1909,7 +2106,12 @@ void MoonrakerCameraClient::task_loop() {
       }
       // Notifications must not consume this scheduling window: decoding and
       // rendering need time even while another caller refreshes camera mode.
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+      yield_camera_services(&stop_requested_, idr_snapshot_decoder_.load()
+          ? CameraIdleTraceSite::outer : CameraIdleTraceSite::none);
+#else
       yield_camera_services(&stop_requested_);
+#endif
       vTaskDelay(pdMS_TO_TICKS(2));
       continue;
     }

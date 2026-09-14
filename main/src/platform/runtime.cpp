@@ -208,7 +208,7 @@ void Runtime::start() {
     return;
   }
   verify_heap("network startup");
-  const esp_err_t preview_result = print_preview_.start();
+  const esp_err_t preview_result = print_preview_.start(persistence_);
   if (preview_result != ESP_OK) ESP_LOGW(kLogTag, "Print thumbnail cache worker unavailable");
   reaction_assets_.set_storage_changed_callback(+[](void* context) {
     auto* runtime = static_cast<Runtime*>(context);
@@ -235,6 +235,7 @@ void Runtime::start() {
   web_config_.set_restart_requested_callback(restart_requested_entry, this);
   web_config_.set_selected_printer_snapshot_callback(
       selected_printer_snapshot_entry, this);
+  web_config_.set_printer_selection_callback(printer_selected_entry, this);
   web_config_.set_unified_api_activity_callback(unified_api_activity_entry, this);
   web_config_.set_printer_controls_callbacks(
       printer_controls_activity_entry, printer_light_entry, this);
@@ -286,10 +287,9 @@ void Runtime::start() {
     ESP_LOGE(kLogTag, "Display state task could not be started");
     display_.show_boot_status("Display service unavailable\nOpen Web Config to restart");
   }
-  if (xTaskCreatePinnedToCore(ui_settings_entry, "ui_settings", 4096, this, 4,
-                              &ui_settings_task_, kServiceCore) != pdPASS) {
-    ui_settings_task_ = nullptr;
-    ESP_LOGE(kLogTag, "UI settings task could not be started");
+  persistence_.bind(PersistenceWorker::Slot::settings, ui_settings_entry, this);
+  if (persistence_.start() != ESP_OK) {
+    ESP_LOGE(kLogTag, "Persistence worker could not be started");
   } else {
     display_.set_brightness_changed_callback(brightness_changed_entry, this);
     display_.set_audio_changed_callback(audio_changed_entry, this);
@@ -340,8 +340,8 @@ void Runtime::power_entry(void* context) {
   static_cast<Runtime*>(context)->power_loop();
 }
 
-void Runtime::ui_settings_entry(void* context) {
-  static_cast<Runtime*>(context)->ui_settings_loop();
+std::uint32_t Runtime::ui_settings_entry(void* context) {
+  return static_cast<Runtime*>(context)->persist_ui_settings();
 }
 
 bool Runtime::ensure_moonraker_started(const core::PrinterProfile* selected) {
@@ -484,14 +484,14 @@ void Runtime::power_loop() {
 void Runtime::brightness_changed_entry(void* context, int percent) {
   auto* runtime = static_cast<Runtime*>(context);
   runtime->pending_brightness_.store(percent, std::memory_order_release);
-  if (runtime->ui_settings_task_ != nullptr) xTaskNotifyGive(runtime->ui_settings_task_);
+  runtime->persistence_.request(PersistenceWorker::Slot::settings);
 }
 
 void Runtime::audio_changed_entry(void* context, bool enabled, int volume_percent) {
   auto* runtime = static_cast<Runtime*>(context);
   runtime->pending_audio_enabled_.store(enabled, std::memory_order_relaxed);
   runtime->pending_audio_volume_.store(volume_percent, std::memory_order_release);
-  if (runtime->ui_settings_task_ != nullptr) xTaskNotifyGive(runtime->ui_settings_task_);
+  runtime->persistence_.request(PersistenceWorker::Slot::settings);
 }
 
 void Runtime::audio_preset_changed_entry(void* context, const char* preset) {
@@ -502,7 +502,7 @@ void Runtime::audio_preset_changed_entry(void* context, const char* preset) {
   for (int index = 0; index < 6; ++index) {
     if (std::strcmp(preset, ids[index]) == 0) {
       runtime->pending_audio_preset_.store(index, std::memory_order_release);
-      if (runtime->ui_settings_task_ != nullptr) xTaskNotifyGive(runtime->ui_settings_task_);
+      runtime->persistence_.request(PersistenceWorker::Slot::settings);
       return;
     }
   }
@@ -615,7 +615,7 @@ void Runtime::theme_changed_entry(void* context, const char* theme) {
   for (int index = 0; index < 12; ++index) {
     if (theme != nullptr && std::strcmp(theme, ids[index]) == 0) {
       runtime->pending_theme_.store(index, std::memory_order_release);
-      if (runtime->ui_settings_task_ != nullptr) xTaskNotifyGive(runtime->ui_settings_task_);
+      runtime->persistence_.request(PersistenceWorker::Slot::settings);
       return;
     }
   }
@@ -628,7 +628,7 @@ void Runtime::language_changed_entry(void* context, const char* language) {
   for (int index = 0; index < 6; ++index) {
     if (std::strcmp(language, ids[index]) == 0) {
       runtime->pending_language_.store(index, std::memory_order_release);
-      if (runtime->ui_settings_task_ != nullptr) xTaskNotifyGive(runtime->ui_settings_task_);
+      runtime->persistence_.request(PersistenceWorker::Slot::settings);
       return;
     }
   }
@@ -639,9 +639,7 @@ void Runtime::printer_animations_changed_entry(void* context, bool enabled) {
   if (runtime == nullptr) return;
   runtime->pending_printer_animations_.store(enabled ? 1 : 0,
                                              std::memory_order_release);
-  if (runtime->ui_settings_task_ != nullptr) {
-    xTaskNotifyGive(runtime->ui_settings_task_);
-  }
+  runtime->persistence_.request(PersistenceWorker::Slot::settings);
 }
 
 bool Runtime::printer_selected_entry(void* context, std::uint32_t profile_id) {
@@ -685,7 +683,7 @@ void Runtime::camera_mode_changed_entry(void* context, bool live) {
   auto* runtime = static_cast<Runtime*>(context);
   if (runtime == nullptr) return;
   runtime->pending_camera_mode_.store(live ? 1 : 0, std::memory_order_release);
-  if (runtime->ui_settings_task_ != nullptr) xTaskNotifyGive(runtime->ui_settings_task_);
+  runtime->persistence_.request(PersistenceWorker::Slot::settings);
 }
 
 void Runtime::navigation_feedback_entry(void* context) {
@@ -700,7 +698,7 @@ void Runtime::rotation_feedback_entry(void* context, int degrees) {
     runtime->display_.reset_inactivity_and_wake();
   }
   runtime->pending_auto_rotation_.store(degrees, std::memory_order_release);
-  if (runtime->ui_settings_task_ != nullptr) xTaskNotifyGive(runtime->ui_settings_task_);
+  runtime->persistence_.request(PersistenceWorker::Slot::settings);
 }
 
 void Runtime::page_refresh_entry(void* context) {
@@ -708,18 +706,7 @@ void Runtime::page_refresh_entry(void* context) {
   if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
 }
 
-void Runtime::ui_settings_loop() {
-  int auto_rotation_to_save = -1;
-  std::uint64_t auto_rotation_save_due_ms = 0;
-  while (true) {
-    TickType_t wait = portMAX_DELAY;
-    if (auto_rotation_to_save >= 0) {
-      const std::uint64_t now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-      wait = now >= auto_rotation_save_due_ms
-                 ? 0
-                 : pdMS_TO_TICKS(static_cast<std::uint32_t>(auto_rotation_save_due_ms - now));
-    }
-    ulTaskNotifyTake(pdTRUE, wait);
+std::uint32_t Runtime::persist_ui_settings() {
     const std::uint32_t selected_profile_write =
         pending_selected_profile_write_.exchange(0xffffffffU,
                                                  std::memory_order_acq_rel);
@@ -733,8 +720,8 @@ void Runtime::ui_settings_loop() {
     }
     const int auto_rotation = pending_auto_rotation_.exchange(-1, std::memory_order_acq_rel);
     if (auto_rotation >= 0) {
-      auto_rotation_to_save = auto_rotation;
-      auto_rotation_save_due_ms =
+      auto_rotation_to_save_ = auto_rotation;
+      auto_rotation_save_due_ms_ =
           static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + 3000ULL;
     }
     const int brightness = pending_brightness_.exchange(-1, std::memory_order_acq_rel);
@@ -825,18 +812,21 @@ void Runtime::ui_settings_loop() {
         ESP_LOGE(kLogTag, "Camera mode could not be saved: %s", esp_err_to_name(result));
       }
     }
-    if (auto_rotation_to_save >= 0 &&
+    if (auto_rotation_to_save_ >= 0 &&
         static_cast<std::uint64_t>(esp_timer_get_time() / 1000) >=
-            auto_rotation_save_due_ms) {
-      const esp_err_t result = web_config_.save_last_auto_rotation(auto_rotation_to_save);
+            auto_rotation_save_due_ms_) {
+      const esp_err_t result = web_config_.save_last_auto_rotation(auto_rotation_to_save_);
       if (result != ESP_OK) {
         ESP_LOGW(kLogTag, "Automatic rotation could not be remembered: %s",
                  esp_err_to_name(result));
       }
-      auto_rotation_to_save = -1;
-      auto_rotation_save_due_ms = 0;
+      auto_rotation_to_save_ = -1;
+      auto_rotation_save_due_ms_ = 0;
     }
-  }
+    if (auto_rotation_to_save_ < 0) return PersistenceWorker::kNoRetry;
+    const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    return now >= auto_rotation_save_due_ms_ ? 0
+        : static_cast<std::uint32_t>(auto_rotation_save_due_ms_ - now);
 }
 
 void Runtime::settings_changed_entry(void* context, const core::DeviceSettings& settings,
@@ -1038,9 +1028,11 @@ void Runtime::apply_pending_printer_selection() {
   const std::uint32_t selected =
       pending_selected_profile_.load(std::memory_order_acquire);
   if (selected == 0) return;
-  if (selected == settings_.selected_profile) {
-    pending_selected_profile_.store(0, std::memory_order_release);
-    return;
+  {
+    // A Web Config save can arrive after this pass applied settings. Its
+    // accepted selection must be evaluated against that saved configuration.
+    const std::lock_guard<std::mutex> lock(pending_settings_mutex_);
+    if (pending_settings_.has_value()) return;
   }
   const auto profile = std::find_if(settings_.profiles.begin(), settings_.profiles.end(),
                                     [selected](const core::PrinterProfile& candidate) {
@@ -1065,10 +1057,21 @@ void Runtime::apply_pending_printer_selection() {
   if (inactive_printer_poller_.check_in_progress(selected)) return;
   pending_selected_profile_.store(0, std::memory_order_release);
 
+  if (selected == settings_.selected_profile) {
+    // An explicit retry of a saved selection starts the same bounded attempt
+    // as a new selection, without rewriting settings or restarting adapters.
+    connection_failure_since_ms_ = 0;
+    connection_grace_until_ms_ =
+        static_cast<std::uint64_t>(esp_timer_get_time() / 1000) +
+        kInitialPrinterConnectionGraceMs;
+    pending_dashboard_profile_ = selected;
+    return;
+  }
+
   core::DeviceSettings candidate = settings_;
   candidate.selected_profile = selected;
   pending_selected_profile_write_.store(selected, std::memory_order_release);
-  if (ui_settings_task_ != nullptr) xTaskNotifyGive(ui_settings_task_);
+  persistence_.request(PersistenceWorker::Slot::settings);
   web_config_.synchronize_settings(candidate);
   apply_settings(candidate, false);
   pending_dashboard_profile_ = selected;
@@ -1079,7 +1082,7 @@ bool Runtime::clear_unavailable_selection(std::uint32_t profile_id) {
   core::DeviceSettings candidate = settings_;
   candidate.selected_profile = 0;
   pending_selected_profile_write_.store(0, std::memory_order_release);
-  if (ui_settings_task_ != nullptr) xTaskNotifyGive(ui_settings_task_);
+  persistence_.request(PersistenceWorker::Slot::settings);
   settings_ = std::move(candidate);
   selected_printer_protocol_.store(-1, std::memory_order_release);
   web_config_.synchronize_settings(settings_);
@@ -1275,6 +1278,8 @@ void Runtime::update_audio_state(const core::PrinterSnapshot& snapshot) {
 void Runtime::monitor_loop() {
   std::int64_t camera_cleanup_started_us = 0;
   while (true) {
+    moonraker_camera_.reap_stopped();
+    bambu_a1_camera_.reap_stopped();
     // Handle a gesture's stop barrier before any display-lock wait or other
     // background work, so a frame can be cancelled while it is being decoded.
     if (display_.camera_cleanup_pending() && !camera_cleanup_pending_) {
@@ -1296,6 +1301,7 @@ void Runtime::monitor_loop() {
       vTaskDelay(std::max<TickType_t>(1, pdMS_TO_TICKS(render_delay_ms)));
       continue;
     }
+    display_.service_resources();
     apply_pending_settings();
     if (pending_reaction_storage_feedback_.exchange(false, std::memory_order_acq_rel)) {
       display_.reset_inactivity_and_wake();
@@ -1416,6 +1422,16 @@ void Runtime::monitor_loop() {
         want_bambu_connection && camera_page_visible && !bambu_uses_rtsps;
     const bool want_moonraker_camera = want_moonraker_connection && camera_page_visible;
 
+#if defined(PRINTDECK_LOCAL_VOICE)
+    voice_.reap_stopped();
+    const bool pause_voice_for_camera = want_bambu_camera || want_moonraker_camera ||
+        camera_cleanup_pending_ || bambu_a1_camera_.running() || moonraker_camera_.running();
+    if (pause_voice_for_camera) voice_.request_stop();
+    const bool camera_voice_ready = !voice_.running();
+#else
+    constexpr bool camera_voice_ready = true;
+#endif
+
     // The loading curtain remains until both camera workers have finished
     // releasing sockets, decoder workspace, queued frames and their task stacks.
     if (!camera_cleanup_pending_ &&
@@ -1472,9 +1488,9 @@ void Runtime::monitor_loop() {
     const bool full_adapter_ready = full_connection_active && ensure_selected_adapter_started(selected);
     if (want_bambu_preview && full_adapter_ready && !camera_cleanup_pending_) ensure_bambu_preview_started();
     const bool bambu_camera_ready = !want_bambu_camera ||
-        (full_adapter_ready && !camera_cleanup_pending_ && ensure_bambu_camera_started());
+        (full_adapter_ready && camera_voice_ready && !camera_cleanup_pending_ && ensure_bambu_camera_started());
     const bool moonraker_camera_ready = !want_moonraker_camera ||
-        (full_adapter_ready && !camera_cleanup_pending_ && ensure_moonraker_camera_started());
+        (full_adapter_ready && camera_voice_ready && !camera_cleanup_pending_ && ensure_moonraker_camera_started());
     bambu_a1_camera_.set_enabled(want_bambu_camera && bambu_camera_ready);
     moonraker_camera_.set_enabled(want_moonraker_camera && moonraker_camera_ready);
 
@@ -1631,7 +1647,7 @@ void Runtime::monitor_loop() {
       const bool selected_unavailable = selected != nullptr &&
           core::printer_selection_unavailable(
               selected->id, selected_snapshot_ready ? &selected_snapshot : nullptr,
-              now_ms >= connection_grace_until_ms_);
+              now_ms >= connection_grace_until_ms_, full_connection_active);
       if (selected_online) {
         connection_failure_since_ms_ = 0;
         connection_grace_until_ms_ = 0;
@@ -1721,8 +1737,8 @@ void Runtime::monitor_loop() {
                                       selected != nullptr ? &selected_snapshot : nullptr);
             if (selected != nullptr && selected_snapshot_ready &&
                 selected_snapshot.link == core::LinkState::online &&
-                pending_dashboard_profile_ == selected->id) {
-              display_.open_printer_when_ready(selected->id);
+                pending_dashboard_profile_ == selected->id &&
+                display_.open_printer_when_ready(selected->id)) {
               pending_dashboard_profile_ = 0;
             }
           } else if (selected->protocol == core::PrinterProtocol::moonraker) {
@@ -1823,10 +1839,14 @@ void Runtime::monitor_loop() {
     orientation_.set_power_suspended(content_hidden &&
         !settings_.display_power.wake_on_orientation_change);
 #if defined(PRINTDECK_LOCAL_VOICE)
-    // Muting releases the microphone, models and worker. Keep the voice opt-in
-    // saved so restoring sound resumes listening without another setting change.
+    // Camera and voice share a scarce internal-memory budget. Resume only after
+    // camera teardown; the saved voice opt-in and notification audio stay intact.
     const auto voice_now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-    if (!VoiceService::wanted(settings_.voice_enabled, audio_.enabled(), audio_.volume())) {
+    voice_.reap_stopped();
+    const bool voice_camera_barrier = pause_voice_for_camera || camera_cleanup_pending_ ||
+        display_.camera_cleanup_pending() || bambu_a1_camera_.running() || moonraker_camera_.running();
+    if (voice_camera_barrier ||
+        !VoiceService::wanted(settings_.voice_enabled, audio_.enabled(), audio_.volume())) {
       voice_.request_stop();
       voice_retry_after_ms_ = 0;
     } else if (!voice_.running() && voice_now_ms >= voice_retry_after_ms_) {
@@ -1840,7 +1860,7 @@ void Runtime::monitor_loop() {
       if (result != ESP_OK)
         ESP_LOGW(kLogTag, "Could not start local voice worker: %s", esp_err_to_name(result));
     }
-    web_config_.set_voice_ready(voice_.ready());
+    web_config_.set_voice_ready(voice_.ready(), voice_camera_barrier);
 #endif
     if (display_.automatic_shutdown_due(power.available && !power.usb_present &&
         !power.charging, keep_awake, print_active)) perform_shutdown();

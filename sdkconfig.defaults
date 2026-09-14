@@ -94,6 +94,7 @@ CONFIG_LV_IMAGE_HEADER_CACHE_DEF_CNT=32
 CONFIG_ESP_LVGL_ADAPTER_PARTIAL_AUX_IMG_CACHE=y
 CONFIG_LV_OBJ_STYLE_CACHE=y
 CONFIG_LV_DRAW_SW_DRAW_UNIT_CNT=2
+CONFIG_LV_DRAW_THREAD_STACK_SIZE=6144
 CONFIG_BSP_LCD_TRANS_QUEUE_DEPTH=1
 CONFIG_SPI_MASTER_IN_IRAM=y
 CONFIG_LV_USE_QRCODE=y
@@ -129,6 +130,12 @@ CONFIG_LWIP_UDP_RECVMBOX_SIZE=64
 # probes while Web Config and the selected printer remain responsive. Keep the
 # same descriptor budget as the proven 3D Print Monitor discovery path.
 CONFIG_LWIP_MAX_SOCKETS=16
+# Every select() caller uses network sockets. The lwIP implementation avoids
+# allocating VFS descriptor tables for each camera datagram. File I/O is unchanged.
+CONFIG_VFS_SUPPORT_SELECT=n
 CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
 CONFIG_MBEDTLS_SSL_PROTO_DTLS=y
 CONFIG_MBEDTLS_SSL_DTLS_SRTP=y
+
+# Keep margin for Wi-Fi event callbacks; the measured 2304-byte stack had < 256 bytes left.
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=2816

@@ -64,8 +64,11 @@ class ReactionSdStore {
   using Random = std::function<std::uint32_t()>;
   bool initialize(const ReactionSdIndex& index, std::uint16_t dimension,
                   Persist persist, Random random);
-  bool mount(std::string root, std::uint64_t card);
+  bool mount(std::string root, std::uint64_t card, bool retain_payloads = true);
   void unmount();
+  // Validate OFF-mode files without retaining their payloads. Enabling builds
+  // a complete replacement cache before publication; failure preserves it.
+  bool set_payload_retention(bool enabled);
   // All non-null inputs are committed together. Existing files remain selected
   // after any write, verification, removal or NVS failure before commit.
   bool save(const ReactionGifArray& changes);
@@ -74,6 +77,7 @@ class ReactionSdStore {
   // Keep SD files and index intact; the caller commits the destination mode.
   bool copy_to_internal(const std::string& root) const;
   bool owned(std::size_t index) const { return index_.records[index].file != 0; }
+  bool available(std::size_t index) const { return available_mask_ & (1UL << index); }
   const ReactionGif& image(std::size_t index) const { return cache_[index]; }
   const ReactionSdIndex& index() const { return index_; }
   bool mounted() const { return card_ != 0; }
@@ -85,9 +89,12 @@ class ReactionSdStore {
  private:
   std::string path(const ReactionSdRecord& record) const;
   bool valid(std::span<const std::uint8_t> bytes) const;
+  ReactionGif read_verified(std::size_t index) const;
   void remove_replaced(const ReactionSdIndex& previous);
   ReactionSdIndex index_{};
   ReactionGifArray cache_{};
+  std::uint32_t available_mask_ = 0;
+  bool retain_payloads_ = true;
   std::string root_;
   std::uint64_t card_ = 0;
   std::uint16_t dimension_ = 0;

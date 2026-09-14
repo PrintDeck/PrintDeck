@@ -44,6 +44,7 @@ class WebConfig {
   using RestartRequestedCallback = bool (*)(void* context);
   using SelectedPrinterSnapshotCallback =
       bool (*)(void* context, core::PrinterSnapshot& destination);
+  using PrinterSelectionCallback = bool (*)(void* context, std::uint32_t profile_id);
   using UnifiedApiActivityCallback = void (*)(void* context);
   using PrinterLightCallback = bool (*)(void* context, std::uint32_t profile_id, bool enabled);
 
@@ -57,7 +58,9 @@ class WebConfig {
                   BambuCompatibilityProbe& compatibility_probe,
                   const InactivePrinterPoller& inactive_printer_poller,
                   DisplayShell& display);
-  void set_voice_ready(bool ready) { voice_ready_.store(ready); }
+  void set_voice_ready(bool ready, bool paused_for_camera = false) {
+    voice_state_.store(paused_for_camera ? 2 : ready ? 1 : 0);
+  }
   void set_settings_changed_callback(SettingsChangedCallback callback, void* context);
   void set_audio_test_callback(AudioTestCallback callback, void* context);
   void set_configuration_backup_activity_callback(
@@ -65,6 +68,7 @@ class WebConfig {
   void set_restart_requested_callback(RestartRequestedCallback callback, void* context);
   void set_selected_printer_snapshot_callback(
       SelectedPrinterSnapshotCallback callback, void* context);
+  void set_printer_selection_callback(PrinterSelectionCallback callback, void* context);
   void set_unified_api_activity_callback(UnifiedApiActivityCallback callback, void* context);
   void set_printer_controls_callbacks(UnifiedApiActivityCallback activity,
                                      PrinterLightCallback light, void* context);
@@ -261,7 +265,7 @@ class WebConfig {
   core::JobPhase selected_phase_ = core::JobPhase::unknown;
   float selected_completion_ = 0.0F;
   PowerSnapshot power_status_;
-  std::atomic<bool> voice_ready_{false};
+  std::atomic<std::uint8_t> voice_state_{0};
   struct PrinterLightState {
     bool supported = false;
     bool on = false;
@@ -283,6 +287,8 @@ class WebConfig {
   void* restart_requested_context_ = nullptr;
   SelectedPrinterSnapshotCallback selected_printer_snapshot_callback_ = nullptr;
   void* selected_printer_snapshot_context_ = nullptr;
+  PrinterSelectionCallback printer_selection_callback_ = nullptr;
+  void* printer_selection_context_ = nullptr;
   UnifiedApiActivityCallback unified_api_activity_callback_ = nullptr;
   void* unified_api_activity_context_ = nullptr;
   mutable std::atomic<std::uint64_t> unified_api_next_request_ms_{0};

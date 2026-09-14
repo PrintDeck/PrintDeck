@@ -22,6 +22,9 @@ class VoiceService {
   esp_err_t start(AudioService& audio, WakeCallback wake, void* context);
   void request_stop() { stop_requested_.store(true); ready_.store(false); }
   bool running() const { return running_.load(); }
+  // Called only by the core-0 runtime owner. Returns after the stopped task's
+  // internal stack and TCB have actually been reclaimed.
+  void reap_stopped();
   void update_status(const AudioService::SpokenPrintStatus& status);
   bool ready() const { return ready_.load() && !stop_requested_.load(); }
 
@@ -41,6 +44,7 @@ class VoiceService {
   void deactivate_multinet();
   bool return_to_wake_word();
   void release_resources();
+  [[noreturn]] void finish_task();
   std::uint32_t speak_command(int command_id);
 
   AudioService* audio_ = nullptr;
@@ -58,6 +62,7 @@ class VoiceService {
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> running_{false};
   std::atomic<bool> ready_{false};
+  std::atomic<bool> resources_released_{false};
   std::mutex status_mutex_;
   AudioService::SpokenPrintStatus status_;
 };

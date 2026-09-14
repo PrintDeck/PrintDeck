@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "printdeck/core/camera_frame.hpp"
 
 namespace printdeck::core {
 
@@ -216,7 +217,7 @@ struct JobState {
   std::shared_ptr<std::vector<std::uint8_t>> preview;
   // Transient exposure image; never stored in the model-thumbnail flash cache.
   std::shared_ptr<std::vector<std::uint8_t>> exposure_preview;
-  std::shared_ptr<std::vector<std::uint8_t>> camera_frame;
+  CameraFrame camera_frame;
   std::uint16_t camera_width = 0;
   std::uint16_t camera_height = 0;
   bool camera_supported = false;

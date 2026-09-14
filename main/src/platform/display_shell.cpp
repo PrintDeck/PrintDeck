@@ -3,6 +3,7 @@
 #include "printdeck/core/print_time.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/display_shell.hpp"
+#include "printdeck/platform/display_snapshot.hpp"
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -276,7 +277,7 @@ std::uint32_t DisplayShell::brand_color(const core::PrinterProfile& profile) {
 std::uint32_t DisplayShell::brand_logo_color(const core::PrinterProfile& profile,
                                              std::uint32_t background) {
   const std::string brand = effective_brand(profile);
-  if (brand != "snapmaker" && brand != "tinymaker") return brand_color(profile);
+  if (brand != "snapmaker") return brand_color(profile);
 
   const std::uint32_t red = (background >> 16U) & 0xFFU;
   const std::uint32_t green = (background >> 8U) & 0xFFU;
@@ -285,8 +286,8 @@ std::uint32_t DisplayShell::brand_logo_color(const core::PrinterProfile& profile
   return luminance >= 128U * 10000U ? 0x000000 : 0xFFFFFF;
 }
 
-const lv_image_dsc_t* DisplayShell::brand_logo(const core::PrinterProfile& profile) {
-  return embedded_large_brand_logo(effective_brand(profile));
+lv_obj_t* DisplayShell::create_brand_logo(lv_obj_t* parent, const core::PrinterProfile& profile) {
+  return create_embedded_large_brand_logo(parent, effective_brand(profile));
 }
 
 const lv_image_dsc_t* DisplayShell::brand_logo_small(const core::PrinterProfile& profile) {
@@ -392,54 +393,7 @@ bool decode_preview_png(const std::shared_ptr<std::vector<std::uint8_t>>& encode
   return true;
 }
 
-lv_draw_buf_t* take_transparent_snapshot(lv_obj_t* object) {
-  if (object == nullptr) return nullptr;
-  lv_draw_buf_t* buffer =
-      lv_snapshot_create_draw_buf(object, LV_COLOR_FORMAT_ARGB8888);
-  if (buffer == nullptr) return nullptr;
-  lv_draw_buf_clear(buffer, nullptr);
-  if (lv_snapshot_take_to_draw_buf(object, LV_COLOR_FORMAT_ARGB8888, buffer) !=
-      LV_RESULT_OK) {
-    lv_draw_buf_destroy(buffer);
-    return nullptr;
-  }
-  return buffer;
-}
 
-void composite_snapshot_bgra(lv_draw_buf_t* destination,
-                             const lv_draw_buf_t* source, int width, int height) {
-  if (destination == nullptr || destination->data == nullptr ||
-      destination->header.w != width || destination->header.h != height ||
-      destination->header.stride < width * 4 || source == nullptr ||
-      source->data == nullptr || source->header.w != width ||
-      source->header.h != height || source->header.stride < width * 4) {
-    return;
-  }
-  for (int y = 0; y < height; ++y) {
-    const std::uint8_t* source_row =
-        source->data + static_cast<std::size_t>(y) * source->header.stride;
-    std::uint8_t* destination_row =
-        destination->data + static_cast<std::size_t>(y) * destination->header.stride;
-    for (int x = 0; x < width; ++x) {
-      const std::uint8_t* source_pixel = source_row + x * 4;
-      std::uint8_t* destination_pixel = destination_row + x * 4;
-      const unsigned alpha = source_pixel[3];
-      if (alpha == 0U) continue;
-      if (alpha == 255U) {
-        std::memcpy(destination_pixel, source_pixel, 4U);
-        continue;
-      }
-      const unsigned inverse = 255U - alpha;
-      for (int channel = 0; channel < 3; ++channel) {
-        destination_pixel[channel] = static_cast<std::uint8_t>(
-            (source_pixel[channel] * alpha + destination_pixel[channel] * inverse + 127U) /
-            255U);
-      }
-      destination_pixel[3] = static_cast<std::uint8_t>(
-          alpha + (destination_pixel[3] * inverse + 127U) / 255U);
-    }
-  }
-}
 
 }  // namespace
 
@@ -611,11 +565,8 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
   lv_obj_set_style_border_width(logo_clip, 0, LV_PART_MAIN);
   lv_obj_set_style_pad_all(logo_clip, 0, LV_PART_MAIN);
 
-  lv_obj_t* logo_image = nullptr;
-  if (const lv_image_dsc_t* logo = embedded_boot_logo(); logo != nullptr) {
-    logo_image = lv_image_create(logo_clip);
-    lv_image_set_src(logo_image, logo);
-  } else {
+  lv_obj_t* logo_image = create_embedded_boot_logo(logo_clip);
+  if (logo_image == nullptr) {
     // Keep the reveal hierarchy usable when PSRAM or asset verification fails.
     logo_image = lv_label_create(logo_clip);
     lv_label_set_text(logo_image, "PrintDeck");
@@ -1541,6 +1492,9 @@ void DisplayShell::horizontal_transition_timeout(lv_timer_t* timer) {
 void DisplayShell::finish_horizontal_transition(int rendered_page,
                                                 bool rendered_printer_list,
                                                 std::uint32_t rendered_profile_id) {
+  // The monitor calls this after every refresh. A settled page has no overlay
+  // to reveal, so it must not contend with the next LVGL draw just to return.
+  if (!horizontal_transition_active_.load(std::memory_order_acquire)) return;
   if (board_display_lock(250) != ESP_OK) return;
   if (!horizontal_transition_active_ || horizontal_transition_overlay_ == nullptr ||
       camera_cleanup_pending_.load() ||
@@ -2731,10 +2685,8 @@ void DisplayShell::activate_printer_card(lv_obj_t* card) {
   const auto id = static_cast<std::uint32_t>(
       reinterpret_cast<std::uintptr_t>(lv_obj_get_user_data(card)));
   if (id == 0) return;
-  if (id == selected_profile_) {
-    if (selected_online_.load()) {
-      start_horizontal_transition(0, false, -1, id, 1);
-    }
+  if (id == selected_profile_ && selected_online_.load()) {
+    start_horizontal_transition(0, false, -1, id, 1);
   } else if (printer_selected_ != nullptr) {
     const bool accepted =
         printer_selected_(printer_selected_context_, id);
@@ -2909,9 +2861,9 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
                                          : has_status && inactive_status->connected;
       const core::PrinterReachability reachability =
           connected ? core::PrinterReachability::online
-                    : (has_status ? core::PrinterReachability::offline
+                    : (has_status && !checking ? core::PrinterReachability::offline
                                   : core::PrinterReachability::unknown);
-      const bool selectable = core::printer_driver(profile.protocol).dashboard && !checking &&
+      const bool selectable = core::printer_driver(profile.protocol).dashboard && (!checking || is_selected) &&
                               core::printer_selectable(is_selected, reachability);
       lv_obj_t* card = lv_obj_create(list);
       lv_obj_set_size(card, 330, 82);
@@ -2950,7 +2902,8 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
         lv_image_set_src(mark, logo);
         lv_obj_set_style_image_recolor(
             mark, lv_color_hex(brand_logo_color(profile, theme_style_.surface_raised)), 0);
-        lv_obj_set_style_image_recolor_opa(mark, LV_OPA_COVER, 0);
+        lv_obj_set_style_image_recolor_opa(mark,
+            effective_brand(profile) == "tinymaker" ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
         lv_obj_center(mark);
         make_gesture_passthrough(mark);
       } else {
@@ -3257,12 +3210,17 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
   return ESP_OK;
 }
 
-void DisplayShell::open_printer_when_ready(std::uint32_t profile_id) {
+bool DisplayShell::open_printer_when_ready(std::uint32_t profile_id) {
   if (profile_id == 0 || horizontal_depth_.load() != 0 ||
-      !selected_online_.load() || board_display_lock(250) != ESP_OK) return;
+      !selected_online_.load() || board_display_lock(250) != ESP_OK) return false;
   selected_profile_ = profile_id;
   start_horizontal_transition(0, false, -1, profile_id, 1);
+  const bool accepted = horizontal_transition_active_.load() &&
+      horizontal_transition_target_page_ == 0 &&
+      !horizontal_transition_target_printer_list_ &&
+      horizontal_transition_target_profile_id_ == profile_id;
   board_display_unlock();
+  return accepted;
 }
 
 void DisplayShell::show_printer(const core::PrinterProfile& profile,
@@ -4901,12 +4859,19 @@ void DisplayShell::show_resin_status(const core::PrinterProfile& profile,
       lv_obj_center(media_image_); make_gesture_passthrough(media_image_);
       lv_obj_add_flag(media_image_, LV_OBJ_FLAG_CLICKABLE);
       lv_obj_add_event_cb(media_image_, media_zoom_event, LV_EVENT_SHORT_CLICKED, this);
-    } else if (const auto* logo = large ? brand_logo(profile) : brand_logo_small(profile)) {
-      auto* mark = lv_image_create(frame);
-      lv_image_set_src(mark, logo);
+    } else if (auto* mark = large ? create_brand_logo(frame, profile) : nullptr) {
       lv_obj_set_style_image_recolor(
           mark, lv_color_hex(brand_logo_color(profile, theme_style_.background)), LV_PART_MAIN);
-      lv_obj_set_style_image_recolor_opa(mark, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_image_recolor_opa(mark,
+          effective_brand(profile) == "tinymaker" ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_center(mark); make_gesture_passthrough(mark);
+    } else if (!large && brand_logo_small(profile)) {
+      auto* mark = lv_image_create(frame);
+      lv_image_set_src(mark, brand_logo_small(profile));
+      lv_obj_set_style_image_recolor(
+          mark, lv_color_hex(brand_logo_color(profile, theme_style_.background)), LV_PART_MAIN);
+      lv_obj_set_style_image_recolor_opa(mark,
+          effective_brand(profile) == "tinymaker" ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
       lv_obj_center(mark); make_gesture_passthrough(mark);
     } else {
       auto* mark = lv_label_create(frame);
@@ -5016,23 +4981,22 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
       lv_obj_set_style_pad_all(badge, 0, LV_PART_MAIN);
       lv_obj_center(badge);
       make_gesture_passthrough(badge);
-      if (const lv_image_dsc_t* logo = brand_logo(profile); logo != nullptr) {
-        lv_obj_t* mark = lv_image_create(badge);
-        lv_image_set_src(mark, logo);
+      if (lv_obj_t* mark = create_brand_logo(badge, profile); mark != nullptr) {
         lv_image_set_scale(mark, 256);
         lv_image_set_antialias(mark, true);
         lv_obj_set_style_image_recolor(
             mark, lv_color_hex(brand_logo_color(profile, theme_style_.background)),
             LV_PART_MAIN);
-        lv_obj_set_style_image_recolor_opa(mark, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_image_recolor_opa(mark,
+            effective_brand(profile) == "tinymaker" ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_center(mark);
         make_gesture_passthrough(mark);
       } else {
-        lv_obj_t* mark = lv_label_create(badge);
-        lv_label_set_text(mark, brand_mark(profile));
-        apply_text_style(mark, lv_color_hex(brand_color(profile)), &lv_font_montserrat_32);
-        lv_obj_center(mark);
-        make_gesture_passthrough(mark);
+        lv_obj_t* fallback_mark = lv_label_create(badge);
+        lv_label_set_text(fallback_mark, brand_mark(profile));
+        apply_text_style(fallback_mark, lv_color_hex(brand_color(profile)), &lv_font_montserrat_32);
+        lv_obj_center(fallback_mark);
+        make_gesture_passthrough(fallback_mark);
       }
     }
     detail_label_ = lv_label_create(screen);
@@ -7191,7 +7155,6 @@ bool DisplayShell::initialize_localized_fonts() {
                                 &lv_font_montserrat_32};
   const int sizes[]{12, 14, 16, 24, 32};
   const auto latin = embedded_latin_font();
-  const auto cjk = embedded_cjk_font();
   const auto terminal = embedded_terminal_font();
   // Keep recovery navigation usable even if PSRAM allocation or resource
   // validation fails. Fall back to the built-in English font chain.
@@ -7215,7 +7178,7 @@ bool DisplayShell::initialize_localized_fonts() {
     ESP_LOGW(kLogTag, "Using built-in English display fonts");
     return true;
   };
-  if (!latin.data || !cjk.data || !terminal.data) return use_builtin_fonts();
+  if (!latin.data || !terminal.data) return use_builtin_fonts();
   // These fonts are fallbacks for characters Montserrat does not contain. A
   // large cache per fallback and per size quickly consumes the internal heap
   // needed by MQTT/TLS (most cached glyph bitmaps are smaller than the PSRAM
@@ -7227,13 +7190,17 @@ bool DisplayShell::initialize_localized_fonts() {
     localized_latin_fonts_[index] =
         lv_tiny_ttf_create_data_ex(latin.data, latin.size, sizes[index],
                                    LV_FONT_KERNING_NONE, kFallbackGlyphCacheEntries);
-    localized_cjk_fonts_[index] =
-        lv_tiny_ttf_create_data_ex(cjk.data, cjk.size, sizes[index],
-                                   LV_FONT_KERNING_NONE, kFallbackGlyphCacheEntries);
-    if (localized_latin_fonts_[index] == nullptr || localized_cjk_fonts_[index] == nullptr) {
-      return use_builtin_fonts();
-    }
-    localized_latin_fonts_[index]->fallback = localized_cjk_fonts_[index];
+    if (localized_latin_fonts_[index] == nullptr) return use_builtin_fonts();
+    auto& request_font = localized_cjk_request_fonts_[index];
+    request_font = {};
+    request_font.line_height = base_fonts[index]->line_height;
+    request_font.base_line = base_fonts[index]->base_line;
+    request_font.get_glyph_dsc = [](const lv_font_t*, lv_font_glyph_dsc_t*,
+                                    std::uint32_t letter, std::uint32_t) {
+      request_embedded_cjk_glyph(letter);
+      return false;
+    };
+    localized_latin_fonts_[index]->fallback = &request_font;
     localized_base_fonts_[index] = *base_fonts[index];
     localized_base_fonts_[index].fallback = localized_latin_fonts_[index];
   }
@@ -7253,6 +7220,73 @@ bool DisplayShell::initialize_localized_fonts() {
   }
   localized_fonts_available_ = true;
   return true;
+}
+
+void DisplayShell::service_resources() {
+  if (!display_ready_.load(std::memory_order_acquire)) return;
+  const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  const bool font_retry_due = localized_fonts_available_ && !localized_cjk_fonts_[0] &&
+      embedded_cjk_font().data && now_ms >= cjk_font_retry_after_ms_;
+  if (now_ms < resource_lock_retry_after_ms_ ||
+      (!font_retry_due && !embedded_resources_need_preparation(now_ms) &&
+       !embedded_resources_need_publication())) return;
+  // Avoid competing with camera decode/capture for their large workspaces.
+  // The lock order is workspace -> display; a busy worker simply retries.
+  ImageWorkspaceLock workspace(0);
+  if (!workspace) return;
+  // This method is called on the application core without a display lock.
+  // Inflate may allocate PSRAM; neither LVGL events nor draw workers do it.
+  prepare_requested_embedded_resources(now_ms);
+  if (!font_retry_due && !embedded_resources_need_publication()) return;
+  if (board_display_lock(1000) != ESP_OK) {
+    resource_lock_retry_after_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + 100;
+    return;
+  }
+  resource_lock_retry_after_ms_ = 0;
+  publish_prepared_embedded_resources();
+  const auto cjk = embedded_cjk_font();
+  if (localized_fonts_available_ && !localized_cjk_fonts_[0] && cjk.data &&
+      now_ms >= cjk_font_retry_after_ms_) {
+    // tinyTTF's internal cache constructors assert on allocation failure. Keep
+    // room for the five fonts AND their first glyph-cache warm-up, rather than
+    // relying only on the recoverable outer font allocation. The full native
+    // cmap/size sweep peaks below 212 KiB; retain a conservative safety margin.
+    constexpr std::size_t kCjkFreeReserve = 512 * 1024;
+    constexpr std::size_t kCjkLargestReserve = 128 * 1024;
+    constexpr auto kFontMemoryCaps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+    if (heap_caps_get_free_size(kFontMemoryCaps) < kCjkFreeReserve ||
+        heap_caps_get_largest_free_block(kFontMemoryCaps) < kCjkLargestReserve) {
+      cjk_font_retry_after_ms_ = now_ms + 5000;
+      board_display_unlock();
+      return;
+    }
+    const int sizes[]{12, 14, 16, 24, 32};
+    std::array<lv_font_t*, 5> next{};
+    bool complete = true;
+    for (std::size_t index = 0; index < next.size(); ++index) {
+      next[index] = lv_tiny_ttf_create_data_ex(cjk.data, cjk.size, sizes[index],
+                                               LV_FONT_KERNING_NONE, 16);
+      if (!next[index]) { complete = false; break; }
+    }
+    if (complete) {
+      // Publish the complete chain while LVGL is quiescent. The fonts and TTF
+      // backing remain alive afterwards, including for queued glyph draws.
+      localized_cjk_fonts_ = next;
+      for (std::size_t index = 0; index < next.size(); ++index)
+        localized_latin_fonts_[index]->fallback = next[index];
+      // Existing labels can still hold the same string and cached ellipsis.
+      // A full style notification recalculates their text, including overlays.
+      lv_obj_report_style_change(nullptr);
+      lv_obj_invalidate(lv_screen_active());
+      lv_obj_invalidate(lv_layer_top());
+      lv_obj_invalidate(lv_layer_sys());
+    } else {
+      for (auto* font : next) if (font) lv_tiny_ttf_destroy(font);
+      cjk_font_retry_after_ms_ = now_ms + 5000;
+      ESP_LOGW(kLogTag, "CJK font initialization deferred until memory is available");
+    }
+  }
+  board_display_unlock();
 }
 
 const lv_font_t* DisplayShell::localized_font(const lv_font_t* font,
@@ -8231,20 +8265,11 @@ esp_err_t DisplayShell::capture_png(std::vector<std::uint8_t>& png,
   bool captured = width > 0 && height > 0;
 
   lv_draw_buf_t* screen = captured
-      ? take_transparent_snapshot(lv_display_get_screen_active(display)) : nullptr;
+      ? capture_composed_display(display) : nullptr;
   captured = captured && screen != nullptr && screen->data != nullptr &&
              screen->header.w == width && screen->header.h == height &&
              screen->header.stride >= width * 4;
 
-  if (captured) {
-    lv_draw_buf_t* top = take_transparent_snapshot(lv_display_get_layer_top(display));
-    composite_snapshot_bgra(screen, top, width, height);
-    if (top != nullptr) lv_draw_buf_destroy(top);
-
-    lv_draw_buf_t* system = take_transparent_snapshot(lv_display_get_layer_sys(display));
-    composite_snapshot_bgra(screen, system, width, height);
-    if (system != nullptr) lv_draw_buf_destroy(system);
-  }
   board_display_unlock();
   if (!captured || screen_name.empty()) {
     if (screen != nullptr) lv_draw_buf_destroy(screen);

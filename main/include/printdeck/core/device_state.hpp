@@ -57,9 +57,12 @@ struct PrinterSnapshot {
 
 bool dashboard_available(std::uint32_t selected_profile,
                          const PrinterSnapshot* snapshot);
+// A lightweight status that has not been observed also uses `connecting`.
+// Only an active full connection attempt may time out without a failed report.
 bool printer_selection_unavailable(std::uint32_t selected_profile,
                                    const PrinterSnapshot* snapshot,
-                                   bool connection_grace_elapsed);
+                                   bool connection_grace_elapsed,
+                                   bool connection_attempt_active);
 bool retain_last_known_job_during_reconnect(PrinterSnapshot& current,
                                             const PrinterSnapshot& last_known);
 bool printer_selectable(bool selected, PrinterReachability reachability);

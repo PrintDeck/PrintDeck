@@ -104,31 +104,59 @@ std::string ReactionSdStore::path(const ReactionSdRecord& record) const {
   return root_ + name;
 }
 
-bool ReactionSdStore::mount(std::string root, std::uint64_t card) {
+ReactionGif ReactionSdStore::read_verified(std::size_t i) const {
+  const auto& record = index_.records[i];
+  if (!mounted() || !record.file || record.card != card_) return {};
+  auto image = read(path(record), record.bytes);
+  return image && valid(*image) && checksum(*image) == record.checksum ? image : ReactionGif{};
+}
+
+bool ReactionSdStore::mount(std::string root, std::uint64_t card, bool retain_payloads) {
   unmount();
   if (!card || !persist_) return false;
   root_ = std::move(root);
   if (::mkdir(root_.c_str(), 0700) != 0 && errno != EEXIST) return false;
   card_ = card;
+  retain_payloads_ = retain_payloads;
   for (std::size_t i = 0; i < cache_.size(); ++i) {
-    const auto& record = index_.records[i];
-    if (!record.file || record.card != card_) continue;
-    auto image = read(path(record), record.bytes);
-    if (image && valid(*image) && checksum(*image) == record.checksum)
-      cache_[i] = std::move(image);
+    auto image = read_verified(i);
+    if (!image) continue;
+    available_mask_ |= 1UL << i;
+    if (retain_payloads_) cache_[i] = std::move(image);
   }
   return true;
 }
 
 void ReactionSdStore::unmount() {
   cache_.fill({});
+  available_mask_ = 0;
   card_ = 0;
+}
+
+bool ReactionSdStore::set_payload_retention(bool enabled) {
+  if (!enabled) {
+    cache_.fill({});
+    retain_payloads_ = false;
+    return true;
+  }
+  if (!mounted()) return false;
+  if (retain_payloads_) return true;
+  ReactionGifArray next{};
+  for (std::size_t i = 0; i < next.size(); ++i) {
+    if (!available(i)) continue;
+    next[i] = read_verified(i);
+    // Removal, corruption or allocation failure cannot expose a partial cache.
+    if (!next[i]) return false;
+  }
+  cache_ = std::move(next);
+  retain_payloads_ = true;
+  return true;
 }
 
 std::size_t ReactionSdStore::missing() const {
   std::size_t count = 0;
   for (std::size_t i = 0; i < cache_.size(); ++i)
-    if (owned(i) && !cache_[i]) ++count;
+    if (owned(i) && !available(i)) ++count;
   return count;
 }
 
@@ -182,8 +210,11 @@ bool ReactionSdStore::save(const ReactionGifArray& changes) {
   if (!persist_(next)) return false;
   const auto previous = index_;
   index_ = next;
-  for (std::size_t i = 0; i < changes.size(); ++i)
-    if (changes[i]) cache_[i] = changes[i];
+  for (std::size_t i = 0; i < changes.size(); ++i) {
+    if (!changes[i]) continue;
+    available_mask_ |= 1UL << i;
+    cache_[i] = retain_payloads_ ? changes[i] : ReactionGif{};
+  }
   remove_replaced(previous);
   return true;
 }
@@ -197,6 +228,7 @@ bool ReactionSdStore::forget(std::size_t i) {
   const auto previous = index_;
   index_ = next;
   cache_[i].reset();
+  available_mask_ &= ~(1UL << i);
   remove_replaced(previous);
   return true;
 }
@@ -208,25 +240,39 @@ bool ReactionSdStore::clear() {
   const auto previous = index_;
   index_ = next;
   cache_.fill({});
+  available_mask_ = 0;
   remove_replaced(previous);
   return true;
 }
 
 bool ReactionSdStore::copy_to_internal(const std::string& root) const {
   if (missing()) return false;
+  std::array<std::string, kReactionEventCount> staged{};
+  const auto cleanup = [&] {
+    for (const auto& temporary : staged)
+      if (!temporary.empty()) ::unlink(temporary.c_str());
+  };
   for (std::size_t i = 0; i < cache_.size(); ++i) {
     if (!owned(i)) continue;
-    const auto& image = cache_[i];
-    if (!image) return false;
+    // OFF mode retains only availability metadata. Read and verify one source
+    // at a time; existing immutable readers can keep their own copy alive.
+    const auto image = cache_[i] ? cache_[i] : read_verified(i);
+    if (!image) { cleanup(); return false; }
     const auto destination = root + "/" + std::string(reaction_events()[i].id) + ".gif";
     const auto temporary = destination + ".sdtmp";
+    staged[i] = temporary;
     ::unlink(temporary.c_str());
-    if (!write_new(temporary, *image)) return false;
+    if (!write_new(temporary, *image)) { cleanup(); return false; }
     const auto verified = read(temporary, image->size());
-    if (!verified || *verified != *image || ::rename(temporary.c_str(), destination.c_str()) != 0) {
-      ::unlink(temporary.c_str());
-      return false;
-    }
+    if (!verified || *verified != *image) { cleanup(); return false; }
+  }
+  // Finish every potentially failing SD read before replacing any active
+  // internal file. Renames retain the existing per-file durability contract;
+  // this is not a new all-files transaction or storage schema.
+  for (std::size_t i = 0; i < staged.size(); ++i) {
+    if (staged[i].empty()) continue;
+    const auto destination = root + "/" + std::string(reaction_events()[i].id) + ".gif";
+    if (::rename(staged[i].c_str(), destination.c_str()) != 0) { cleanup(); return false; }
   }
   return true;
 }
