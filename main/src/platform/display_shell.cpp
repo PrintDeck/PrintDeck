@@ -8399,15 +8399,25 @@ void DisplayShell::show_companion_add(const core::PrinterProfile& profile) {
   constexpr int width=kDisplayUsesLargeLayout?300:180;
   if(view_!=24 || visible_profile_!=profile.id) {
     prepare_active_screen("add-printdeck-camera");
-    create_page_header("PrintDeck Camera");
+    if constexpr (kDisplayUsesLargeLayout) {
+      create_page_header("PrintDeck Camera");
+    } else {
+      square_create_header("PrintDeck Camera");
+    }
     companion_progress_=lv_label_create(lv_screen_active());
-    lv_obj_set_width(companion_progress_,width);
+    lv_obj_set_size(companion_progress_, width, kDisplayUsesLargeLayout ? 36 : 32);
+    lv_label_set_long_mode(companion_progress_, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(companion_progress_,LV_TEXT_ALIGN_CENTER,0);
-    apply_text_style(companion_progress_,lv_color_hex(theme_style_.text_secondary),&lv_font_montserrat_14);
+    apply_text_style(companion_progress_,lv_color_hex(theme_style_.text_secondary),
+                     kDisplayUsesLargeLayout ? &lv_font_montserrat_14 : &lv_font_montserrat_12);
     lv_obj_align(companion_progress_,LV_ALIGN_TOP_MID,0,kDisplayUsesLargeLayout?90:42);
     companion_results_=lv_obj_create(lv_screen_active());
-    lv_obj_set_size(companion_results_,width,kDisplayUsesLargeLayout?180:90);
-    lv_obj_align(companion_results_,LV_ALIGN_CENTER,0,0);
+    lv_obj_set_size(companion_results_,width,kDisplayUsesLargeLayout?180:76);
+    if constexpr (kDisplayUsesLargeLayout) {
+      lv_obj_align(companion_results_,LV_ALIGN_CENTER,0,0);
+    } else {
+      lv_obj_align(companion_results_,LV_ALIGN_TOP_MID,0,80);
+    }
     lv_obj_set_style_bg_opa(companion_results_,LV_OPA_TRANSP,0);
     lv_obj_set_style_border_width(companion_results_,0,0);
     lv_obj_set_style_pad_all(companion_results_,0,0);
@@ -8415,12 +8425,19 @@ void DisplayShell::show_companion_add(const core::PrinterProfile& profile) {
     lv_obj_set_scroll_dir(companion_results_,LV_DIR_VER);
     pairing_camera_ids_.clear();
     companion_search_=lv_button_create(lv_screen_active());
-    lv_obj_set_size(companion_search_,width,kDisplayUsesLargeLayout?44:32);
-    lv_obj_align(companion_search_,LV_ALIGN_BOTTOM_MID,0,kDisplayUsesLargeLayout?-78:-32);
+    lv_obj_set_size(companion_search_,kDisplayUsesLargeLayout?width:168,44);
+    lv_obj_set_style_bg_color(companion_search_,lv_color_hex(accent_color_),LV_PART_MAIN);
+    lv_obj_set_style_border_width(companion_search_,0,LV_PART_MAIN);
+    lv_obj_set_style_radius(companion_search_,themed_radius(12),LV_PART_MAIN);
+    lv_obj_align(companion_search_,LV_ALIGN_BOTTOM_MID,0,kDisplayUsesLargeLayout?-78:-30);
     lv_obj_set_user_data(companion_search_,reinterpret_cast<void*>(-1));
     lv_obj_add_event_cb(companion_search_,companion_action_event,LV_EVENT_CLICKED,this);
     auto* label=lv_label_create(companion_search_);lv_label_set_text(label,tr("Search PrintDeck Camera"));
-    apply_text_style(label,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_14);lv_obj_center(label);
+    apply_text_style(label,lv_color_hex(theme_style_.on_accent),
+                     kDisplayUsesLargeLayout ? &lv_font_montserrat_14 : &lv_font_montserrat_12);
+    lv_obj_set_width(label,kDisplayUsesLargeLayout?width-24:148);
+    lv_label_set_long_mode(label,LV_LABEL_LONG_WRAP);
+    lv_obj_center(label);
     create_printer_view_dots(kDisplayUsesLargeLayout ? 39 : 9);
     create_depth_dots(kDisplayUsesLargeLayout ? 31 : 4);view_=24;visible_profile_=profile.id;
   }
