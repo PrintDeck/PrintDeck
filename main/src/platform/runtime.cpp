@@ -210,6 +210,11 @@ void Runtime::start() {
   verify_heap("network startup");
   const esp_err_t preview_result = print_preview_.start();
   if (preview_result != ESP_OK) ESP_LOGW(kLogTag, "Print thumbnail cache worker unavailable");
+  reaction_assets_.set_storage_changed_callback(+[](void* context) {
+    auto* runtime = static_cast<Runtime*>(context);
+    runtime->pending_reaction_storage_feedback_.store(true, std::memory_order_release);
+    if (runtime->monitor_task_) xTaskNotifyGive(runtime->monitor_task_);
+  }, this);
   const esp_err_t reactions_result = reaction_assets_.start(network_);
   if (reactions_result != ESP_OK) {
     ESP_LOGW(kLogTag, "Reaction asset service is unavailable: %s",
@@ -363,6 +368,7 @@ bool Runtime::ensure_selected_adapter_started(const core::PrinterProfile* select
       {Protocol::moonraker, moonraker_.running()},
       {Protocol::bambu_lan, bambu_lan_.running()},
       {Protocol::prusalink, prusalink_.running()},
+      {Protocol::tinymaker, tinymaker_.running()},
       {Protocol::elegoo_sdcp, elegoo_sdcp_.running()},
       {Protocol::elegoo_cc2, elegoo_cc2_.running()},
   };
@@ -373,6 +379,7 @@ bool Runtime::ensure_selected_adapter_started(const core::PrinterProfile* select
     case Protocol::moonraker: return ensure_moonraker_started(selected);
     case Protocol::bambu_lan: return ensure_bambu_lan_started(selected);
     case Protocol::prusalink: return ensure_prusalink_started(selected);
+    case Protocol::tinymaker: return tinymaker_.start(selected, network_) == ESP_OK;
     case Protocol::elegoo_sdcp: return elegoo_sdcp_.start(selected, network_) == ESP_OK;
     case Protocol::elegoo_cc2: return elegoo_cc2_.start(selected, network_) == ESP_OK;
     case Protocol::uniformation_sdcp: return elegoo_sdcp_.start(selected, network_) == ESP_OK;
@@ -531,6 +538,10 @@ bool Runtime::selected_printer_snapshot_entry(
     runtime->elegoo_cc2_.snapshot_into(destination);
     return destination.profile_id != 0;
   }
+  if (protocol == static_cast<int>(core::PrinterProtocol::tinymaker) && runtime->tinymaker_.running()) {
+    runtime->tinymaker_.snapshot_into(destination);
+    return destination.profile_id != 0;
+  }
   if (protocol == static_cast<int>(core::PrinterProtocol::prusalink) &&
       runtime->prusalink_.running()) {
     runtime->prusalink_.snapshot_into(destination);
@@ -588,7 +599,7 @@ bool Runtime::background_update_blocked() const {
     return true;
   }
   if (moonraker_probe_.snapshot().running) return true;
-  if (prusalink_probe_.snapshot().running) return true;
+  if (prusalink_probe_.snapshot().running || web_config_.tinymaker_check_running()) return true;
   if (elegoo_probe_.snapshot().running || web_config_.uniformation_check_running()) return true;
   const BambuCompatibilityState compatibility = bambu_compatibility_.snapshot().state;
   return compatibility == BambuCompatibilityState::kConnecting ||
@@ -994,6 +1005,7 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   inactive_printer_poller_.configure(settings);
   if (printer_configuration_changed) {
     prusalink_.configure(selected);
+    tinymaker_.configure(selected);
     elegoo_sdcp_.configure(selected);
     elegoo_cc2_.configure(selected);
     moonraker_.configure(selected);
@@ -1073,6 +1085,7 @@ bool Runtime::clear_unavailable_selection(std::uint32_t profile_id) {
   web_config_.synchronize_settings(settings_);
   moonraker_.configure(nullptr);
   prusalink_.configure(nullptr);
+  tinymaker_.configure(nullptr);
   elegoo_sdcp_.configure(nullptr);
   elegoo_cc2_.configure(nullptr);
   moonraker_camera_.configure(nullptr);
@@ -1284,6 +1297,11 @@ void Runtime::monitor_loop() {
       continue;
     }
     apply_pending_settings();
+    if (pending_reaction_storage_feedback_.exchange(false, std::memory_order_acq_rel)) {
+      display_.reset_inactivity_and_wake();
+      audio_.set_display_volume_scale(100);
+      audio_.play(AudioService::Event::test);
+    }
     if (restart_ready_.exchange(false, std::memory_order_acq_rel)) {
       ESP_LOGI(kLogTag, "Restart audio finished; restarting PrintDeck");
       esp_restart();
@@ -1368,6 +1386,8 @@ void Runtime::monitor_loop() {
          connection_now_ms < printer_controls_active_until_ms_.load(std::memory_order_acquire));
     const bool want_bambu_connection = full_connection_active && selected_is_bambu;
     const bool want_moonraker_connection = full_connection_active && selected_is_moonraker;
+    const bool want_tinymaker_connection = full_connection_active &&
+        selected->protocol == core::PrinterProtocol::tinymaker;
     const bool want_prusalink_connection = full_connection_active && selected_is_prusalink;
     const bool want_elegoo_sdcp_connection = full_connection_active &&
         (selected->protocol == core::PrinterProtocol::elegoo_sdcp ||
@@ -1414,6 +1434,7 @@ void Runtime::monitor_loop() {
     if (moonraker_connection_requested_ && !want_moonraker_connection) {
       moonraker_.stop();
     }
+    if (tinymaker_connection_requested_ && !want_tinymaker_connection) tinymaker_.stop();
     if (prusalink_connection_requested_ && !want_prusalink_connection) prusalink_.stop();
     if (elegoo_sdcp_connection_requested_ && !want_elegoo_sdcp_connection) elegoo_sdcp_.stop();
     if (elegoo_cc2_connection_requested_ && !want_elegoo_cc2_connection) elegoo_cc2_.stop();
@@ -1434,6 +1455,7 @@ void Runtime::monitor_loop() {
 
     moonraker_connection_requested_ = want_moonraker_connection;
     prusalink_connection_requested_ = want_prusalink_connection;
+    tinymaker_connection_requested_ = want_tinymaker_connection;
     elegoo_sdcp_connection_requested_ = want_elegoo_sdcp_connection;
     elegoo_cc2_connection_requested_ = want_elegoo_cc2_connection;
     bambu_connection_requested_ = want_bambu_connection;
@@ -1477,6 +1499,8 @@ void Runtime::monitor_loop() {
       }
       if (selected != nullptr && want_bambu_connection && full_adapter_ready) {
         selected_snapshot = update_bambu_snapshot();
+      } else if (want_tinymaker_connection && full_adapter_ready) {
+        tinymaker_.snapshot_into(selected_snapshot);
       } else if (selected != nullptr && want_prusalink_connection && full_adapter_ready) {
         selected_snapshot = prusalink_.snapshot();
       } else if (want_elegoo_sdcp_connection && full_adapter_ready) {

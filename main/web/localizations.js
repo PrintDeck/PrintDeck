@@ -10,6 +10,57 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "Remaining within limit:":["Pozostało do limitu:", "Margen disponible:", "Marge restante :", "Bis zum Limit verfügbar:", "限制内剩余："],
+  "Your images on SD:":["Twoje obrazki na karcie SD:", "Tus imágenes en la SD:", "Vos images sur la carte SD :", "Deine Bilder auf der SD-Karte:", "SD 卡上的自定义图片："],
+  "Free space on SD:":["Wolne miejsce na karcie SD:", "Espacio libre en la SD:", "Espace libre sur la carte SD :", "Freier Platz auf der SD-Karte:", "SD 卡可用空间："],
+  "This limit also applies to images stored on SD.":["Ten limit dotyczy też obrazków na karcie SD.", "Este límite también se aplica a las imágenes de la SD.", "Cette limite s’applique aussi aux images sur carte SD.", "Dieses Limit gilt auch für Bilder auf der SD-Karte.", "此限制同样适用于 SD 卡上的图片。"],
+  "Use SD card for custom reactions":["Używaj karty SD do własnych reakcji", "Usar SD para reacciones propias", "Utiliser la carte SD pour les réactions personnelles", "SD-Karte für eigene Reaktionen verwenden", "使用 SD 卡保存自定义反应"],
+  "Turn off SD card for custom reactions":["Wyłącz kartę SD dla własnych reakcji", "Desactivar SD para reacciones propias", "Désactiver la carte SD pour les réactions personnelles", "SD-Karte für eigene Reaktionen ausschalten", "关闭自定义反应的 SD 卡存储"],
+  "Some SD images are unavailable":["Część obrazków na SD jest niedostępna", "Algunas imágenes de la SD no están disponibles", "Certaines images SD sont indisponibles", "Einige SD-Bilder sind nicht verfügbar", "部分 SD 图片不可用"],
+  "SD card is missing":["Brak karty SD", "Falta la tarjeta SD", "Carte SD absente", "SD-Karte fehlt", "未插入 SD 卡"],
+  "For matching reactions, the image on SD will be used and the device copy removed.":["Jeśli obie pamięci mają obrazek dla tej samej reakcji, użyty zostanie obrazek z karty SD, a kopia z urządzenia zostanie usunięta.", "Si ambas memorias tienen una imagen para la misma reacción, se usará la de la SD y se eliminará la copia del dispositivo.", "Si les deux mémoires contiennent une image pour la même réaction, celle de la carte SD sera utilisée et la copie sur l’appareil sera supprimée.", "Wenn beide Speicher ein Bild für dieselbe Reaktion enthalten, wird das Bild auf SD verwendet und die Kopie auf dem Gerät entfernt.", "如果两个存储位置都有同一反应的图片，将使用 SD 卡上的图片，并删除设备上的副本。"],
+  "SD storage is still on. Reinsert the card to read or upload your images, or turn SD storage off to use device storage.":["Zapis na SD nadal jest włączony. Włóż kartę, aby odczytywać lub wgrywać obrazki, albo wyłącz zapis na SD, aby korzystać z pamięci urządzenia.", "El almacenamiento SD sigue activado. Inserta la tarjeta para leer o subir imágenes, o desactívalo para usar la memoria del dispositivo.", "Le stockage SD reste activé. Réinsérez la carte pour lire ou importer vos images, ou désactivez-le pour utiliser la mémoire de l’appareil.", "SD-Speicherung ist weiterhin aktiv. Lege die Karte zum Lesen oder Hochladen der Bilder wieder ein, oder schalte SD aus, um den Gerätespeicher zu nutzen.", "SD 存储仍处于开启状态。重新插入卡以读取或上传图片，或关闭 SD 存储以使用设备存储。"],
+  "Your SD images fit in device storage. You can copy them or use defaults. The files on SD will remain.":["Obrazki z SD zmieszczą się w pamięci urządzenia. Możesz je skopiować albo użyć domyślnych reakcji. Pliki na karcie SD pozostaną.", "Las imágenes de la SD caben en el dispositivo. Puedes copiarlas o usar las predeterminadas. Los archivos de la SD se conservarán.", "Vos images SD tiennent dans la mémoire de l’appareil. Copiez-les ou utilisez les réactions par défaut. Les fichiers sur SD seront conservés.", "Deine SD-Bilder passen in den Gerätespeicher. Du kannst sie kopieren oder Standardreaktionen verwenden. Die Dateien auf SD bleiben erhalten.", "SD 卡上的图片可以存入设备。您可以复制它们或使用默认反应。SD 卡上的文件将保留。"],
+  "These images do not fit in device storage. They will stay on SD; the device will use defaults.":["Te obrazki nie zmieszczą się w pamięci urządzenia. Pozostaną na SD, a urządzenie użyje domyślnych reakcji.", "Estas imágenes no caben en el dispositivo. Se conservarán en la SD y el dispositivo usará las predeterminadas.", "Ces images ne tiennent pas dans la mémoire de l’appareil. Elles resteront sur SD et l’appareil utilisera les réactions par défaut.", "Diese Bilder passen nicht in den Gerätespeicher. Sie bleiben auf SD; das Gerät verwendet Standardreaktionen.", "这些图片无法存入设备。它们将保留在 SD 卡上，设备将使用默认反应。"],
+  "Images on SD will stay on the card. The device will use defaults for unavailable reactions.":["Obrazki na SD pozostaną na karcie. Urządzenie użyje domyślnych obrazków dla niedostępnych reakcji.", "Las imágenes de la SD se conservarán en la tarjeta. El dispositivo usará imágenes predeterminadas para las reacciones no disponibles.", "Les images SD resteront sur la carte. L’appareil utilisera les images par défaut pour les réactions indisponibles.", "Die Bilder bleiben auf der SD-Karte. Für nicht verfügbare Reaktionen verwendet das Gerät Standardbilder.", "SD 卡上的图片将保留在卡上。设备将为不可用的反应使用默认图片。"],
+  "Use SD card":["Używaj karty SD", "Usar tarjeta SD", "Utiliser la carte SD", "SD-Karte verwenden", "使用 SD 卡"],
+  "Copy images and turn off SD":["Skopiuj obrazki i wyłącz SD", "Copiar imágenes y desactivar SD", "Copier les images et désactiver SD", "Bilder kopieren und SD ausschalten", "复制图片并关闭 SD"],
+  "Use defaults":["Użyj domyślnych", "Usar predeterminadas", "Utiliser les valeurs par défaut", "Standardbilder verwenden", "使用默认图片"],
+  "Turn on SD storage to save custom reactions on this card.":["Włącz zapis na SD, aby zapisywać własne reakcje na tej karcie.", "Activa el almacenamiento SD para guardar tus reacciones en esta tarjeta.", "Activez le stockage SD pour enregistrer vos réactions personnelles sur cette carte.", "Aktiviere die SD-Speicherung, um eigene Reaktionen auf dieser Karte zu speichern.", "开启 SD 存储，将自定义反应保存到此卡。"],
+  "Use a FAT32 card. PrintDeck never formats your card.":["Używaj karty FAT32. PrintDeck nigdy nie formatuje karty.", "Usa una tarjeta FAT32. PrintDeck nunca formatea la tarjeta.", "Utilisez une carte FAT32. PrintDeck ne formate jamais votre carte.", "Verwende eine FAT32-Karte. PrintDeck formatiert deine Karte niemals.", "请使用 FAT32 卡。PrintDeck 不会格式化您的卡。"],
+  "Custom reactions are saved on the device.":["Własne reakcje są zapisywane w urządzeniu.", "Las reacciones propias se guardan en el dispositivo.", "Les réactions personnelles sont enregistrées sur l’appareil.", "Eigene Reaktionen werden auf dem Gerät gespeichert.", "自定义反应保存在设备上。"],
+  "The storage location could not be changed. Your images were kept.":["Nie udało się zmienić miejsca zapisu. Obrazki zostały zachowane.", "No se pudo cambiar el almacenamiento. Tus imágenes se conservaron.", "Impossible de changer le stockage. Vos images ont été conservées.", "Der Speicherort konnte nicht geändert werden. Deine Bilder wurden behalten.", "无法更改存储位置。您的图片已保留。"],
+  "SD storage is off. Images on the card are kept; unavailable reactions use defaults.":["Zapis na SD jest wyłączony. Obrazki na karcie pozostają; niedostępne reakcje używają domyślnych obrazków.", "El almacenamiento SD está desactivado. Las imágenes de la tarjeta se conservan; las reacciones no disponibles usan las predeterminadas.", "Le stockage SD est désactivé. Les images sur la carte sont conservées ; les réactions indisponibles utilisent les images par défaut.", "SD-Speicherung ist aus. Bilder auf der Karte bleiben erhalten; nicht verfügbare Reaktionen verwenden Standardbilder.", "SD 存储已关闭。卡上的图片保留；不可用的反应使用默认图片。"],
+  "Insert your SD card before uploading images.":["Włóż kartę SD przed wgrywaniem obrazków.", "Inserta la tarjeta SD antes de subir imágenes.", "Insérez votre carte SD avant d’importer des images.", "Lege vor dem Hochladen von Bildern deine SD-Karte ein.", "上传图片前请插入 SD 卡。"],
+  "SD card for custom reactions":["Karta SD na własne reakcje", "Tarjeta SD para reacciones propias", "Carte SD pour les réactions personnelles", "SD-Karte für eigene Reaktionen", "自定义反应的 SD 卡"],
+  "SD card not detected":["Nie wykryto karty SD", "No se detecta una tarjeta SD", "Carte SD non détectée", "Keine SD-Karte erkannt", "未检测到 SD 卡"],
+  "Optionally insert a FAT32 microSD card to store your custom reaction images on it instead of in PrintDeck’s memory.":["Opcjonalnie włóż kartę microSD FAT32, aby zapisywać na niej własne obrazki reakcji zamiast w pamięci PrintDeck.", "Opcionalmente, inserta una tarjeta microSD FAT32 para guardar en ella tus imágenes de reacciones en lugar de en la memoria de PrintDeck.", "Vous pouvez insérer une carte microSD FAT32 pour y enregistrer vos images de réaction personnelles au lieu de les stocker dans la mémoire de PrintDeck.", "Lege optional eine FAT32-microSD-Karte ein, um eigene Reaktionsbilder darauf statt im Speicher von PrintDeck zu speichern.", "你可以选择插入 FAT32 格式的 microSD 卡，将自定义反应图片保存在卡上，而不是 PrintDeck 的内部存储中。"],
+  "Image requirements and animation limits stay the same. Default reactions remain on the device.":["Wymagania obrazków i limity animacji pozostają bez zmian. Domyślne reakcje zostają w urządzeniu.", "Los requisitos de imagen y los límites de animación no cambian. Las reacciones predeterminadas permanecen en el dispositivo.", "Les exigences des images et les limites des animations restent identiques. Les réactions par défaut restent sur l’appareil.", "Bildanforderungen und Animationslimits bleiben unverändert. Standardreaktionen bleiben auf dem Gerät.", "图片要求和动画限制保持不变。默认反应保留在设备上。"],
+  "Check SD card":["Sprawdź kartę SD", "Comprobar tarjeta SD", "Vérifier la carte SD", "SD-Karte prüfen", "检查 SD 卡"],
+  "Move custom reactions":["Przenieś własne reakcje", "Mover reacciones propias", "Déplacer les réactions personnelles", "Eigene Reaktionen verschieben", "迁移自定义反应"],
+  "Disconnect SD card":["Odłącz kartę SD", "Desconectar tarjeta SD", "Déconnecter la carte SD", "SD-Karte trennen", "断开 SD 卡"],
+  "Use FAT32. Disconnect the card here before removing it. PrintDeck never formats your card.":["Użyj FAT32. Przed wyjęciem karty odłącz ją tutaj. PrintDeck nigdy nie formatuje karty.", "Usa FAT32. Desconecta la tarjeta aquí antes de retirarla. PrintDeck nunca formatea tu tarjeta.", "Utilisez FAT32. Déconnectez la carte ici avant de la retirer. PrintDeck ne formate jamais votre carte.", "Verwende FAT32. Trenne die Karte hier, bevor du sie entfernst. PrintDeck formatiert deine Karte niemals.", "请使用 FAT32。取出卡前请在此断开连接。PrintDeck 绝不会格式化您的卡。"],
+  "Updating reaction storage…":["Aktualizowanie pamięci reakcji…", "Actualizando el almacenamiento de reacciones…", "Mise à jour du stockage des réactions…", "Reaktionsspeicher wird aktualisiert…", "正在更新反应存储…"],
+  "Move your reactions to the SD card?":["Przenieść Twoje reakcje na kartę SD?", "¿Mover tus reacciones a la tarjeta SD?", "Déplacer vos réactions sur la carte SD ?", "Deine Reaktionen auf die SD-Karte verschieben?", "将您的反应迁移到 SD 卡？"],
+  "PrintDeck found custom images in its internal storage. They will be copied and checked before the internal copies are removed. New uploads will use the SD card.":["PrintDeck znalazł własne obrazki w pamięci wewnętrznej. Zostaną skopiowane i sprawdzone przed usunięciem kopii z urządzenia. Nowe pliki będą zapisywane na karcie SD.", "PrintDeck ha encontrado imágenes propias en la memoria interna. Se copiarán y verificarán antes de eliminar las copias internas. Los nuevos archivos se guardarán en la tarjeta SD.", "PrintDeck a trouvé des images personnelles dans sa mémoire interne. Elles seront copiées et vérifiées avant la suppression des copies internes. Les nouveaux fichiers seront enregistrés sur la carte SD.", "PrintDeck hat eigene Bilder im internen Speicher gefunden. Sie werden kopiert und geprüft, bevor die internen Kopien entfernt werden. Neue Uploads werden auf der SD-Karte gespeichert.", "PrintDeck 在内部存储中发现了自定义图片。它们将先被复制并验证，然后才会删除内部副本。新上传的文件将使用 SD 卡。"],
+  "Keep the card inserted and PrintDeck powered on until the move finishes.":["Pozostaw kartę w urządzeniu i nie wyłączaj PrintDeck do końca przenoszenia.", "Mantén la tarjeta insertada y PrintDeck encendido hasta que termine el traslado.", "Laissez la carte insérée et PrintDeck allumé jusqu’à la fin du déplacement.", "Lass die Karte eingesteckt und PrintDeck eingeschaltet, bis der Vorgang abgeschlossen ist.", "迁移完成前，请保持卡已插入且 PrintDeck 已开机。"],
+  "Move to SD card":["Przenieś na kartę SD", "Mover a la tarjeta SD", "Déplacer sur la carte SD", "Auf SD-Karte verschieben", "迁移到 SD 卡"],
+  "Later":["Później", "Más tarde", "Plus tard", "Später", "稍后"],
+  "SD card disconnected":["Karta SD odłączona", "Tarjeta SD desconectada", "Carte SD déconnectée", "SD-Karte getrennt", "SD 卡已断开"],
+  "SD card connected":["Karta SD podłączona", "Tarjeta SD conectada", "Carte SD connectée", "SD-Karte verbunden", "SD 卡已连接"],
+  "Internal storage":["Pamięć wewnętrzna", "Memoria interna", "Mémoire interne", "Interner Speicher", "内部存储"],
+  "Without an SD card, custom images are saved on the device.":["Bez karty SD własne obrazki są zapisywane w urządzeniu.", "Sin tarjeta SD, las imágenes propias se guardan en el dispositivo.", "Sans carte SD, les images personnelles sont enregistrées sur l’appareil.", "Ohne SD-Karte werden eigene Bilder auf dem Gerät gespeichert.", "未插入 SD 卡时，自定义图片保存在设备上。"],
+  "You can now remove the SD card.":["Możesz teraz wyjąć kartę SD.", "Ya puedes retirar la tarjeta SD.", "Vous pouvez maintenant retirer la carte SD.", "Du kannst die SD-Karte jetzt entfernen.", "现在可以取出 SD 卡。"],
+  "The SD card could not be disconnected. Try again.":["Nie udało się odłączyć karty SD. Spróbuj ponownie.", "No se ha podido desconectar la tarjeta SD. Inténtalo de nuevo.", "Impossible de déconnecter la carte SD. Réessayez.", "Die SD-Karte konnte nicht getrennt werden. Versuche es erneut.", "无法断开 SD 卡。请重试。"],
+  "Custom reactions moved to the SD card.":["Własne reakcje zostały przeniesione na kartę SD.", "Las reacciones propias se han movido a la tarjeta SD.", "Les réactions personnelles ont été déplacées sur la carte SD.", "Eigene Reaktionen wurden auf die SD-Karte verschoben.", "自定义反应已迁移到 SD 卡。"],
+  "The reactions could not be moved. Your existing images were kept.":["Nie udało się przenieść reakcji. Dotychczasowe obrazki zostały zachowane.", "No se han podido mover las reacciones. Tus imágenes existentes se han conservado.", "Impossible de déplacer les réactions. Vos images existantes ont été conservées.", "Die Reaktionen konnten nicht verschoben werden. Deine bisherigen Bilder bleiben erhalten.", "无法迁移反应。现有图片已保留。"],
+  "SD card unavailable. Default reactions are being used for missing images.":["Karta SD jest niedostępna. Brakujące obrazki są zastępowane domyślnymi reakcjami.", "Tarjeta SD no disponible. Se usan las reacciones predeterminadas para las imágenes que faltan.", "Carte SD indisponible. Les réactions par défaut remplacent les images manquantes.", "SD-Karte nicht verfügbar. Fehlende Bilder werden durch Standardreaktionen ersetzt.", "SD 卡不可用。缺失图片使用默认反应替代。"],
+  "New custom images will be saved on the SD card.":["Nowe własne obrazki będą zapisywane na karcie SD.", "Las nuevas imágenes propias se guardarán en la tarjeta SD.", "Les nouvelles images personnelles seront enregistrées sur la carte SD.", "Neue eigene Bilder werden auf der SD-Karte gespeichert.", "新的自定义图片将保存在 SD 卡上。"],
+  "No usable SD card. Insert a FAT32 card and check again.":["Brak dostępnej karty SD. Włóż kartę FAT32 i sprawdź ponownie.", "No hay una tarjeta SD utilizable. Inserta una tarjeta FAT32 y vuelve a comprobarlo.", "Aucune carte SD utilisable. Insérez une carte FAT32 et vérifiez à nouveau.", "Keine nutzbare SD-Karte. Lege eine FAT32-Karte ein und prüfe erneut.", "没有可用的 SD 卡。请插入 FAT32 卡并重新检查。"],
+  "Choose a valid SD card action.":["Wybierz prawidłową czynność dla karty SD.", "Elige una acción válida para la tarjeta SD.", "Choisissez une action valide pour la carte SD.", "Wähle eine gültige Aktion für die SD-Karte.", "请选择有效的 SD 卡操作。"],
+  "The SD card action is unavailable. Wait for the current change to finish and check the card.":["Ta czynność jest niedostępna. Poczekaj na zakończenie bieżącej zmiany i sprawdź kartę SD.", "La acción no está disponible. Espera a que termine el cambio actual y comprueba la tarjeta SD.", "Cette action est indisponible. Attendez la fin de la modification en cours et vérifiez la carte SD.", "Die Aktion ist nicht verfügbar. Warte, bis die aktuelle Änderung abgeschlossen ist, und prüfe die SD-Karte.", "此操作不可用。请等待当前更改完成并检查 SD 卡。"],
+  "Insert the SD card containing your custom reactions before creating a backup.":["Przed utworzeniem kopii zapasowej włóż kartę SD z własnymi reakcjami.", "Inserta la tarjeta SD con tus reacciones propias antes de crear una copia de seguridad.", "Insérez la carte SD contenant vos réactions personnelles avant de créer une sauvegarde.", "Lege vor dem Erstellen einer Sicherung die SD-Karte mit deinen eigenen Reaktionen ein.", "创建备份前，请插入包含自定义反应的 SD 卡。"],
+
   "All commands and example answers":["Wszystkie polecenia i przykładowe odpowiedzi", "Todos los comandos y ejemplos de respuestas", "Toutes les commandes et exemples de réponses", "Alle Befehle und Beispielantworten", "全部指令和回答示例"],
   "Shut down PrintDeck":["Wyłącz PrintDeck", "Apagar PrintDeck", "Arrêter PrintDeck", "PrintDeck herunterfahren", "关闭 PrintDeck"],
   "PrintDeck stays powered on.":["PrintDeck pozostaje włączony.", "PrintDeck permanece encendido.", "PrintDeck reste allumé.", "PrintDeck bleibt eingeschaltet.", "PrintDeck 保持开启。"],
@@ -180,10 +231,10 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   "Installed":["Zainstalowany","Instalado","Installé","Installiert","已安装"],
   "Version":["Wersja","Versión","Version","Version","版本"],
   "Animation usage:":["Wykorzystanie na animacje:","Uso de animaciones:","Espace utilisé par les animations :","Animationsspeicher:","动画占用："],
-  "Animation storage":["Miejsce na animacje","Espacio para animaciones","Espace des animations","Animationsspeicher","动画存储空间"],
-  "Almost full":["Prawie pełne","Casi lleno","Presque plein","Fast voll","即将用尽"],
+  "Animation storage":["Limit aktywnych animacji", "Límite de animaciones activas", "Limite des animations actives", "Limit für aktive Animationen", "当前动画大小限制"],
+  "Almost full":["Blisko limitu", "Cerca del límite", "Limite presque atteinte", "Limit fast erreicht", "接近限制"],
   "Free space:":["Wolne miejsce:","Espacio libre:","Espace libre :","Freier Speicher:","可用空间："],
-  "Animation storage is almost full. Reset a custom GIF to free space.":["Miejsce na animacje jest prawie pełne. Przywróć domyślną animację zamiast jednego z własnych GIF-ów, aby zwolnić miejsce.","El espacio para animaciones está casi lleno. Restablece un GIF personalizado para liberar espacio.","L’espace des animations est presque plein. Rétablissez un GIF personnalisé pour libérer de l’espace.","Der Animationsspeicher ist fast voll. Setze ein eigenes GIF zurück, um Speicher freizugeben.","动画存储空间即将用尽。请重置一个自定义 GIF 以释放空间。"],
+  "Animation storage is almost full. Reset a custom GIF to free space.":["Zbliżasz się do limitu animacji. Użyj mniejszego własnego obrazka, aby zmniejszyć zużycie.", "Te acercas al límite de animaciones. Usa una imagen propia más pequeña para reducir el uso.", "La limite des animations est presque atteinte. Utilisez une image personnelle plus petite pour réduire la taille totale.", "Das Animationslimit ist fast erreicht. Verwende ein kleineres eigenes Bild, um die Nutzung zu reduzieren.", "动画大小接近限制。请使用更小的自定义图片以减少占用。"],
   "Available for this reaction:":["Dostępne dla tej reakcji:","Disponible para esta reacción:","Disponible pour cette réaction :","Für diese Reaktion verfügbar:","此反应可用空间："],
   "Loading reaction sets…":["Ładowanie zestawów reakcji…","Cargando conjuntos de reacciones…","Chargement des jeux de réactions…","Reaktionssets werden geladen…","正在加载反应套装…"],
   "Loading reaction events…":["Ładowanie zdarzeń reakcji…","Cargando eventos de reacción…","Chargement des événements de réaction…","Reaktionsereignisse werden geladen…","正在加载反应事件…"],
@@ -1289,3 +1340,47 @@ const RESIN_SETUP_TRANSLATIONS={
 for(const [source,values] of Object.entries(RESIN_SETUP_TRANSLATIONS)){
   PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]);
 }
+
+// TinyMaker connection setup.
+Object.assign(window.PRINTDECK_TRANSLATIONS["pl"], {
+  "Add TinyMaker printer": "Dodaj drukarkę TinyMaker",
+  "Monitor TinyMaker over your local network. No password is needed.": "Monitoruj TinyMaker w sieci lokalnej. Hasło nie jest potrzebne.",
+  "Check the TinyMaker connection before saving.": "Sprawdź połączenie z TinyMaker przed zapisaniem.",
+  "TinyMaker did not respond. Check the address and local network.": "TinyMaker nie odpowiada. Sprawdź adres i sieć lokalną.",
+  "TinyMaker": "TinyMaker"
+});
+Object.assign(window.PRINTDECK_TRANSLATIONS["es"], {
+  "Add TinyMaker printer": "Añadir impresora TinyMaker",
+  "Monitor TinyMaker over your local network. No password is needed.": "Supervisa TinyMaker en tu red local. No se necesita contraseña.",
+  "Check the TinyMaker connection before saving.": "Comprueba la conexión con TinyMaker antes de guardar.",
+  "TinyMaker did not respond. Check the address and local network.": "TinyMaker no responde. Comprueba la dirección y la red local.",
+  "TinyMaker": "TinyMaker"
+});
+Object.assign(window.PRINTDECK_TRANSLATIONS["fr"], {
+  "Add TinyMaker printer": "Ajouter une imprimante TinyMaker",
+  "Monitor TinyMaker over your local network. No password is needed.": "Surveillez TinyMaker sur votre réseau local. Aucun mot de passe requis.",
+  "Check the TinyMaker connection before saving.": "Vérifiez la connexion à TinyMaker avant d’enregistrer.",
+  "TinyMaker did not respond. Check the address and local network.": "TinyMaker ne répond pas. Vérifiez l’adresse et le réseau local.",
+  "TinyMaker": "TinyMaker"
+});
+Object.assign(window.PRINTDECK_TRANSLATIONS["de"], {
+  "Add TinyMaker printer": "TinyMaker-Drucker hinzufügen",
+  "Monitor TinyMaker over your local network. No password is needed.": "Überwache TinyMaker im lokalen Netzwerk. Kein Passwort erforderlich.",
+  "Check the TinyMaker connection before saving.": "Prüfe vor dem Speichern die Verbindung zu TinyMaker.",
+  "TinyMaker did not respond. Check the address and local network.": "TinyMaker antwortet nicht. Prüfe die Adresse und das lokale Netzwerk.",
+  "TinyMaker": "TinyMaker"
+});
+Object.assign(window.PRINTDECK_TRANSLATIONS["zh-CN"], {
+  "Add TinyMaker printer": "添加 TinyMaker 打印机",
+  "Monitor TinyMaker over your local network. No password is needed.": "通过本地网络监控 TinyMaker，无需密码。",
+  "Check the TinyMaker connection before saving.": "保存前请检查 TinyMaker 连接。",
+  "TinyMaker did not respond. Check the address and local network.": "TinyMaker 未响应。请检查地址和本地网络。",
+  "TinyMaker": "TinyMaker"
+});
+
+// Keep established translation keys while distinguishing the animation limit from storage capacity.
+Object.assign(window.PRINTDECK_TRANSLATIONS.en, {
+  "Animation storage": "Active animation limit",
+  "Almost full": "Near the limit",
+  "Animation storage is almost full. Reset a custom GIF to free space.": "Close to the animation limit. Use a smaller custom image to reduce usage."
+});

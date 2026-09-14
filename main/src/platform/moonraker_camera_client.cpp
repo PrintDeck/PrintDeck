@@ -1760,6 +1760,10 @@ void MoonrakerCameraClient::task_loop() {
   std::int64_t peer_started_us = 0;
   std::int64_t next_peer_start_us = 0;
   std::uint32_t failures = 0;
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+  std::uint32_t receive_metrics_generation = 0;
+  std::int64_t receive_metrics_started_us = 0;
+#endif
   auto reset_stock_cache = [&] {
     stock_cadence_.reset();
     stock_last_modified_.clear();
@@ -1831,6 +1835,14 @@ void MoonrakerCameraClient::task_loop() {
         }
       }
       if (peer_ != nullptr) {
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+        const auto generation = camera_session_generation_.load();
+        if (idr_snapshot_decoder_.load() && generation != receive_metrics_generation) {
+          reset_camera_receive_diagnostics();
+          receive_metrics_generation = generation;
+          receive_metrics_started_us = esp_timer_get_time();
+        }
+#endif
         // Drain a keyframe burst before yielding: one datagram per millisecond
         // can overflow the UDP mailbox even though average bandwidth is low.
         // Bound work by both call count and time so other core-0 tasks run.
@@ -1848,6 +1860,21 @@ void MoonrakerCameraClient::task_loop() {
           }
         }
         if (stop_requested_.load()) break;
+#if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+        const auto metrics_now = esp_timer_get_time();
+        if (idr_snapshot_decoder_.load() &&
+            metrics_now - receive_metrics_started_us >= 5000000) {
+          const auto metrics = take_camera_receive_diagnostics();
+          ESP_LOGI(kTag,
+                   "K2 receive: session=%u packets=%u budget_blocks=%u max_gap_us=%lld window_ms=%lld",
+                   static_cast<unsigned>(receive_metrics_generation),
+                   static_cast<unsigned>(metrics.packets_received),
+                   static_cast<unsigned>(metrics.packet_budget_blocks),
+                   static_cast<long long>(metrics.maximum_receive_gap_us),
+                   static_cast<long long>((metrics_now - receive_metrics_started_us) / 1000));
+          receive_metrics_started_us = metrics_now;
+        }
+#endif
         if (offer_ready_.load() && !exchange_creality_offer(current)) {
           ESP_LOGW(kTag, "Creality WebRTC signaling exchange failed");
           stop_creality_peer();

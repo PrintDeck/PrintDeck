@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
 
 #include "driver/i2c_master.h"
 #include "esp_codec_dev.h"
@@ -65,8 +66,16 @@ inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
 #endif
 
 inline constexpr bool kDisplayUsesLargeLayout = !kDisplayUsesCompactLayout;
+inline constexpr bool kBoardHasSdCard = std::string_view(kBoardVariant) != "knomi2";
 inline constexpr bool kDisplayUsesCompactRoundLayout =
     kDisplayUsesCompactLayout && kDisplayIsRound;
+
+// Called only by the serialized core-0 reaction storage worker. No formatting.
+inline constexpr char kSdMountPath[] = "/sdcard";
+esp_err_t board_sd_mount(std::uint64_t* identity);
+esp_err_t board_sd_status();
+esp_err_t board_sd_unmount();
+esp_err_t board_sd_space(std::uint64_t* total, std::uint64_t* free);
 
 // The application owns LVGL and the esp_lvgl_adapter.  Board implementations
 // provide only the physical panel, touch, shared buses and peripheral hooks so

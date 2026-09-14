@@ -15,7 +15,7 @@ constexpr std::uint32_t capability_mask(
   return result;
 }
 
-constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
+constexpr std::array<PrinterDriverDescriptor, 7> kDrivers{{
     {
         .protocol = PrinterProtocol::moonraker,
         .storage_id = 0,
@@ -83,6 +83,17 @@ constexpr std::array<PrinterDriverDescriptor, 6> kDrivers{{
         .experimental = true,
         .resin = true,
         .dashboard = true,
+    },
+    {
+        .protocol = PrinterProtocol::tinymaker,
+        .storage_id = 7,
+        .id = "tinymaker",
+        .default_manufacturer = "TinyMaker",
+        .default_brand = "tinymaker",
+        .capabilities = capability_mask({PrinterCapability::http_endpoint}),
+        .default_port = 80,
+        .experimental = true,
+        .resin = true,
     },
 }};
 

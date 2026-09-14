@@ -168,7 +168,7 @@ std::string canonical_brand(std::string value) {
     return static_cast<char>(std::tolower(ch));
   });
   for (const auto& [needle, brand] : {
-           std::pair{"uniformation", "uniformation"}, std::pair{"creality", "creality"}, std::pair{"snapmaker", "snapmaker"},
+           std::pair{"tinymaker", "tinymaker"}, std::pair{"uniformation", "uniformation"}, std::pair{"creality", "creality"}, std::pair{"snapmaker", "snapmaker"},
            std::pair{"prusa", "prusa"}, std::pair{"bambu", "bambu"},
            std::pair{"anycubic", "anycubic"}, std::pair{"elegoo", "elegoo"},
            std::pair{"qidi", "qidi"}, std::pair{"sovol", "sovol"},
@@ -324,16 +324,6 @@ bool receive_secure_body(httpd_req_t* request, std::size_t maximum,
     received += static_cast<std::size_t>(count);
   }
   return true;
-}
-
-std::size_t backup_file_size(std::string_view path) {
-  if (path.empty()) return 0;
-  FILE* file = std::fopen(std::string(path).c_str(), "rb");
-  if (!file) return 0;
-  const bool positioned = std::fseek(file, 0, SEEK_END) == 0;
-  const long length = positioned ? std::ftell(file) : -1;
-  std::fclose(file);
-  return length > 0 ? static_cast<std::size_t>(length) : 0;
 }
 
 struct BackupEnvelope {
@@ -559,7 +549,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 68;
+  constexpr unsigned route_capacity = 71;
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
@@ -610,6 +600,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/configuration-backup/reaction/restore", .method = HTTP_POST, .handler = configuration_backup_reaction_restore_entry, .user_ctx = this},
       {.uri = "/api/audio/test", .method = HTTP_POST, .handler = audio_test_entry, .user_ctx = this},
       {.uri = "/api/reactions", .method = HTTP_GET, .handler = reactions_get_entry, .user_ctx = this},
+      {.uri = "/api/reactions/storage", .method = HTTP_POST, .handler = reactions_storage_entry, .user_ctx = this},
       {.uri = "/api/reactions/set", .method = HTTP_POST, .handler = reactions_set_entry, .user_ctx = this},
       {.uri = "/api/reactions/set/cancel", .method = HTTP_POST, .handler = reactions_set_cancel_entry, .user_ctx = this},
       {.uri = "/api/reactions/event", .method = HTTP_POST, .handler = reactions_event_entry, .user_ctx = this},
@@ -619,6 +610,9 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/prusalink/check/start", .method = HTTP_POST, .handler = prusalink_check_start_entry, .user_ctx = this},
       {.uri = "/api/prusalink/check/status", .method = HTTP_GET, .handler = prusalink_check_status_entry, .user_ctx = this},
       {.uri = "/api/prusalink/check/cancel", .method = HTTP_POST, .handler = prusalink_check_cancel_entry, .user_ctx = this},
+      {.uri = "/api/tinymaker/check/start", .method = HTTP_POST, .handler = tinymaker_check_start_entry, .user_ctx = this},
+      {.uri = "/api/tinymaker/check/status", .method = HTTP_GET, .handler = tinymaker_check_status_entry, .user_ctx = this},
+      {.uri = "/api/tinymaker/check/cancel", .method = HTTP_POST, .handler = tinymaker_check_cancel_entry, .user_ctx = this},
       {.uri = "/api/elegoo/check/start", .method = HTTP_POST, .handler = elegoo_check_start_entry, .user_ctx = this},
       {.uri = "/api/elegoo/check/status", .method = HTTP_GET, .handler = elegoo_check_status_entry, .user_ctx = this},
       {.uri = "/api/elegoo/check/cancel", .method = HTTP_POST, .handler = elegoo_check_cancel_entry, .user_ctx = this},
@@ -1105,6 +1099,30 @@ esp_err_t WebConfig::audio_test_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->test_audio(request);
 }
 
+esp_err_t WebConfig::reactions_storage_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->manage_reaction_storage(request);
+}
+
+esp_err_t WebConfig::manage_reaction_storage(httpd_req_t* request) {
+  std::string body, action;
+  if (!kBoardHasSdCard) return send_json(request, "404 Not Found", "{}");
+  if (!receive_form(request, body) || !form_value(body, "action", action) ||
+      (action != "check" && action != "migrate" && action != "eject" && action != "later" && action != "use_sd" && action != "use_internal" && action != "copy_internal"))
+    return send_json(request, "400 Bad Request", "{\"error\":\"Choose a valid SD card action.\"}");
+  std::string session_text;
+  std::uint32_t session = 0;
+  if (action == "migrate" || action == "eject" || action == "use_sd" || action == "use_internal" || action == "copy_internal") {
+    if (!form_value(body, "session", session_text) || session_text.empty() ||
+        session_text.size() > 10 || session_text.find_first_not_of("0123456789") != std::string::npos ||
+        std::strtoull(session_text.c_str(), nullptr, 10) > UINT32_MAX)
+      return send_json(request, "400 Bad Request", "{\"error\":\"Choose a valid SD card action.\"}");
+    session = std::strtoul(session_text.c_str(), nullptr, 10);
+  }
+  if (!reaction_assets_ || !reaction_assets_->request_storage(action, session))
+    return send_json(request, "409 Conflict", "{\"error\":\"The SD card action is unavailable. Wait for the current change to finish and check the card.\"}");
+  return send_json(request, "202 Accepted", "{\"started\":true}");
+}
+
 esp_err_t WebConfig::reactions_get_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_reactions(request);
 }
@@ -1197,6 +1215,65 @@ esp_err_t WebConfig::start_prusalink_check(httpd_req_t* request) {
 
 esp_err_t WebConfig::serve_prusalink_check_status(httpd_req_t* request) const {
   const auto snapshot = prusalink_probe_->snapshot();
+  std::string body = "{\"check_id\":";
+  append_json_string(body, snapshot.id);
+  body += ",\"running\":";
+  body += snapshot.running ? "true" : "false";
+  body += ",\"ready\":";
+  body += snapshot.ready ? "true" : "false";
+  body += ",\"error_code\":" + std::to_string(static_cast<unsigned>(snapshot.error));
+  body += ",\"model\":";
+  append_json_string(body, snapshot.identity.model);
+  body += ",\"version\":";
+  append_json_string(body, snapshot.identity.firmware_version);
+  body += "}";
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::tinymaker_check_start_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->start_tinymaker_check(request);
+}
+
+esp_err_t WebConfig::tinymaker_check_status_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_tinymaker_check_status(request);
+}
+
+esp_err_t WebConfig::tinymaker_check_cancel_entry(httpd_req_t* request) {
+  auto* self = static_cast<WebConfig*>(request->user_ctx);
+  std::string body, id;
+  if (request->content_len > 80 || !receive_form(request, body) ||
+      !form_value(body, "check_id", id) || id.size() != 32)
+    return send_json(request, "400 Bad Request", "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  self->tinymaker_probe_.cancel(id);
+  return send_json(request, "200 OK", "{\"cancelled\":true}");
+}
+
+bool WebConfig::read_tinymaker_connection(const std::string&, core::PrinterProfile& profile) const {
+  const auto origin = prusalink_origin(profile.endpoint);
+  if (!origin || !origin->starts_with("http://")) return false;
+  profile.endpoint = *origin;
+  core::clear_irrelevant_printer_credentials(profile);
+  return true;
+}
+
+esp_err_t WebConfig::start_tinymaker_check(httpd_req_t* request) {
+  if (!network_->status().station_connected)
+    return send_json(request, "409 Conflict", "{\"error\":\"Connect PrintDeck to Wi-Fi before testing a printer.\"}");
+  core::PrinterProfile profile;
+  profile.protocol = core::PrinterProtocol::tinymaker;
+  std::string body, id;
+  if (!receive_form(request, body) || !form_value(body, "profile_id", id) ||
+      !parse_id(id, profile.id) || !form_value(body, "endpoint", profile.endpoint) ||
+      !read_tinymaker_connection(body, profile))
+    return send_json(request, "400 Bad Request", "{\"error\":\"Please check the printer name, network address and connection details.\"}");
+  const auto result = tinymaker_probe_.start(std::move(profile), *network_);
+  if (result != ESP_OK)
+    return send_json(request, "409 Conflict", "{\"error\":\"PrintDeck could not start the connection test. Please try again.\"}");
+  return serve_tinymaker_check_status(request);
+}
+
+esp_err_t WebConfig::serve_tinymaker_check_status(httpd_req_t* request) const {
+  const auto snapshot = tinymaker_probe_.snapshot();
   std::string body = "{\"check_id\":";
   append_json_string(body, snapshot.id);
   body += ",\"running\":";
@@ -2327,6 +2404,32 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
           ",\"storage_used\":" + std::to_string(state.storage_used) +
           ",\"storage_available_for_upload\":" +
           std::to_string(state.storage_available_for_upload) + "}";
+  body += ",\"storage\":{\"sd_supported\":";
+  body += state.sd_supported ? "true" : "false";
+  body += ",\"sd_ready\":"; body += state.sd_ready ? "true" : "false";
+  body += ",\"selected\":"; body += state.sd_selected ? "true" : "false";
+  body += ",\"ejected\":"; body += state.sd_ejected ? "true" : "false";
+  body += ",\"busy\":"; body += state.sd_busy ? "true" : "false";
+  body += ",\"migration_available\":"; body += state.sd_migration_available ? "true" : "false";
+  body += ",\"migration_prompt\":"; body += state.sd_migration_prompt ? "true" : "false";
+  body += ",\"session\":" + std::to_string(state.sd_session);
+  body += ",\"missing_images\":" + std::to_string(state.sd_missing);
+  body += ",\"total_bytes\":" + std::to_string(state.sd_total);
+  body += ",\"free_bytes\":" + std::to_string(state.sd_free);
+  body += ",\"image_bytes\":" + std::to_string(state.sd_image_bytes);
+  body += ",\"can_copy_internal\":"; body += state.sd_can_copy_internal ? "true" : "false";
+  body += ",\"can_enable\":"; body += state.sd_can_enable ? "true" : "false";
+  body += ",\"conflicting_events\":[";
+  bool first_conflict = true;
+  for (std::size_t i = 0; i < core::kReactionEventCount; ++i) {
+    if (!(state.sd_conflicts & (1UL << i))) continue;
+    if (!first_conflict) body += ",";
+    append_json_string(body, core::reaction_events()[i].id);
+    first_conflict = false;
+  }
+  body += "]";
+  body += ",\"detail\":"; append_json_string(body, state.sd_detail);
+  body += "}";
   body += ",\"sets\":[";
   bool first = true;
   for (const auto& set : ReactionAssetService::sets()) {
@@ -2516,6 +2619,14 @@ esp_err_t WebConfig::serve_reaction_gif(httpd_req_t* request) const {
                      "{\"error\":\"Choose a valid reaction.\"}");
   }
   query_value(request, "scope", scope);
+  if (scope != "set") {
+    const auto image = reaction_assets_->cached_sd_gif(event);
+    if (image) {
+      httpd_resp_set_type(request, "image/gif");
+      httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+      return httpd_resp_send(request, reinterpret_cast<const char*>(image->data()), image->size());
+    }
+  }
   const std::string path = scope == "set" ? reaction_assets_->set_vfs_path(event)
                                            : reaction_assets_->preview_vfs_path(event);
   if (path.empty()) {
@@ -2835,6 +2946,10 @@ esp_err_t WebConfig::export_configuration_backup(httpd_req_t* request) const {
     return send_json(request, "503 Service Unavailable",
                      "{\"error\":\"Reaction storage is unavailable.\"}");
   }
+  if (reaction_state.sd_missing) {
+    mbedtls_platform_zeroize(key.data(), key.size());
+    return send_json(request, "409 Conflict", "{\"error\":\"Insert the SD card containing your custom reactions before creating a backup.\"}");
+  }
   if (reaction_state.busy) {
     mbedtls_platform_zeroize(key.data(), key.size());
     return send_json(request, "409 Conflict",
@@ -2846,7 +2961,7 @@ esp_err_t WebConfig::export_configuration_backup(httpd_req_t* request) const {
   for (const core::ReactionEventDefinition& event : core::reaction_events()) {
     const bool custom = reaction_assets_->custom_override(event.id);
     const std::size_t custom_bytes =
-        custom ? backup_file_size(reaction_assets_->preview_vfs_path(event.id)) : 0;
+        custom ? reaction_state.effective_bytes[&event - core::reaction_events().data()] : 0;
     if (custom && custom_bytes == 0) {
       mbedtls_platform_zeroize(key.data(), key.size());
       return send_json(request, "409 Conflict",
@@ -3159,30 +3274,22 @@ esp_err_t WebConfig::export_configuration_backup_reaction(httpd_req_t* request) 
   mbedtls_platform_zeroize(envelope.password.data(), envelope.password.size());
 
   const ReactionAssetSnapshot state = reaction_assets_->snapshot();
-  const std::string path = reaction_assets_->preview_vfs_path(event);
-  FILE* file = path.empty() ? nullptr : std::fopen(path.c_str(), "rb");
-  if (file == nullptr || std::fseek(file, 0, SEEK_END) != 0) {
-    if (file) std::fclose(file);
+  if (state.sd_missing || state.busy) {
     mbedtls_platform_zeroize(key.data(), key.size());
-    return send_json(request, "404 Not Found",
-                     "{\"error\":\"No custom animation is available for this reaction.\"}");
+    return send_json(request, "409 Conflict", "{\"error\":\"Insert the SD card containing your custom reactions before creating a backup.\"}");
   }
-  const long length = std::ftell(file);
-  std::rewind(file);
-  if (length <= 0 || static_cast<std::size_t>(length) > state.maximum_file_bytes) {
-    std::fclose(file);
+  const auto* definition = core::reaction_event(event);
+  const std::size_t gif_bytes = definition ? state.effective_bytes[definition - core::reaction_events().data()] : 0;
+  if (!gif_bytes || gif_bytes > state.maximum_file_bytes) {
     mbedtls_platform_zeroize(key.data(), key.size());
-    return send_json(request, "413 Payload Too Large",
-                     "{\"error\":\"The custom animation exceeds the device limit.\"}");
+    return send_json(request, "404 Not Found", "{\"error\":\"No custom animation is available for this reaction.\"}");
   }
-  const std::size_t gif_bytes = static_cast<std::size_t>(length);
   SecureBuffer encrypted;
   encrypted.size = gif_bytes + kBackupTagBytes;
   encrypted.bytes.reset(static_cast<std::uint8_t*>(
       heap_caps_malloc(encrypted.size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
-  const bool read = encrypted.bytes &&
-                    std::fread(encrypted.bytes.get(), 1, gif_bytes, file) == gif_bytes;
-  std::fclose(file);
+  const bool read = encrypted.bytes && reaction_assets_->read_custom_gif(
+      event, std::span<std::uint8_t>(encrypted.bytes.get(), gif_bytes));
   const std::string aad = std::string(kBackupReactionAadPrefix) + event;
   const bool encrypted_ok = read && backup_gcm_encrypt(
       key, envelope.nonce, aad, encrypted.bytes.get(), gif_bytes,
@@ -3907,6 +4014,15 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
   }
   auto existing = std::find_if(candidate.profiles.begin(), candidate.profiles.end(),
                                [profile_id](const auto& value) { return value.id == profile_id; });
+  if (profile.protocol == core::PrinterProtocol::tinymaker) {
+    profile.id = profile_id;
+    std::string check_id;
+    if (!read_tinymaker_connection(body, profile) || !form_value(body, "check_id", check_id) ||
+        !tinymaker_probe_.verified(profile, check_id))
+      return send_json(request, "409 Conflict", "{\"error\":\"Check the TinyMaker connection before saving.\"}");
+    profile.manufacturer = "TinyMaker";
+    profile.model = "TinyMaker";
+  }
   if (profile.protocol == core::PrinterProtocol::prusalink) {
     profile.id = profile_id;
     std::string check_id;
@@ -3978,7 +4094,7 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     if (candidate.selected_profile == 0 && core::printer_driver(candidate.profiles.back().protocol).dashboard) candidate.selected_profile = next_id;
   } else {
     profile.id = profile_id;
-    if (profile.protocol == existing->protocol && profile.protocol != core::PrinterProtocol::prusalink && !elegoo && !uniformation) {
+    if (profile.protocol == existing->protocol && profile.protocol != core::PrinterProtocol::prusalink && !elegoo && !uniformation && profile.protocol != core::PrinterProtocol::tinymaker) {
       if (profile.api_key.empty()) profile.api_key = existing->api_key;
       if (profile.access_code.empty()) profile.access_code = existing->access_code;
     }

@@ -14,6 +14,7 @@
 #include "freertos/task.h"
 #include "printdeck/core/job_state.hpp"
 #include "printdeck/core/reactions.hpp"
+#include "printdeck/core/reaction_sd_store.hpp"
 #include "printdeck/platform/network_service.hpp"
 
 namespace printdeck::platform {
@@ -28,6 +29,22 @@ struct ReactionSetDefinition {
 };
 
 struct ReactionAssetSnapshot {
+  bool sd_supported = false;
+  bool sd_ready = false;
+  bool sd_ejected = false;
+  bool sd_busy = false;
+  bool sd_migration_available = false;
+  bool sd_migration_prompt = false;
+  std::uint32_t sd_session = 0;
+  std::size_t sd_missing = 0;
+  std::uint64_t sd_total = 0;
+  std::uint64_t sd_free = 0;
+  std::size_t sd_image_bytes = 0;
+  bool sd_selected = false;
+  bool sd_can_copy_internal = false;
+  bool sd_can_enable = true;
+  std::uint32_t sd_conflicts = 0;
+  std::string sd_detail;
   bool available = false;
   bool busy = false;
   bool cancellable = false;
@@ -58,10 +75,17 @@ struct ReactionAssetSnapshot {
 class ReactionAssetService {
  public:
   esp_err_t start(const NetworkService& network);
+  // Set during startup, before start(); successful explicit SD changes only.
+  void set_storage_changed_callback(void (*callback)(void*), void* context) {
+    storage_changed_ = callback; storage_context_ = context;
+  }
   ReactionAssetSnapshot snapshot() const;
   std::uint32_t generation() const;
   static std::span<const ReactionSetDefinition> sets();
   bool request_set(std::string_view id);
+  bool request_storage(std::string_view action, std::uint32_t session = 0);
+  core::ReactionGif cached_sd_gif(std::string_view id) const;
+  bool read_custom_gif(std::string_view id, std::span<std::uint8_t> destination) const;
   bool cancel_set();
   bool event_enabled(std::string_view id) const;
   bool custom_override(std::string_view id) const;
@@ -79,6 +103,11 @@ class ReactionAssetService {
   static void task_entry(void* context);
   static void cleanup_task_entry(void* context);
   void reaper_loop();
+  void poll_storage();
+  void storage_task(std::string action);
+  void sync_sd_locked();
+  bool initialize_sd_index();
+  bool persist_sd_index(const core::ReactionSdIndex& index);
   void task_loop();
   void cleanup_reset_custom_files();
   void install_requested_set(std::string id);
@@ -107,7 +136,7 @@ class ReactionAssetService {
   mutable std::mutex mutex_;
   // Serializes filesystem swaps while allowing readers to observe generation
   // changes and release an open LVGL decoder between rename retries.
-  std::mutex filesystem_mutation_mutex_;
+  mutable std::mutex filesystem_mutation_mutex_;
   const NetworkService* network_ = nullptr;
   ReactionAssetSnapshot snapshot_;
   std::uint32_t disabled_mask_ = 0;
@@ -116,6 +145,18 @@ class ReactionAssetService {
   std::array<bool, core::kReactionEventCount> custom_present_{};
   std::array<std::size_t, core::kReactionEventCount> current_sizes_{};
   std::array<std::size_t, core::kReactionEventCount> custom_sizes_{};
+  void (*storage_changed_)(void*) = nullptr;
+  void* storage_context_ = nullptr;
+  core::ReactionSdStore sd_store_;
+  core::ReactionGifArray sd_cache_{};
+  std::uint32_t sd_owned_mask_ = 0;
+  bool sd_index_valid_ = false;
+  bool sd_initialized_ = false;
+  int sd_mode_override_ = -1;
+  std::array<bool, core::kReactionEventCount> flash_custom_present_{};
+  std::array<std::size_t, core::kReactionEventCount> flash_custom_sizes_{};
+  std::string requested_storage_;
+  std::uint64_t sd_poll_after_ms_ = 0;
   std::string requested_set_;
   std::string profile_migration_set_;
   std::uint64_t profile_migration_not_before_ms_ = 0;

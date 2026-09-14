@@ -137,6 +137,8 @@ struct ResinLayerSettings {
 struct ResinTelemetry {
   std::optional<float> chamber_target_c, bottle_ml;
   std::optional<bool> feeder_enabled;
+  std::optional<float> vat_remaining_ml, used_ml;
+  std::optional<bool> vat_low;
 };
 
 struct ResinPrintSettings {
@@ -151,7 +153,17 @@ struct ResinPrintSettings {
 struct ResinExposureTiming {
   std::uint64_t started_at_ms = 0;
   std::uint32_t duration_ms = 0;
+  // Explicit printer phase timing stays meaningful between HTTP samples.
+  // Transition-derived timing keeps the normal report freshness limit.
+  bool retain_until_stage_change = false;
 };
+
+inline bool resin_exposure_countdown_visible(const ResinExposureTiming& timing,
+                                             std::uint64_t updated_at_ms,
+                                             std::uint64_t now_ms) {
+  return now_ms >= updated_at_ms &&
+      (timing.retain_until_stage_change || now_ms - updated_at_ms <= 2500);
+}
 
 inline std::uint32_t resin_exposure_remaining_tenths(const ResinExposureTiming& timing,
                                                     std::uint64_t now_ms) {

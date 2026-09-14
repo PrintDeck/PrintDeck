@@ -20,6 +20,7 @@
 #include "printdeck/platform/settings_store.hpp"
 #include "printdeck/platform/moonraker_connection_probe.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
+#include "printdeck/platform/tinymaker_service.hpp"
 #include "printdeck/platform/elegoo_connection_probe.hpp"
 #include "printdeck/platform/uniformation_connection_probe.hpp"
 #include "printdeck/platform/printer_discovery_service.hpp"
@@ -79,6 +80,7 @@ class WebConfig {
   esp_err_t save_printer_animations(bool enabled);
   esp_err_t save_last_auto_rotation(int degrees);
 
+  bool tinymaker_check_running() const { return tinymaker_probe_.snapshot().running; }
   bool uniformation_check_running() const { return uniformation_probe_.snapshot().running; }
 
  private:
@@ -126,6 +128,8 @@ class WebConfig {
   static esp_err_t configuration_backup_reaction_restore_entry(httpd_req_t* request);
   static esp_err_t audio_test_entry(httpd_req_t* request);
   static esp_err_t reactions_get_entry(httpd_req_t* request);
+  static esp_err_t reactions_storage_entry(httpd_req_t* request);
+  esp_err_t manage_reaction_storage(httpd_req_t* request);
   static esp_err_t reactions_set_entry(httpd_req_t* request);
   static esp_err_t reactions_set_cancel_entry(httpd_req_t* request);
   static esp_err_t reactions_event_entry(httpd_req_t* request);
@@ -138,6 +142,12 @@ class WebConfig {
   esp_err_t start_prusalink_check(httpd_req_t* request);
   esp_err_t serve_prusalink_check_status(httpd_req_t* request) const;
   bool read_prusalink_credentials(const std::string& body, core::PrinterProfile& profile) const;
+  static esp_err_t tinymaker_check_start_entry(httpd_req_t* request);
+  static esp_err_t tinymaker_check_status_entry(httpd_req_t* request);
+  static esp_err_t tinymaker_check_cancel_entry(httpd_req_t* request);
+  esp_err_t start_tinymaker_check(httpd_req_t* request);
+  esp_err_t serve_tinymaker_check_status(httpd_req_t* request) const;
+  bool read_tinymaker_connection(const std::string& body, core::PrinterProfile& profile) const;
   static esp_err_t elegoo_check_start_entry(httpd_req_t* request);
   static esp_err_t elegoo_check_status_entry(httpd_req_t* request);
   static esp_err_t elegoo_check_cancel_entry(httpd_req_t* request);
@@ -239,6 +249,7 @@ class WebConfig {
   PrusaLinkConnectionProbe* prusalink_probe_ = nullptr;
   ElegooConnectionProbe* elegoo_probe_ = nullptr;
   UniformationConnectionProbe uniformation_probe_;
+  TinyMakerConnectionProbe tinymaker_probe_;
   PrinterDiscoveryService* printer_discovery_ = nullptr;
   FirmwareUpdateService* firmware_update_ = nullptr;
   ReactionAssetService* reaction_assets_ = nullptr;

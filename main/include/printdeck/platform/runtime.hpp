@@ -13,6 +13,7 @@
 #include "printdeck/platform/moonraker_adapter.hpp"
 #include "printdeck/platform/print_preview_service.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
+#include "printdeck/platform/tinymaker_service.hpp"
 #include "printdeck/platform/elegoo_sdcp_service.hpp"
 #include "printdeck/platform/elegoo_cc2_service.hpp"
 #include "printdeck/platform/elegoo_connection_probe.hpp"
@@ -65,6 +66,7 @@ class Runtime {
   static void printer_controls_activity_entry(void* context);
   static bool printer_light_entry(void* context, std::uint32_t profile_id, bool enabled);
   static bool background_update_blocked_entry(void* context);
+  std::atomic<bool> pending_reaction_storage_feedback_{false};
   static void settings_changed_entry(void* context, const core::DeviceSettings& settings,
                                      bool play_feedback);
   static bool audio_test_entry(void* context, std::string_view preset,
@@ -101,6 +103,7 @@ class Runtime {
   WebConfig web_config_;
   MoonrakerAdapter moonraker_;
   PrusaLinkAdapter prusalink_;
+  TinyMakerAdapter tinymaker_;
   PrusaLinkConnectionProbe prusalink_probe_;
   ElegooSdcpAdapter elegoo_sdcp_;
   ElegooCc2Adapter elegoo_cc2_;
@@ -163,6 +166,7 @@ class Runtime {
   bool time_sync_started_ = false;
   bool moonraker_connection_requested_ = false;
   bool prusalink_connection_requested_ = false;
+  bool tinymaker_connection_requested_ = false;
   bool elegoo_sdcp_connection_requested_ = false;
   bool elegoo_cc2_connection_requested_ = false;
   bool bambu_connection_requested_ = false;

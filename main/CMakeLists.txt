@@ -14,6 +14,7 @@ set(PRINTDECK_SRCS
         "src/core/localization.cpp"
         "src/core/printer_driver.cpp"
         "src/core/reactions.cpp"
+        "src/core/reaction_sd_store.cpp"
         "src/core/settings.cpp"
         "src/core/timezone.cpp"
         "src/core/theme.cpp"
@@ -25,6 +26,7 @@ set(PRINTDECK_SRCS
         "src/platform/lvgl_thread_affinity.cpp"
         "src/platform/printer_animation_renderer.cpp"
         "src/platform/reaction_asset_service.cpp"
+        "src/platform/board_sd.cpp"
         "src/platform/settings_store.cpp"
         "src/platform/network_service.cpp"
         "src/platform/web_config.cpp"
@@ -39,6 +41,8 @@ set(PRINTDECK_SRCS
         "src/platform/prusalink_http_decoder.cpp"
         "src/platform/prusalink_http_transport.cpp"
         "src/platform/prusalink_service.cpp"
+        "src/platform/tinymaker_client.cpp"
+        "src/platform/tinymaker_service.cpp"
         "src/platform/elegoo_sdcp_parser.cpp"
         "src/platform/elegoo_sdcp_service.cpp"
         "src/platform/elegoo_cc2_parser.cpp"
@@ -210,6 +214,9 @@ idf_component_register(
         printdeck_h264_snapshot
         nvs_flash
         spi_flash
+        fatfs
+        sdmmc
+        esp_driver_sdmmc
         lvgl
         lwip
         json

@@ -24,6 +24,7 @@
 #include "sdkconfig.h"
 #include "mdns.h"
 #include "printdeck/platform/prusalink_discovery.hpp"
+#include "printdeck/platform/tinymaker_client.hpp"
 #include "printdeck/platform/prusalink_http_transport.hpp"
 #include "printdeck/platform/elegoo_sdcp_parser.hpp"
 #include "printdeck/platform/uniformation_sdcp_parser.hpp"
@@ -383,7 +384,7 @@ void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
                                      [&result](const DiscoveredPrinter& value) {
     if (value.protocol != result.protocol) return false;
     if (!result.serial.empty() && !value.serial.empty()) return value.serial == result.serial;
-    return value.host == result.host && (result.protocol != core::PrinterProtocol::prusalink || value.port == result.port);
+    return value.host == result.host && ((result.protocol != core::PrinterProtocol::prusalink && result.protocol != core::PrinterProtocol::tinymaker) || value.port == result.port);
   });
   if (existing != snapshot_.printers.end()) {
     if (!result.name.empty()) existing->name = std::move(result.name);
@@ -673,6 +674,21 @@ void PrinterDiscoveryService::run() {
     PrusaLinkEspTransport transport;
     const auto budget = std::min(deadline, now_ms() + 1800);
     const auto version = transport.get({.url = origin + "/api/version", .maximum_body = 16384, .deadline_ms = budget}, cancelled);
+    if (targeted) ESP_LOGI(kLogTag, "HTTP identity check: transport=%u status=%d bytes=%u",
+        static_cast<unsigned>(version.error), version.status, static_cast<unsigned>(version.body.size()));
+    if (version.error == PrusaLinkError::none && version.status == 200 &&
+        (version.content_encoding.empty() || version.content_encoding == "identity") && tinymaker_identity(version.body)) {
+      TinyMakerClient client(transport, now_ms);
+      if (client.configure(origin, 0) && client.identify(version.body)) {
+        const auto result = client.poll(std::min(deadline, now_ms() + 3500), cancelled);
+        ESP_LOGI(kLogTag, "TinyMaker status verification: result=%u ready=%s",
+            static_cast<unsigned>(result.error), result.sample ? "yes" : "no");
+        if (result.sample && !cancelled())
+          add_result({.protocol = core::PrinterProtocol::tinymaker, .name = "TinyMaker",
+                      .model = "TinyMaker", .host = host, .port = port});
+      }
+      return false;
+    }
     if (prusalink_discovery_identity(version, nullptr, advertised)) {
       if (const auto identity = parse_prusalink_identity(version.body))
         add_result({.protocol = core::PrinterProtocol::prusalink, .name = "Prusa",

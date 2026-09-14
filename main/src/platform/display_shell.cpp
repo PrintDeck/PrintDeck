@@ -1,4 +1,5 @@
 #include "printdeck/core/preview_policy.hpp"
+#include "printdeck/core/resin_view_policy.hpp"
 #include "printdeck/core/print_time.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/display_shell.hpp"
@@ -41,7 +42,6 @@ namespace printdeck::platform {
 namespace {
 
 constexpr char kLogTag[] = "display";
-constexpr int kResinSubpageCount = 6;
 constexpr int kResinBottomCycleView = 62;
 constexpr int kResinNormalCycleView = 65;
 constexpr int kResinReactionsView = 66;
@@ -218,6 +218,7 @@ std::string DisplayShell::effective_brand(const core::PrinterProfile& profile) {
   std::transform(identity.begin(), identity.end(), identity.begin(), [](unsigned char ch) {
     return static_cast<char>(std::tolower(ch));
   });
+  if (profile.protocol == core::PrinterProtocol::tinymaker) return "tinymaker";
   if (identity.find("uniformation") != std::string::npos) return "uniformation";
   if (identity.find("creality") != std::string::npos ||
       identity.find("ender") != std::string::npos ||
@@ -236,6 +237,7 @@ std::string DisplayShell::effective_brand(const core::PrinterProfile& profile) {
 
 const char* DisplayShell::brand_mark(const core::PrinterProfile& profile) {
   const std::string brand = effective_brand(profile);
+  if (brand == "tinymaker") return "TM";
   if (brand == "uniformation") return "UF";
   if (brand == "creality") return "CR";
   if (brand == "snapmaker") return "SN";
@@ -273,7 +275,8 @@ std::uint32_t DisplayShell::brand_color(const core::PrinterProfile& profile) {
 
 std::uint32_t DisplayShell::brand_logo_color(const core::PrinterProfile& profile,
                                              std::uint32_t background) {
-  if (effective_brand(profile) != "snapmaker") return brand_color(profile);
+  const std::string brand = effective_brand(profile);
+  if (brand != "snapmaker" && brand != "tinymaker") return brand_color(profile);
 
   const std::uint32_t red = (background >> 16U) & 0xFFU;
   const std::uint32_t green = (background >> 8U) & 0xFFU;
@@ -2415,7 +2418,7 @@ bool DisplayShell::camera_page_active() const {
 bool DisplayShell::printer_status_page_active() const {
   return core::print_preview_page(page_.load(), horizontal_depth_.load(),
       printer_subpage_.load(), printer_subpage_count_.load(), selected_is_resin_.load(),
-      camera_cleanup_pending_.load());
+      camera_cleanup_pending_.load(), core::resin_telemetry_pages(selected_is_tinymaker_.load()).size());
 }
 
 std::uint32_t DisplayShell::background_render_delay_ms() const {
@@ -2971,7 +2974,7 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
       if (!profile.manufacturer.empty()) detail_text = profile.manufacturer;
       else detail_text = profile.protocol == core::PrinterProtocol::bambu_lan
                              ? "Bambu Lab" : "Klipper";
-      if (!profile.model.empty()) {
+      if (!profile.model.empty() && profile.model != detail_text) {
         if (!detail_text.empty()) detail_text.push_back(' ');
         detail_text += profile.model;
       }
@@ -3156,6 +3159,8 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
                    : screen_name == "resin-normal-layers" ? 3
                    : screen_name == "resin-temperatures" ? 4
                    : screen_name == "resin-feeder" ? 5 : 0;
+    target_subpage = core::resin_telemetry_index(selected_is_tinymaker_.load(), target_subpage);
+    if (target_subpage < 0) return ESP_ERR_NOT_SUPPORTED;
     target_subpage += printer_animations_enabled_ ? 1 : 0;
   }
   else if (screen_name == "printer-status" || screen_name == "nozzles" ||
@@ -3269,12 +3274,14 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
                          snapshot.link == core::LinkState::online);
   const bool resin = core::printer_driver(profile.protocol).resin;
   selected_is_resin_.store(resin);
+  selected_is_tinymaker_.store(profile.protocol == core::PrinterProtocol::tinymaker);
   if (resin) {
     // Resin uses procedural reactions and its own telemetry pages.
     selected_is_bambu_.store(false);
     selected_camera_depth_.store(0); selected_light_depth_.store(0);
     const int reaction_offset = printer_animations_enabled_ ? 1 : 0;
-    const int subpage_count = kResinSubpageCount + reaction_offset;
+    const auto pages = core::resin_telemetry_pages(selected_is_tinymaker_.load());
+    const int subpage_count = pages.size() + reaction_offset;
     const bool controls = profile.protocol == core::PrinterProtocol::uniformation_sdcp;
     horizontal_depth_count_.store(controls ? 4 : 2); printer_subpage_count_.store(subpage_count);
     horizontal_depth_.store(std::min(controls ? 3 : 1, horizontal_depth_.load()));
@@ -3287,7 +3294,7 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
       show_resin_reactions(profile, snapshot);
       return;
     }
-    switch (printer_subpage_.load() - reaction_offset) {
+    switch (pages[printer_subpage_.load() - reaction_offset]) {
       case 1: show_resin_details(profile, snapshot, power); break;
       case 2: show_resin_cycle(profile, snapshot, power, true); break;
       case 3: show_resin_cycle(profile, snapshot, power, false); break;
@@ -4494,7 +4501,8 @@ void DisplayShell::update_resin_status() {
   if (!status_label_ || !resin_status_key_) return;
   const auto now = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000;
   char label[160];
-  if (resin_exposure_ && now >= resin_status_updated_ms_ && now - resin_status_updated_ms_ <= 2500) {
+  if (resin_exposure_ && core::resin_exposure_countdown_visible(
+          *resin_exposure_, resin_status_updated_ms_, now)) {
     const auto tenths = core::resin_exposure_remaining_tenths(*resin_exposure_, now);
     std::snprintf(label, sizeof(label), "%s %u.%us", tr(resin_status_key_),
         static_cast<unsigned>(tenths / 10), static_cast<unsigned>(tenths % 10));
@@ -4757,34 +4765,35 @@ void DisplayShell::show_resin_temperature(const core::PrinterProfile& profile,
 
 void DisplayShell::show_resin_feeder(const core::PrinterProfile& profile,
                                      const core::PrinterSnapshot& snapshot, const PowerSnapshot& power) {
+  const bool vat = profile.protocol == core::PrinterProtocol::tinymaker;
   if (board_display_lock(1000) != ESP_OK) return;
   if (view_ != 64 || visible_profile_ != profile.id) {
     prepare_active_screen("resin-feeder");
     if constexpr (kDisplayUsesLargeLayout) create_printer_chrome(profile, snapshot, &power);
     else square_create_printer_chrome(profile, snapshot, &power);
-    lv_label_set_text(title_label_, tr("Resin Feeder"));
+    lv_label_set_text(title_label_, tr(vat ? "Resin level" : "Resin Feeder"));
     auto* screen = lv_screen_active();
-    resin_text(tr("In bottle"), 40, 59, 160, 14, theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
-    resin_box(screen, 53, 85, 28, 12, theme_style_.accent_secondary, 3);
+    resin_text(tr(vat ? "Estimated remaining" : "In bottle"), 40, 59, 160, 14, theme_style_.text_secondary, LV_TEXT_ALIGN_CENTER);
+    if (!vat) resin_box(screen, 53, 85, 28, 12, theme_style_.accent_secondary, 3);
     auto* bottle = resin_box(screen, 43, 98, 48, 75, theme_style_.surface_soft, 10);
     lv_obj_set_style_border_color(bottle, lv_color_hex(theme_style_.accent_secondary), LV_PART_MAIN);
     lv_obj_set_style_border_width(bottle, resin_px(2), LV_PART_MAIN);
     // Bottle capacity is unknown: no invented fill percentage or sufficiency alarm.
     resin_box(screen, 55, 120, 24, 29, theme_style_.accent_secondary, 6);
     remaining_label_ = resin_text("--", 101, 94, 115, 24, theme_style_.accent_secondary);
-    resin_text(tr("Job estimate"), 101, 138, 114, 12, theme_style_.text_muted);
+    resin_text(tr(vat ? "Used this print" : "Job estimate"), 101, 138, 114, 12, theme_style_.text_muted);
     total_time_label_ = resin_text("--", 101, 157, 114, 16, theme_style_.text_secondary);
-    resin_text(tr("Automatic refill"), 35, 188, 170, 12, theme_style_.text_muted, LV_TEXT_ALIGN_CENTER);
+    resin_text(tr(vat ? "Low resin" : "Automatic refill"), 35, 188, 170, 12, theme_style_.text_muted, LV_TEXT_ALIGN_CENTER);
     status_label_ = resin_text("--", 55, 207, 130, 14, theme_style_.accent_secondary, LV_TEXT_ALIGN_CENTER);
     view_ = 64; visible_profile_ = profile.id;
   }
-  if (const auto amount = snapshot.job.resin_telemetry.bottle_ml)
+  if (const auto amount = (vat ? snapshot.job.resin_telemetry.vat_remaining_ml : snapshot.job.resin_telemetry.bottle_ml))
     lv_label_set_text_fmt(remaining_label_, "%.0f ml", static_cast<double>(*amount));
   else lv_label_set_text(remaining_label_, "--");
-  if (const auto estimate = snapshot.job.resin_settings.volume_ml)
+  if (const auto estimate = (vat ? snapshot.job.resin_telemetry.used_ml : snapshot.job.resin_settings.volume_ml))
     lv_label_set_text_fmt(total_time_label_, "%.1f ml", static_cast<double>(*estimate));
   else lv_label_set_text(total_time_label_, "--");
-  const auto enabled = snapshot.job.resin_telemetry.feeder_enabled;
+  const auto enabled = vat ? snapshot.job.resin_telemetry.vat_low : snapshot.job.resin_telemetry.feeder_enabled;
   lv_label_set_text(status_label_, enabled ? tr(*enabled ? "On" : "Off") : "--");
   update_printer_progress(snapshot);
   if constexpr (kDisplayUsesLargeLayout) update_power_header(power); else square_update_power_header(power);
@@ -7099,7 +7108,7 @@ void DisplayShell::apply_printer_animations_enabled(bool enabled) {
   }
   printer_animations_enabled_ = enabled;
   if (selected_is_resin_.load()) {
-    printer_subpage_count_.store(kResinSubpageCount + (enabled ? 1 : 0));
+    printer_subpage_count_.store(core::resin_telemetry_pages(selected_is_tinymaker_.load()).size() + (enabled ? 1 : 0));
     printer_subpage_.store(std::clamp(printer_subpage_.load(), 0, printer_subpage_count_.load() - 1));
   } else printer_subpage_count_.store(enabled ? 5 : 4);
   view_ = -1;

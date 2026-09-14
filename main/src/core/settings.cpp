@@ -76,6 +76,7 @@ bool local_hostname(std::string_view host) {
 
 bool is_local_printer_endpoint(std::string_view endpoint, PrinterProtocol protocol) {
   if (endpoint.empty() || !printer_protocol_supported(protocol)) return false;
+  if (protocol == PrinterProtocol::tinymaker && endpoint.starts_with("https://")) return false;
   const bool http = printer_supports(protocol, PrinterCapability::http_endpoint);
   if (http) {
     if (endpoint.rfind("http://", 0) == 0) endpoint.remove_prefix(7);

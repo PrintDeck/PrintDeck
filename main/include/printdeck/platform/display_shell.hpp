@@ -525,6 +525,7 @@ class DisplayShell {
   std::atomic<int> selected_light_depth_{0};
   std::atomic<bool> selected_is_bambu_{false};
   std::atomic<bool> selected_is_resin_{false};
+  std::atomic<bool> selected_is_tinymaker_{false};
   std::atomic<bool> selected_online_{false};
   std::uint32_t selected_profile_ = 0;
   std::uint32_t printer_retry_wait_profile_ = 0;
