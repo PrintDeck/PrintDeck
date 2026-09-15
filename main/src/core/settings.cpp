@@ -109,6 +109,21 @@ bool supported_audio_preset(std::string_view id) {
          id == "arcade" || id == "scifi" || id == "clean";
 }
 
+bool valid_mqtt_settings(const MqttSettings& s) {
+  const auto clean = [](std::string_view value) {
+    return value.find('\0') == std::string_view::npos;
+  };
+  if (s.port == 0 || s.host.size() > 253 || s.username.size() > 64 ||
+      s.password.size() > 128 || s.ca_certificate.size() > 4096 ||
+      !clean(s.host) || !clean(s.username) || !clean(s.password) || !clean(s.ca_certificate)) return false;
+  if (s.host.empty()) return !s.enabled;
+  if (s.host.find_first_of(":/@?#") != std::string::npos ||
+      !is_local_printer_endpoint(s.host, PrinterProtocol::moonraker)) return false;
+  return s.ca_certificate.empty() ||
+      (s.ca_certificate.starts_with("-----BEGIN CERTIFICATE-----") &&
+       s.ca_certificate.find("-----END CERTIFICATE-----") != std::string::npos);
+}
+
 bool valid_unified_api_token(std::string_view token) {
   if (token.size() != kUnifiedApiTokenLength || token.substr(0, 3) != "pd_") return false;
   return std::all_of(token.begin() + 3, token.end(), [](unsigned char character) {
@@ -266,6 +281,7 @@ bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
     settings.unified_api_enabled = false;
     settings.unified_api_token.clear();
   }
+  if (source_schema < 17) settings.mqtt = {};
   if (source_schema < 10) settings.device_name.clear();
   if (source_schema < 11) {
     for (auto& profile : settings.profiles) {
@@ -393,6 +409,7 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
       (settings.unified_api_enabled && settings.unified_api_token.empty())) {
     issues.push_back({"unified_api_token", "Unified API token is invalid"});
   }
+  if (!valid_mqtt_settings(settings.mqtt)) issues.push_back({"mqtt", "Check the MQTT connection settings."});
   const std::uint32_t poll_interval = settings.inactive_printer_poll_interval_s;
   if (poll_interval != 0 && poll_interval != 30 && poll_interval != 60 &&
       poll_interval != 180 && poll_interval != 300) {
@@ -497,6 +514,7 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
 DeviceSettings redact_secrets(DeviceSettings settings) {
   settings.wifi_password.clear();
   settings.unified_api_token.clear();
+  settings.mqtt.password.clear();
   for (auto& profile : settings.profiles) {
     profile.api_key.clear();
     profile.access_code.clear();

@@ -10,12 +10,12 @@
 
 namespace printdeck::platform {
 
-// Two coalesced mailboxes, not a queue of settings/image copies. Handlers must
+// Coalesced mailboxes, not a queue of settings/image copies. Handlers must
 // finish one bounded step and release every lock before returning. In
 // particular, preview steps never invoke the settings handler recursively.
 class PersistenceWorker {
  public:
-  enum class Slot : unsigned { settings, preview };
+  enum class Slot : unsigned { settings, preview, mqtt };
   static constexpr std::uint32_t kNoRetry = std::numeric_limits<std::uint32_t>::max();
   using Handler = std::uint32_t (*)(void*);  // delay in ms, or kNoRetry
   using Cleanup = void (*)(void*);
@@ -44,7 +44,7 @@ class PersistenceWorker {
   static void task_entry(void* context);
   void notify();
   void run();
-  std::array<Mailbox, 2> mailboxes_{};
+  std::array<Mailbox, 3> mailboxes_{};
   std::atomic<TaskHandle_t> task_{nullptr};
   std::atomic<bool> running_{false};
   std::atomic<bool> stopping_{false};
@@ -52,6 +52,7 @@ class PersistenceWorker {
   // bits keep an already-started notification from using a freed task handle.
   std::atomic<std::uint32_t> notification_users_{0};
   unsigned settings_streak_ = 0;
+  unsigned next_background_ = 1;
 };
 
 }  // namespace printdeck::platform

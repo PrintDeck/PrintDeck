@@ -35,6 +35,7 @@
 #include "printdeck/core/localization.hpp"
 #include "printdeck/core/timezone.hpp"
 #include "printdeck/platform/board.hpp"
+#include "printdeck/platform/mqtt_export_service.hpp"
 #include "printdeck/platform/display_shell.hpp"
 #include "printdeck/platform/reset_diagnostics.hpp"
 #include "printdeck/platform/web_assets.hpp"
@@ -101,7 +102,7 @@ int hex_value(char value) {
   return value >= 'a' && value <= 'f' ? value - 'a' + 10 : -1;
 }
 
-bool decode_form_component(std::string_view input, std::string& output) {
+bool decode_form_component(std::string_view input, std::string& output, bool allow_newlines = false) {
   output.clear();
   output.reserve(input.size());
   for (std::size_t index = 0; index < input.size(); ++index) {
@@ -113,17 +114,20 @@ bool decode_form_component(std::string_view input, std::string& output) {
       const int low = hex_value(input[index + 2]);
       if (high < 0 || low < 0) return false;
       const char decoded = static_cast<char>((high << 4) | low);
-      if (decoded == '\0' || decoded == '\r' || decoded == '\n') return false;
+      if (decoded == '\0' || (!allow_newlines && (decoded == '\r' || decoded == '\n'))) return false;
       output.push_back(decoded);
       index += 2;
     } else {
+      if (input[index] == '\0' || (!allow_newlines && (input[index] == '\r' || input[index] == '\n'))) return false;
       output.push_back(input[index]);
     }
   }
   return true;
 }
 
-bool form_value(std::string_view form, std::string_view wanted, std::string& value) {
+bool form_value(std::string_view form, std::string_view wanted, std::string& value,
+                bool allow_newlines = false, bool* present = nullptr) {
+  if (present) *present = false;
   std::size_t cursor = 0;
   while (cursor <= form.size()) {
     const std::size_t end = form.find('&', cursor);
@@ -131,7 +135,8 @@ bool form_value(std::string_view form, std::string_view wanted, std::string& val
         cursor, end == std::string_view::npos ? form.size() - cursor : end - cursor);
     const std::size_t separator = pair.find('=');
     if (separator != std::string_view::npos && pair.substr(0, separator) == wanted) {
-      return decode_form_component(pair.substr(separator + 1), value);
+      if (present) *present = true;
+      return decode_form_component(pair.substr(separator + 1), value, allow_newlines);
     }
     if (end == std::string_view::npos) break;
     cursor = end + 1;
@@ -549,7 +554,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 73;
+  constexpr unsigned route_capacity = 75;
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
@@ -557,6 +562,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   if (result != ESP_OK) return result;
 
   const httpd_uri_t routes[] = {
+      {.uri = "/api/mqtt", .method = HTTP_GET, .handler = mqtt_entry, .user_ctx = this},
+      {.uri = "/api/mqtt", .method = HTTP_POST, .handler = mqtt_entry, .user_ctx = this},
       {.uri = "/", .method = HTTP_GET, .handler = root_entry, .user_ctx = this},
       {.uri = "/world-map.svg", .method = HTTP_GET, .handler = world_map_entry, .user_ctx = this},
       {.uri = "/localizations.js", .method = HTTP_GET, .handler = localizations_entry, .user_ctx = this},
@@ -2229,7 +2236,7 @@ bool WebConfig::authorize_unified_api(httpd_req_t* request) const {
   return true;
 }
 
-std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views() const {
+std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint32_t profile_id, bool metadata_only) const {
   // UnifiedPrinterView contains a complete normalized snapshot and is large.
   // Keep every copy in the request-owned vector (PSRAM for allocations above
   // the configured threshold) instead of placing snapshots on the 4 KiB HTTP
@@ -2249,8 +2256,9 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views() const {
     snapshot_context = selected_printer_snapshot_context_;
     activity_callback = unified_api_activity_callback_;
     activity_context = unified_api_activity_context_;
-    views.reserve(settings_.profiles.size());
+    views.reserve(profile_id ? 1 : settings_.profiles.size());
     for (const core::PrinterProfile& profile : settings_.profiles) {
+      if (profile_id && profile.id != profile_id) continue;
       views.emplace_back();
       core::UnifiedPrinterView& view = views.back();
       view.id = profile.id;
@@ -2262,15 +2270,17 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views() const {
       view.selected = profile.id == selected_profile;
     }
   }
+  if (metadata_only) return views;
   if (activity_callback != nullptr) activity_callback(activity_context);
   std::unique_ptr<core::PrinterSnapshot> selected_snapshot;
   bool selected_snapshot_available = false;
-  if (selected_profile != 0 && snapshot_callback != nullptr) {
+  if (selected_profile != 0 && (!profile_id || profile_id == selected_profile) && snapshot_callback != nullptr) {
     selected_snapshot = std::make_unique<core::PrinterSnapshot>();
     selected_snapshot_available = snapshot_callback(snapshot_context, *selected_snapshot) &&
         selected_snapshot->profile_id == selected_profile;
     selected_snapshot->job.preview.reset();
     selected_snapshot->job.camera_frame.reset();
+    selected_snapshot->job.exposure_preview.reset();
     selected_snapshot->job.preview_hint.clear();
     selected_snapshot->job.preview_plate_hint.clear();
     selected_snapshot->job.camera_detail.clear();
@@ -2326,8 +2336,7 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views() const {
   return views;
 }
 
-esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
-  if (!authorize_unified_api(request)) return ESP_OK;
+std::string WebConfig::unified_info_json() const {
   const NetworkStatus network = network_->status();
   std::string body = "{\"api_version\":\"v1\",\"product\":\"PrintDeck\",\"firmware_version\":";
   append_json_string(body, PRINTDECK_VERSION);
@@ -2350,7 +2359,121 @@ esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
   if (network.friendly_hostname.empty()) body += "null";
   else append_json_string(body, network.friendly_hostname);
   body += "},\"read_only\":true}";
+  return body;
+}
+
+esp_err_t WebConfig::serve_unified_api_info(httpd_req_t* request) const {
+  if (!authorize_unified_api(request)) return ESP_OK;
+  const auto body = unified_info_json();
   return send_json(request, "200 OK", body.c_str());
+}
+
+core::UnifiedDevicePower WebConfig::unified_power() const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return {.available=power_status_.available, .battery_present=power_status_.battery_present,
+      .battery_percent=power_status_.battery_percent, .charging=power_status_.charging,
+      .external_power=power_status_.usb_present || power_status_.charging};
+}
+
+std::string WebConfig::export_language() const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return settings_.language;
+}
+
+bool WebConfig::mqtt_settings_equal(const core::MqttSettings& config) const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return settings_.mqtt==config;
+}
+
+std::array<std::uint32_t,core::kMaximumProfiles> WebConfig::unified_printer_ids() const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  std::array<std::uint32_t,core::kMaximumProfiles> ids{};
+  for(std::size_t i=0;i<std::min(ids.size(),settings_.profiles.size());++i) ids[i]=settings_.profiles[i].id;
+  return ids;
+}
+
+core::MqttSettings WebConfig::mqtt_settings() const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return settings_.mqtt;
+}
+
+esp_err_t WebConfig::mqtt_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->mqtt_request(request);
+}
+
+esp_err_t WebConfig::mqtt_request(httpd_req_t* request) {
+  if (request->method == HTTP_POST) {
+    const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+    // CA PEM may expand to three times its decoded length in an HTML form.
+    if (request->content_len <= 0 || request->content_len > 16000)
+      return send_json(request,"400 Bad Request","{\"error\":\"Check the MQTT connection settings.\"}");
+    std::string body(request->content_len, '\0');
+    std::size_t received=0;
+    const auto deadline=esp_timer_get_time()+5'000'000;
+    while(received<body.size() && esp_timer_get_time()<deadline) {
+      const int count=httpd_req_recv(request,body.data()+received,body.size()-received);
+      if(count==HTTPD_SOCK_ERR_TIMEOUT) continue;
+      if(count<=0) break;
+      received+=count;
+    }
+    core::DeviceSettings candidate;
+    { const std::lock_guard<std::mutex> lock(mutex_); candidate=settings_; }
+    const auto old=candidate.mqtt;
+    auto& config=candidate.mqtt;
+    std::string text;
+    bool valid=received==body.size();
+    const auto boolean=[&](const char* key, bool& target) {
+      if(!form_value(body,key,text) || (text!="0" && text!="1" && text!="true" && text!="false")) { valid=false; return; }
+      target=text=="1" || text=="true";
+    };
+    boolean("enabled",config.enabled); boolean("tls",config.tls); boolean("discovery",config.discovery);
+    valid=form_value(body,"host",config.host) && valid;
+    valid=form_value(body,"username",config.username) && valid;
+    int port=0;
+    valid=form_value(body,"port",text) && parse_int(text,port) && port>0 && port<=65535 && valid;
+    config.port=static_cast<std::uint16_t>(port);
+    const auto optional=[&](const char* key, bool multiline=false) {
+      bool present=false;
+      const bool decoded=form_value(body,key,text,multiline,&present);
+      if(present && !decoded) valid=false;
+      return decoded;
+    };
+    if(optional("password") && !text.empty()) config.password=text;
+    if(optional("ca_certificate",true) && !text.empty()) config.ca_certificate=text;
+    if(optional("clear_password")) {
+      if(text!="0" && text!="1") valid=false;
+      if(text=="1") config.password.clear();
+    }
+    if(optional("clear_ca")) {
+      if(text!="0" && text!="1") valid=false;
+      if(text=="1") config.ca_certificate.clear();
+    }
+    if(!valid || !core::valid_mqtt_settings(config))
+      return send_json(request,"400 Bad Request","{\"error\":\"Check the MQTT connection settings.\"}");
+    auto mqtt_guard=mqtt_export_?mqtt_export_->configuration_lock():std::unique_lock<std::mutex>{};
+    if(mqtt_export_ && mqtt_export_->has_registrations() &&
+        (config.host!=old.host || config.port!=old.port || config.tls!=old.tls))
+      return send_json(request,"409 Conflict","{\"error\":\"Disable MQTT Discovery and wait for cleanup before changing the broker.\"}");
+    if(!core::validate(candidate).empty() || store_->save(candidate)!=ESP_OK)
+      return send_json(request,"500 Internal Server Error","{\"error\":\"PrintDeck could not save the MQTT settings. Please try again.\"}");
+    { const std::lock_guard<std::mutex> lock(mutex_); settings_=candidate; }
+    notify_settings_changed(candidate,true);
+  }
+  const auto config=mqtt_settings();
+  std::string body="{\"enabled\":"+std::string(config.enabled?"true":"false")+",\"host\":";
+  append_json_string(body,config.host);
+  body+=",\"port\":"+std::to_string(config.port)+",\"username\":";
+  append_json_string(body,config.username);
+  body+=",\"password_set\":"+std::string(config.password.empty()?"false":"true")+
+      ",\"tls\":"+(config.tls?"true":"false")+",\"ca_set\":"+(config.ca_certificate.empty()?"false":"true")+
+      ",\"discovery\":"+(config.discovery?"true":"false")+
+      ",\"connected\":"+(mqtt_export_ && mqtt_export_->connected()?"true":"false")+
+      ",\"discovery_cleanup_pending\":"+(mqtt_export_ && mqtt_export_->cleanup_pending()?"true":"false")+",\"error\":";
+  append_json_string(body,mqtt_export_?mqtt_export_->error():"");
+  body+=",\"topic_prefix\":";
+  append_json_string(body,"printdeck/"+network_->status().device_id+"/v1");
+  body+='}';
+  return send_json(request,"200 OK",body.c_str());
 }
 
 esp_err_t WebConfig::serve_unified_api_snapshot(httpd_req_t* request) const {
@@ -3321,6 +3444,14 @@ esp_err_t WebConfig::restore_configuration_backup(httpd_req_t* request) {
                      "{\"error\":\"The restored settings did not pass validation.\"}");
   }
 
+  auto mqtt_guard=mqtt_export_?mqtt_export_->configuration_lock():std::unique_lock<std::mutex>{};
+  const auto current_mqtt=mqtt_settings();
+  if(mqtt_export_ && mqtt_export_->has_registrations() &&
+      (parsed.settings.mqtt.host!=current_mqtt.host || parsed.settings.mqtt.port!=current_mqtt.port ||
+       parsed.settings.mqtt.tls!=current_mqtt.tls)) {
+    return send_json(request,"409 Conflict",
+        "{\"error\":\"Disable MQTT Discovery and wait for cleanup before changing the broker.\"}");
+  }
   const esp_err_t save_result = store_->save(parsed.settings);
   if (save_result != ESP_OK) {
     return send_json(request, "500 Internal Server Error",
@@ -4042,6 +4173,20 @@ esp_err_t WebConfig::factory_reset(httpd_req_t* request) {
                      "{\"error\":\"Type reset exactly as shown to continue.\"}");
   }
 
+  const auto resume_mqtt=[](MqttExportService* service) { if(service) service->resume_after_reset(); };
+  std::unique_ptr<MqttExportService,decltype(resume_mqtt)> mqtt_reset_guard(mqtt_export_,resume_mqtt);
+  if(mqtt_export_) {
+    const auto deadline=esp_timer_get_time()+5'000'000;
+    while(!mqtt_export_->prepare_reset() && esp_timer_get_time()<deadline) vTaskDelay(pdMS_TO_TICKS(20));
+    if(!mqtt_export_->prepare_reset())
+      return send_json(request,"409 Conflict","{\"error\":\"MQTT is stopping. Try the factory reset again.\"}");
+  }
+  std::string forget_discovery;
+  const bool explicitly_forget=form_value(body,"forget_mqtt_discovery",forget_discovery) &&
+                               forget_discovery=="1";
+  if(mqtt_export_ && mqtt_export_->has_registrations() && !explicitly_forget)
+    return send_json(request,"409 Conflict",
+      "{\"error\":\"Disable MQTT Discovery and wait for cleanup, or confirm that you will remove its Home Assistant entities manually.\"}");
   const esp_err_t reaction_result = reaction_assets_->prepare_factory_reset();
   if (reaction_result == ESP_ERR_INVALID_STATE) {
     return send_json(
@@ -4058,13 +4203,14 @@ esp_err_t WebConfig::factory_reset(httpd_req_t* request) {
 
   const std::string setup_network = network_->status().setup_network_name;
   const std::string setup_qr_svg = setup_wifi_qr_svg(setup_network);
+  mqtt_reset_guard.release();
   const esp_err_t erase_result = nvs_flash_erase();
   if (erase_result != ESP_OK) {
     ESP_LOGE(kLogTag, "Factory reset could not erase NVS: %s",
              esp_err_to_name(erase_result));
     return send_json(
         request, "500 Internal Server Error",
-        "{\"error\":\"PrintDeck could not erase its saved settings. Please try again.\"}");
+        "{\"error\":\"PrintDeck could not erase its saved settings. Restart PrintDeck before trying again.\"}");
   }
 
   std::string response_body =

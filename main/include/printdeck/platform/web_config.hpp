@@ -33,6 +33,7 @@
 namespace printdeck::platform {
 
 class DisplayShell;
+class MqttExportService;
 
 class WebConfig {
  public:
@@ -90,7 +91,20 @@ class WebConfig {
   bool tinymaker_check_running() const { return tinymaker_probe_.snapshot().running; }
   bool uniformation_check_running() const { return uniformation_probe_.snapshot().running; }
 
+  core::MqttSettings mqtt_settings() const;
+  bool mqtt_settings_equal(const core::MqttSettings& config) const;
+  std::array<std::uint32_t,core::kMaximumProfiles> unified_printer_ids() const;
+  std::string export_language() const;
+  std::string unified_info_json() const;
+  core::UnifiedDevicePower unified_power() const;
+  std::vector<core::UnifiedPrinterView> unified_printer_views(
+      std::uint32_t profile_id = 0, bool metadata_only = false) const;
+  void set_mqtt_export(MqttExportService* service) { mqtt_export_ = service; }
+
  private:
+  MqttExportService* mqtt_export_ = nullptr;
+  static esp_err_t mqtt_entry(httpd_req_t* request);
+  esp_err_t mqtt_request(httpd_req_t* request);
   CompanionCameraService* companion_service_=nullptr;
   static esp_err_t cameras_entry(httpd_req_t* request);
   esp_err_t cameras_request(httpd_req_t* request);
@@ -216,7 +230,6 @@ class WebConfig {
   esp_err_t serve_unified_api_statuses(httpd_req_t* request) const;
   esp_err_t serve_unified_api_printer(httpd_req_t* request) const;
   bool authorize_unified_api(httpd_req_t* request) const;
-  std::vector<core::UnifiedPrinterView> unified_printer_views() const;
   esp_err_t export_configuration_backup(httpd_req_t* request) const;
   esp_err_t check_configuration_backup(httpd_req_t* request) const;
   esp_err_t restore_configuration_backup(httpd_req_t* request);

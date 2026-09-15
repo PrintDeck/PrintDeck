@@ -382,6 +382,14 @@ bool add_settings(cJSON* root, const DeviceSettings& settings) {
          add_bool(object, "voice_enabled", settings.voice_enabled) &&
          add_bool(object, "unified_api_enabled", settings.unified_api_enabled) &&
          add_string(object, "unified_api_token", settings.unified_api_token) &&
+         add_bool(object, "mqtt_enabled", settings.mqtt.enabled) &&
+         add_bool(object, "mqtt_tls", settings.mqtt.tls) &&
+         add_bool(object, "mqtt_discovery", settings.mqtt.discovery) &&
+         add_number(object, "mqtt_port", settings.mqtt.port) &&
+         add_string(object, "mqtt_host", settings.mqtt.host) &&
+         add_string(object, "mqtt_username", settings.mqtt.username) &&
+         add_string(object, "mqtt_password", settings.mqtt.password) &&
+         add_string(object, "mqtt_ca", settings.mqtt.ca_certificate) &&
          add_display_power(object, settings.display_power);
 }
 
@@ -428,6 +436,14 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
                    source_schema >= 9) &&
          read_string(object, "unified_api_token", settings.unified_api_token,
                      kUnifiedApiTokenLength, source_schema >= 9) &&
+         read_bool(object, "mqtt_enabled", settings.mqtt.enabled, source_schema >= 17) &&
+         read_bool(object, "mqtt_tls", settings.mqtt.tls, source_schema >= 17) &&
+         read_bool(object, "mqtt_discovery", settings.mqtt.discovery, source_schema >= 17) &&
+         read_unsigned(object, "mqtt_port", settings.mqtt.port, 65535, source_schema >= 17) &&
+         read_string(object, "mqtt_host", settings.mqtt.host, 253, source_schema >= 17) &&
+         read_string(object, "mqtt_username", settings.mqtt.username, 64, source_schema >= 17) &&
+         read_string(object, "mqtt_password", settings.mqtt.password, 128, source_schema >= 17) &&
+         read_string(object, "mqtt_ca", settings.mqtt.ca_certificate, 4096, source_schema >= 17) &&
          read_display_power(object, settings.display_power, required, source_schema >= 12,
                             source_schema >= 13, source_schema >= 14);
 }

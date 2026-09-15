@@ -92,7 +92,8 @@ void PersistenceWorker::run() {
     // consecutive settings passes to avoid starvation during an input storm.
     const bool preview_first = settings_streak_ >= 4;
     for (unsigned position = 0; position < mailboxes_.size(); ++position) {
-      const unsigned index = preview_first ? 1U - position : position;
+      const unsigned rank = preview_first ? (position + 1U) % mailboxes_.size() : position;
+      const unsigned index = rank == 0 ? 0 : 1U + (next_background_ + rank - 2U) % (mailboxes_.size()-1U);
       auto& mailbox = mailboxes_[index];
       auto state = mailbox.state.load(std::memory_order_acquire);
       const auto generation = state & ~1U;
@@ -120,9 +121,10 @@ void PersistenceWorker::run() {
       }
       dispatched = true;
       settings_streak_ = index == 0 ? std::min(settings_streak_ + 1U, 4U) : 0;
+      if(index != 0) next_background_ = 1U + index % (mailboxes_.size()-1U);
       // A preview transfer can require hundreds of steps. Preserve an actual
       // scheduling window between them, even if notifications keep arriving.
-      if (index == 1) vTaskDelay(pdMS_TO_TICKS(1));
+      if (index != 0) vTaskDelay(pdMS_TO_TICKS(1));
       break;
     }
     if (!dispatched) ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(wait_ms));

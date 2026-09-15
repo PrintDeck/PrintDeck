@@ -1390,3 +1390,279 @@ Object.assign(window.PRINTDECK_TRANSLATIONS.en, {
 
 // Camera viewing and companion assignment.
 [["Cameras", "Kamery", "Cámaras", "Caméras", "Kameras", "摄像头"], ["Connect a PrintDeck Camera once, then choose which printers use it.", "Połącz PrintDeck Camera i wybierz drukarki, które mają z niej korzystać.", "Conecta una PrintDeck Camera y elige qué impresoras la usan.", "Connectez une PrintDeck Camera, puis choisissez les imprimantes qui l’utilisent.", "Verbinde eine PrintDeck Camera und wähle die Drucker, die sie nutzen.", "连接 PrintDeck Camera，然后选择使用它的打印机。"], ["Each assigned camera gets its own screen on PrintDeck. Swipe vertically between cameras; the last screen adds another.", "Każda przypisana kamera ma własny ekran w PrintDeck. Przesuwaj pionowo między kamerami; ostatni ekran dodaje kolejną.", "Cada cámara asignada tiene su propia pantalla. Desliza verticalmente para cambiar; la última pantalla permite añadir otra.", "Chaque caméra attribuée a son écran. Balayez verticalement pour changer de caméra ; le dernier écran permet d’en ajouter une.", "Jede zugeordnete Kamera hat einen eigenen Bildschirm. Wische vertikal zum Wechseln; auf der letzten Seite fügst du eine weitere hinzu.", "每个已分配的摄像头都有独立页面。上下滑动切换，最后一页可添加更多摄像头。"], ["Search PrintDeck Camera", "Szukaj PrintDeck Camera", "Buscar PrintDeck Camera", "Chercher PrintDeck Camera", "PrintDeck Camera suchen", "搜索 PrintDeck Camera"], ["Found cameras appear while the search continues. You can assign one immediately.", "Znalezione kamery pojawiają się w trakcie wyszukiwania. Możesz od razu przypisać kamerę.", "Las cámaras aparecen mientras continúa la búsqueda. Puedes asignarlas de inmediato.", "Les caméras apparaissent pendant la recherche. Vous pouvez les attribuer immédiatement.", "Gefundene Kameras erscheinen während der Suche. Du kannst sie sofort zuordnen.", "搜索仍在进行时会显示发现的摄像头，可立即分配。"], ["Forget camera", "Zapomnij kamerę", "Olvidar cámara", "Oublier la caméra", "Kamera vergessen", "忘记摄像头"], ["This removes the camera from all printers on this PrintDeck. You can find it again later.", "Usunie to przypisania kamery do wszystkich drukarek w tym PrintDeck. Później możesz znaleźć ją ponownie.", "Se eliminará la cámara de todas las impresoras de este PrintDeck. Podrás buscarla de nuevo.", "La caméra sera retirée de toutes les imprimantes de ce PrintDeck. Vous pourrez la rechercher à nouveau.", "Die Kamera wird von allen Druckern dieses PrintDeck entfernt. Du kannst sie später erneut suchen.", "这会从此 PrintDeck 的所有打印机中移除该摄像头，以后可再次搜索。"], ["Searching for cameras…", "Szukanie kamer…", "Buscando cámaras…", "Recherche de caméras…", "Kameras werden gesucht…", "正在搜索摄像头…"], ["Camera search finished.", "Wyszukiwanie kamer zakończone.", "Búsqueda de cámaras finalizada.", "Recherche de caméras terminée.", "Kamerasuche beendet.", "摄像头搜索已结束。"], ["No PrintDeck Cameras saved yet. Start a search to find one.", "Nie zapisano jeszcze PrintDeck Camera. Rozpocznij wyszukiwanie.", "Aún no hay PrintDeck Cameras guardadas. Inicia una búsqueda.", "Aucune PrintDeck Camera enregistrée. Lancez une recherche.", "Noch keine PrintDeck Camera gespeichert. Starte eine Suche.", "尚未保存 PrintDeck Camera。请开始搜索。"], ["Saved camera", "Zapisana kamera", "Cámara guardada", "Caméra enregistrée", "Gespeicherte Kamera", "已保存的摄像头"], ["Available camera", "Dostępna kamera", "Cámara disponible", "Caméra disponible", "Verfügbare Kamera", "可用摄像头"], ["Open camera settings", "Otwórz ustawienia kamery", "Abrir ajustes de cámara", "Ouvrir les réglages de la caméra", "Kameraeinstellungen öffnen", "打开摄像头设置"], ["Unpair", "Odepnij", "Desvincular", "Dissocier", "Zuordnung aufheben", "解除配对"], ["Assign to printer", "Przypisz do drukarki", "Asignar a impresora", "Attribuer à une imprimante", "Drucker zuordnen", "分配给打印机"], ["Assign camera", "Przypisz kamerę", "Asignar cámara", "Attribuer la caméra", "Kamera zuordnen", "分配摄像头"], ["Add a printer first to assign this camera.", "Najpierw dodaj drukarkę, aby przypisać tę kamerę.", "Añade una impresora primero para asignar esta cámara.", "Ajoutez d’abord une imprimante pour attribuer cette caméra.", "Füge zuerst einen Drucker hinzu, um diese Kamera zuzuordnen.", "请先添加打印机，再分配此摄像头。"], ["Camera settings saved.", "Ustawienia kamer zapisane.", "Ajustes de cámara guardados.", "Réglages des caméras enregistrés.", "Kameraeinstellungen gespeichert.", "摄像头设置已保存。"], ["PrintDeck Camera assigned", "Przypisana PrintDeck Camera", "PrintDeck Camera asignada", "PrintDeck Camera attribuée", "PrintDeck Camera zugeordnet", "已分配 PrintDeck Camera"], ["Camera settings are unavailable.", "Ustawienia kamer są niedostępne.", "Los ajustes de cámara no están disponibles.", "Les réglages des caméras sont indisponibles.", "Kameraeinstellungen sind nicht verfügbar.", "摄像头设置暂不可用。"], ["Choose a valid camera action.", "Wybierz poprawną czynność dla kamery.", "Elige una acción válida para la cámara.", "Choisissez une action valide pour la caméra.", "Wähle eine gültige Kameraaktion.", "请选择有效的摄像头操作。"], ["Camera search is unavailable.", "Wyszukiwanie kamer jest niedostępne.", "La búsqueda de cámaras no está disponible.", "La recherche de caméras est indisponible.", "Die Kamerasuche ist nicht verfügbar.", "摄像头搜索暂不可用。"], ["Choose a camera and printer.", "Wybierz kamerę i drukarkę.", "Elige una cámara y una impresora.", "Choisissez une caméra et une imprimante.", "Wähle eine Kamera und einen Drucker.", "请选择摄像头和打印机。"], ["Camera settings could not be saved.", "Nie udało się zapisać ustawień kamer.", "No se pudieron guardar los ajustes de cámara.", "Impossible d’enregistrer les réglages des caméras.", "Kameraeinstellungen konnten nicht gespeichert werden.", "无法保存摄像头设置。"]].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+  [
+    "Send printer data to your local MQTT broker, such as Mosquitto.",
+    "Wysyłaj dane drukarek do lokalnego brokera MQTT, np. Mosquitto.",
+    "Envía datos de las impresoras a tu servidor MQTT local, como Mosquitto.",
+    "Envoyez les données des imprimantes à votre serveur MQTT local, comme Mosquitto.",
+    "Sende Druckerdaten an deinen lokalen MQTT-Broker, zum Beispiel Mosquitto.",
+    "将打印机数据发送到本地 MQTT 服务器，例如 Mosquitto。"
+  ],
+  [
+    "MQTT connection",
+    "Połączenie MQTT",
+    "Conexión MQTT",
+    "Connexion MQTT",
+    "MQTT-Verbindung",
+    "MQTT 连接"
+  ],
+  [
+    "Broker address",
+    "Adres brokera",
+    "Dirección del servidor",
+    "Adresse du serveur",
+    "Broker-Adresse",
+    "服务器地址"
+  ],
+  [
+    "Broker port",
+    "Port brokera",
+    "Puerto del servidor",
+    "Port du serveur",
+    "Broker-Port",
+    "服务器端口"
+  ],
+  [
+    "Broker username",
+    "Użytkownik brokera",
+    "Usuario del servidor",
+    "Utilisateur du serveur",
+    "Broker-Benutzername",
+    "服务器用户名"
+  ],
+  [
+    "Broker password",
+    "Hasło brokera",
+    "Contraseña del servidor",
+    "Mot de passe du serveur",
+    "Broker-Passwort",
+    "服务器密码"
+  ],
+  [
+    "Remove saved broker password",
+    "Usuń zapisane hasło brokera",
+    "Eliminar la contraseña guardada",
+    "Supprimer le mot de passe enregistré",
+    "Gespeichertes Broker-Passwort entfernen",
+    "删除已保存的服务器密码"
+  ],
+  [
+    "Connection security",
+    "Zabezpieczenie połączenia",
+    "Seguridad de la conexión",
+    "Sécurité de la connexion",
+    "Verbindungssicherheit",
+    "连接安全"
+  ],
+  [
+    "Local connection without TLS",
+    "Połączenie lokalne bez TLS",
+    "Conexión local sin TLS",
+    "Connexion locale sans TLS",
+    "Lokale Verbindung ohne TLS",
+    "不使用 TLS 的本地连接"
+  ],
+  [
+    "TLS with certificate verification",
+    "TLS z weryfikacją certyfikatu",
+    "TLS con verificación de certificado",
+    "TLS avec vérification du certificat",
+    "TLS mit Zertifikatsprüfung",
+    "使用 TLS 并验证证书"
+  ],
+  [
+    "Custom CA certificate (PEM, optional)",
+    "Własny certyfikat CA (PEM, opcjonalnie)",
+    "Certificado CA propio (PEM, opcional)",
+    "Certificat CA personnalisé (PEM, facultatif)",
+    "Eigenes CA-Zertifikat (PEM, optional)",
+    "自定义 CA 证书（PEM，可选）"
+  ],
+  [
+    "Remove saved CA certificate",
+    "Usuń zapisany certyfikat CA",
+    "Eliminar el certificado CA guardado",
+    "Supprimer le certificat CA enregistré",
+    "Gespeichertes CA-Zertifikat entfernen",
+    "删除已保存的 CA 证书"
+  ],
+  [
+    "TLS verifies the broker certificate and address. Leave the certificate field empty to keep the saved CA or use trusted public certificates.",
+    "TLS sprawdza certyfikat i adres brokera. Puste pole zachowuje zapisany certyfikat CA lub pozwala używać zaufanych certyfikatów publicznych.",
+    "TLS verifica el certificado y la dirección del servidor. Deja el campo vacío para conservar la CA guardada o usar certificados públicos de confianza.",
+    "TLS vérifie le certificat et l’adresse du serveur. Laissez le champ vide pour conserver la CA enregistrée ou utiliser les certificats publics de confiance.",
+    "TLS prüft Zertifikat und Adresse des Brokers. Ein leeres Feld behält die gespeicherte CA oder verwendet vertrauenswürdige öffentliche Zertifikate.",
+    "TLS 验证服务器证书和地址。将证书字段留空以保留已保存的 CA，或使用受信任的公共证书。"
+  ],
+  [
+    "Home Assistant MQTT Discovery",
+    "Automatyczne wykrywanie MQTT w Home Assistant",
+    "Detección MQTT de Home Assistant",
+    "Découverte MQTT de Home Assistant",
+    "Home Assistant MQTT-Erkennung",
+    "Home Assistant MQTT 自动发现"
+  ],
+  [
+    "Enable for Home Assistant’s built-in MQTT integration. Leave off when using MQTT in the PrintDeck HACS integration to avoid duplicate entities.",
+    "Włącz dla wbudowanej integracji MQTT w Home Assistant. Pozostaw wyłączone, jeśli używasz MQTT w integracji PrintDeck przez HACS, aby uniknąć podwójnych encji.",
+    "Actívalo para la integración MQTT de Home Assistant. Déjalo desactivado si usas MQTT en la integración PrintDeck de HACS para evitar entidades duplicadas.",
+    "Activez pour l’intégration MQTT de Home Assistant. Laissez désactivé avec MQTT dans l’intégration PrintDeck de HACS pour éviter les entités en double.",
+    "Für die integrierte MQTT-Integration von Home Assistant aktivieren. Bei MQTT in der PrintDeck-HACS-Integration ausgeschaltet lassen, um doppelte Entitäten zu vermeiden.",
+    "使用 Home Assistant 内置 MQTT 集成时启用。使用 HACS 的 PrintDeck 集成中的 MQTT 时，请关闭此项以避免重复实体。"
+  ],
+  [
+    "Save MQTT settings",
+    "Zapisz ustawienia MQTT",
+    "Guardar ajustes MQTT",
+    "Enregistrer les réglages MQTT",
+    "MQTT-Einstellungen speichern",
+    "保存 MQTT 设置"
+  ],
+  [
+    "A password is saved. Leave empty to keep it.",
+    "Hasło jest zapisane. Pozostaw puste, aby je zachować.",
+    "Hay una contraseña guardada. Deja el campo vacío para conservarla.",
+    "Un mot de passe est enregistré. Laissez vide pour le conserver.",
+    "Ein Passwort ist gespeichert. Zum Beibehalten leer lassen.",
+    "已保存密码。留空以保留。"
+  ],
+  [
+    "No broker password is saved.",
+    "Nie zapisano hasła brokera.",
+    "No hay contraseña del servidor guardada.",
+    "Aucun mot de passe du serveur enregistré.",
+    "Kein Broker-Passwort gespeichert.",
+    "未保存服务器密码。"
+  ],
+  [
+    "A CA certificate is saved. Leave empty to keep it.",
+    "Certyfikat CA jest zapisany. Pozostaw puste, aby go zachować.",
+    "Hay un certificado CA guardado. Deja el campo vacío para conservarlo.",
+    "Un certificat CA est enregistré. Laissez vide pour le conserver.",
+    "Ein CA-Zertifikat ist gespeichert. Zum Beibehalten leer lassen.",
+    "已保存 CA 证书。留空以保留。"
+  ],
+  [
+    "No custom CA certificate is saved.",
+    "Nie zapisano własnego certyfikatu CA.",
+    "No hay certificado CA propio guardado.",
+    "Aucun certificat CA personnalisé enregistré.",
+    "Kein eigenes CA-Zertifikat gespeichert.",
+    "未保存自定义 CA 证书。"
+  ],
+  [
+    "Enter the broker address.",
+    "Wpisz adres brokera.",
+    "Introduce la dirección del servidor.",
+    "Saisissez l’adresse du serveur.",
+    "Gib die Broker-Adresse ein.",
+    "请输入服务器地址。"
+  ],
+  [
+    "The CA certificate must fit within 4096 bytes.",
+    "Certyfikat CA nie może przekraczać 4096 bajtów.",
+    "El certificado CA no puede superar 4096 bytes.",
+    "Le certificat CA ne doit pas dépasser 4096 octets.",
+    "Das CA-Zertifikat darf 4096 Byte nicht überschreiten.",
+    "CA 证书不能超过 4096 字节。"
+  ],
+  [
+    "Saving MQTT settings…",
+    "Zapisywanie ustawień MQTT…",
+    "Guardando ajustes MQTT…",
+    "Enregistrement des réglages MQTT…",
+    "MQTT-Einstellungen werden gespeichert…",
+    "正在保存 MQTT 设置…"
+  ],
+  [
+    "MQTT settings saved.",
+    "Ustawienia MQTT zapisane.",
+    "Ajustes MQTT guardados.",
+    "Réglages MQTT enregistrés.",
+    "MQTT-Einstellungen gespeichert.",
+    "MQTT 设置已保存。"
+  ],
+  [
+    "Check the MQTT connection settings.",
+    "Sprawdź ustawienia połączenia MQTT.",
+    "Revisa los ajustes de conexión MQTT.",
+    "Vérifiez les réglages de connexion MQTT.",
+    "Prüfe die MQTT-Verbindungseinstellungen.",
+    "请检查 MQTT 连接设置。"
+  ],
+  [
+    "PrintDeck could not save the MQTT settings. Please try again.",
+    "PrintDeck nie mógł zapisać ustawień MQTT. Spróbuj ponownie.",
+    "PrintDeck no pudo guardar los ajustes MQTT. Inténtalo de nuevo.",
+    "PrintDeck n’a pas pu enregistrer les réglages MQTT. Réessayez.",
+    "PrintDeck konnte die MQTT-Einstellungen nicht speichern. Versuche es erneut.",
+    "PrintDeck 无法保存 MQTT 设置。请重试。"
+  ],
+  [
+    "Cannot connect to the broker. Check its address, credentials and certificate.",
+    "Nie można połączyć się z brokerem. Sprawdź adres, dane logowania i certyfikat.",
+    "No se puede conectar al servidor. Revisa dirección, credenciales y certificado.",
+    "Connexion au serveur impossible. Vérifiez adresse, identifiants et certificat.",
+    "Keine Broker-Verbindung. Prüfe Adresse, Zugangsdaten und Zertifikat.",
+    "无法连接服务器。请检查地址、凭据和证书。"
+  ],
+  [
+    "MQTT is waiting for available memory.",
+    "MQTT czeka na dostępną pamięć.",
+    "MQTT espera a que haya memoria disponible.",
+    "MQTT attend de la mémoire disponible.",
+    "MQTT wartet auf verfügbaren Speicher.",
+    "MQTT 正在等待可用内存。"
+  ],
+  [
+    "Previous Discovery entries are waiting to be removed from the broker.",
+    "Poprzednie wpisy Discovery czekają na usunięcie z brokera.",
+    "Las entradas anteriores de detección esperan su eliminación del servidor.",
+    "Les anciennes entrées de découverte attendent leur suppression du serveur.",
+    "Bisherige Discovery-Einträge warten auf das Entfernen vom Broker.",
+    "旧的自动发现条目正在等待从服务器中删除。"
+  ],
+  [
+    "MQTT could not start. Review the connection settings.",
+    "Nie można uruchomić MQTT. Sprawdź ustawienia połączenia.",
+    "MQTT no pudo iniciarse. Revisa los ajustes de conexión.",
+    "MQTT n’a pas pu démarrer. Vérifiez les réglages de connexion.",
+    "MQTT konnte nicht starten. Prüfe die Verbindungseinstellungen.",
+    "MQTT 无法启动。请检查连接设置。"
+  ]
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[["Disable MQTT Discovery and wait for cleanup before changing the broker.", "Wyłącz MQTT Discovery i poczekaj na zakończenie porządkowania przed zmianą brokera.", "Desactiva la detección MQTT y espera a que termine la limpieza antes de cambiar de servidor.", "Désactivez la découverte MQTT et attendez la fin du nettoyage avant de changer de serveur.", "Deaktiviere MQTT Discovery und warte auf die Bereinigung, bevor du den Broker wechselst.", "更换服务器前，请关闭 MQTT 自动发现并等待清理完成。"], ["MQTT topic root", "Główny temat MQTT", "Tema raíz MQTT", "Racine des sujets MQTT", "MQTT-Themenwurzel", "MQTT 主题根路径"]].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[["MQTT is stopping. Try the factory reset again.", "MQTT jest wyłączane. Spróbuj ponownie przywrócić ustawienia fabryczne.", "MQTT se está deteniendo. Vuelve a intentar restablecer los ajustes de fábrica.", "MQTT est en cours d’arrêt. Réessayez la réinitialisation d’usine.", "MQTT wird beendet. Versuche das Zurücksetzen auf Werkseinstellungen erneut.", "MQTT 正在停止。请再次尝试恢复出厂设置。"]].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+  [
+    "Disable MQTT Discovery and wait for cleanup, or confirm that you will remove its Home Assistant entities manually.",
+    "Wyłącz MQTT Discovery i poczekaj na porządkowanie albo potwierdź, że ręcznie usuniesz jego encje z Home Assistant.",
+    "Desactiva la detección MQTT y espera a que termine la limpieza, o confirma que eliminarás manualmente sus entidades de Home Assistant.",
+    "Désactivez la découverte MQTT et attendez le nettoyage, ou confirmez que vous supprimerez manuellement ses entités dans Home Assistant.",
+    "Deaktiviere MQTT Discovery und warte auf die Bereinigung oder bestätige, dass du die zugehörigen Home-Assistant-Entitäten manuell entfernst.",
+    "请关闭 MQTT 自动发现并等待清理完成，或确认将手动删除其 Home Assistant 实体。"
+  ],
+  [
+    "Reset even if MQTT Discovery cannot be cleaned up",
+    "Zresetuj, nawet jeśli nie można uporządkować MQTT Discovery",
+    "Restablecer aunque no se pueda limpiar la detección MQTT",
+    "Réinitialiser même si la découverte MQTT ne peut pas être nettoyée",
+    "Auch ohne Bereinigung von MQTT Discovery zurücksetzen",
+    "即使无法清理 MQTT 自动发现，也恢复出厂设置"
+  ],
+  [
+    "After the reset, manually remove the retained PrintDeck Discovery configuration from the old broker and its MQTT entities from Home Assistant. This reset cannot remove them when the broker is unreachable.",
+    "Po resecie ręcznie usuń zachowaną konfigurację Discovery PrintDeck ze starego brokera oraz jego encje MQTT z Home Assistant. Reset nie może ich usunąć, jeśli broker jest nieosiągalny.",
+    "Tras restablecer, elimina manualmente la configuración retenida de detección de PrintDeck del servidor anterior y sus entidades MQTT de Home Assistant. El restablecimiento no puede eliminarlas si el servidor es inaccesible.",
+    "Après la réinitialisation, supprimez manuellement la configuration de découverte PrintDeck conservée sur l’ancien serveur et ses entités MQTT dans Home Assistant. La réinitialisation ne peut pas les supprimer si le serveur est inaccessible.",
+    "Entferne nach dem Zurücksetzen die gespeicherte PrintDeck-Discovery-Konfiguration vom alten Broker und die zugehörigen MQTT-Entitäten aus Home Assistant manuell. Ist der Broker unerreichbar, kann das Zurücksetzen sie nicht entfernen.",
+    "恢复出厂设置后，请手动删除旧服务器上保留的 PrintDeck 自动发现配置及其 Home Assistant MQTT 实体。服务器不可访问时，恢复出厂设置无法删除这些内容。"
+  ]
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[["PrintDeck could not erase its saved settings. Restart PrintDeck before trying again.", "PrintDeck nie mógł usunąć zapisanych ustawień. Uruchom PrintDeck ponownie przed kolejną próbą.", "PrintDeck no pudo borrar los ajustes guardados. Reinicia PrintDeck antes de intentarlo de nuevo.", "PrintDeck n’a pas pu effacer les réglages enregistrés. Redémarrez PrintDeck avant de réessayer.", "PrintDeck konnte die gespeicherten Einstellungen nicht löschen. Starte PrintDeck vor einem erneuten Versuch neu.", "PrintDeck 无法清除已保存的设置。请先重启 PrintDeck，再重试。"]].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));

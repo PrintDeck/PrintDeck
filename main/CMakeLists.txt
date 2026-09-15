@@ -19,6 +19,8 @@ set(PRINTDECK_SRCS
         "src/core/timezone.cpp"
         "src/core/theme.cpp"
         "src/core/unified_printer_api.cpp"
+        "src/core/mqtt_discovery.cpp"
+        "src/platform/mqtt_export_service.cpp"
         "include/font/mdi_40.c"
         "src/platform/embedded_resources.cpp"
         "src/platform/runtime.cpp"

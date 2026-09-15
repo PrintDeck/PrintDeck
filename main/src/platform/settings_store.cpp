@@ -154,6 +154,19 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     result = read_text(handle, "api_token", loaded.unified_api_token);
   }
   loaded.unified_api_enabled = unified_api_enabled != 0;
+  if (result == ESP_OK && schema >= 17) {
+    std::uint8_t enabled=0, tls=0, discovery=0;
+    result=read_optional_u8(handle,"mqtt_on",enabled);
+    if(result==ESP_OK) result=read_optional_u8(handle,"mqtt_tls",tls);
+    if(result==ESP_OK) result=read_optional_u8(handle,"mqtt_ha",discovery);
+    if(result==ESP_OK && (enabled>1 || tls>1 || discovery>1)) result=ESP_ERR_INVALID_ARG;
+    loaded.mqtt.enabled=enabled==1; loaded.mqtt.tls=tls==1; loaded.mqtt.discovery=discovery==1;
+    if(result==ESP_OK) result=read_text(handle,"mqtt_host",loaded.mqtt.host);
+    if(result==ESP_OK) result=read_text(handle,"mqtt_user",loaded.mqtt.username);
+    if(result==ESP_OK) result=read_text(handle,"mqtt_pass",loaded.mqtt.password);
+    if(result==ESP_OK) result=read_text(handle,"mqtt_ca",loaded.mqtt.ca_certificate);
+    if(result==ESP_OK) { const auto e=nvs_get_u16(handle,"mqtt_port",&loaded.mqtt.port); if(e!=ESP_ERR_NVS_NOT_FOUND) result=e; }
+  }
   if (result == ESP_OK && schema >= 15) {
     result = read_optional_u8(handle, "voice_enabled", voice_enabled);
     if (result == ESP_OK && voice_enabled > 1) result = ESP_ERR_INVALID_ARG;
@@ -339,6 +352,14 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   write(nvs_set_u8(handle, "voice_enabled", settings.voice_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "api_enabled", settings.unified_api_enabled ? 1 : 0));
   write(write_text(handle, "api_token", settings.unified_api_token));
+  write(nvs_set_u8(handle,"mqtt_on",settings.mqtt.enabled));
+  write(nvs_set_u8(handle,"mqtt_tls",settings.mqtt.tls));
+  write(nvs_set_u8(handle,"mqtt_ha",settings.mqtt.discovery));
+  write(nvs_set_u16(handle,"mqtt_port",settings.mqtt.port));
+  write(write_text(handle,"mqtt_host",settings.mqtt.host));
+  write(write_text(handle,"mqtt_user",settings.mqtt.username));
+  write(write_text(handle,"mqtt_pass",settings.mqtt.password));
+  write(write_text(handle,"mqtt_ca",settings.mqtt.ca_certificate));
   write(nvs_erase_key(handle, "protected"));
   write(nvs_set_u8(handle, "audio", settings.audio_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "audio_vol", settings.audio_volume_percent));

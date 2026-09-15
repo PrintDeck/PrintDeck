@@ -291,6 +291,7 @@ void Runtime::start() {
     ESP_LOGE(kLogTag, "Display state task could not be started");
     display_.show_boot_status("Display service unavailable\nOpen Web Config to restart");
   }
+  mqtt_export_.initialize(web_config_, persistence_);
   persistence_.bind(PersistenceWorker::Slot::settings, ui_settings_entry, this);
   if (persistence_.start() != ESP_OK) {
     ESP_LOGE(kLogTag, "Persistence worker could not be started");
@@ -1418,8 +1419,9 @@ void Runtime::monitor_loop() {
     const bool unified_api_connection_active = settings_.unified_api_enabled &&
         connection_now_ms <
             unified_api_active_until_ms_.load(std::memory_order_acquire);
+    mqtt_export_.tick(network.station_connected, settings_.mqtt.enabled);
     const bool full_connection_active = network.station_connected && selected != nullptr &&
-        (printer_detail_active || unified_api_connection_active ||
+        (printer_detail_active || unified_api_connection_active || mqtt_export_.connected() ||
          connection_now_ms < printer_controls_active_until_ms_.load(std::memory_order_acquire));
     const bool want_bambu_connection = full_connection_active && selected_is_bambu;
     const bool want_moonraker_connection = full_connection_active && selected_is_moonraker;

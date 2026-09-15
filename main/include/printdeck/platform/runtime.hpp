@@ -10,6 +10,7 @@
 #include "printdeck/platform/settings_store.hpp"
 #include "printdeck/platform/network_service.hpp"
 #include "printdeck/platform/web_config.hpp"
+#include "printdeck/platform/mqtt_export_service.hpp"
 #include "printdeck/platform/moonraker_adapter.hpp"
 #include "printdeck/platform/print_preview_service.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
@@ -103,6 +104,7 @@ class Runtime {
   core::DeviceSettings settings_;
   NetworkService network_;
   WebConfig web_config_;
+  MqttExportService mqtt_export_;
   MoonrakerAdapter moonraker_;
   PrusaLinkAdapter prusalink_;
   TinyMakerAdapter tinymaker_;

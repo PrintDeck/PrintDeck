@@ -12,7 +12,7 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 16;
+constexpr std::uint8_t kSettingsSchemaVersion = 17;
 constexpr std::uint32_t kDisplayDurationUntilWake = 86401;
 constexpr std::uint8_t kScreenSaverCircles = 0;
 constexpr std::uint8_t kScreenSaverGoingToSleep = 1;
@@ -75,6 +75,20 @@ struct DisplayPowerPolicy {
   }
 };
 
+struct MqttSettings {
+  bool enabled = false;
+  bool tls = false;
+  bool discovery = false;
+  std::string host;
+  std::uint16_t port = 1883;
+  std::string username;
+  std::string password;
+  std::string ca_certificate;
+  bool operator==(const MqttSettings&) const = default;
+};
+
+bool valid_mqtt_settings(const MqttSettings& settings);
+
 struct DeviceSettings {
   std::string device_name;
   std::string wifi_name;
@@ -102,6 +116,7 @@ struct DeviceSettings {
   bool voice_enabled = false;
   bool unified_api_enabled = false;
   std::string unified_api_token;
+  MqttSettings mqtt;
   DisplayPowerPolicy display_power;
 };
 
