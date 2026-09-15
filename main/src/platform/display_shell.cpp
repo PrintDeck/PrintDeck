@@ -2412,12 +2412,7 @@ bool DisplayShell::finish_camera_cleanup() {
   if (board_display_lock(250) != ESP_OK) return false;
   // Release the last displayed frame and lift the navigation barrier under
   // the same lock; a busy renderer must leave the whole cleanup pending.
-  if (media_image_ != nullptr && lv_obj_is_valid(media_image_))
-    lv_image_set_src(media_image_, nullptr);
-  if (media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
-  lv_image_cache_drop(&camera_image_dsc_);
-  camera_pixels_.reset();
-  camera_image_dsc_ = {};
+  clear_camera_image();
   camera_was_refreshing_ = false;
   if (horizontal_transition_timeout_timer_ != nullptr) {
     lv_timer_set_period(horizontal_transition_timeout_timer_, kHorizontalLoadingTimeoutMs);
@@ -6188,8 +6183,7 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
     return;
   }
   if (board_display_lock(1000) != ESP_OK) return;
-  const bool frame_changed = snapshot.job.camera_frame &&
-      camera_pixels_.get() != snapshot.job.camera_frame.get();
+  const bool frame_changed = camera_pixels_.get() != snapshot.job.camera_frame.get();
   // A new frame is presented immediately. Unchanged chrome only needs a
   // one-second update, avoiding full-ring redraws on every camera poll.
   const auto camera_now = esp_timer_get_time();
@@ -6350,8 +6344,7 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
     lv_label_set_text(detail_label_, live ? tr("Live local stream")
                                           : tr("Live local snapshot"));
   } else {
-    lv_image_set_src(media_image_, nullptr);
-    if (media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
+    clear_camera_image();
     const bool rtsps_unsupported =
         snapshot.job.camera_detail == "This display does not support RTSPS cameras";
     const bool detection_failed = snapshot.job.camera_detail == "No camera detected";
@@ -7511,6 +7504,32 @@ void DisplayShell::camera_mode_event(lv_event_t* event) {
   }
 }
 
+bool DisplayShell::camera_image_ready() const {
+  // A retained pixel buffer is not evidence that a frame is being displayed.
+  // In particular, waking the camera page starts a fresh asynchronous fetch.
+  return camera_page_active() && screen_power_mode_.load() < 2 &&
+      media_image_ != nullptr && camera_pixels_ && !camera_pixels_->empty() &&
+      camera_image_dsc_.header.w > 0 && camera_image_dsc_.header.h > 0 &&
+      !lv_obj_has_flag(media_image_, LV_OBJ_FLAG_HIDDEN) &&
+      lv_image_get_src(media_image_) == &camera_image_dsc_;
+}
+
+void DisplayShell::clear_camera_image() {
+  if (media_image_ != nullptr && lv_obj_is_valid(media_image_))
+    lv_image_set_src(media_image_, nullptr);
+  if (media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
+  if (media_zoom_root_ != nullptr) {
+    lv_obj_add_flag(media_zoom_root_, LV_OBJ_FLAG_HIDDEN);
+    if (view_ == 22)
+      capture_screen_name_ = companion_camera_slot() >= 0 ? "printdeck-camera" : "local-camera";
+  }
+  lv_image_cache_drop(&camera_image_dsc_);
+  camera_pixels_.reset();
+  camera_image_dsc_ = {};
+  media_pan_x_ = media_pan_y_ = 0;
+  media_pan_candidate_ = media_pan_moved_ = false;
+}
+
 void DisplayShell::update_camera_image(const core::JobState& job) {
   if (camera_pixels_.get() == job.camera_frame.get() &&
       lv_image_get_src(media_image_) == &camera_image_dsc_) return;
@@ -7553,12 +7572,32 @@ void DisplayShell::update_media_zoom_geometry() {
   } else {
     width = (kDisplayHeight * source_width + source_height - 1) / source_height;
   }
-  // Fill the display while preserving the image's proportions. Panning reveals
-  // the overflow along the longer dimension, as in the camera preview.
+  int min_x = kDisplayWidth - width, max_x = 0;
+  int min_y = kDisplayHeight - height, max_y = 0;
+  if (view_ == 22 && companion_camera_slot() >= 0 && media_image_ != nullptr) {
+    // Enlarge the visible COVER preview to screen height, not its padded square
+    // JPEG. Keep the same vertical framing and let horizontal dragging reveal
+    // either side. The full buffer stays shared; no pixel copy or rescan is needed.
+    const int preview_width = lv_obj_get_width(media_image_);
+    const int preview_height = lv_obj_get_height(media_image_);
+    if (preview_width > 0 && preview_height > 0) {
+      const int content_height = std::max(1, std::min(source_height,
+          source_width * preview_height / preview_width));
+      const int content_width = std::max(1, std::min(source_width,
+          source_height * preview_width / preview_height));
+      width = (source_width * kDisplayHeight + content_height - 1) / content_height;
+      height = (source_height * kDisplayHeight + content_height - 1) / content_height;
+      const int visible_width = (content_width * kDisplayHeight + content_height - 1) / content_height;
+      const int left = (width - visible_width) / 2;
+      min_x = std::min(kDisplayWidth - visible_width, 0) - left;
+      max_x = std::max(kDisplayWidth - visible_width, 0) - left;
+      min_y = max_y = (kDisplayHeight - height) / 2;
+    }
+  }
   const int center_x = (kDisplayWidth - width) / 2;
   const int center_y = (kDisplayHeight - height) / 2;
-  const int x = std::clamp(center_x + media_pan_x_, kDisplayWidth - width, 0);
-  const int y = std::clamp(center_y + media_pan_y_, kDisplayHeight - height, 0);
+  const int x = std::clamp(center_x + media_pan_x_, min_x, max_x);
+  const int y = std::clamp(center_y + media_pan_y_, min_y, max_y);
   media_pan_x_ = x - center_x;
   media_pan_y_ = y - center_y;
   lv_obj_set_size(media_zoom_image_, width, height);
@@ -7572,7 +7611,7 @@ void DisplayShell::media_zoom_event(lv_event_t* event) {
   const bool preview = shell->view_ == 3 || shell->view_ == 60;
   const bool zoom_open = shell->media_zoom_root_ != nullptr &&
       !lv_obj_has_flag(shell->media_zoom_root_, LV_OBJ_FLAG_HIDDEN);
-  if (camera ? (!shell->camera_page_active() || !shell->camera_pixels_ || shell->camera_pixels_->empty())
+  if (camera ? !shell->camera_image_ready()
              : (!preview || (!zoom_open && (!shell->preview_pixels_ || shell->preview_pixels_->empty())))) return;
   const char* zoom_name = camera ? "local-camera-zoom" : shell->view_ == 60 ? "resin-print-preview" : "print-preview";
   const char* base_name = camera
@@ -8149,6 +8188,9 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
   }
   const int previous = screen_power_mode_.load();
   screen_power_mode_ = target;
+  // Camera workers stop while dark or behind the saver. Invalidate the old
+  // visible frame now, before the wake tap can reach its zoom handler.
+  if (view_ == 22 && (target == 2 || target == 3)) clear_camera_image();
   display_off_since_ms_ = target == 2 ? now : 0;
   set_screen_saver_visible(target == 3);
   suspend_visual_updates(target == 2 || target == 3);

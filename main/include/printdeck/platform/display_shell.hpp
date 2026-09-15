@@ -155,6 +155,8 @@ class DisplayShell {
   void configure_camera_pages(std::uint32_t printer, bool native);
 
   static void media_zoom_event(lv_event_t* event);
+  bool camera_image_ready() const;
+  void clear_camera_image();
   void update_camera_image(const core::JobState& job);
   void update_media_zoom_geometry();
   static void horizontal_transition_finished(lv_anim_t* animation);

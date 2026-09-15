@@ -2427,8 +2427,7 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
                                                const core::PrinterSnapshot& snapshot,
                                                const PowerSnapshot& power) {
   if (board_display_lock(1000) != ESP_OK) return;
-  const bool frame_changed = snapshot.job.camera_frame &&
-      camera_pixels_.get() != snapshot.job.camera_frame.get();
+  const bool frame_changed = camera_pixels_.get() != snapshot.job.camera_frame.get();
   // A new frame is presented immediately. Unchanged chrome only needs a
   // one-second update, avoiding full-ring redraws on every camera poll.
   const auto camera_now = esp_timer_get_time();
@@ -2594,8 +2593,7 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
     lv_label_set_text(detail_label_, live ? tr("Live local stream")
                                           : tr("Live local snapshot"));
   } else {
-    lv_image_set_src(media_image_, nullptr);
-    if (media_zoom_image_ != nullptr) lv_image_set_src(media_zoom_image_, nullptr);
+    clear_camera_image();
     const bool rtsps_unsupported =
         snapshot.job.camera_detail == "This display does not support RTSPS cameras";
     const bool detection_failed = snapshot.job.camera_detail == "No camera detected";
