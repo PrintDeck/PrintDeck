@@ -76,6 +76,8 @@ class WebConfig {
   void set_printer_controls_callbacks(UnifiedApiActivityCallback activity,
                                      PrinterLightCallback light, void* context);
   void synchronize_settings(const core::DeviceSettings& settings);
+  bool save_recovered_printer(const core::PrinterProfile& expected,
+                             const core::PrinterProfile& recovered, const NetworkStatus& network);
   void update_selected_printer_status(const core::PrinterSnapshot& snapshot);
   void update_power_status(const PowerSnapshot& snapshot);
   esp_err_t save_brightness(int percent);

@@ -1,4 +1,5 @@
 #include "printdeck/platform/inactive_printer_poller.hpp"
+#include "printdeck/platform/printer_address_recovery.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
 #include "printdeck/platform/tinymaker_service.hpp"
 #include "printdeck/platform/elegoo_sdcp_service.hpp"
@@ -161,7 +162,9 @@ void bambu_probe_event(void* context, esp_event_base_t, std::int32_t,
       xTaskNotifyGive(probe->owner);
       break;
     case MQTT_EVENT_DATA: {
-      if (event->total_data_len <= 0 ||
+      if (event->data_len <= 0 || event->current_data_offset < 0 || !event->data ||
+          (event->current_data_offset == 0 && (!event->topic || event->topic_len <= 0)) ||
+          event->total_data_len <= 0 ||
           static_cast<std::size_t>(event->total_data_len) > kMaximumBambuReportBytes) {
         break;
       }
@@ -226,8 +229,7 @@ void InactivePrinterPoller::configure(const core::DeviceSettings& settings) {
     const auto invalidated = [&](std::uint32_t profile_id) {
       const auto previous = previous_profile(profile_id);
       const auto next = next_profile(profile_id);
-      return profile_id == active_profile_ ||
-             previous == profiles_.end() || next == settings.profiles.end() ||
+      return previous == profiles_.end() || next == settings.profiles.end() ||
              !core::same_printer_connection(*previous, *next);
     };
     check_attempts_.erase(
@@ -287,6 +289,13 @@ void InactivePrinterPoller::mark_offline(std::uint32_t profile_id) {
     offline.available = true;
     offline.connected = false;
     offline.updated_at_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    auto attempt = std::find_if(check_attempts_.begin(), check_attempts_.end(),
+        [profile_id](const auto& value) { return value.profile_id == profile_id; });
+    if (attempt == check_attempts_.end()) {
+      check_attempts_.push_back({.profile_id = profile_id});
+      attempt = std::prev(check_attempts_.end());
+    }
+    attempt->recovery.failures = 2;
     if (found == snapshot_.printers.end()) snapshot_.printers.push_back(offline);
     else *found = offline;
     ++snapshot_.revision;
@@ -300,6 +309,7 @@ InactivePrinterSnapshot InactivePrinterPoller::snapshot() const {
 }
 
 bool InactivePrinterPoller::check_in_progress(std::uint32_t profile_id) const {
+  if (probing_profile_.load() == profile_id) return true;
   const std::lock_guard<std::mutex> lock(mutex_);
   const auto attempt = std::find_if(
       check_attempts_.begin(), check_attempts_.end(),
@@ -326,7 +336,7 @@ bool InactivePrinterPoller::begin_automatic_check(
   }
   if (attempt->in_progress ||
       !core::printer_check_allowed(
-          now_ms, attempt->started_at_ms, kMinimumCheckSpacingMs)) {
+          now_ms, attempt->started_at_ms, std::max<std::uint64_t>(kMinimumCheckSpacingMs, interval_s_ * 1000ULL))) {
     return false;
   }
   attempt->started_at_ms = now_ms;
@@ -386,12 +396,200 @@ void InactivePrinterPoller::task_entry(void* context) {
   static_cast<InactivePrinterPoller*>(context)->task_loop();
 }
 
+void InactivePrinterPoller::finish_recovery() {
+  if (!recovery_run_ || !discovery_) return;
+  const auto run = *recovery_run_;
+  const auto current = network_->status();
+  bool stale = !recovery_allowed_.load() || !current.station_connected || current.recovery_ap_active ||
+      current.station_name != run.network.station_name || current.ipv4 != run.network.ipv4 ||
+      current.netmask != run.network.netmask;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    stale |= run.generation != config_generation_ || active_profile_ == run.profile.id;
+  }
+  const auto result = discovery_->snapshot(true);
+  if (stale || result.scan_id != run.scan_id) {
+    discovery_->cancel(run.scan_id);
+    recovery_run_.reset();
+    return;
+  }
+  if (discovery_->running()) return;
+  recovery_run_.reset();
+  next_discovery_ms_ = esp_timer_get_time() / 1000 + 30000;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    for (auto& attempt : check_attempts_) {
+      if (attempt.profile_id != run.profile.id) continue;
+      if (result.state == PrinterDiscoveryState::complete) attempt.recovery_offset += 32;
+      // Backoff starts after the scan, so a slow pass cannot immediately trigger the next one.
+      const auto delay = std::min<std::uint64_t>(30000ULL << std::min(attempt.recovery.attempts ? attempt.recovery.attempts - 1 : 0, 5U), 900000);
+      attempt.recovery.retry_at_ms = esp_timer_get_time() / 1000 + delay;
+    }
+  }
+  if (result.state != PrinterDiscoveryState::complete) return;
+  core::UniquePrinterAddress matches;
+  const auto address = core::printer_address(run.profile);
+  if (!address) return;
+  for (const auto& printer : result.printers) {
+    if (!printer.seen_in_current_scan || printer.protocol != run.profile.protocol || printer.port != address->port) continue;
+    const bool same = run.profile.protocol == core::PrinterProtocol::moonraker
+        ? printer.network_identity == run.profile.network_identity : printer.serial == run.profile.serial;
+    if (same) matches.observe(printer.host);
+  }
+  const auto host = matches.result();
+  if (!host || *host == address->host) return;
+  const auto candidate = core::printer_at_address(run.profile, *host);
+  if (!candidate) return;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (run.generation != config_generation_ || active_profile_ == run.profile.id) return;
+    for (auto& attempt : check_attempts_)
+      if (attempt.profile_id == run.profile.id) attempt.in_progress = true;
+  }
+  const bool verified = probe(*candidate).connected;
+  bool current_generation;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    current_generation = run.generation == config_generation_ && active_profile_ != run.profile.id;
+  }
+  if (verified && current_generation && recovery_allowed_.load())
+    recovery_callback_(recovery_context_, run.profile, *candidate, run.network);
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (run.generation == config_generation_)
+      for (auto& attempt : check_attempts_)
+        if (attempt.profile_id == run.profile.id) attempt.in_progress = false;
+  }
+}
+
+void InactivePrinterPoller::recover_or_learn(const core::PrinterProfile& profile,
+    std::uint32_t generation, bool connected, const NetworkStatus& network, bool active) {
+  if (!recovery_callback_ || !discovery_ || !recovery_allowed_.load() || network.recovery_ap_active) return;
+  const auto cancelled = [&] {
+    if (!recovery_allowed_.load()) return true;
+    const auto current = network_->status();
+    if (!current.station_connected || current.recovery_ap_active ||
+        current.station_name != network.station_name || current.ipv4 != network.ipv4 ||
+        current.netmask != network.netmask) return true;
+    const std::lock_guard<std::mutex> lock(mutex_);
+    return generation != config_generation_ || (!active && active_profile_ == profile.id) ||
+        (active && online_profile_.load() != profile.id);
+  };
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  bool learn = false, discover = false;
+  std::size_t offset = 0;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (generation != config_generation_) return;
+    auto attempt = std::find_if(check_attempts_.begin(), check_attempts_.end(),
+        [&](const auto& value) { return value.profile_id == profile.id; });
+    if (attempt == check_attempts_.end()) {
+      check_attempts_.push_back({.profile_id = profile.id});
+      attempt = std::prev(check_attempts_.end());
+    }
+    if (connected) { attempt->recovery.observe(true); attempt->recovery_offset = 0; }
+    if (connected && profile.protocol == core::PrinterProtocol::moonraker &&
+        profile.network_identity.empty() && now >= attempt->learn_after_ms && !discovery_->running()) {
+      learn = true;
+      attempt->learn_after_ms = now + 300000;
+    } else if (!active && core::printer_address_recoverable(profile) && attempt->recovery.due(now) &&
+               now >= next_discovery_ms_ && !recovery_run_ && !discovery_->running()) {
+      discover = true;
+      offset = attempt->recovery_offset;
+
+      attempt->recovery.attempted(now);
+      next_discovery_ms_ = now + 10000;
+    }
+  }
+  if (learn) {
+    const auto learned = learn_moonraker_identity(profile, cancelled);
+    const bool interrupted = cancelled();
+    const bool queued = learned && !interrupted && recovery_callback_(recovery_context_, profile, *learned, network);
+    if (!queued) {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      for (auto& attempt : check_attempts_)
+        if (attempt.profile_id == profile.id && (interrupted || learned))
+          attempt.learn_after_ms = esp_timer_get_time() / 1000 + 5000;
+      if (!interrupted && !learned)
+        ESP_LOGI(kTag, "Printer identity not available yet; learning will retry later");
+    }
+  } else if (discover && !cancelled()) {
+    core::DeviceSettings settings;
+    settings.profiles = {profile};
+    if (discovery_->start(network, settings, {}, 0, profile, 0, offset) == ESP_OK)
+      recovery_run_ = RecoveryRun{profile, network, generation, discovery_->snapshot(true).scan_id};
+  }
+}
+
+void InactivePrinterPoller::reconcile_manual_search(const std::vector<core::PrinterProfile>& profiles,
+    std::uint32_t generation, const NetworkStatus& network) {
+  if (!discovery_ || discovery_->running() || recovery_run_ || !recovery_allowed_.load()) return;
+  const auto result = discovery_->snapshot();
+  if (!result.scan_id || result.state != PrinterDiscoveryState::complete ||
+      result.network_name != network.station_name || result.network_ipv4 != network.ipv4 ||
+      result.network_netmask != network.netmask) return;
+  if (manual_scan_id_ != result.scan_id) {
+    manual_scan_id_ = result.scan_id;
+    reconciled_profiles_.clear();
+  }
+  for (const auto& profile : profiles) {
+    if (!core::printer_address_recoverable(profile) ||
+        std::find(reconciled_profiles_.begin(), reconciled_profiles_.end(), profile.id) != reconciled_profiles_.end()) continue;
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      if (generation != config_generation_) return;
+      if (profile.id == active_profile_) continue;
+    }
+    const auto address = core::printer_address(profile);
+    if (!address) continue;
+    core::UniquePrinterAddress matches;
+    for (const auto& printer : result.printers) {
+      if (!printer.seen_in_current_scan || printer.protocol != profile.protocol || printer.port != address->port) continue;
+      const bool same = profile.protocol == core::PrinterProtocol::moonraker
+          ? printer.network_identity == profile.network_identity : printer.serial == profile.serial;
+      if (same) matches.observe(printer.host);
+    }
+    const auto host = matches.result();
+    reconciled_profiles_.push_back(profile.id);
+    if (!host || *host == address->host) continue;
+    const auto candidate = core::printer_at_address(profile, *host);
+    if (!candidate) continue;
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      if (generation != config_generation_ || active_profile_ == profile.id) return;
+      auto attempt = std::find_if(check_attempts_.begin(), check_attempts_.end(),
+          [&](const auto& value) { return value.profile_id == profile.id; });
+      if (attempt == check_attempts_.end()) {
+        check_attempts_.push_back({.profile_id = profile.id});
+        attempt = std::prev(check_attempts_.end());
+      }
+      attempt->in_progress = true;
+    }
+    if (probe(*candidate).connected) {
+      bool valid;
+      {
+        const std::lock_guard<std::mutex> lock(mutex_);
+        valid = generation == config_generation_ && active_profile_ != profile.id;
+      }
+      if (valid && recovery_allowed_.load()) recovery_callback_(recovery_context_, profile, *candidate, network);
+    }
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      if (generation == config_generation_)
+        for (auto& attempt : check_attempts_)
+          if (attempt.profile_id == profile.id) attempt.in_progress = false;
+    }
+    // At most one connection verification in a worker turn.
+    return;
+  }
+}
+
 void InactivePrinterPoller::task_loop() {
+  std::size_t turn = 0;
   while (true) {
+    finish_recovery();
     std::vector<core::PrinterProfile> profiles;
-    std::uint32_t selected = 0;
-    std::uint32_t interval = 60;
-    std::uint32_t generation = 0;
+    std::uint32_t selected, interval, generation;
     {
       const std::lock_guard<std::mutex> lock(mutex_);
       profiles = profiles_;
@@ -399,41 +597,46 @@ void InactivePrinterPoller::task_loop() {
       interval = interval_s_;
       generation = config_generation_;
     }
-
-    if (interval == 0) {
-      ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
-      continue;
-    }
-    if (network_ == nullptr || !network_->status().station_connected) {
-      ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
-      continue;
-    }
-
-    for (const auto& profile : profiles) {
-      if (profile.id == selected) continue;
-      const std::uint64_t now_ms =
-          static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-      if (begin_automatic_check(profile.id, generation, now_ms)) {
-        InactivePrinterStatus result = probe(profile);
-        result.updated_at_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-        finish_automatic_check(profile.id, now_ms);
-        // Publish each completed probe immediately. A slow or offline profile
-        // later in the queue must not delay an earlier card's fresh status.
-        publish_automatic_result(generation, std::move(result));
-        continue;
+    const auto network = network_->status();
+    if (network.station_connected && !profiles.empty()) {
+      reconcile_manual_search(profiles, generation, network);
+      const auto offset = turn++ % profiles.size();
+      std::rotate(profiles.begin(), profiles.begin() + offset, profiles.end());
+      for (const auto& profile : profiles) {
+        if (profile.id == selected) {
+          if (online_profile_.load() == profile.id)
+            recover_or_learn(profile, generation, true, network, true);
+          continue;
+        }
+        const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+        bool connected = false;
+        if (interval != 0 && begin_automatic_check(profile.id, generation, now)) {
+          auto result = probe(profile);
+          result.updated_at_ms = esp_timer_get_time() / 1000;
+          connected = result.connected;
+          {
+            const std::lock_guard<std::mutex> lock(mutex_);
+            if (generation == config_generation_ && result.available)
+              for (auto& attempt : check_attempts_)
+                if (attempt.profile_id == profile.id) attempt.recovery.observe(connected);
+          }
+          finish_automatic_check(profile.id, now);
+          publish_automatic_result(generation, std::move(result));
+        }
+        recover_or_learn(profile, generation, connected, network);
       }
     }
-
-    for (std::uint32_t waited = 0; waited < interval; ++waited) {
-      if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) > 0) break;
-      const std::lock_guard<std::mutex> lock(mutex_);
-      if (generation != config_generation_) break;
-    }
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
   }
 }
 
 InactivePrinterStatus InactivePrinterPoller::probe(
     const core::PrinterProfile& profile) const {
+  struct ProbeGuard {
+    std::atomic<std::uint32_t>& current;
+    ~ProbeGuard() { current.store(0); }
+  } guard{probing_profile_};
+  probing_profile_.store(profile.id);
   InactivePrinterStatus summary;
   summary.profile_id = profile.id;
   summary.available = true;
@@ -442,9 +645,9 @@ InactivePrinterStatus InactivePrinterPoller::probe(
     const auto cancelled = [&] {
       if (!network_ || !network_->status().station_connected) return true;
       const std::lock_guard<std::mutex> lock(mutex_);
-      return active_profile_ == profile.id || interval_s_ == 0 ||
+      return active_profile_ == profile.id ||
           std::none_of(profiles_.begin(), profiles_.end(),
-              [&](const auto& value) { return core::same_printer_connection(value, profile); });
+              [&](const auto& value) { auto expected = profile; expected.endpoint = value.endpoint; return core::same_printer_connection(value, expected); });
     };
     const auto deadline = static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + 8000;
     const auto result = profile.protocol == core::PrinterProtocol::uniformation_sdcp
@@ -518,7 +721,8 @@ InactivePrinterStatus InactivePrinterPoller::probe(
     config.broker.address.hostname = profile.endpoint.c_str();
     config.broker.address.port = 8883;
     config.broker.verification.certificate = bambu_trust_anchors();
-    config.broker.verification.skip_cert_common_name_check = true;
+    config.broker.verification.common_name = profile.serial.c_str();
+    config.broker.verification.skip_cert_common_name_check = false;
     config.credentials.client_id = stable_client_id.c_str();
     config.credentials.username = "bblp";
     config.credentials.authentication.password = profile.access_code.c_str();
@@ -547,13 +751,19 @@ InactivePrinterStatus InactivePrinterPoller::probe(
       while (esp_timer_get_time() < deadline_us) {
         const std::int64_t remaining_ms =
             std::max<std::int64_t>(1, (deadline_us - esp_timer_get_time()) / 1000);
-        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(static_cast<std::uint32_t>(remaining_ms)));
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(static_cast<std::uint32_t>(std::min<std::int64_t>(remaining_ms, 250))));
         {
           // Device selection reserves this profile immediately. Stop the
           // lightweight probe before handing ownership to the full adapter,
           // so Bambu never sees two PrintDeck MQTT sessions from one device.
           const std::lock_guard<std::mutex> lock(mutex_);
-          if (active_profile_ == profile.id) break;
+          const bool exists = std::any_of(profiles_.begin(), profiles_.end(), [&](const auto& value) {
+            auto expected = profile; expected.endpoint = value.endpoint;
+            return core::same_printer_connection(value, expected);
+          });
+          if (active_profile_ == profile.id || !exists || !network_->status().station_connected) {
+            report.clear(); break;
+          }
         }
         {
           const std::lock_guard<std::mutex> lock(context.payload_mutex);
@@ -601,7 +811,7 @@ InactivePrinterStatus InactivePrinterPoller::probe(
 
   if (profile.protocol != core::PrinterProtocol::moonraker) return summary;
   ResponseBuffer response;
-  if (profile.protocol != core::PrinterProtocol::moonraker) return summary;
+  if (!moonraker_endpoint_identity_matches(profile)) return summary;
   const std::string url = base_url(profile.endpoint) +
       "/printer/objects/query?webhooks&virtual_sdcard&print_stats&display_status";
   esp_http_client_config_t config{};

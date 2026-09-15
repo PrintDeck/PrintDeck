@@ -401,7 +401,8 @@ void BambuCompatibilityProbe::task_loop(BambuLocalConnection connection,
   const char* ca_bundle = bambu_trust_anchors();
   config.broker.verification.certificate = ca_bundle;
   config.broker.verification.certificate_len = std::strlen(ca_bundle) + 1U;
-  config.broker.verification.skip_cert_common_name_check = true;
+  config.broker.verification.skip_cert_common_name_check = false;
+  config.broker.verification.common_name = connection.serial.c_str();
   config.credentials.client_id = mqtt_client_id_.c_str();
   config.credentials.username = connection.mqtt_username.c_str();
   config.credentials.authentication.password = connection.access_code.c_str();
@@ -687,7 +688,8 @@ bool BambuCompatibilityProbe::probe_tls_service(const BambuLocalConnection& conn
   esp_tls_cfg_t config = {};
   config.cacert_buf = reinterpret_cast<const unsigned char*>(ca_bundle);
   config.cacert_bytes = static_cast<unsigned int>(std::strlen(ca_bundle) + 1U);
-  config.skip_common_name = true;
+  config.skip_common_name = false;
+  config.common_name = connection.serial.c_str();
   config.timeout_ms = 2500;
   config.addr_family = ESP_TLS_AF_INET;
   config.tls_version = ESP_TLS_VER_TLS_1_2;

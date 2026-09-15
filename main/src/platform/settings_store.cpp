@@ -266,6 +266,7 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     if (result == ESP_OK) result = nvs_get_u8(handle, key_for(index, "proto").c_str(), &protocol);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "name").c_str(), profile.display_name);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "host").c_str(), profile.endpoint);
+    if (result == ESP_OK && schema >= 18) result = read_text(handle, key_for(index, "identity").c_str(), profile.network_identity);
     if (result == ESP_OK) result = read_text(handle, key_for(index, "api").c_str(), profile.api_key);
     if (result == ESP_OK && schema >= 11) result = nvs_get_u8(handle, key_for(index, "hauth").c_str(), &http_auth);
     if (result == ESP_OK && schema >= 11) result = read_text(handle, key_for(index, "huser").c_str(), profile.http_username);
@@ -412,6 +413,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
                      core::printer_driver(profile.protocol).storage_id));
     write(write_text(handle, key_for(index, "name").c_str(), profile.display_name));
     write(write_text(handle, key_for(index, "host").c_str(), profile.endpoint));
+    write(write_text(handle, key_for(index, "identity").c_str(), profile.network_identity));
     write(write_text(handle, key_for(index, "api").c_str(), profile.api_key));
     write(nvs_set_u8(handle, key_for(index, "hauth").c_str(), static_cast<std::uint8_t>(profile.http_auth_mode)));
     write(write_text(handle, key_for(index, "huser").c_str(), profile.http_username));
@@ -424,7 +426,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   }
   for (std::size_t index = settings.profiles.size(); index < core::kMaximumProfiles; ++index) {
     for (const char* suffix : {"id", "proto", "name", "host", "api", "serial", "code",
-                               "maker", "model", "brand", "hauth", "huser", "hpass"}) {
+                               "maker", "model", "brand", "hauth", "huser", "hpass", "identity"}) {
       write(nvs_erase_key(handle, key_for(index, suffix).c_str()));
     }
   }

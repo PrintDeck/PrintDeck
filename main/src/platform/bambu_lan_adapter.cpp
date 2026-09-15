@@ -246,7 +246,8 @@ esp_err_t BambuLanAdapter::begin_client() {
   config.broker.address.hostname = profile_.endpoint.c_str();
   config.broker.address.port = 8883;
   config.broker.verification.certificate = bambu_trust_anchors();
-  config.broker.verification.skip_cert_common_name_check = true;
+  config.broker.verification.common_name = profile_.serial.c_str();
+  config.broker.verification.skip_cert_common_name_check = false;
   config.credentials.client_id = client_id_.c_str();
   config.credentials.username = "bblp";
   config.credentials.authentication.password = profile_.access_code.c_str();

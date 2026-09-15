@@ -1,4 +1,5 @@
 #include "printdeck/platform/printer_discovery_service.hpp"
+#include "printdeck/platform/printer_address_recovery.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -227,14 +228,15 @@ std::vector<std::string> moonraker_interface_addresses(const std::string& host,
   return addresses;
 }
 
-bool bambu_tls_identity(const std::string& host, std::uint64_t deadline_ms) {
+bool bambu_tls_identity(const std::string& host, std::uint64_t deadline_ms, const char* serial = nullptr) {
   const std::uint64_t current = now_ms();
   if (current >= deadline_ms) return false;
   const char* anchors = bambu_trust_anchors();
   esp_tls_cfg_t config{};
   config.cacert_buf = reinterpret_cast<const unsigned char*>(anchors);
   config.cacert_bytes = static_cast<unsigned int>(std::strlen(anchors) + 1);
-  config.skip_common_name = true;
+  config.skip_common_name = serial == nullptr;
+  config.common_name = serial;
   config.timeout_ms = static_cast<int>(PrinterDiscoveryTiming::bounded_wait_ms(
       current, deadline_ms, PrinterDiscoveryTiming::bambu_tls_handshake_timeout_ms));
   config.addr_family = ESP_TLS_AF_INET;
@@ -255,10 +257,24 @@ bool bambu_tls_identity(const std::string& host, std::uint64_t deadline_ms) {
 
 esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
                                          const core::DeviceSettings& settings,
-                                         std::string target_host, std::uint16_t target_port) {
+                                         std::string target_host, std::uint16_t target_port,
+                                         std::optional<core::PrinterProfile> recovery, std::uint32_t reserved_id,
+                                         std::size_t recovery_offset) {
   if ((!target_host.empty() && !valid_printer_setup_host(target_host)) ||
       (target_host.empty() && target_port != 0)) return ESP_ERR_INVALID_ARG;
   if (!network.station_connected || !valid_ipv4(network.ipv4)) return ESP_ERR_INVALID_STATE;
+  if (recovery && !core::printer_address_recoverable(*recovery)) return ESP_ERR_INVALID_ARG;
+  if (recovery && now_ms() < manual_priority_until_ms_.load()) return ESP_ERR_INVALID_STATE;
+  if (!recovery) manual_priority_until_ms_.store(now_ms() + 10000);
+  if (!recovery && recovering()) {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (running_.load() && recovery_mode_.load()) {
+      if (++next_scan_id_ == 0) ++next_scan_id_;
+      pending_manual_ = ManualRequest{std::move(network), settings, std::move(target_host), target_port, next_scan_id_};
+      cancel_requested_.store(true);
+      return ESP_OK; // Manual search owns a stable ID while the background worker closes sockets.
+    }
+  }
   bool expected = false;
   if (!running_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
     return ESP_ERR_INVALID_STATE;
@@ -271,8 +287,16 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
     }
     const std::uint64_t started_at_ms = now_ms();
     const std::string network_key = discovery_network_key(network);
-    std::vector<DiscoveredPrinter> recent = std::move(snapshot_.printers);
-    if (!target_host.empty() || cache_network_key_ != network_key) {
+    if (cache_network_key_ != network_key) last_manual_snapshot_.reset();
+    if (recovery && !recovery_mode_.load() &&
+        (snapshot_.state == PrinterDiscoveryState::complete || snapshot_.state == PrinterDiscoveryState::failed) &&
+        snapshot_.network_name == network.station_name && snapshot_.network_ipv4 == network.ipv4 &&
+        snapshot_.network_netmask == network.netmask)
+      last_manual_snapshot_ = snapshot_;
+    std::vector<DiscoveredPrinter> recent = !recovery && recovery_mode_.load()
+        ? (last_manual_snapshot_ ? last_manual_snapshot_->printers : std::vector<DiscoveredPrinter>{})
+        : std::move(snapshot_.printers);
+    if (recovery || !target_host.empty() || cache_network_key_ != network_key) {
       recent.clear();
     } else {
       recent.erase(
@@ -283,13 +307,16 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
       for (auto& printer : recent) printer.seen_in_current_scan = false;
     }
     cache_network_key_ = target_host.empty() ? network_key : std::string{};
+    recovery_offset_ = recovery_offset;
+    recovery_profile_ = std::move(recovery);
+    recovery_mode_.store(recovery_profile_.has_value());
     network_ = std::move(network);
     target_host_ = std::move(target_host);
     target_port_ = target_port;
     saved_ipv4_hosts_.clear();
     saved_prusa_origins_.clear();
     for (const auto& profile : settings.profiles) {
-      if (!target_host_.empty()) break;
+      if (recovery_profile_ || !target_host_.empty()) break;
       if (profile.protocol == core::PrinterProtocol::prusalink) {
         if (const auto origin = prusalink_origin(profile.endpoint)) saved_prusa_origins_.push_back(*origin);
         continue;
@@ -300,15 +327,17 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
     if (++next_scan_id_ == 0) ++next_scan_id_;
     snapshot_ = {
         .state = PrinterDiscoveryState::scanning,
-        .scan_id = next_scan_id_,
+        .scan_id = reserved_id ? reserved_id : next_scan_id_,
         .progress_percent = 0,
         .network_name = network_.station_name,
         .detail = "Starting local network search…",
         .printers = std::move(recent),
+        .network_ipv4 = network_.ipv4,
+        .network_netmask = network_.netmask,
     };
     cancel_requested_.store(false);
   }
-  if (xTaskCreatePinnedToCoreWithCaps(task_entry, "printer_scan", 16384U, this, 2, &task_,
+  if (xTaskCreatePinnedToCoreWithCaps(task_entry, "printer_scan", 16384U, this, recovery_profile_ ? 1 : 2, &task_,
                                      kServiceCore,
                                      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
     const std::lock_guard<std::mutex> lock(mutex_);
@@ -323,6 +352,10 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
 
 bool PrinterDiscoveryService::cancel(std::uint32_t scan_id) {
   const std::lock_guard<std::mutex> lock(mutex_);
+  if (pending_manual_ && pending_manual_->id == scan_id) {
+    pending_manual_.reset();
+    return true;
+  }
   if (scan_id == 0 || snapshot_.state != PrinterDiscoveryState::scanning ||
       snapshot_.scan_id != scan_id) {
     return false;
@@ -331,9 +364,16 @@ bool PrinterDiscoveryService::cancel(std::uint32_t scan_id) {
   return true;
 }
 
-PrinterDiscoverySnapshot PrinterDiscoveryService::snapshot() const {
+PrinterDiscoverySnapshot PrinterDiscoveryService::snapshot(bool include_recovery) const {
   const std::lock_guard<std::mutex> lock(mutex_);
-  PrinterDiscoverySnapshot result = snapshot_;
+  if (!include_recovery && pending_manual_) {
+    return {.state = PrinterDiscoveryState::scanning, .scan_id = pending_manual_->id,
+            .network_name = pending_manual_->network.station_name, .detail = "Starting local network search…"};
+  }
+  // A background pass must not erase completed manual results from Web Config
+  // or from the profile reconciliation worker.
+  PrinterDiscoverySnapshot result = !include_recovery && recovery_mode_.load()
+      ? last_manual_snapshot_.value_or(PrinterDiscoverySnapshot{}) : snapshot_;
   if (result.state != PrinterDiscoveryState::scanning) {
     const std::uint64_t current_ms = now_ms();
     result.printers.erase(
@@ -348,7 +388,15 @@ PrinterDiscoverySnapshot PrinterDiscoveryService::snapshot() const {
 }
 
 void PrinterDiscoveryService::task_entry(void* context) {
-  static_cast<PrinterDiscoveryService*>(context)->run();
+  auto* service = static_cast<PrinterDiscoveryService*>(context);
+  service->run();
+  std::optional<ManualRequest> pending;
+  {
+    const std::lock_guard<std::mutex> lock(service->mutex_);
+    pending.swap(service->pending_manual_);
+  }
+  if (pending) service->start(std::move(pending->network), pending->settings,
+      std::move(pending->host), pending->port, {}, pending->id);
   vTaskDeleteWithCaps(nullptr);
 }
 
@@ -368,6 +416,35 @@ void PrinterDiscoveryService::publish_progress(std::size_t completed, std::size_
 
 void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
   if (!valid_ipv4(result.host)) return;
+  if (!recovery_profile_ && result.protocol == core::PrinterProtocol::moonraker && result.network_identity.empty()) {
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      const auto known = std::find_if(snapshot_.printers.begin(), snapshot_.printers.end(), [&](const auto& value) {
+        return value.seen_in_current_scan && value.protocol == result.protocol && value.host == result.host && value.port == result.port;
+      });
+      if (known != snapshot_.printers.end()) result.network_identity = known->network_identity;
+    }
+    if (result.network_identity.empty()) {
+      core::PrinterProfile endpoint;
+      endpoint.protocol = core::PrinterProtocol::moonraker;
+      endpoint.endpoint = "http://" + result.host + ":" + std::to_string(result.port);
+      result.network_identity = moonraker_host_identity(endpoint, [&] { return cancel_requested_.load(); });
+    }
+  }
+  if (recovery_profile_) {
+    if (!valid_device_peer_ipv4(ntohl(inet_addr(result.host.c_str())), ntohl(inet_addr(network_.ipv4.c_str())),
+                               ntohl(inet_addr(network_.netmask.c_str())))) return;
+    const auto address = core::printer_address(*recovery_profile_);
+    if (!address || result.protocol != recovery_profile_->protocol || result.port != address->port) return;
+    if (result.protocol == core::PrinterProtocol::moonraker) {
+      if (result.network_identity.empty() || recovery_profile_->network_identity.starts_with("mr:")) {
+        auto candidate = core::printer_at_address(*recovery_profile_, result.host);
+        if (!candidate || !moonraker_endpoint_identity_matches(*candidate)) return;
+        result.network_identity = recovery_profile_->network_identity;
+      }
+      if (result.network_identity != recovery_profile_->network_identity) return;
+    } else if (result.serial != recovery_profile_->serial) return;
+  }
   if (!target_host_.empty() && (result.host != target_host_ ||
       (target_port_ != 0 && result.port != target_port_))) return;
   const std::lock_guard<std::mutex> lock(mutex_);
@@ -381,15 +458,24 @@ void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
   } else if (target_host_.empty() && std::find(saved_ipv4_hosts_.begin(), saved_ipv4_hosts_.end(), result.host) !=
              saved_ipv4_hosts_.end()) return;
   const auto existing = std::find_if(snapshot_.printers.begin(), snapshot_.printers.end(),
-                                     [&result](const DiscoveredPrinter& value) {
+                                     [this, &result](const DiscoveredPrinter& value) {
     if (value.protocol != result.protocol) return false;
-    if (!result.serial.empty() && !value.serial.empty()) return value.serial == result.serial;
+    if (recovery_profile_) return value.host == result.host && value.port == result.port;
+    if (!result.network_identity.empty() && !value.network_identity.empty())
+      return value.network_identity == result.network_identity && value.host == result.host && value.port == result.port;
+    if (result.protocol == core::PrinterProtocol::moonraker &&
+        (!result.network_identity.empty() || !value.network_identity.empty()))
+      return value.host == result.host && value.port == result.port;
+    if (!result.serial.empty() && !value.serial.empty())
+      return value.serial == result.serial && (!value.seen_in_current_scan || value.host == result.host);
     return value.host == result.host && ((result.protocol != core::PrinterProtocol::prusalink && result.protocol != core::PrinterProtocol::tinymaker) || value.port == result.port);
   });
   if (existing != snapshot_.printers.end()) {
+    existing->host = result.host;
     if (!result.name.empty()) existing->name = std::move(result.name);
     if (!result.model.empty()) existing->model = std::move(result.model);
     if (!result.serial.empty()) existing->serial = std::move(result.serial);
+    if (!result.network_identity.empty()) existing->network_identity = std::move(result.network_identity);
     if (existing->port == 0 || existing->port == 80) existing->port = result.port;
     existing->last_seen_ms = result.last_seen_ms;
     existing->retain_until_ms = 0;
@@ -445,7 +531,7 @@ void PrinterDiscoveryService::run() {
     inet_ntop(AF_INET, &address, host, sizeof(host));
     target_host_ = host;
   }
-  const auto target_found = [&] { return targeted && !snapshot().printers.empty(); };
+  const auto target_found = [&] { return targeted && !snapshot(true).printers.empty(); };
   ESP_LOGI(kLogTag,
            "Network search started; internal=%u, largest-internal=%u, "
            "largest-dma=%u",
@@ -462,7 +548,8 @@ void PrinterDiscoveryService::run() {
       "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\n"
       "MAN: \"ssdp:discover\"\r\nMX: 2\r\n"
       "ST: urn:bambulab-com:device:3dprinter:1\r\n\r\n";
-  for (std::size_t index = 0; index < 2; ++index) {
+  for (std::size_t index = 0; index < 2 &&
+       (!recovery_profile_ || recovery_profile_->protocol == core::PrinterProtocol::bambu_lan); ++index) {
     const int socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (socket_fd < 0) continue;
     int reuse = 1;
@@ -562,7 +649,7 @@ void PrinterDiscoveryService::run() {
       close_ssdp();
       ESP_LOGI(kLogTag, "Bambu SSDP window finished: rounds=%u results=%u",
                static_cast<unsigned>(ssdp_search_round),
-               static_cast<unsigned>(snapshot().printers.size()));
+               static_cast<unsigned>(snapshot(true).printers.size()));
     }
   };
   service_ssdp();
@@ -580,14 +667,23 @@ void PrinterDiscoveryService::run() {
   const std::uint32_t local = ntohl(station_address);
   std::uint32_t mask = netmask_address == INADDR_NONE ? 0xFFFFFF00U : ntohl(netmask_address);
   const std::uint32_t host_bits = ~mask;
-  if ((host_bits & (host_bits + 1U)) != 0 || host_bits < 2 || (!targeted && host_bits > 255)) {
+  if (recovery_profile_ && ((host_bits & (host_bits + 1U)) != 0 || host_bits < 2 || host_bits > 4095)) {
+    close_ssdp();
+    const std::lock_guard<std::mutex> lock(mutex_);
+    snapshot_.state = PrinterDiscoveryState::failed;
+    task_ = nullptr;
+    return;
+  }
+  if ((host_bits & (host_bits + 1U)) != 0 || host_bits < 2 || (!targeted && !recovery_profile_ && host_bits > 255)) {
     mask = 0xFFFFFF00U;
   }
   const std::uint32_t network = local & mask;
   const std::uint32_t broadcast = network | ~mask;
   // One shared UDP descriptor for the two proven Elegoo discovery dialects.
   // Its lifetime and retry count are bounded independently of the subnet pass.
-  int elegoo_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  const bool want_elegoo = !recovery_profile_ || recovery_profile_->protocol == core::PrinterProtocol::elegoo_sdcp ||
+                           recovery_profile_->protocol == core::PrinterProtocol::elegoo_cc2;
+  int elegoo_socket = want_elegoo ? socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) : -1;
   struct ElegooSocketGuard {
     int& descriptor;
     ~ElegooSocketGuard() { if (descriptor >= 0) close(descriptor); }
@@ -699,6 +795,12 @@ void PrinterDiscoveryService::run() {
     const auto root = transport.get({.url = origin + "/", .maximum_body = 65536, .deadline_ms = budget}, cancelled);
     return !cancelled() && prusalink_discovery_identity(version, &root);
   };
+  if (!targeted && (!recovery_profile_ || recovery_profile_->protocol == core::PrinterProtocol::moonraker)) {
+    for (auto& printer : discover_moonraker_identities()) {
+      if (cancel_requested_.load() || now_ms() >= deadline) break;
+      if (valid_device_peer_ipv4(ntohl(inet_addr(printer.host.c_str())), local, mask)) add_result(std::move(printer));
+    }
+  }
   mdns_result_t* mdns_results = nullptr;
   unsigned prusa_services = 0;
   unsigned prusa_addresses = 0;
@@ -715,7 +817,7 @@ void PrinterDiscoveryService::run() {
   };
   // Cover the responder's retry interval, including Wi-Fi multicast delivery.
   // The query remains bounded, and cancellation is checked before HTTP work.
-  const esp_err_t prusa_mdns_result = (targeted || cancel_requested_.load()) ? ESP_ERR_INVALID_STATE
+  const esp_err_t prusa_mdns_result = (targeted || recovery_profile_ || cancel_requested_.load()) ? ESP_ERR_INVALID_STATE
       : mdns_query_ptr("_prusalink", "_tcp", 2400, 10, &mdns_results);
   if (prusa_mdns_result == ESP_OK) {
     for (const auto* result = mdns_results; result && !cancel_requested_.load(); result = result->next) {
@@ -754,6 +856,19 @@ void PrinterDiscoveryService::run() {
     candidates.push_back({candidate_address, host});
   }
 
+  if (recovery_profile_ && !candidates.empty()) {
+    const auto address = core::printer_address(*recovery_profile_);
+    std::size_t origin = 0;
+    if (address) {
+      const auto previous = std::find_if(candidates.begin(), candidates.end(),
+          [&](const auto& value) { return value.host == address->host; });
+      if (previous != candidates.end()) origin = std::distance(candidates.begin(), previous) + 1;
+    }
+    const auto offset = (origin + recovery_offset_) % candidates.size();
+    std::rotate(candidates.begin(), candidates.begin() + offset, candidates.end());
+    if (candidates.size() > 32) candidates.resize(32);
+  }
+
   struct Pass {
     std::uint16_t port;
     core::PrinterProtocol protocol;
@@ -785,6 +900,15 @@ void PrinterDiscoveryService::run() {
     if (target_port_ == 1883) passes.clear();
   } else if (targeted) {
     for (auto& pass : passes) if (pass.protocol == core::PrinterProtocol::moonraker) pass.verify_moonraker = true;
+  }
+  if (recovery_profile_) {
+    const auto address = core::printer_address(*recovery_profile_);
+    passes.erase(std::remove_if(passes.begin(), passes.end(), [&](const auto& pass) {
+      return !address || pass.port != address->port;
+    }), passes.end());
+    if (passes.empty() && address && recovery_profile_->protocol != core::PrinterProtocol::elegoo_cc2 &&
+        recovery_profile_->protocol != core::PrinterProtocol::elegoo_sdcp)
+      passes.push_back({address->port, recovery_profile_->protocol, recovery_profile_->protocol == core::PrinterProtocol::moonraker, 1000});
   }
   struct Pending { int socket_fd; std::string host; std::uint16_t port;
                    core::PrinterProtocol protocol; bool verify_moonraker; };
@@ -843,13 +967,13 @@ void PrinterDiscoveryService::run() {
         } else if (accepted && probe.protocol == core::PrinterProtocol::bambu_lan) {
           close(probe.socket_fd);
           probe.socket_fd = -1;
-          accepted = bambu_tls_identity(probe.host, deadline);
+          accepted = bambu_tls_identity(probe.host, deadline, recovery_profile_ ? recovery_profile_->serial.c_str() : nullptr);
         }
         if (accepted) add_result({.protocol = probe.protocol,
                                   .name = {},
                                   .model = {},
                                   .host = probe.host,
-                                  .serial = {},
+                                  .serial = recovery_profile_ && probe.protocol == core::PrinterProtocol::bambu_lan ? recovery_profile_->serial : std::string{},
                                   .port = probe.port});
         if (probe.socket_fd >= 0) close(probe.socket_fd);
       }
@@ -908,19 +1032,20 @@ void PrinterDiscoveryService::run() {
           } else if (pass.protocol == core::PrinterProtocol::bambu_lan) {
             close(socket_fd);
             socket_fd = -1;
-            accepted = bambu_tls_identity(candidate.host, deadline);
+            accepted = bambu_tls_identity(candidate.host, deadline, recovery_profile_ ? recovery_profile_->serial.c_str() : nullptr);
           }
           if (accepted) add_result({.protocol = pass.protocol,
                                     .name = {},
                                     .model = {},
                                     .host = candidate.host,
-                                    .serial = {},
+                                    .serial = recovery_profile_ && pass.protocol == core::PrinterProtocol::bambu_lan ? recovery_profile_->serial : std::string{},
                                     .port = pass.port});
           if (socket_fd >= 0) close(socket_fd);
         } else if (errno == EINPROGRESS) {
           pending.push_back({socket_fd, candidate.host, pass.port, pass.protocol,
                              pass.verify_moonraker});
           const std::size_t batch_size =
+              recovery_profile_ ? 1 :
               (ssdp_active() ? kProbeBatchSizeWithSsdp : kProbeBatchSize) - (elegoo_socket >= 0 ? 1 : 0);
           if (pending.size() >= batch_size) flush(pass.timeout_ms);
         } else {
@@ -928,6 +1053,9 @@ void PrinterDiscoveryService::run() {
         }
       }
       publish_progress(++completed, total);
+      if (recovery_profile_) {
+        for (unsigned pause = 0; pause < 3 && !cancel_requested_.load(); ++pause) vTaskDelay(pdMS_TO_TICKS(50));
+      }
     }
     flush(pass.timeout_ms);
   }
@@ -948,7 +1076,7 @@ void PrinterDiscoveryService::run() {
   std::vector<DiscoveredPrinter> deduplicated;
   std::vector<std::vector<std::string>> moonraker_identities;
   if (!cancelled) {
-    for (auto& printer : snapshot().printers) {
+    for (auto& printer : snapshot(true).printers) {
       if (cancel_requested_.load()) {
         cancelled = true;
         break;
@@ -963,8 +1091,15 @@ void PrinterDiscoveryService::run() {
         deduplicated.push_back(std::move(printer));
         continue;
       }
-      std::vector<std::string> identity =
-          moonraker_interface_addresses(printer.host, printer.port, deadline);
+      // Reuse the existing interface reconciliation for recovery too: Ethernet
+      // and Wi-Fi addresses reported by the same host are one printer. Include
+      // the service port and learned identity so separate instances stay apart.
+      auto identity = moonraker_interface_addresses(printer.host, printer.port, deadline);
+      if (std::find(identity.begin(), identity.end(), printer.host) == identity.end()) identity.clear();
+      if (!identity.empty()) {
+        identity.push_back("port:" + std::to_string(printer.port));
+        identity.push_back("identity:" + printer.network_identity);
+      }
       if (!identity.empty() &&
           std::find(moonraker_identities.begin(), moonraker_identities.end(), identity) !=
               moonraker_identities.end()) {
@@ -1037,7 +1172,7 @@ void PrinterDiscoveryService::run() {
            "Network search finished: candidates=%u results=%u internal=%u, "
            "largest-internal=%u, largest-dma=%u, stack high-water=%u",
            static_cast<unsigned>(candidates.size()),
-           static_cast<unsigned>(snapshot().printers.size()),
+           static_cast<unsigned>(snapshot(true).printers.size()),
            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
            static_cast<unsigned>(
                heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),

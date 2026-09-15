@@ -60,6 +60,7 @@ set(PRINTDECK_SRCS
         "src/platform/moonraker_connection_probe.cpp"
         "src/platform/moonraker_camera_client.cpp"
         "src/platform/inactive_printer_poller.cpp"
+        "src/platform/printer_address_recovery.cpp"
         "src/platform/printer_discovery_service.cpp"
         "src/platform/companion_camera_service.cpp"
         "src/platform/firmware_update_service.cpp"

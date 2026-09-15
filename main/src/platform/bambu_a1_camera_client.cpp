@@ -270,7 +270,8 @@ void BambuA1CameraClient::publish_frame(core::CameraFrame frame,
 bool BambuA1CameraClient::capture(const BambuLocalConnection& connection) {
   esp_tls_cfg_t tls_config{};
   tls_config.timeout_ms = 7000;
-  tls_config.skip_common_name = true;
+  tls_config.skip_common_name = false;
+  tls_config.common_name = connection.serial.c_str();
   tls_config.cacert_buf = reinterpret_cast<const unsigned char*>(bambu_trust_anchors());
   tls_config.cacert_bytes =
       static_cast<unsigned int>(std::strlen(bambu_trust_anchors()) + 1U);

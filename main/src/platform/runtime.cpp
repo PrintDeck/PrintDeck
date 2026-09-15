@@ -72,27 +72,15 @@ const core::PrinterProfile* selected_profile(const core::DeviceSettings& setting
 
 bool same_printer_configuration(const core::DeviceSettings& current,
                                 const core::DeviceSettings& next) {
-  if (current.profiles.size() != next.profiles.size() ||
-      current.selected_profile != next.selected_profile) {
-    return false;
-  }
-  for (std::size_t index = 0; index < next.profiles.size(); ++index) {
-    const auto& old_profile = current.profiles[index];
-    const auto& next_profile = next.profiles[index];
-    if (old_profile.id != next_profile.id ||
-        old_profile.protocol != next_profile.protocol ||
-        old_profile.display_name != next_profile.display_name ||
-        old_profile.endpoint != next_profile.endpoint ||
-        old_profile.api_key != next_profile.api_key ||
-        old_profile.serial != next_profile.serial ||
-        old_profile.access_code != next_profile.access_code ||
-        old_profile.manufacturer != next_profile.manufacturer ||
-        old_profile.model != next_profile.model ||
-        old_profile.brand != next_profile.brand) {
-      return false;
-    }
-  }
-  return true;
+  const auto* previous = selected_profile(current);
+  const auto* selected = selected_profile(next);
+  if (!previous || !selected) return previous == selected;
+  auto previous_connection = *previous;
+  // Learning the identity adds a guard without changing the live destination.
+  previous_connection.network_identity = selected->network_identity;
+  return core::same_printer_connection(previous_connection, *selected) &&
+      previous->display_name == selected->display_name && previous->manufacturer == selected->manufacturer &&
+      previous->model == selected->model && previous->brand == selected->brand;
 }
 
 int protocol_id(const core::PrinterProfile* profile) {
@@ -126,6 +114,9 @@ void Runtime::start() {
   }
   const esp_err_t settings_result = settings_store_.load(settings_);
   if (settings_result == ESP_OK) {
+    ESP_LOGI(kLogTag, "Loaded printer identity bindings: %u",
+        static_cast<unsigned>(std::count_if(settings_.profiles.begin(), settings_.profiles.end(),
+            [](const auto& profile) { return !profile.network_identity.empty(); })));
     if constexpr (!kBoardHasAudio) {
       // KNOMI2 has no speaker or audio output path. Treat it exactly like a
       // permanently muted device while leaving the shared audio service intact.
@@ -316,6 +307,18 @@ void Runtime::start() {
   display_.set_update_install_callback(update_install_entry, this);
   // Full protocol connections are also demand-loaded. My Printers uses the
   // bounded status poller; entering a printer starts exactly one full adapter.
+  inactive_printer_poller_.set_discovery_service(printer_discovery_);
+  inactive_printer_poller_.set_recovery_callback([](void* context, const auto& expected,
+      const auto& recovered, const auto& network) {
+    auto* runtime = static_cast<Runtime*>(context);
+    {
+      const std::lock_guard<std::mutex> lock(runtime->recovered_printer_mutex_);
+      if (runtime->pending_recovered_printer_) return false;
+      runtime->pending_recovered_printer_ = std::make_unique<RecoveredPrinter>(
+          RecoveredPrinter{expected, recovered, network});
+    }
+    return runtime->persistence_.request(PersistenceWorker::Slot::settings);
+  }, this);
   const esp_err_t inactive_result = inactive_printer_poller_.start(settings_, network_);
   if (inactive_result != ESP_OK) {
     ESP_LOGE(kLogTag, "Inactive-printer refresh could not be started: %s",
@@ -346,7 +349,21 @@ void Runtime::power_entry(void* context) {
 }
 
 std::uint32_t Runtime::ui_settings_entry(void* context) {
-  return static_cast<Runtime*>(context)->persist_ui_settings();
+  auto* runtime = static_cast<Runtime*>(context);
+  runtime->persist_recovered_printer();
+  return runtime->persist_ui_settings();
+}
+
+void Runtime::persist_recovered_printer() {
+  std::unique_ptr<RecoveredPrinter> pending;
+  {
+    const std::lock_guard<std::mutex> lock(recovered_printer_mutex_);
+    pending.swap(pending_recovered_printer_);
+  }
+  // The network worker has a PSRAM stack. Flash writes must use the existing
+  // persistence worker's internal stack, and recheck the profile before saving.
+  if (pending && !restart_in_progress_.load())
+    web_config_.save_recovered_printer(pending->expected, pending->recovered, pending->network);
 }
 
 bool Runtime::ensure_moonraker_started(const core::PrinterProfile* selected) {
@@ -599,7 +616,7 @@ bool Runtime::background_update_blocked_entry(void* context) {
 
 bool Runtime::background_update_blocked() const {
   const NetworkStatus network = network_.status();
-  if (network.recovery_ap_active || printer_discovery_.running() ||
+  if (network.recovery_ap_active || (printer_discovery_.running() && !printer_discovery_.recovering()) ||
       display_.camera_page_active()) {
     return true;
   }
@@ -971,6 +988,12 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   if (!settings.voice_enabled) voice_.request_stop();
 #endif
   settings_ = settings;
+  const esp_err_t discovery_result = network_.set_home_assistant_mqtt(
+      settings.mqtt.enabled && !settings.mqtt.discovery);
+  if (discovery_result != ESP_OK) {
+    ESP_LOGW(kLogTag, "Home Assistant discovery state could not be applied: %s",
+             esp_err_to_name(discovery_result));
+  }
   companion_camera_.configure(settings.companion_cameras);
   display_.set_companion_cameras(settings.companion_cameras);
   if (device_name_changed) {
@@ -1024,6 +1047,7 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
     audio_.play(AudioService::Event::test);
   }
   inactive_printer_poller_.configure(settings);
+  if (!printer_configuration_changed) moonraker_.configure(selected);
   if (printer_configuration_changed) {
     prusalink_.configure(selected);
     tinymaker_.configure(selected);
@@ -1535,6 +1559,8 @@ void Runtime::monitor_loop() {
             ? selected->id
             : pending_profile);
 
+    inactive_printer_poller_.set_recovery_allowed(!background_update_blocked() &&
+        !firmware_update_.snapshot().busy && !restart_in_progress_.load());
     const bool full_adapter_ready = full_connection_active && ensure_selected_adapter_started(selected);
     if (want_bambu_preview && full_adapter_ready && !camera_cleanup_pending_) ensure_bambu_preview_started();
     const bool bambu_camera_ready = !want_bambu_camera ||
@@ -1680,6 +1706,7 @@ void Runtime::monitor_loop() {
       const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
       const bool selected_online = selected != nullptr && selected_snapshot_ready &&
                                    selected_snapshot.link == core::LinkState::online;
+      inactive_printer_poller_.observe_active(selected ? selected->id : 0, selected_online);
       if (!selected_online || !full_connection_active) {
         audio_online_profile_id_ = 0;
         audio_connection_baseline_pending_ = selected != nullptr;

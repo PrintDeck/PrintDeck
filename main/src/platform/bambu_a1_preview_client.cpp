@@ -179,10 +179,11 @@ std::vector<std::string> archive_paths(const std::string& file_hint,
   return paths;
 }
 
-esp_tls_cfg_t make_tls_config() {
+esp_tls_cfg_t make_tls_config(const BambuLocalConnection& connection) {
   esp_tls_cfg_t config{};
   config.timeout_ms = 8000;
-  config.skip_common_name = true;
+  config.skip_common_name = false;
+  config.common_name = connection.serial.c_str();
   config.cacert_buf = reinterpret_cast<const unsigned char*>(bambu_trust_anchors());
   config.cacert_bytes = static_cast<unsigned int>(std::strlen(bambu_trust_anchors()) + 1U);
   config.addr_family = ESP_TLS_AF_INET;
@@ -271,7 +272,7 @@ bool open_ftps_control(const BambuLocalConnection& connection, esp_tls_t** resul
   if (result == nullptr) return false;
   *result = esp_tls_init();
   if (*result == nullptr) return false;
-  esp_tls_cfg_t config = make_tls_config();
+  esp_tls_cfg_t config = make_tls_config(connection);
   if (esp_tls_conn_new_sync(connection.host.c_str(), static_cast<int>(connection.host.size()),
                             kFtpsPort, &config, *result) != 1) {
     esp_tls_conn_destroy(*result);
@@ -312,7 +313,7 @@ bool fetch_archive_png(const BambuLocalConnection& connection, const std::string
 
     esp_tls_t* data = esp_tls_init();
     if (data == nullptr) break;
-    esp_tls_cfg_t config = make_tls_config();
+    esp_tls_cfg_t config = make_tls_config(connection);
     if (esp_tls_conn_new_sync(connection.host.c_str(), static_cast<int>(connection.host.size()),
                               data_port, &config, data) != 1) {
       esp_tls_conn_destroy(data);

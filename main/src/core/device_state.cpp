@@ -101,7 +101,8 @@ bool same_printer_connection(const PrinterProfile& first,
          first.endpoint == second.endpoint && first.api_key == second.api_key &&
          first.serial == second.serial && first.access_code == second.access_code &&
          first.http_auth_mode == second.http_auth_mode &&
-         first.http_username == second.http_username && first.http_password == second.http_password;
+         first.http_username == second.http_username && first.http_password == second.http_password &&
+         first.network_identity == second.network_identity;
 }
 
 SnapshotStore::SnapshotStore() {

@@ -1,4 +1,5 @@
 #include "printdeck/platform/moonraker_adapter.hpp"
+#include "printdeck/platform/printer_address_recovery.hpp"
 #include "printdeck/platform/moonraker_status_parser.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/bounded_response_buffer.hpp"
@@ -410,6 +411,12 @@ void MoonrakerAdapter::task_loop() {
       snapshots_.replace(std::move(timed_out));
     }
 
+    if (!moonraker_endpoint_identity_matches(current)) {
+      publish(core::LinkState::failed, "Moonraker is unreachable");
+      pending_chamber_light_.store(-1);
+      ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(3000));
+      continue;
+    }
     if (tool_objects_.empty()) discover_printer(current);
     const int light_request = pending_chamber_light_.exchange(-1);
     if (light_request >= 0 && !send_chamber_light(current, light_request != 0)) {

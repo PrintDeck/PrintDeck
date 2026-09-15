@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,7 @@ struct DiscoveredPrinter {
   std::uint64_t last_seen_ms = 0;
   std::uint64_t retain_until_ms = 0;
   bool seen_in_current_scan = false;
+  std::string network_identity;
 };
 
 struct PrinterDiscoverySnapshot {
@@ -35,15 +37,20 @@ struct PrinterDiscoverySnapshot {
   std::string network_name;
   std::string detail = "Ready to search";
   std::vector<DiscoveredPrinter> printers;
+  std::string network_ipv4;
+  std::string network_netmask;
 };
 
 class PrinterDiscoveryService {
  public:
   esp_err_t start(NetworkStatus network, const core::DeviceSettings& settings,
-                  std::string target_host = {}, std::uint16_t target_port = 0);
+                  std::string target_host = {}, std::uint16_t target_port = 0,
+                  std::optional<core::PrinterProfile> recovery = {}, std::uint32_t reserved_id = 0,
+                  std::size_t recovery_offset = 0);
   bool cancel(std::uint32_t scan_id);
   bool running() const { return running_.load(std::memory_order_acquire); }
-  PrinterDiscoverySnapshot snapshot() const;
+  bool recovering() const { return running() && recovery_mode_.load(); }
+  PrinterDiscoverySnapshot snapshot(bool include_recovery = false) const;
 
  private:
   static void task_entry(void* context);
@@ -51,6 +58,18 @@ class PrinterDiscoveryService {
   void publish_progress(std::size_t completed, std::size_t total);
   void add_result(DiscoveredPrinter result);
 
+  struct ManualRequest {
+    NetworkStatus network;
+    core::DeviceSettings settings;
+    std::string host;
+    std::uint16_t port = 0;
+    std::uint32_t id = 0;
+  };
+  std::optional<ManualRequest> pending_manual_;
+  std::optional<core::PrinterProfile> recovery_profile_;
+  std::atomic<bool> recovery_mode_{false};
+  std::size_t recovery_offset_ = 0;
+  std::atomic<std::uint64_t> manual_priority_until_ms_{0};
   mutable std::mutex mutex_;
   NetworkStatus network_;
   std::string target_host_;
@@ -59,6 +78,7 @@ class PrinterDiscoveryService {
   std::vector<std::string> saved_prusa_origins_;
   std::string cache_network_key_;
   PrinterDiscoverySnapshot snapshot_;
+  std::optional<PrinterDiscoverySnapshot> last_manual_snapshot_;
   std::atomic<bool> cancel_requested_{false};
   std::atomic<bool> running_{false};
   std::uint32_t next_scan_id_ = 0;

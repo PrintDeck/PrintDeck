@@ -52,6 +52,7 @@ class NetworkService {
  public:
   esp_err_t start(const core::DeviceSettings& settings);
   esp_err_t set_device_name(std::string_view name);
+  esp_err_t set_home_assistant_mqtt(bool enabled);
   NetworkStatus status() const;
   bool discover_devices();
   DeviceDiscoverySnapshot device_discovery() const;
@@ -94,6 +95,7 @@ class NetworkService {
   std::string mdns_hostname_;
   std::string friendly_mdns_hostname_;
   std::mutex mdns_mutex_;
+  bool home_assistant_mqtt_ = false;
   mutable std::mutex device_discovery_mutex_;
   DeviceDiscoverySnapshot device_discovery_;
   std::atomic<std::uint32_t> network_epoch_{0};

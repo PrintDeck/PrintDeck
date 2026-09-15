@@ -1,5 +1,6 @@
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/web_config.hpp"
+#include "printdeck/core/printer_address.hpp"
 
 #include "printdeck/core/firmware_image.hpp"
 #include "printdeck/platform/firmware_identity.hpp"
@@ -723,6 +724,32 @@ void WebConfig::synchronize_settings(const core::DeviceSettings& settings) {
   const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
   const std::lock_guard<std::mutex> lock(mutex_);
   settings_ = settings;
+}
+
+bool WebConfig::save_recovered_printer(const core::PrinterProfile& expected,
+    const core::PrinterProfile& recovered, const NetworkStatus& network) {
+  const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+  if (!store_ || !network_) return false;
+  const auto current_network = network_->status();
+  if (!current_network.station_connected || current_network.recovery_ap_active ||
+      current_network.station_name != network.station_name || current_network.ipv4 != network.ipv4 ||
+      current_network.netmask != network.netmask) return false;
+  core::DeviceSettings candidate;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    candidate = settings_;
+  }
+  if (candidate.wifi_name != network.station_name ||
+      !core::merge_printer_address(candidate, expected, recovered) || !core::validate(candidate).empty()) return false;
+  if (store_->save(candidate) != ESP_OK) return false;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    settings_ = candidate;
+  }
+  // Background repair is not a user gesture: no wake, confirmation sound or navigation.
+  notify_settings_changed(candidate, false);
+  ESP_LOGI(kLogTag, "Saved printer identity/address recovered");
+  return true;
 }
 
 void WebConfig::notify_settings_changed(const core::DeviceSettings& settings,
@@ -4374,6 +4401,8 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
       if (profile.api_key.empty()) profile.api_key = existing->api_key;
       if (profile.access_code.empty()) profile.access_code = existing->access_code;
     }
+    if (profile.protocol == existing->protocol && profile.endpoint == existing->endpoint)
+      profile.network_identity = existing->network_identity;
     *existing = std::move(profile);
   }
   if (!core::validate(candidate).empty()) {

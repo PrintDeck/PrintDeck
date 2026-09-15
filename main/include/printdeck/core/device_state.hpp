@@ -37,6 +37,8 @@ struct PrinterProfile {
   HttpAuthMode http_auth_mode = HttpAuthMode::api_key;
   std::string http_username;
   std::string http_password;
+  // Moonraker UUID or host/service fingerprint, learned at the configured endpoint.
+  std::string network_identity;
 };
 
 struct DeviceState {

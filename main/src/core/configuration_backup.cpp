@@ -201,6 +201,7 @@ bool add_profiles(cJSON* settings_object, const std::vector<PrinterProfile>& pro
         !add_string(object, "protocol", printer_driver(profile.protocol).id) ||
         !add_string(object, "display_name", profile.display_name) ||
         !add_string(object, "endpoint", profile.endpoint) ||
+        !add_string(object, "network_identity", profile.network_identity) ||
         !add_string(object, "api_key", profile.api_key) ||
         !add_string(object, "http_auth_mode", profile.http_auth_mode == HttpAuthMode::digest ? "digest" : "api_key") ||
         !add_string(object, "http_username", profile.http_username) ||
@@ -236,6 +237,7 @@ bool read_profiles(const cJSON* settings_object, std::vector<PrinterProfile>& pr
         !printer_protocol_from_id(protocol, profile.protocol) ||
         !read_string(object, "display_name", profile.display_name, 48, true) ||
         !read_string(object, "endpoint", profile.endpoint, 128, true) ||
+        !read_string(object, "network_identity", profile.network_identity, 35, source_schema >= 18) ||
         !read_string(object, "api_key", profile.api_key, 128, true) ||
         !read_string(object, "http_auth_mode", auth_mode, 16, source_schema >= 11) ||
         !read_string(object, "http_username", profile.http_username, 64, source_schema >= 11) ||

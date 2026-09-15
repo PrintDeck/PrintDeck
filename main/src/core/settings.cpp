@@ -1,4 +1,5 @@
 #include "printdeck/core/settings.hpp"
+#include "printdeck/core/printer_address.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -259,6 +260,9 @@ bool valid_device_name(std::string_view name) {
 
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
+  if (source_schema < 18) {
+    for (auto& profile : settings.profiles) profile.network_identity.clear();
+  }
   if (source_schema < 16) settings.companion_cameras.clear();
   // Microphone listening requires an explicit choice, including after upgrade.
   if (source_schema < 15) settings.voice_enabled = false;
@@ -453,6 +457,10 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
     }
     if (profile.id == 0 || !ids.insert(profile.id).second) {
       issues.push_back({prefix + "id", "Profile ID must be non-zero and unique"});
+    }
+    if (!profile.network_identity.empty() &&
+        (profile.protocol != PrinterProtocol::moonraker || !valid_moonraker_identity(profile.network_identity))) {
+      issues.push_back({prefix + "network_identity", "Please check the printer name, network address and connection details."});
     }
     check_text(issues, (prefix + "display_name").c_str(), profile.display_name, 48, true);
     check_text(issues, (prefix + "endpoint").c_str(), profile.endpoint, 128, true);

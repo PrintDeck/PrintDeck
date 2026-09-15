@@ -12,7 +12,7 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 17;
+constexpr std::uint8_t kSettingsSchemaVersion = 18;
 constexpr std::uint32_t kDisplayDurationUntilWake = 86401;
 constexpr std::uint8_t kScreenSaverCircles = 0;
 constexpr std::uint8_t kScreenSaverGoingToSleep = 1;

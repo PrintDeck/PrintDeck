@@ -83,6 +83,7 @@ class Runtime {
   void monitor_loop();
   void power_loop();
   std::uint32_t persist_ui_settings();
+  void persist_recovered_printer();
   void apply_pending_settings();
   void apply_settings(const core::DeviceSettings& settings, bool play_feedback);
   void apply_pending_printer_selection();
@@ -139,6 +140,13 @@ class Runtime {
   TaskHandle_t monitor_task_ = nullptr;
   TaskHandle_t power_task_ = nullptr;
   PersistenceWorker persistence_;
+  struct RecoveredPrinter {
+    core::PrinterProfile expected;
+    core::PrinterProfile recovered;
+    NetworkStatus network;
+  };
+  std::mutex recovered_printer_mutex_;
+  std::unique_ptr<RecoveredPrinter> pending_recovered_printer_;
   int auto_rotation_to_save_ = -1;
   std::uint64_t auto_rotation_save_due_ms_ = 0;
   std::atomic<int> pending_brightness_{-1};

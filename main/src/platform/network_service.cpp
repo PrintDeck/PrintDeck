@@ -180,6 +180,7 @@ esp_err_t NetworkService::start(const core::DeviceSettings& settings) {
                 station_mac[0], station_mac[1], station_mac[2], station_mac[3],
                 station_mac[4], station_mac[5]);
   device_id_ = device_id.data();
+  home_assistant_mqtt_ = settings.mqtt.enabled && !settings.mqtt.discovery;
   std::array<char, 33> setup_network{};
   std::snprintf(setup_network.data(), setup_network.size(), "%s-%02X%02X%02X",
                 kSetupNetworkPrefix, access_point_mac[3], access_point_mac[4],
@@ -297,6 +298,7 @@ esp_err_t NetworkService::start_mdns() {
   mdns_txt_item_t api_txt[] = {
       {.key = "id", .value = device_id_.c_str()},
       {.key = "api", .value = "v1"},
+      {.key = "ha_mqtt", .value = home_assistant_mqtt_ ? "1" : "0"},
       {.key = "path", .value = "/v1"},
       {.key = "auth", .value = "bearer"},
       {.key = "hardware", .value = kBoardVariant},
@@ -316,6 +318,19 @@ esp_err_t NetworkService::start_mdns() {
 
   ESP_LOGI(kLogTag, "Web Config and Unified API advertised at http://%s.local/",
            mdns_hostname_.c_str());
+  return ESP_OK;
+}
+
+esp_err_t NetworkService::set_home_assistant_mqtt(bool enabled) {
+  const std::lock_guard<std::mutex> mdns_lock(mdns_mutex_);
+  if (home_assistant_mqtt_ == enabled) return ESP_OK;
+  if (mdns_started_.load(std::memory_order_acquire)) {
+    const esp_err_t result = mdns_service_txt_item_set_for_host(
+        nullptr, kMdnsApiService, "_tcp", mdns_hostname_.c_str(), "ha_mqtt",
+        enabled ? "1" : "0");
+    if (result != ESP_OK) return result;
+  }
+  home_assistant_mqtt_ = enabled;
   return ESP_OK;
 }
 
