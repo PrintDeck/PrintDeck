@@ -1,6 +1,6 @@
 {
   "name": "PrintDeck \u00b7 KNOMI2",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "new_install_prompt_erase": true,
   "builds": [
     {
