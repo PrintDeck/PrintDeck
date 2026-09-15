@@ -11,11 +11,11 @@ namespace {
 constexpr MqttSensor kPrinterSensors[] = {
     {"phase", "Job state", "status.job.phase", "", "enum", false, false},
     {"activity", "Activity", "status.job.activity", "", "enum", false, true},
-    {"progress", "Progress", "status.job.progress_percent", "%", "", false, true},
+    {"progress", "Progress", "status.job.progress_percent", "%", "", false, false},
     {"job_name", "Job name", "status.job.name", "", "", false, false},
     {"job_kind", "Job type", "status.job.kind", "", "enum", false, false},
     {"remaining_time", "Remaining time", "status.job.remaining_seconds", "s", "duration", false, false},
-    {"elapsed_time", "Elapsed time", "status.job.elapsed_seconds", "s", "duration", false, true},
+    {"elapsed_time", "Elapsed time", "status.job.elapsed_seconds", "s", "duration", false, false},
     {"current_layer", "Current layer", "status.job.current_layer", "", "", false, true},
     {"total_layers", "Total layers", "status.job.total_layers", "", "", false, true},
     {"nozzle_temperature", "Nozzle temperature", "status.temperatures.nozzle_current_c", "°C", "temperature", false, true},
@@ -31,6 +31,8 @@ constexpr MqttSensor kPrinterSensors[] = {
     {"online", "Online", "status.connection.reachability", "", "connectivity", true, false},
     {"selected", "Selected", "printer.selected", "", "", true, false},
     {"data_stale", "Data stale", "status.connection.stale", "", "problem", true, false},
+    {"condition", "Printer condition", "status.job.condition", "", "enum", false, false},
+    {"print_events", "Print events", "event.event_type", "", "", false, false, true},
 };
 constexpr MqttSensor kDeviceSensors[] = {
     {"battery_level", "Battery", "device.power.battery_percent", "%", "battery", false, false},
@@ -62,6 +64,8 @@ constexpr const char* kNames[][6] = {
     {"Connection", "Połączenie", "Conexión", "Connexion", "Verbindung", "连接"},
     {"Selected printer", "Wybrana drukarka", "Impresora seleccionada", "Imprimante sélectionnée", "Ausgewählter Drucker", "已选打印机"},
     {"Stale data", "Nieaktualne dane", "Datos obsoletos", "Données obsolètes", "Veraltete Daten", "过期数据"},
+    {"Printer condition", "Stan drukarki", "Condición de la impresora", "État de l’imprimante", "Druckerzustand", "打印机状况"},
+    {"Print events", "Zdarzenia wydruku", "Eventos de impresión", "Événements d’impression", "Druckereignisse", "打印事件"},
     {"Battery level", "Poziom baterii", "Nivel de batería", "Niveau de batterie", "Batteriestand", "电池电量"},
     {"Battery charging", "Ładowanie baterii", "Batería cargando", "Batterie en charge", "Batterie wird geladen", "电池充电"},
     {"External power", "Zasilanie zewnętrzne", "Alimentación externa", "Alimentation externe", "Externe Stromversorgung", "外部供电"},
@@ -80,6 +84,7 @@ std::string_view options(std::size_t index) {
     case 16: return R"(["unknown","stopped","waiting_for_network","connecting","online","offline"])";
     case 17: return R"(["unknown","online","offline"])";
     case 18: return R"(["summary","full"])";
+    case 22: return R"(["unknown","normal","ready","busy","attention","error"])";
     default: return {};
   }
 }
@@ -199,12 +204,12 @@ std::string template_prefix(const MqttSensor& sensor) {
 std::string validity(std::size_t index) {
   if (const auto list = options(index); !list.empty()) return "v is string and v in " + std::string(list);
   if (index == 19) return "v is string and v in ['online','offline']";
-  if (index == 20 || index == 21 || index == 23 || index == 24) return "v is boolean";
+  if (index == 20 || index == 21 || index == 25 || index == 26) return "v is boolean";
   if (index == 3 || index == 14) return "v is string and v|length > 0";
   std::string check = "v is number and v is not boolean and v == v";
   // Bounds also exclude JSON infinities. Temperatures permit cold environments.
   if (index >= 9 && index <= 13) return check + " and -273.15 <= v <= 3000";
-  if (index == 2 || index == 22) return check + " and 0 <= v <= 100";
+  if (index == 2 || index == 24) return check + " and 0 <= v <= 100";
   if (index == 15) return check + " and 1 <= v <= 65535";
   return check + " and 0 <= v <= 4294967295";
 }
@@ -224,7 +229,7 @@ const MqttSensor* mqtt_discovery_sensor_at(std::uint32_t profile_id, std::size_t
 std::string mqtt_discovery_topic(std::string_view device_id, std::uint32_t profile_id,
                                  const MqttSensor& sensor) {
   if (!valid_id(device_id) || sensor_index(sensor, profile_id == 0) >= std::size(kNames)) return {};
-  std::string result = sensor.binary ? "homeassistant/binary_sensor/" : "homeassistant/sensor/";
+  std::string result = sensor.event ? "homeassistant/event/" : sensor.binary ? "homeassistant/binary_sensor/" : "homeassistant/sensor/";
   result.append(device_id);
   if (profile_id != 0) { result += '_'; result += std::to_string(profile_id); }
   result += '_'; result += sensor.key; result += "/config";
@@ -250,7 +255,7 @@ std::string mqtt_discovery_json(std::string_view device_id, std::string_view roo
   if (!device) { identity += '_'; identity += id; }
   std::string topic(root);
   if (device) topic += "/device";
-  else { topic += "/printers/"; topic += id; topic += metadata ? "/info" : "/status"; }
+  else { topic += "/printers/"; topic += id; topic += sensor.event ? "/events" : metadata ? "/info" : "/status"; }
   const auto prefix = template_prefix(sensor);
   const auto valid = validity(index);
 
@@ -258,35 +263,40 @@ std::string mqtt_discovery_json(std::string_view device_id, std::string_view roo
   json.append("{\"name\":"); json.quote({kNames[index][language_index(language)]});
   json.append(",\"unique_id\":"); json.quote({identity, "_", sensor.key});
   json.property("state_topic", topic);
-  json.append(",\"qos\":0,\"expire_after\":90,\"availability_mode\":\"all\",\"availability\":[{\"topic\":");
-  json.quote({root, "/availability"});
-  json.append("},{\"topic\":"); json.quote({topic});
-  json.append(",\"value_template\":");
-  std::string gates = "value_json is mapping and value_json.get('api_version') == 'v1' and (" + valid + ")";
-  if (!device && index < 14) {
-    gates += " and c is mapping and c.get('stale') is sameas false";
-    if (sensor.full) gates += " and c.get('detail_level') == 'full'";
-  } else if (device) {
-    gates += " and p is mapping and p.get('available') is sameas true";
-    if (index != 24) gates += " and p.get('battery_present') is sameas true";
-  }
-  json.quote({prefix, "{{ 'online' if ", gates, " else 'offline' }}"});
-  json.append("}],\"value_template\":");
-  if (sensor.binary) {
-    json.quote({prefix, "{{ ('ON' if ", index == 19 ? "v == 'online'" : "v is sameas true",
-                " else 'OFF') if (", valid, ") else none }}"});
-    json.property("payload_on", "ON"); json.property("payload_off", "OFF");
+  if (sensor.event) {
+    json.append(",\"event_types\":[\"started\",\"paused\",\"resumed\",\"completed\",\"failed\",\"cancelled\",\"milestone\",\"attention\",\"attention_cleared\"]");
+    json.property("availability_topic", std::string(root) + "/availability");
   } else {
-    json.quote({prefix, "{{ v if (", options(index).empty() ? std::string_view(valid) : "v is string",
-                ") else none }}"});
+    json.append(",\"qos\":0,\"expire_after\":90,\"availability_mode\":\"all\",\"availability\":[{\"topic\":");
+    json.quote({root, "/availability"});
+    json.append("},{\"topic\":"); json.quote({topic});
+    json.append(",\"value_template\":");
+    std::string gates = "value_json is mapping and value_json.get('api_version') == 'v1' and (" + valid + ")";
+    if (!device && (index < 14 || index == 22)) {
+      gates += " and c is mapping and c.get('stale') is sameas false";
+      if (sensor.full) gates += " and c.get('detail_level') == 'full'";
+    } else if (device) {
+      gates += " and p is mapping and p.get('available') is sameas true";
+      if (index != 26) gates += " and p.get('battery_present') is sameas true";
+    }
+    json.quote({prefix, "{{ 'online' if ", gates, " else 'offline' }}"});
+    json.append("}],\"value_template\":");
+    if (sensor.binary) {
+      json.quote({prefix, "{{ ('ON' if ", index == 19 ? "v == 'online'" : "v is sameas true",
+                  " else 'OFF') if (", valid, ") else none }}"});
+      json.property("payload_on", "ON"); json.property("payload_off", "OFF");
+    } else {
+      json.quote({prefix, "{{ v if (", options(index).empty() ? std::string_view(valid) : "v is string",
+                  ") else none }}"});
+    }
+    if (sensor.unit[0]) json.property("unit_of_measurement", sensor.unit);
+    if (sensor.device_class[0]) json.property("device_class", sensor.device_class);
+    if (const auto list = options(index); !list.empty()) {
+      json.append(",\"options\":"); json.append(list);
+    }
+    if (index == 2 || (index >= 9 && index <= 13) || index == 24) json.property("state_class", "measurement");
+    if ((index >= 14 && index <= 18) || index == 20 || index == 21) json.property("entity_category", "diagnostic");
   }
-  if (sensor.unit[0]) json.property("unit_of_measurement", sensor.unit);
-  if (sensor.device_class[0]) json.property("device_class", sensor.device_class);
-  if (const auto list = options(index); !list.empty()) {
-    json.append(",\"options\":"); json.append(list);
-  }
-  if (index == 2 || (index >= 9 && index <= 13) || index == 22) json.property("state_class", "measurement");
-  if ((index >= 14 && index <= 18) || index == 20 || index == 21) json.property("entity_category", "diagnostic");
   json.append(",\"device\":{\"identifiers\":["); json.quote({identity}); json.append("],\"name\":");
   if (device || printer->display_name.empty()) json.quote({"PrintDeck", device ? "" : " ", id});
   else json.quote({printer->display_name});

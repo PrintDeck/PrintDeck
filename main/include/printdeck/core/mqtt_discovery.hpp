@@ -18,6 +18,7 @@ struct MqttSensor {
   const char* device_class;
   bool binary;
   bool full;
+  bool event = false;
 };
 
 inline constexpr std::size_t kMqttDiscoveryMaxBytes = 2048;

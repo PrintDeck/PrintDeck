@@ -32,13 +32,21 @@ bool get(const std::string& host,const char* path,Body& body,int timeout) {
   }
   // Read explicitly: an event callback error does not reliably stop a peer
   // sending an oversized or indefinitely chunked response.
-  while(ok && !esp_http_client_is_complete_data_received(client)) {
+  // fetch_headers may receive the entire body into the HTTP client's cache.
+  // Network completion does not mean we have copied those bytes: drain read()
+  // before checking completion, including for small identity responses.
+  while(ok) {
     const auto remaining=deadline-now_ms();
-    if(remaining<=0 || body.size==body.limit){ok=false;break;}
+    if(remaining<=0){ok=false;break;}
     esp_http_client_set_timeout_ms(client,std::min<std::int64_t>(timeout,remaining));
-    const int count=esp_http_client_read(client,reinterpret_cast<char*>(body.bytes+body.size),
-                                        std::min<std::size_t>(1024,body.limit-body.size));
+    // Probe one byte at the limit so an exactly full body succeeds, while an
+    // oversized chunked response is rejected without writing past the buffer.
+    char overflow=0;
+    const bool full=body.size==body.limit;
+    const int count=esp_http_client_read(client,full?&overflow:reinterpret_cast<char*>(body.bytes+body.size),
+                                        full?1:std::min<std::size_t>(1024,body.limit-body.size));
     if(count<=0){ok=count==0 && esp_http_client_is_complete_data_received(client);break;}
+    if(full){ok=false;break;}
     body.size+=count;
   }
   esp_http_client_close(client);

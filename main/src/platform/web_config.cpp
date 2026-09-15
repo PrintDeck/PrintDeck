@@ -2244,6 +2244,7 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint
   std::vector<core::UnifiedPrinterView> views;
   std::uint32_t selected_profile = 0;
   std::uint32_t poll_interval_s = 60;
+  std::vector<std::uint32_t> configured_ids;
   SelectedPrinterSnapshotCallback snapshot_callback = nullptr;
   void* snapshot_context = nullptr;
   UnifiedApiActivityCallback activity_callback = nullptr;
@@ -2258,6 +2259,7 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint
     activity_context = unified_api_activity_context_;
     views.reserve(profile_id ? 1 : settings_.profiles.size());
     for (const core::PrinterProfile& profile : settings_.profiles) {
+      configured_ids.push_back(profile.id);
       if (profile_id && profile.id != profile_id) continue;
       views.emplace_back();
       core::UnifiedPrinterView& view = views.back();
@@ -2321,6 +2323,10 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint
         view.snapshot.job.phase = status->phase;
         view.snapshot.job.kind = status->kind;
         view.snapshot.job.name = status->job_name;
+        view.snapshot.job.completion = status->completion;
+        view.snapshot.job.completion_known = status->completion_known;
+        view.snapshot.job.elapsed_seconds = status->elapsed_seconds;
+        view.snapshot.job.elapsed_known = status->elapsed_known;
         view.snapshot.job.remaining_seconds = status->remaining_seconds;
         view.snapshot.job.remaining_known = status->remaining_known;
         view.snapshot.job.condition = status->condition;
@@ -2331,6 +2337,28 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint
             now_ms < status->updated_at_ms ||
             now_ms - status->updated_at_ms > inactive_stale_ms;
       }
+    }
+  }
+  {
+    const std::lock_guard<std::mutex> event_lock(print_events_mutex_);
+    for (auto it = print_event_slots_.begin(); it != print_event_slots_.end();) {
+      if (std::find(configured_ids.begin(), configured_ids.end(), it->first) == configured_ids.end())
+        it = print_event_slots_.erase(it);
+      else ++it;
+    }
+    for (auto& view : views) {
+      auto& slot = print_event_slots_[view.id];
+      if (!slot.tracker.history().stream || slot.endpoint != view.endpoint || slot.protocol != view.protocol) {
+        const auto stream = (static_cast<std::uint64_t>(esp_random()) << 32) | esp_random();
+        slot = {view.endpoint, view.protocol, core::PrintEventTracker(stream ? stream : 1)};
+      }
+      slot.tracker.observe(view.snapshot.job, view.snapshot.updated_at_ms, view.stale, now_ms,
+          view.selected ? 30'000 : std::max<std::uint64_t>(30'000, inactive_stale_ms));
+      view.print_events = slot.tracker.history();
+      view.observed_at_ms = now_ms;
+      if (view.print_events.count)
+        view.observed_at_ms = std::max(now_ms,
+            view.print_events.events[view.print_events.count - 1].observed_at_ms);
     }
   }
   return views;

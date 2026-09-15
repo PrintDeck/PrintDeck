@@ -2,6 +2,7 @@
 #include <array>
 #include <atomic>
 #include <mutex>
+#include <map>
 #include <string>
 #include "mqtt_client.h"
 #include "printdeck/core/settings.hpp"
@@ -53,6 +54,7 @@ class MqttExportService {
   std::mutex configuration_mutex_, registry_mutex_;
   std::uint32_t catalog_hash_ = 0, session_nonce_ = 0, generation_counter_ = 0;
   std::string generation_;
+  std::map<std::uint32_t, std::pair<std::uint64_t, std::uint32_t>> event_cursors_;
   std::array<std::uint64_t, core::kMaximumProfiles + 1> registry_{};
   esp_mqtt_client_handle_t client_ = nullptr;
   core::MqttSettings active_;

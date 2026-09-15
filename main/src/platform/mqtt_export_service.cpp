@@ -267,6 +267,9 @@ bool MqttExportService::publish_cycle() {
   const auto power=source_->unified_power();
   if(!publish(root_+"/device",envelope(core::unified_api_snapshot_json({},power)),false,false)) return false;
   const auto ids=source_->unified_printer_ids();
+  for(auto it=event_cursors_.begin();it!=event_cursors_.end();) {
+    if(!contains(ids,it->first)) it=event_cursors_.erase(it); else ++it;
+  }
   for(auto id:ids) {
     if(!id) continue;
     if(reset_requested_ || !source_->mqtt_settings_equal(active_)) return false;
@@ -279,6 +282,24 @@ bool MqttExportService::publish_cycle() {
        !publish(path+"/status",envelope(core::unified_api_status_json(view)),false,false) ||
        !publish(path+"/nozzles",core::unified_api_nozzles_json(view),false,false) ||
        !publish(path+"/materials",core::unified_api_materials_json(view),false,false)) return false;
+    const auto& history=view.print_events;
+    auto& cursor=event_cursors_[view.id];
+    if(cursor.first==history.stream && cursor.first) {
+      for(std::size_t index=0;index<history.count;++index) {
+        const auto& event=history.events[index];
+        if(event.sequence<=cursor.second) continue;
+        // Old journal entries are for explicit consumers, never delayed announcements.
+        if(now_ms()>=static_cast<std::int64_t>(event.observed_at_ms) &&
+           now_ms()-static_cast<std::int64_t>(event.observed_at_ms)<=30'000) {
+          auto payload=core::unified_api_print_event_json(history,event);
+          payload.pop_back();
+          payload+=",\"printdeck_id\":\""+device_id_+"\",\"printer_id\":\""+std::to_string(view.id)+"\",\"routing_key\":\""+device_id_+":"+std::to_string(view.id)+"\",\"event_id\":\""+device_id_+":"+std::to_string(view.id)+":"+core::print_stream_id(history.stream)+":"+std::to_string(event.sequence)+"\"}";
+          if(!publish(path+"/events",payload,false,false)) return false;
+        }
+        cursor.second=event.sequence;
+      }
+    }
+    cursor={history.stream,history.sequence};
     vTaskDelay(pdMS_TO_TICKS(10));
   }
   return publish(root_+"/availability","online",true,false);
@@ -293,6 +314,7 @@ void MqttExportService::destroy_client() {
     client_=nullptr;
   }
   connected_=false;
+  event_cursors_.clear();
 }
 
 void MqttExportService::run() {

@@ -3,6 +3,7 @@
 #include <atomic>
 #include <array>
 #include <mutex>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -264,6 +265,13 @@ class WebConfig {
   mutable std::mutex backup_crypto_mutex_;
   mutable std::mutex live_view_capture_mutex_;
   std::atomic<std::uint64_t> live_view_next_input_ms_{0};
+  struct PrintEventSlot {
+    std::string endpoint;
+    core::PrinterProtocol protocol = core::PrinterProtocol::moonraker;
+    core::PrintEventTracker tracker;
+  };
+  mutable std::mutex print_events_mutex_;
+  mutable std::map<std::uint32_t, PrintEventSlot> print_event_slots_;
   mutable std::mutex mutex_;
   core::DeviceSettings settings_;
   const SettingsStore* store_ = nullptr;

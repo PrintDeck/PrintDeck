@@ -189,6 +189,19 @@ void append_status_object(std::string& output, const UnifiedPrinterView& printer
   append_connection(output, printer);
   output += ",\"job\":";
   append_job(output, printer.snapshot.job);
+  const auto& history = printer.print_events;
+  if (history.stream) {
+    output += ",\"print_events\":{\"stream_id\":\"" + print_stream_id(history.stream) +
+        "\",\"sequence\":" + std::to_string(history.sequence) + ",\"job_id\":";
+    if (history.session) append_json_string(output, print_job_id(history.stream, history.session));
+    else output += "null";
+    output += ",\"observed_at_ms\":" + std::to_string(printer.observed_at_ms) + ",\"events\":[";
+    for (std::size_t i = 0; i < history.count; ++i) {
+      if (i) output += ',';
+      output += unified_api_print_event_json(history, history.events[i]);
+    }
+    output += "]}";
+  }
   if (!compact) {
     output += ",\"temperatures\":";
     append_temperatures(output, printer);
@@ -281,6 +294,29 @@ void append_slot(std::string& output, const MaterialSlot& slot, std::size_t inde
 }
 
 }  // namespace
+
+std::string unified_api_print_event_json(const PrintEventHistory& history, const PrintEvent& event) {
+  std::string output = "{\"event_type\":\"" + std::string(print_event_type_id(event.type)) +
+      "\",\"stream_id\":\"" + print_stream_id(history.stream) + "\",\"sequence\":" +
+      std::to_string(event.sequence) + ",\"job_id\":";
+  if (event.session) append_json_string(output, print_job_id(history.stream, event.session));
+  else output += "null";
+  output += ",\"observed_at_ms\":" + std::to_string(event.observed_at_ms) +
+      ",\"job_kind\":\"" + kind_id(event.kind) + "\",\"progress_percent\":";
+  append_nullable_float(output, event.progress_known, event.progress);
+  output += ",\"milestone\":" + std::to_string(event.milestone);
+  const char* condition = "unknown";
+  switch (event.condition) {
+    case PrinterCondition::normal: condition = "normal"; break;
+    case PrinterCondition::ready: condition = "ready"; break;
+    case PrinterCondition::busy: condition = "busy"; break;
+    case PrinterCondition::attention: condition = "attention"; break;
+    case PrinterCondition::error: condition = "error"; break;
+    case PrinterCondition::unknown: break;
+  }
+  output += ",\"condition\":\"" + std::string(condition) + "\"}";
+  return output;
+}
 
 std::string unified_api_printers_json(std::span<const UnifiedPrinterView> printers) {
   std::string output = "{\"api_version\":\"v1\",\"printers\":[";

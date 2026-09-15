@@ -5,6 +5,7 @@
 #include <string>
 
 #include "printdeck/core/device_state.hpp"
+#include "printdeck/core/print_events.hpp"
 
 namespace printdeck::core {
 
@@ -25,6 +26,8 @@ struct UnifiedPrinterView {
   UnifiedApiDetailLevel detail_level = UnifiedApiDetailLevel::summary;
   PrinterSnapshot snapshot;
   bool stale = true;
+  PrintEventHistory print_events;
+  std::uint64_t observed_at_ms = 0;
 };
 
 struct UnifiedDevicePower {
@@ -35,6 +38,7 @@ struct UnifiedDevicePower {
   bool external_power = false;
 };
 
+std::string unified_api_print_event_json(const PrintEventHistory& history, const PrintEvent& event);
 std::string unified_api_printers_json(std::span<const UnifiedPrinterView> printers);
 std::string unified_api_statuses_json(std::span<const UnifiedPrinterView> printers);
 std::string unified_api_snapshot_json(std::span<const UnifiedPrinterView> printers,
