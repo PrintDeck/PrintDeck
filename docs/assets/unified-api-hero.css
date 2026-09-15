@@ -79,3 +79,7 @@
   .api-page .api-hero .api-integration-chip img { width: 29px; height: 29px; }
   .api-page .api-hero-scene { height: clamp(235px, 62vw, 330px); margin-top: 6px; }
 }
+
+.api-page .api-hero .api-integrations-track { width: auto; flex-wrap: wrap; }
+.api-page .api-hero .api-integration-mqtt { color: #56d9b8; padding-inline: 12px; }
+.api-page .api-hero .api-integration-mqtt svg { flex: 0 0 28px; width: 28px; height: 28px; }

@@ -8,8 +8,8 @@
 
 
     <title>统一打印机 API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260910-api-2">
-    <link rel="stylesheet" href="/assets/unified-api-hero.css?v=20260910-10">
+    <link rel="stylesheet" href="/assets/site.css?v=20260915-mqtt-1">
+    <link rel="stylesheet" href="/assets/unified-api-hero.css?v=20260915-mqtt-1">
     <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏","Automatic appearance":"自动外观"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
@@ -84,6 +84,10 @@
                 <img src="/assets/integrations/home-assistant.png" alt="">
                 <strong>Home Assistant</strong>
               </a>
+              <a class="api-integration-chip api-integration-mqtt" href="/zh-cn/unified-printer-api/home-assistant-mqtt/" aria-label="MQTT 设置指南">
+                <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="7" cy="25" r="3" fill="currentColor"></circle><path d="M5 15a12 12 0 0 1 12 12M5 5a22 22 0 0 1 22 22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>
+                <strong translate="no">MQTT</strong>
+              </a>
             </div>
           </div>
         </div>
@@ -151,6 +155,7 @@
                   <span>GET /v1/...</span>
                   <strong>统一 JSON</strong>
                   <code>{<br>&nbsp;&nbsp;"printer": ...,<br>&nbsp;&nbsp;"state": ...,<br>&nbsp;&nbsp;"progress": ...<br>}</code>
+                  <a class="home-unified-mqtt" href="/zh-cn/unified-printer-api/home-assistant-mqtt/" aria-label="MQTT 设置指南"><span translate="no">MQTT</span></a>
                 </article>
                 <img class="home-unified-output-lines" src="/assets/marketing/home/unified-api-outputs.svg" alt="" aria-hidden="true">
                 <div class="home-unified-apps" aria-label="你的应用">
@@ -298,7 +303,17 @@
           </div>
         </div>
       </section>
-<section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>通过 MQTT 连接 Home Assistant</h2><p>将 PrintDeck 连接到 Mosquitto。选择 MQTT 自动发现，或在 HACS 的 PrintDeck 集成中选择 MQTT 连接。</p></header><div class="site-actions"><a class="site-button" href="/zh-cn/unified-printer-api/home-assistant-mqtt/">打开 MQTT 设置</a></div></div></section>
+      <section class="api-section mqtt-overview" id="mqtt">
+        <div class="api-inner">
+          <header class="api-section-head"><h2>为本地工具提供 MQTT</h2><p>PrintDeck 将统一格式的打印机数据发送到 Mosquitto 等本地代理。应用订阅更新，无需反复请求 REST API。HTTP 和 MQTT 可以独立运行，也可以同时使用。</p></header>
+          <div class="api-card-grid mqtt-feature-grid">
+            <article><span>01</span><h3>状态更新</h3><p>在仪表板或 Node-RED 流程中接收任务状态、进度、温度和可用性信息。</p></article>
+            <article><span>02</span><h3>打印事件</h3><p>对检测到的打印开始、进度里程碑和需关注事件作出响应。实时事件不会保留，也不会在重新连接后重放。</p></article>
+            <article><span>03</span><h3>Home Assistant 自动发现</h3><p>让 Home Assistant 通过内置 MQTT 集成自动创建设备和实体。也可以通过 HACS 使用 PrintDeck 的 MQTT 连接，此时请关闭标准自动发现。</p></article>
+          </div>
+          <div class="site-actions"><a class="site-button" href="/zh-cn/unified-printer-api/home-assistant-mqtt/">打开 MQTT 设置</a></div>
+        </div>
+      </section>
     </main>
 
     <footer class="site-footer">

@@ -7,16 +7,17 @@
 
 
 
-    <title>通过 MQTT 连接 Home Assistant</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <title>为本地工具提供 MQTT</title>
+    <link rel="stylesheet" href="/assets/site.css?v=20260915-mqtt-1">
     <link rel="stylesheet" href="/assets/home-assistant-hero.css?v=20260910-4">
     <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/mqtt-guide.css?v=20260915-1">
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏","Automatic appearance":"自动外观"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
 
-    <meta name="description" content="将 PrintDeck 连接到 Mosquitto。选择 MQTT 自动发现，或在 HACS 的 PrintDeck 集成中选择 MQTT 连接。">
+    <meta name="description" content="将打印机状态和打印事件发送到自己的本地代理。使用你选择的工具构建仪表板、通知和自动化。">
     <link rel="canonical" href="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant-mqtt/">
     <link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant-mqtt/">
     <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant-mqtt/">
@@ -33,17 +34,17 @@
     <meta property="og:locale:alternate" content="es_ES">
     <meta property="og:locale:alternate" content="fr_FR">
     <meta property="og:locale:alternate" content="de_DE">
-    <meta property="og:title" content="通过 MQTT 连接 Home Assistant">
-    <meta property="og:description" content="将 PrintDeck 连接到 Mosquitto。选择 MQTT 自动发现，或在 HACS 的 PrintDeck 集成中选择 MQTT 连接。">
+    <meta property="og:title" content="为本地工具提供 MQTT">
+    <meta property="og:description" content="将打印机状态和打印事件发送到自己的本地代理。使用你选择的工具构建仪表板、通知和自动化。">
     <meta property="og:url" content="https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant-mqtt/">
     <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="通过 MQTT 连接 Home Assistant">
-    <meta name="twitter:description" content="将 PrintDeck 连接到 Mosquitto。选择 MQTT 自动发现，或在 HACS 的 PrintDeck 集成中选择 MQTT 连接。">
+    <meta name="twitter:title" content="为本地工具提供 MQTT">
+    <meta name="twitter:description" content="将打印机状态和打印事件发送到自己的本地代理。使用你选择的工具构建仪表板、通知和自动化。">
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"通过 MQTT 连接 Home Assistant","description":"将 PrintDeck 连接到 Mosquitto。选择 MQTT 自动发现，或在 HACS 的 PrintDeck 集成中选择 MQTT 连接。","url":"https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant-mqtt/","inLanguage":"zh-CN","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"为本地工具提供 MQTT","description":"将打印机状态和打印事件发送到自己的本地代理。使用你选择的工具构建仪表板、通知和自动化。","url":"https://printdeck.xyz/zh-cn/unified-printer-api/home-assistant-mqtt/","inLanguage":"zh-CN","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
-  <body class="site-page wide-hero-page api-page api-integration-page" data-page-title="通过 MQTT 连接 Home Assistant">
+  <body class="site-page wide-hero-page api-page api-integration-page mqtt-page" data-page-title="为本地工具提供 MQTT">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/zh-cn/" aria-label="首页">
@@ -62,7 +63,103 @@
       </div>
     </header>
 
-    <main class="api-content"><section class="api-section"><div class="api-inner"><a class="ha-back-link" href="/zh-cn/unified-printer-api/home-assistant/">Home Assistant</a><header class="api-section-head"><h1>通过 MQTT 连接 Home Assistant</h1><p>将 PrintDeck 连接到 Mosquitto。选择 MQTT 自动发现，或在 HACS 的 PrintDeck 集成中选择 MQTT 连接。</p></header><ol class="ha-guide-steps"><li><div class="ha-step-copy"><span>01</span><div><h2>准备 Mosquitto</h2><p>在 Home Assistant 中安装 Mosquitto 服务器应用，或使用现有的本地服务器。配置 Home Assistant 的 MQTT 集成，并为 PrintDeck 创建服务器凭据。两者必须连接到同一台服务器。</p></div></div></li><li><div class="ha-step-copy"><span>02</span><div><h2>连接 PrintDeck</h2><p>打开 Web Config &gt; 设备设置 &gt; Unified API。启用 MQTT 并输入服务器地址、端口和凭据。使用 PrintDeck 能访问的地址，而不是 HA 内部的应用名称。保存并检查连接状态。HTTP 和 MQTT 可独立启用。</p></div></div></li><li><div class="ha-step-copy"><span>03</span><div><h2>选择一种 Home Assistant 接入方式</h2><p>若使用 Home Assistant 内置 MQTT 集成，请在 PrintDeck 中启用 Home Assistant MQTT 自动发现。设备和实体会自动出现，无需 HACS。若使用 PrintDeck 集成，请通过 HACS 安装，添加 PrintDeck 并选择 MQTT 连接。此时应关闭自动发现，以避免重复实体。</p></div></div></li><li><div class="ha-step-copy"><span>04</span><div><h2>使用相同的自动化</h2><p>在现有的打印完成和进度里程碑蓝图中选择新的状态与进度实体。从 HTTP 切换之前，请更新仪表盘和自动化中的实体选择。除非确实需要两组实体，否则不要为同一台打印机同时启用两种方式。</p></div></div></li></ol><p class="api-note">请将 HACS 中的 PrintDeck 集成更新至 0.1.7 或更高版本，并重启 Home Assistant。已发现的设备会自动使用其 MQTT 主题。手动设置时，请从 Web Config 复制 MQTT 主题根路径。Home Assistant 使用自身的服务器连接。使用“重新配置”可在 HTTP 和 MQTT 之间切换现有 PrintDeck 集成，并保留实体身份。在标准 MQTT 自动发现和 HACS 之间迁移时，需要更新自动化中选择的实体。</p></div></section><section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>共享的只读数据</h2><p>MQTT 与 HTTP 使用相同的规范化数据：身份、任务状态、进度、时间、温度、工具和材料。只有选中的打印机保持完整实时连接，其他打印机按列表刷新设置更新。未知数据保持未知，过期数据会被标记。MQTT 不添加打印控制或摄像头视频传输。</p></header></div></section><section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>连接与恢复</h2><p>TLS 验证服务器证书和主机名。需要时可添加自己的 CA 证书。保存的凭据保留在 PrintDeck 上，密码和 CA 字段留空即可保留。服务器或 HA 重启后，PrintDeck 会重新连接并发布最新数据。PrintDeck 的连接可用性与各台打印机的状态分别表示。</p></header></div></section><section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>删除旧的自动发现条目</h2><p>更换服务器或切换到 HACS MQTT 前，请在旧服务器仍可访问时关闭自动发现，并等待清理完成。若无法访问旧服务器，可能需要手动删除其保留的发现条目。重命名保留打印机身份，删除配置会移除其发现配置。</p></header></div></section><section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>保留 HTTP 集成</h2><p>现有的 HTTP 指南和 HACS 安装方式保持可用。MQTT 是一种额外的连接选择。</p></header></div></section><section class="api-section"><div class="api-inner"><div class="site-actions"><a class="site-button" href="/zh-cn/unified-printer-api/home-assistant/#first-automation">创建第一个自动化</a><a class="site-button secondary" href="https://www.home-assistant.io/integrations/mqtt/" target="_blank" rel="noopener" translate="no">Home Assistant MQTT</a><a class="site-button secondary" href="/zh-cn/unified-printer-api/home-assistant/#native-integration" translate="no">PrintDeck HACS</a></div></div></section></main>
+    <main class="api-content">
+      <section class="ha-hero">
+        <div class="ha-hero-scene" aria-hidden="true"><img src="/assets/marketing/mqtt/workshop-local-tools.webp" alt="" width="2172" height="724" fetchpriority="high"></div>
+        <div class="api-inner"><div class="ha-hero-copy">
+          <a class="ha-back-link" href="/zh-cn/unified-printer-api/"><span aria-hidden="true">←</span> Unified Printer API</a>
+          <span class="api-eyebrow" translate="no">MQTT · PRINTDECK</span>
+          <h1>打印机动态。<br><strong>通过 MQTT 送达。</strong></h1>
+          <p class="api-lead">将打印机状态和打印事件发送到自己的本地代理。使用你选择的工具构建仪表板、通知和自动化。</p>
+          <div class="site-actions"><a class="site-button" href="#mqtt-setup">打开 MQTT 设置</a><a class="site-button secondary" href="#mqtt-topics">了解 MQTT 主题</a></div>
+        </div></div>
+      </section>
+      <div class="campaign-signal api-signal"><span>仅限本地网络</span><span>设计为只读</span><span>版本化 JSON</span></div>
+      <section class="api-section mqtt-story">
+        <div class="api-inner">
+          <header class="api-section-head"><span class="home-kicker" translate="no">MQTT</span><h2>一个连接。<br><strong>多种可能。</strong></h2><p>PrintDeck 将统一格式的打印机数据发送到 Mosquitto 等本地代理。应用订阅更新，无需反复请求 REST API。HTTP 和 MQTT 可以独立运行，也可以同时使用。</p></header>
+          <div class="mqtt-route">
+            <article><span class="mqtt-route-symbol" aria-hidden="true">01</span><h3 translate="no">PrintDeck</h3><p>收集打印机数据</p></article>
+            <span class="mqtt-route-arrow" aria-hidden="true">→</span>
+            <article class="mqtt-route-broker"><span class="mqtt-route-symbol" aria-hidden="true">02</span><h3>本地代理</h3><p>向订阅者发送更新</p><span class="mqtt-route-pill" translate="no">Mosquitto</span></article>
+            <span class="mqtt-route-arrow" aria-hidden="true">→</span>
+            <article><span class="mqtt-route-symbol" aria-hidden="true">03</span><h3>你的应用</h3><p>仪表板、灯光、通知</p><span class="mqtt-route-pill" translate="no">Node-RED · Home Assistant</span></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section mqtt-start" id="mqtt-setup">
+        <div class="api-inner">
+          <header class="api-section-head"><span class="home-kicker">MQTT 设置指南</span><h2>第一条 MQTT 消息</h2><p>从一台打印机和一个订阅开始。Home Assistant 并非必需。</p></header>
+          <div class="mqtt-start-grid">
+            <ol class="mqtt-steps">
+              <li><span>01</span><div><h3>准备代理</h3><p>使用 Mosquitto 等本地 MQTT 代理。PrintDeck 和应用都是代理的客户端；PrintDeck 本身不提供代理服务。创建登录凭据，允许 PrintDeck 发布主题，并允许应用读取这些主题。</p></div></li>
+              <li><span>02</span><div><h3>连接 PrintDeck</h3><p>在 Web Config 中打开设备设置 &gt; Unified API。开启 MQTT，输入代理地址、端口和凭据，保存并检查连接。TLS 设置应与代理一致。使用自己的应用时，请关闭 Home Assistant 自动发现。</p></div></li>
+              <li><span>03</span><div><h3>订阅打印机状态</h3><p>将 MQTT 客户端连接到同一代理。从 Web Config 复制 MQTT 主题根路径，追加 /printers/+/status。+ 匹配每台已保存的打印机。在 PrintDeck 上选择一台在线打印机，等待约五秒即可收到新数据。</p></div></li>
+            </ol>
+            <figure class="mqtt-message">
+              <figcaption><span class="mqtt-live-dot" aria-hidden="true"></span><span>状态消息示例</span></figcaption>
+              <div class="mqtt-message-topic"><span>订阅</span><code>&lt;topic-root&gt;/printers/+/status</code></div>
+              <pre><code>{
+  "api_version": "v1",
+  "status": {
+    "printer_id": 1,
+    "connection": {
+      "state": "online",
+      "detail_level": "full",
+      "stale": false
+    },
+    "job": {
+      "phase": "printing",
+      "progress_percent": 42.5
+    }
+  },
+  "_mqtt_generation": "12ab34cd-00000001"
+}</code></pre>
+              <p>精简示例。通过 status.job.progress_percent 读取进度，通过 status.job.phase 读取任务状态。</p>
+            </figure>
+          </div>
+          <aside class="mqtt-tip"><strong>在 Node-RED 中试用</strong><p>添加 MQTT 输入节点，选择代理并粘贴上面的状态订阅主题。将输出设置为解析后的 JSON 对象，连接 Debug 节点。点击 Deploy，然后打开 Debug 侧栏，在 msg.payload 中查看各打印机消息。</p></aside>
+        </div>
+      </section>
+
+      <section class="api-section mqtt-topics" id="mqtt-topics">
+        <div class="api-inner mqtt-topics-grid">
+          <header class="api-section-head"><span class="home-kicker">了解 MQTT 主题</span><h2>选择<br><strong>应用接收的数据。</strong></h2><p>主题根路径为 printdeck/&lt;printdeck_id&gt;/v1。从 Web Config 复制实际路径并追加以下后缀。使用 printers 目录中的打印机 ID，或用 + 匹配所有打印机。</p><a class="mqtt-text-link" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">阅读完整 API 指南 <span aria-hidden="true">↗</span></a></header>
+          <div class="mqtt-topic-cards">
+            <article><code>/printers</code><h3>查找打印机</h3><p>已保存打印机及其 ID 的目录。由代理保留。</p></article>
+            <article><code>/printers/+/status</code><h3>状态更新</h3><p>当前任务状态、进度、温度和近期事件日志。约每五秒发送一次实时消息。</p></article>
+            <article><code>/printers/+/events</code><h3>打印事件</h3><p>检测到的单个事件，例如 started、completed 或 milestone。使用 event_type 选择操作，使用 event_id 标识通知。</p></article>
+            <article><code>/availability</code><h3>检查连接</h3><p>代理保留的 PrintDeck 连接状态：online 或 offline。每台打印机的状态消息中都有独立的 status.connection.state。</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section mqtt-ha" id="home-assistant">
+        <div class="api-inner">
+          <header class="api-section-head"><img class="mqtt-ha-logo" src="/assets/integrations/home-assistant.png" width="56" height="56" alt=""><h2>使用 Home Assistant？</h2><p>每台 PrintDeck 选择一种接入方式，以保留一组实体。</p></header>
+          <div class="mqtt-ha-options">
+            <article><span class="home-kicker">Home Assistant 自动发现</span><h3>让实体自动出现。</h3><p>将 Home Assistant 内置 MQTT 集成连接到同一代理。在 PrintDeck 中启用 Home Assistant MQTT 自动发现。设备、传感器和打印事件实体会自动出现，无需 HACS。</p><a class="mqtt-text-link" href="https://www.home-assistant.io/integrations/mqtt/" target="_blank" rel="noopener" translate="no">Home Assistant MQTT <span aria-hidden="true">↗</span></a></article>
+            <article><span class="home-kicker" translate="no">PRINTDECK · HACS</span><h3>使用 PrintDeck 集成。</h3><p>通过 HACS 安装 PrintDeck，设置时选择 MQTT，并关闭标准自动发现。Home Assistant 使用自己的代理连接。请使用当前集成，版本为 0.1.7 或更高。</p><a class="mqtt-text-link" href="/zh-cn/unified-printer-api/home-assistant/#native-integration">安装 PrintDeck 集成 <span aria-hidden="true">→</span></a></article>
+          </div>
+          <div class="site-actions"><a class="site-button" href="/zh-cn/unified-printer-api/home-assistant/#first-automation">创建第一个自动化</a></div>
+        </div>
+      </section>
+
+      <section class="api-section mqtt-faq">
+        <div class="api-inner mqtt-faq-grid">
+          <header class="api-section-head"><span class="home-kicker">值得了解</span><h2>基于<br><strong>新鲜数据。</strong></h2><p>共享的只读数据</p></header>
+          <div class="mqtt-questions">
+            <details open=""><summary>数据有多新？</summary><p>MQTT 使用与 REST 相同的统一打印机字段，并附带传输元数据。状态约每五秒更新一次；非活动打印机仍按打印机列表刷新间隔更新。实时遥测和事件不会保留在代理上。</p><p>使用读数前，检查 status.connection.state、status.connection.stale 和 status.connection.detail_level。未知值为 null。目录和状态消息中的 _mqtt_generation 必须一致；发生变化时清除旧读数。</p></details>
+            <details><summary>会收到每个打印事件吗？</summary><p>事件描述检测到的变化；短暂变化可能被遗漏。单个事件采用 QoS 0，不保留也不重放。状态日志保留最近八条观察记录。跟踪 stream_id 和 sequence 以避免重复操作，重连后先建立基准，不触发历史事件操作。完整事件约定见 API 指南。</p></details>
+            <details><summary>已连接，但没有消息？</summary><p>检查代理地址、端口、TLS 和主题权限。使用 Web Config 中的准确主题根路径。实时状态不保留，请等待下次更新。代理登录凭据与 REST bearer 令牌不同。</p></details>
+            <details><summary>连接与恢复</summary><p>启用 TLS 时，PrintDeck 会验证代理证书和主机名。如有需要，可添加自己的 CA 证书。已保存的机密信息留在 PrintDeck 上。代理重启后，PrintDeck 会重新连接并发布新数据。</p></details>
+            <details><summary>删除旧的自动发现条目</summary><p>更换服务器或切换到 HACS MQTT 前，请在旧服务器仍可访问时关闭自动发现，并等待清理完成。若无法访问旧服务器，可能需要手动删除其保留的发现条目。重命名保留打印机身份，删除配置会移除其发现配置。</p></details>
+          </div>
+        </div>
+      </section>
+      <section class="api-section mqtt-next"><div class="api-inner"><div><span class="home-kicker">Unified Printer API</span><h2>准备实现下一个想法？</h2><p>在 API 指南中查看完整主题参考、消息字段和传输规则。</p></div><a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">下载 API 指南</a></div></section>
+    </main>
 
     <footer class="site-footer">
       <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/zh-cn/support/">联系支持</a> · <a href="/zh-cn/legal/license/">许可证</a> · <a href="/zh-cn/legal/notice/">法律声明</a> · <a href="/zh-cn/legal/privacy/">隐私</a></span>

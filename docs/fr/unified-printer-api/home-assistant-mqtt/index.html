@@ -7,16 +7,17 @@
 
 
 
-    <title>Home Assistant avec MQTT</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <title>MQTT pour vos outils locaux</title>
+    <link rel="stylesheet" href="/assets/site.css?v=20260915-mqtt-1">
     <link rel="stylesheet" href="/assets/home-assistant-hero.css?v=20260910-4">
     <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/mqtt-guide.css?v=20260915-1">
     <script>window.printDeckInstallerI18n={language:"fr",t:(source,values={})=>{let result=({"Play":"Lire","Pause":"Pause","Seek":"Rechercher","{currentTime} of {duration}":"{currentTime} sur {duration}","Played":"Lu","Buffered":"Mis en mémoire tampon","Current time":"Temps actuel","Volume":"Volume","Mute":"Couper le son","Unmute":"Rétablir le son","Enter fullscreen":"Passer en plein écran","Exit fullscreen":"Quitter le plein écran","Automatic appearance":"Apparence automatique"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
 
-    <meta name="description" content="Connectez PrintDeck à Mosquitto. Choisissez la découverte MQTT automatique ou une connexion MQTT dans l’intégration PrintDeck de HACS.">
+    <meta name="description" content="Envoyez l’état des imprimantes et les événements d’impression à votre propre serveur local. Créez des tableaux de bord, notifications et automatisations avec les outils de votre choix.">
     <link rel="canonical" href="https://printdeck.xyz/fr/unified-printer-api/home-assistant-mqtt/">
     <link rel="alternate" hreflang="en" href="https://printdeck.xyz/unified-printer-api/home-assistant-mqtt/">
     <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/unified-printer-api/home-assistant-mqtt/">
@@ -33,17 +34,17 @@
     <meta property="og:locale:alternate" content="es_ES">
     <meta property="og:locale:alternate" content="de_DE">
     <meta property="og:locale:alternate" content="zh_CN">
-    <meta property="og:title" content="Home Assistant avec MQTT">
-    <meta property="og:description" content="Connectez PrintDeck à Mosquitto. Choisissez la découverte MQTT automatique ou une connexion MQTT dans l’intégration PrintDeck de HACS.">
+    <meta property="og:title" content="MQTT pour vos outils locaux">
+    <meta property="og:description" content="Envoyez l’état des imprimantes et les événements d’impression à votre propre serveur local. Créez des tableaux de bord, notifications et automatisations avec les outils de votre choix.">
     <meta property="og:url" content="https://printdeck.xyz/fr/unified-printer-api/home-assistant-mqtt/">
     <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Home Assistant avec MQTT">
-    <meta name="twitter:description" content="Connectez PrintDeck à Mosquitto. Choisissez la découverte MQTT automatique ou une connexion MQTT dans l’intégration PrintDeck de HACS.">
+    <meta name="twitter:title" content="MQTT pour vos outils locaux">
+    <meta name="twitter:description" content="Envoyez l’état des imprimantes et les événements d’impression à votre propre serveur local. Créez des tableaux de bord, notifications et automatisations avec les outils de votre choix.">
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Home Assistant avec MQTT","description":"Connectez PrintDeck à Mosquitto. Choisissez la découverte MQTT automatique ou une connexion MQTT dans l’intégration PrintDeck de HACS.","url":"https://printdeck.xyz/fr/unified-printer-api/home-assistant-mqtt/","inLanguage":"fr","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"MQTT pour vos outils locaux","description":"Envoyez l’état des imprimantes et les événements d’impression à votre propre serveur local. Créez des tableaux de bord, notifications et automatisations avec les outils de votre choix.","url":"https://printdeck.xyz/fr/unified-printer-api/home-assistant-mqtt/","inLanguage":"fr","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
   </head>
-  <body class="site-page wide-hero-page api-page api-integration-page" data-page-title="Home Assistant avec MQTT">
+  <body class="site-page wide-hero-page api-page api-integration-page mqtt-page" data-page-title="MQTT pour vos outils locaux">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="site-brand" href="/fr/" aria-label="Accueil">
@@ -62,7 +63,103 @@
       </div>
     </header>
 
-    <main class="api-content"><section class="api-section"><div class="api-inner"><a class="ha-back-link" href="/fr/unified-printer-api/home-assistant/">Home Assistant</a><header class="api-section-head"><h1>Home Assistant avec MQTT</h1><p>Connectez PrintDeck à Mosquitto. Choisissez la découverte MQTT automatique ou une connexion MQTT dans l’intégration PrintDeck de HACS.</p></header><ol class="ha-guide-steps"><li><div class="ha-step-copy"><span>01</span><div><h2>Préparer Mosquitto</h2><p>Installez l’application serveur Mosquitto dans Home Assistant ou utilisez votre serveur local existant. Configurez l’intégration MQTT dans Home Assistant et créez des identifiants pour PrintDeck. Les deux doivent se connecter au même serveur.</p></div></div></li><li><div class="ha-step-copy"><span>02</span><div><h2>Connecter PrintDeck</h2><p>Ouvrez Web Config &gt; Paramètres de l’appareil &gt; Unified API. Activez MQTT et saisissez l’adresse, le port et les identifiants du serveur. Utilisez une adresse accessible depuis PrintDeck, pas le nom interne de l’application HA. Enregistrez puis vérifiez la connexion. HTTP et MQTT s’activent indépendamment.</p></div></div></li><li><div class="ha-step-copy"><span>03</span><div><h2>Choisir une méthode dans Home Assistant</h2><p>Pour l’intégration MQTT de Home Assistant, activez la découverte MQTT de Home Assistant dans PrintDeck. Les appareils et entités apparaissent automatiquement, sans HACS. Pour l’intégration PrintDeck, installez-la via HACS, ajoutez PrintDeck et choisissez MQTT. Laissez alors la découverte désactivée pour éviter les doublons.</p></div></div></li><li><div class="ha-step-copy"><span>04</span><div><h2>Utiliser les mêmes automatisations</h2><p>Sélectionnez les nouvelles entités d’état et de progression dans les blueprints existants de fin d’impression et de paliers. Avant de quitter HTTP, adaptez les entités des tableaux de bord et automatisations. N’utilisez les deux méthodes pour une même imprimante que si vous souhaitez deux ensembles d’entités.</p></div></div></li></ol><p class="api-note">Mettez l’intégration PrintDeck HACS à jour vers la version 0.1.7 ou ultérieure, puis redémarrez Home Assistant. Les appareils découverts utilisent automatiquement leur sujet MQTT. Pour une configuration manuelle, copiez la racine du sujet MQTT depuis Web Config. Home Assistant utilise sa propre connexion au serveur. Utilisez Reconfigurer pour passer une intégration PrintDeck existante de HTTP à MQTT ou inversement en conservant l’identité des entités. Le passage entre la découverte MQTT standard et HACS nécessite de modifier les entités sélectionnées dans les automatisations.</p></div></section><section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>Des données en lecture seule communes</h2><p>MQTT utilise les mêmes données normalisées que HTTP : identité, état, progression, durées, températures, outils et matériaux. Seule l’imprimante sélectionnée possède une connexion complète en direct ; les autres suivent l’actualisation de la liste. Les données inconnues ou anciennes sont signalées. MQTT n’ajoute ni commandes d’imprimante ni vidéo.</p></header></div></section><section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>Connexion et rétablissement</h2><p>TLS vérifie le certificat et le nom du serveur. Ajoutez votre CA si nécessaire. Les secrets restent dans PrintDeck ; des champs mot de passe et CA vides les conservent. Après un redémarrage du serveur ou de HA, PrintDeck se reconnecte et publie des données récentes. Sa disponibilité est distincte de l’état de chaque imprimante.</p></header></div></section><section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>Supprimer les anciennes entrées de découverte</h2><p>Avant de changer de serveur ou de passer à HACS MQTT, désactivez la découverte pendant que l’ancien serveur reste accessible et attendez la fin du nettoyage. S’il est inaccessible, ses entrées conservées peuvent nécessiter une suppression manuelle. Renommer conserve l’identité ; supprimer un profil retire sa configuration de découverte.</p></header></div></section><section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>Conserver l’intégration HTTP</h2><p>Le guide HTTP et l’installation via HACS restent disponibles. MQTT est un choix de connexion supplémentaire.</p></header></div></section><section class="api-section"><div class="api-inner"><div class="site-actions"><a class="site-button" href="/fr/unified-printer-api/home-assistant/#first-automation">Créer la première automatisation</a><a class="site-button secondary" href="https://www.home-assistant.io/integrations/mqtt/" target="_blank" rel="noopener" translate="no">Home Assistant MQTT</a><a class="site-button secondary" href="/fr/unified-printer-api/home-assistant/#native-integration" translate="no">PrintDeck HACS</a></div></div></section></main>
+    <main class="api-content">
+      <section class="ha-hero">
+        <div class="ha-hero-scene" aria-hidden="true"><img src="/assets/marketing/mqtt/workshop-local-tools.webp" alt="" width="2172" height="724" fetchpriority="high"></div>
+        <div class="api-inner"><div class="ha-hero-copy">
+          <a class="ha-back-link" href="/fr/unified-printer-api/"><span aria-hidden="true">←</span> Unified Printer API</a>
+          <span class="api-eyebrow" translate="no">MQTT · PRINTDECK</span>
+          <h1>Les nouvelles de vos imprimantes.<br><strong>Transmises par MQTT.</strong></h1>
+          <p class="api-lead">Envoyez l’état des imprimantes et les événements d’impression à votre propre serveur local. Créez des tableaux de bord, notifications et automatisations avec les outils de votre choix.</p>
+          <div class="site-actions"><a class="site-button" href="#mqtt-setup">Ouvrir la configuration MQTT</a><a class="site-button secondary" href="#mqtt-topics">Explorer les sujets MQTT</a></div>
+        </div></div>
+      </section>
+      <div class="campaign-signal api-signal"><span>Réseau local uniquement</span><span>Lecture seule par conception</span><span>JSON versionné</span></div>
+      <section class="api-section mqtt-story">
+        <div class="api-inner">
+          <header class="api-section-head"><span class="home-kicker" translate="no">MQTT</span><h2>Une connexion.<br><strong>De nombreuses possibilités.</strong></h2><p>PrintDeck envoie les données normalisées des imprimantes à un serveur local tel que Mosquitto. Vos applications s’abonnent aux mises à jour au lieu d’interroger régulièrement l’API REST. HTTP et MQTT peuvent fonctionner séparément ou ensemble.</p></header>
+          <div class="mqtt-route">
+            <article><span class="mqtt-route-symbol" aria-hidden="true">01</span><h3 translate="no">PrintDeck</h3><p>Collecte les données de vos imprimantes</p></article>
+            <span class="mqtt-route-arrow" aria-hidden="true">→</span>
+            <article class="mqtt-route-broker"><span class="mqtt-route-symbol" aria-hidden="true">02</span><h3>Votre serveur local</h3><p>Transmet les mises à jour aux abonnés</p><span class="mqtt-route-pill" translate="no">Mosquitto</span></article>
+            <span class="mqtt-route-arrow" aria-hidden="true">→</span>
+            <article><span class="mqtt-route-symbol" aria-hidden="true">03</span><h3>Vos applications</h3><p>Tableaux de bord, éclairages, notifications</p><span class="mqtt-route-pill" translate="no">Node-RED · Home Assistant</span></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section mqtt-start" id="mqtt-setup">
+        <div class="api-inner">
+          <header class="api-section-head"><span class="home-kicker">Guide de configuration MQTT</span><h2>Votre premier message MQTT</h2><p>Commencez avec une imprimante et un abonnement. Home Assistant est facultatif.</p></header>
+          <div class="mqtt-start-grid">
+            <ol class="mqtt-steps">
+              <li><span>01</span><div><h3>Préparez votre serveur</h3><p>Utilisez un serveur MQTT local tel que Mosquitto. PrintDeck et votre application sont ses clients ; PrintDeck n’héberge pas de serveur MQTT. Créez des identifiants et autorisez PrintDeck à publier et votre application à lire ses sujets.</p></div></li>
+              <li><span>02</span><div><h3>Connecter PrintDeck</h3><p>Dans Web Config, ouvrez Paramètres de l’appareil &gt; Unified API. Activez MQTT, saisissez l’adresse, le port et les identifiants du serveur, puis enregistrez et vérifiez la connexion. Adaptez TLS aux paramètres du serveur. Pour votre application, laissez la découverte Home Assistant désactivée.</p></div></li>
+              <li><span>03</span><div><h3>Abonnez-vous à l’état des imprimantes</h3><p>Connectez votre client MQTT au même serveur. Copiez la racine des sujets MQTT depuis Web Config et ajoutez /printers/+/status. Le + correspond à chaque imprimante enregistrée. Sélectionnez une imprimante en ligne sur PrintDeck et attendez environ cinq secondes pour recevoir des données fraîches.</p></div></li>
+            </ol>
+            <figure class="mqtt-message">
+              <figcaption><span class="mqtt-live-dot" aria-hidden="true"></span><span>Exemple de message d’état</span></figcaption>
+              <div class="mqtt-message-topic"><span>Abonnement</span><code>&lt;topic-root&gt;/printers/+/status</code></div>
+              <pre><code>{
+  "api_version": "v1",
+  "status": {
+    "printer_id": 1,
+    "connection": {
+      "state": "online",
+      "detail_level": "full",
+      "stale": false
+    },
+    "job": {
+      "phase": "printing",
+      "progress_percent": 42.5
+    }
+  },
+  "_mqtt_generation": "12ab34cd-00000001"
+}</code></pre>
+              <p>Exemple abrégé. Lisez status.job.progress_percent pour la progression et status.job.phase pour l’état du travail.</p>
+            </figure>
+          </div>
+          <aside class="mqtt-tip"><strong>Essayez dans Node-RED</strong><p>Ajoutez un nœud d’entrée MQTT, sélectionnez votre serveur et collez l’abonnement d’état ci-dessus. Configurez la sortie comme objet JSON analysé et connectez un nœud Debug. Cliquez sur Deploy, puis ouvrez le panneau Debug pour voir les messages dans msg.payload.</p></aside>
+        </div>
+      </section>
+
+      <section class="api-section mqtt-topics" id="mqtt-topics">
+        <div class="api-inner mqtt-topics-grid">
+          <header class="api-section-head"><span class="home-kicker">Explorer les sujets MQTT</span><h2>Choisissez ce que<br><strong>votre application reçoit.</strong></h2><p>La racine est printdeck/&lt;printdeck_id&gt;/v1. Copiez votre racine depuis Web Config et ajoutez l’un de ces suffixes. Utilisez un ID du catalogue printers ou + pour toutes les imprimantes.</p><a class="mqtt-text-link" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Lire le guide API complet <span aria-hidden="true">↗</span></a></header>
+          <div class="mqtt-topic-cards">
+            <article><code>/printers</code><h3>Retrouvez vos imprimantes</h3><p>Catalogue des imprimantes enregistrées avec leurs ID. Conservé par le serveur.</p></article>
+            <article><code>/printers/+/status</code><h3>Mises à jour de l’état</h3><p>État actuel du travail, progression, températures et journal des événements récents. Messages en direct, environ toutes les cinq secondes.</p></article>
+            <article><code>/printers/+/events</code><h3>Événements d’impression</h3><p>Événements individuels observés, comme started, completed ou milestone. Utilisez event_type pour choisir une action et event_id pour identifier l’annonce.</p></article>
+            <article><code>/availability</code><h3>Vérifiez la connexion</h3><p>État online ou offline conservé de la connexion de PrintDeck au serveur. Chaque imprimante possède son propre status.connection.state dans son message d’état.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="api-section mqtt-ha" id="home-assistant">
+        <div class="api-inner">
+          <header class="api-section-head"><img class="mqtt-ha-logo" src="/assets/integrations/home-assistant.png" width="56" height="56" alt=""><h2>Vous utilisez Home Assistant ?</h2><p>Choisissez une seule méthode par PrintDeck pour conserver un seul ensemble d’entités.</p></header>
+          <div class="mqtt-ha-options">
+            <article><span class="home-kicker">Découverte Home Assistant</span><h3>Les entités apparaissent seules.</h3><p>Connectez l’intégration MQTT native de Home Assistant au même serveur. Activez Home Assistant MQTT Discovery dans PrintDeck. Les appareils, capteurs et entités d’événements apparaissent automatiquement ; HACS n’est pas nécessaire.</p><a class="mqtt-text-link" href="https://www.home-assistant.io/integrations/mqtt/" target="_blank" rel="noopener" translate="no">Home Assistant MQTT <span aria-hidden="true">↗</span></a></article>
+            <article><span class="home-kicker" translate="no">PRINTDECK · HACS</span><h3>Utilisez l’intégration PrintDeck.</h3><p>Installez PrintDeck via HACS, choisissez MQTT pendant la configuration et laissez la découverte standard désactivée. Home Assistant utilise sa propre connexion au serveur. Utilisez l’intégration actuelle, version 0.1.7 ou ultérieure.</p><a class="mqtt-text-link" href="/fr/unified-printer-api/home-assistant/#native-integration">Installer l’intégration PrintDeck <span aria-hidden="true">→</span></a></article>
+          </div>
+          <div class="site-actions"><a class="site-button" href="/fr/unified-printer-api/home-assistant/#first-automation">Créer la première automatisation</a></div>
+        </div>
+      </section>
+
+      <section class="api-section mqtt-faq">
+        <div class="api-inner mqtt-faq-grid">
+          <header class="api-section-head"><span class="home-kicker">BON À SAVOIR</span><h2>Appuyez-vous sur<br><strong>des données fraîches.</strong></h2><p>Des données en lecture seule communes</p></header>
+          <div class="mqtt-questions">
+            <details open=""><summary>Les données sont-elles à jour ?</summary><p>MQTT utilise les mêmes champs normalisés que REST, avec des métadonnées de transmission supplémentaires. L’état est actualisé environ toutes les cinq secondes ; les imprimantes inactives suivent toujours la fréquence d’actualisation de la liste. La télémétrie et les événements en direct ne sont pas conservés.</p><p>Avant d’utiliser une mesure, vérifiez status.connection.state, status.connection.stale et status.connection.detail_level. Les valeurs inconnues sont null. Vérifiez la concordance de _mqtt_generation dans le catalogue et les messages d’état ; effacez les anciennes mesures lorsqu’il change.</p></details>
+            <details><summary>Vais-je recevoir tous les événements ?</summary><p>Les événements décrivent les changements observés ; des transitions brèves peuvent être manquées. Ils utilisent QoS 0, sans conservation ni rejeu. Le journal garde huit observations récentes. Suivez stream_id et sequence pour éviter les actions répétées et établissez une référence sans déclencher d’action après reconnexion. Le guide de l’API détaille le contrat.</p></details>
+            <details><summary>Connecté, mais sans messages ?</summary><p>Vérifiez l’adresse du serveur, le port, TLS et les autorisations des sujets. Utilisez la racine exacte de Web Config. L’état en direct n’est pas conservé : attendez la prochaine mise à jour. Les identifiants du serveur sont distincts du jeton REST.</p></details>
+            <details><summary>Connexion et rétablissement</summary><p>Lorsque TLS est activé, PrintDeck vérifie le certificat et le nom du serveur. Ajoutez votre certificat CA si nécessaire. Les secrets enregistrés restent sur PrintDeck. Après un redémarrage du serveur, PrintDeck se reconnecte et publie des données fraîches.</p></details>
+            <details><summary>Supprimer les anciennes entrées de découverte</summary><p>Avant de changer de serveur ou de passer à HACS MQTT, désactivez la découverte pendant que l’ancien serveur reste accessible et attendez la fin du nettoyage. S’il est inaccessible, ses entrées conservées peuvent nécessiter une suppression manuelle. Renommer conserve l’identité ; supprimer un profil retire sa configuration de découverte.</p></details>
+          </div>
+        </div>
+      </section>
+      <section class="api-section mqtt-next"><div class="api-inner"><div><span class="home-kicker">Unified Printer API</span><h2>Prêt pour votre prochaine idée ?</h2><p>Retrouvez tous les sujets, champs des messages et règles de transmission dans le guide de l’API.</p></div><a class="site-button" href="/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Télécharger le guide API</a></div></section>
+    </main>
 
     <footer class="site-footer">
       <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/fr/support/">Contacter l’assistance</a> · <a href="/fr/legal/license/">Licence</a> · <a href="/fr/legal/notice/">Mentions</a> · <a href="/fr/legal/privacy/">Confidentialité</a></span>

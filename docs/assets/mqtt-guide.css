@@ -1,0 +1,102 @@
+/* MQTT guide: a short setup path, a real message and optional deeper detail. */
+.mqtt-page .mqtt-story .api-section-head { max-width: 790px; margin-inline: auto; text-align: center; }
+.mqtt-page .api-section h2 strong { color: #16836b; font-weight: inherit; }
+.mqtt-page .mqtt-route { display: grid; grid-template-columns: 1fr 44px 1fr 44px 1fr; align-items: center; margin-top: 48px; }
+.mqtt-route article { display: flex; min-height: 244px; padding: 26px 18px; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.mqtt-route .mqtt-route-broker { border: 1px solid #9ccabb; border-radius: 28px; background: #e3f4ed; box-shadow: 0 20px 55px #165b4110; }
+.mqtt-route-symbol { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 16px; background: #d5eee4; color: #13715c; font: 700 .8rem ui-monospace, monospace; }
+.mqtt-route h3 { margin: 18px 0 8px; color: var(--api-ink); font-size: 1.2rem; }
+.mqtt-route p { margin: 0; color: #52686e; font-size: .87rem; line-height: 1.6; }
+.mqtt-route-arrow { color: #199b7e; font-size: 2rem; text-align: center; }
+.mqtt-route-pill { display: block; margin-top: 18px; font-size: .7rem; color: #277b66; }
+.mqtt-page .mqtt-start { background: #e6eeeb; }
+.mqtt-start-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.mqtt-steps { display: grid; gap: 34px; padding: 0; margin: 4px 0 0; list-style: none; }
+.mqtt-steps li { display: grid; grid-template-columns: 35px 1fr; gap: 16px; }
+.mqtt-steps li > span { padding-top: 4px; color: #19816a; font: 700 .8rem ui-monospace, monospace; }
+.mqtt-steps h3 { margin: 0 0 12px; color: var(--api-ink); font-size: 1.12rem; }
+.mqtt-steps p,.mqtt-tip p { margin: 0; color: #52686e; font-size: .9rem; line-height: 1.75; }
+.mqtt-message { margin: 0; min-width: 0; overflow: hidden; border: 1px solid #344a40; border-radius: 24px; background: #101c17; box-shadow: 0 24px 48px #14322526; color: #e1f5eb; }
+.mqtt-message figcaption { display: flex; gap: 10px; align-items: center; padding: 19px 24px; border-bottom: 1px solid #304237; font-size: .8rem; }
+.mqtt-live-dot { width: 8px; height: 8px; background: #55dca9; border-radius: 50%; box-shadow: 0 0 0 4px #55dca918; }
+.mqtt-message-topic { display: grid; gap: 9px; padding: 20px 24px 0; }
+.mqtt-message-topic span { color: #96b7a7; font-size: .7rem; }
+.mqtt-message code { color: #7be0b7; font-size: .75rem; overflow-wrap: anywhere; }
+.mqtt-message pre { margin: 0; padding: 23px 24px; white-space: pre-wrap; line-height: 1.75; }
+.mqtt-message > p { padding: 0 24px 22px; margin: 0; color: #a7bdb3; font-size: .76rem; line-height: 1.7; overflow-wrap: anywhere; }
+.mqtt-tip { display: grid; grid-template-columns: 190px 1fr; gap: 24px; padding: 25px 28px; margin-top: 38px; border: 1px solid #bacfc4; border-radius: 18px; }
+.mqtt-tip strong { color: #13755c; font-size: .95rem; }
+.mqtt-topics-grid,.mqtt-faq-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 60px; }
+.mqtt-topic-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.mqtt-topic-cards article { min-width: 0; padding: 26px 22px; border: 1px solid #ccdbd3; border-radius: 20px; background: #ffffff70; }
+.mqtt-topic-cards code { display: block; color: #118369; font-size: .72rem; overflow-wrap: anywhere; }
+.mqtt-topic-cards h3 { margin: 24px 0 10px; color: var(--api-ink); font-size: .95rem; }
+.mqtt-topic-cards p,.mqtt-ha-options p,.mqtt-questions p { margin: 0; color: #52686e; font-size: .85rem; line-height: 1.75; overflow-wrap: anywhere; }
+.mqtt-page .mqtt-text-link { display: inline-block; margin-top: 25px; color: #17745e; text-decoration-thickness: 1px; text-underline-offset: 5px; font-size: .86rem; font-weight: 600; }
+.mqtt-page .mqtt-ha { background: #e8eef0; }
+.mqtt-ha-logo { margin-bottom: 12px; }
+.mqtt-ha-options { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.mqtt-ha-options article { padding: 32px; border-radius: 24px; background: #fff; border: 1px solid #ccdbd3; }
+.mqtt-ha-options h3 { margin: 22px 0 15px; color: var(--api-ink); font-size: 1.4rem; letter-spacing: -.025em; }
+.mqtt-questions details { padding: 21px 0; border-bottom: 1px solid #c1d3c9; }
+.mqtt-questions details:first-child { padding-top: 14px; }
+.mqtt-questions summary { color: var(--api-ink); font-size: 1.03rem; font-weight: 600; cursor: pointer; }
+.mqtt-questions p { margin-top: 18px; }
+.mqtt-page .mqtt-next { background: #d1ecdf; }
+.mqtt-next > .api-inner { display: flex; align-items: center; justify-content: space-between; gap: 34px; }
+.mqtt-page .mqtt-next h2 { font-size: clamp(2rem, 3vw, 2.8rem); }
+.mqtt-next p { color: #52686e; font-size: .9rem; line-height: 1.7; }
+.mqtt-next .site-button { flex-shrink: 0; }
+:root[data-appearance="dark"] .mqtt-page .api-section h2 strong,
+:root[data-appearance="dark"] .mqtt-page .mqtt-text-link,
+:root[data-appearance="dark"] .mqtt-page .mqtt-tip strong { color: #72d6b4; }
+:root[data-appearance="dark"] .mqtt-page .mqtt-start,
+:root[data-appearance="dark"] .mqtt-page .mqtt-ha { background: #18221e; }
+:root[data-appearance="dark"] .mqtt-page .mqtt-next { background: #18382b; }
+:root[data-appearance="dark"] .mqtt-page .mqtt-route-broker,
+:root[data-appearance="dark"] .mqtt-page .mqtt-ha-options article,
+:root[data-appearance="dark"] .mqtt-page .mqtt-topic-cards article { background: #202c25; border-color: #3c5146; }
+:root[data-appearance="dark"] .mqtt-page .mqtt-route p,
+:root[data-appearance="dark"] .mqtt-page .mqtt-steps p,
+:root[data-appearance="dark"] .mqtt-page .mqtt-tip p,
+:root[data-appearance="dark"] .mqtt-page .mqtt-topic-cards p,
+:root[data-appearance="dark"] .mqtt-page .mqtt-ha-options p,
+:root[data-appearance="dark"] .mqtt-page .mqtt-questions p,
+:root[data-appearance="dark"] .mqtt-page .mqtt-next p { color: #b4c6bc; }
+:root[data-appearance="dark"] .mqtt-page .mqtt-route-pill,
+:root[data-appearance="dark"] .mqtt-page .mqtt-topic-cards code { color: #80d5b6; }
+@media (max-width: 1000px) {
+  .mqtt-start-grid { gap: 30px; }
+  .mqtt-topics-grid,.mqtt-faq-grid { grid-template-columns: 1fr; gap: 12px; }
+  .mqtt-page .mqtt-topics .api-section-head { max-width: 650px; }
+}
+@media (max-width: 700px) {
+  .mqtt-start-grid,.mqtt-ha-options { grid-template-columns: 1fr; }
+  .mqtt-route { gap: 4px; }
+  .mqtt-page .mqtt-route { grid-template-columns: 1fr; margin-top: 20px; }
+  .mqtt-route article { min-height: 0; padding: 22px; }
+  .mqtt-route-arrow { transform: rotate(90deg); }
+  .mqtt-route .mqtt-route-broker { width: 100%; }
+  .mqtt-tip { grid-template-columns: 1fr; gap: 10px; padding: 22px; }
+  .mqtt-ha-options article { padding: 26px; }
+  .mqtt-next > .api-inner { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 420px) {
+  .mqtt-topic-cards { grid-template-columns: 1fr; }
+  .mqtt-message code { font-size: .68rem; }
+  .mqtt-message pre,.mqtt-message-topic { padding-inline: 18px; }
+}
+/* Dedicated MQTT scene keeps every application independent of Home Assistant. */
+.api-integration-page.mqtt-page .ha-hero-scene img { left: auto; right: 0; width: 100%; height: 100%; object-fit: cover; object-position: right center; mask-image: none; }
+.api-integration-page.mqtt-page .ha-hero-scene::after { background: linear-gradient(90deg, #09110b4d, transparent 60%); }
+@media (max-width: 1100px) {
+  .api-integration-page.mqtt-page .ha-hero-scene { height: clamp(250px, 46vw, 460px); }
+  .api-integration-page.mqtt-page .ha-hero-scene img { object-fit: cover; object-position: right center; }
+  .api-integration-page.mqtt-page .ha-hero-scene::after { background: linear-gradient(#0b1110, transparent 22%); }
+}
+@media (max-width: 560px) {
+  .api-integration-page.mqtt-page .ha-hero-scene { height: 260px; }
+}
+:root[data-appearance="dark"] .mqtt-page { --api-ink: #e8f1ec; }
+:root[data-appearance="dark"] .mqtt-page .mqtt-questions details,
+:root[data-appearance="dark"] .mqtt-page .mqtt-tip { border-color: #3c5146; }

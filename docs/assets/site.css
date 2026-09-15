@@ -6664,3 +6664,10 @@ body.site-page {
     width: min(1180px, calc(100% - 96px));
   }
 }
+
+/* MQTT shares the normalized data card and the API guide layout. */
+.unified-story .home-unified-mqtt { display: grid; justify-items: center; gap: 9px; text-decoration: none; border-radius: 6px; }
+.unified-story .home-unified-mqtt::before { content: ""; height: 22px; border-left: 2px dashed #70bba8; }
+.unified-story .home-unified-mqtt:hover span { color: #095b49; }
+.api-page .mqtt-feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .api-page .mqtt-feature-grid { grid-template-columns: 1fr; } }

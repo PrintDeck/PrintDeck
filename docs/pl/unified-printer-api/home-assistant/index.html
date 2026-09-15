@@ -8,7 +8,7 @@
 
 
     <title>Home Assistant · Unified Printer API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/site.css?v=20260915-mqtt-1">
     <link rel="stylesheet" href="/assets/home-assistant-hero.css?v=20260910-4">
     <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
     <script>window.printDeckInstallerI18n={language:"pl",t:(source,values={})=>{let result=({"Play":"Odtwórz","Pause":"Wstrzymaj","Seek":"Przewiń","{currentTime} of {duration}":"{currentTime} z {duration}","Played":"Odtworzono","Buffered":"Zbuforowano","Current time":"Bieżący czas","Volume":"Głośność","Mute":"Wycisz","Unmute":"Włącz dźwięk","Enter fullscreen":"Włącz pełny ekran","Exit fullscreen":"Wyjdź z pełnego ekranu","Automatic appearance":"Automatyczny wygląd"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
@@ -491,7 +491,17 @@
           </div>
         </div>
       </section>
-<section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>Home Assistant przez MQTT</h2><p>Połącz PrintDeck z Mosquitto. Wybierz automatyczne MQTT Discovery albo połączenie MQTT w integracji PrintDeck przez HACS.</p></header><div class="site-actions"><a class="site-button" href="/pl/unified-printer-api/home-assistant-mqtt/">Otwórz konfigurację MQTT</a></div></div></section>
+      <section class="api-section mqtt-overview" id="mqtt">
+        <div class="api-inner">
+          <header class="api-section-head"><h2>MQTT dla Twoich lokalnych narzędzi</h2><p>PrintDeck wysyła ujednolicone dane drukarek do lokalnego brokera, np. Mosquitto. Aplikacje subskrybują aktualizacje, zamiast cyklicznie odpytywać REST API. HTTP i MQTT mogą działać niezależnie lub jednocześnie.</p></header>
+          <div class="api-card-grid mqtt-feature-grid">
+            <article><span>01</span><h3>Aktualizacje statusu</h3><p>Odbieraj stan zadania, postęp, temperatury i dostępność w panelach lub przepływach Node-RED.</p></article>
+            <article><span>02</span><h3>Zdarzenia wydruku</h3><p>Reaguj na zaobserwowany start wydruku, etapy postępu i zdarzenia wymagające uwagi. Bieżące zdarzenia nie są zachowywane na brokerze ani odtwarzane po ponownym połączeniu.</p></article>
+            <article><span>03</span><h3>Wykrywanie Home Assistant</h3><p>Home Assistant może automatycznie tworzyć urządzenia i encje przez wbudowaną integrację MQTT. Możesz też wybrać integrację PrintDeck przez HACS z połączeniem MQTT — wtedy pozostaw standardowe wykrywanie wyłączone.</p></article>
+          </div>
+          <div class="site-actions"><a class="site-button" href="/pl/unified-printer-api/home-assistant-mqtt/">Otwórz konfigurację MQTT</a></div>
+        </div>
+      </section>
     </main>
 
     <footer class="site-footer">

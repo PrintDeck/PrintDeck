@@ -8,8 +8,8 @@
 
 
     <title>Unified Printer API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260910-api-2">
-    <link rel="stylesheet" href="/assets/unified-api-hero.css?v=20260910-10">
+    <link rel="stylesheet" href="/assets/site.css?v=20260915-mqtt-1">
+    <link rel="stylesheet" href="/assets/unified-api-hero.css?v=20260915-mqtt-1">
     <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
     <script>window.printDeckInstallerI18n={language:"en",t:(source,values={})=>{let result=({"Play":"Play","Pause":"Pause","Seek":"Seek","{currentTime} of {duration}":"{currentTime} of {duration}","Played":"Played","Buffered":"Buffered","Current time":"Current time","Volume":"Volume","Mute":"Mute","Unmute":"Unmute","Enter fullscreen":"Enter fullscreen","Exit fullscreen":"Exit fullscreen","Automatic appearance":"Automatic appearance"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
@@ -84,6 +84,10 @@
                 <img src="/assets/integrations/home-assistant.png" alt="">
                 <strong>Home Assistant</strong>
               </a>
+              <a class="api-integration-chip api-integration-mqtt" href="/unified-printer-api/home-assistant-mqtt/" aria-label="MQTT setup guide">
+                <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="7" cy="25" r="3" fill="currentColor"></circle><path d="M5 15a12 12 0 0 1 12 12M5 5a22 22 0 0 1 22 22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>
+                <strong translate="no">MQTT</strong>
+              </a>
             </div>
           </div>
         </div>
@@ -151,6 +155,7 @@
                   <span>GET /v1/...</span>
                   <strong>One JSON</strong>
                   <code>{<br>&nbsp;&nbsp;"printer": ...,<br>&nbsp;&nbsp;"state": ...,<br>&nbsp;&nbsp;"progress": ...<br>}</code>
+                  <a class="home-unified-mqtt" href="/unified-printer-api/home-assistant-mqtt/" aria-label="MQTT setup guide"><span translate="no">MQTT</span></a>
                 </article>
                 <img class="home-unified-output-lines" src="/assets/marketing/home/unified-api-outputs.svg" alt="" aria-hidden="true">
                 <div class="home-unified-apps" aria-label="Your application">
@@ -298,7 +303,17 @@
           </div>
         </div>
       </section>
-<section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>Home Assistant with MQTT</h2><p>Connect PrintDeck to Mosquitto. Choose automatic MQTT Discovery or the PrintDeck HACS integration with an MQTT connection.</p></header><div class="site-actions"><a class="site-button" href="/unified-printer-api/home-assistant-mqtt/">Open MQTT setup</a></div></div></section>
+      <section class="api-section mqtt-overview" id="mqtt">
+        <div class="api-inner">
+          <header class="api-section-head"><h2>MQTT for your local tools</h2><p>PrintDeck sends normalized printer data to a local broker such as Mosquitto. Your apps subscribe to updates instead of repeatedly requesting them through the REST API. HTTP and MQTT can run independently or together.</p></header>
+          <div class="api-card-grid mqtt-feature-grid">
+            <article><span>01</span><h3>Status updates</h3><p>Receive job state, progress, temperatures and availability in your dashboards or Node-RED flows.</p></article>
+            <article><span>02</span><h3>Print events</h3><p>React to observed print starts, progress milestones and attention events. Live events are not retained or replayed after reconnecting.</p></article>
+            <article><span>03</span><h3>Home Assistant Discovery</h3><p>Let Home Assistant create devices and entities automatically through its built-in MQTT integration. Or choose PrintDeck through HACS with MQTT and keep standard Discovery off.</p></article>
+          </div>
+          <div class="site-actions"><a class="site-button" href="/unified-printer-api/home-assistant-mqtt/">Open MQTT setup</a></div>
+        </div>
+      </section>
     </main>
 
     <footer class="site-footer">

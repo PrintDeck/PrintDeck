@@ -8,8 +8,8 @@
 
 
     <title>Unified Printer API · PrintDeck</title>
-    <link rel="stylesheet" href="/assets/site.css?v=20260910-api-2">
-    <link rel="stylesheet" href="/assets/unified-api-hero.css?v=20260910-10">
+    <link rel="stylesheet" href="/assets/site.css?v=20260915-mqtt-1">
+    <link rel="stylesheet" href="/assets/unified-api-hero.css?v=20260915-mqtt-1">
     <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
     <script>window.printDeckInstallerI18n={language:"de",t:(source,values={})=>{let result=({"Play":"Abspielen","Pause":"Pause","Seek":"Spulen","{currentTime} of {duration}":"{currentTime} von {duration}","Played":"Abgespielt","Buffered":"Gepuffert","Current time":"Aktuelle Zeit","Volume":"Lautstärke","Mute":"Stummschalten","Unmute":"Ton einschalten","Enter fullscreen":"Vollbild aktivieren","Exit fullscreen":"Vollbild beenden","Automatic appearance":"Automatische Darstellung"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
 
@@ -84,6 +84,10 @@
                 <img src="/assets/integrations/home-assistant.png" alt="">
                 <strong>Home Assistant</strong>
               </a>
+              <a class="api-integration-chip api-integration-mqtt" href="/de/unified-printer-api/home-assistant-mqtt/" aria-label="MQTT-Einrichtungsanleitung">
+                <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="7" cy="25" r="3" fill="currentColor"></circle><path d="M5 15a12 12 0 0 1 12 12M5 5a22 22 0 0 1 22 22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>
+                <strong translate="no">MQTT</strong>
+              </a>
             </div>
           </div>
         </div>
@@ -151,6 +155,7 @@
                   <span>GET /v1/...</span>
                   <strong>Ein JSON</strong>
                   <code>{<br>&nbsp;&nbsp;"printer": ...,<br>&nbsp;&nbsp;"state": ...,<br>&nbsp;&nbsp;"progress": ...<br>}</code>
+                  <a class="home-unified-mqtt" href="/de/unified-printer-api/home-assistant-mqtt/" aria-label="MQTT-Einrichtungsanleitung"><span translate="no">MQTT</span></a>
                 </article>
                 <img class="home-unified-output-lines" src="/assets/marketing/home/unified-api-outputs.svg" alt="" aria-hidden="true">
                 <div class="home-unified-apps" aria-label="Deine Anwendung">
@@ -298,7 +303,17 @@
           </div>
         </div>
       </section>
-<section class="api-section"><div class="api-inner"><header class="api-section-head"><h2>Home Assistant mit MQTT</h2><p>Verbinde PrintDeck mit Mosquitto. Wähle automatische MQTT-Erkennung oder die MQTT-Verbindung in der PrintDeck-HACS-Integration.</p></header><div class="site-actions"><a class="site-button" href="/de/unified-printer-api/home-assistant-mqtt/">MQTT-Einrichtung öffnen</a></div></div></section>
+      <section class="api-section mqtt-overview" id="mqtt">
+        <div class="api-inner">
+          <header class="api-section-head"><h2>MQTT für deine lokalen Anwendungen</h2><p>PrintDeck sendet vereinheitlichte Druckerdaten an einen lokalen Broker wie Mosquitto. Deine Apps abonnieren Aktualisierungen, statt sie regelmäßig über die REST-API abzufragen. HTTP und MQTT können unabhängig oder gemeinsam laufen.</p></header>
+          <div class="api-card-grid mqtt-feature-grid">
+            <article><span>01</span><h3>Statusaktualisierungen</h3><p>Empfange Auftragsstatus, Fortschritt, Temperaturen und Verfügbarkeit in deinen Dashboards oder Node-RED-Abläufen.</p></article>
+            <article><span>02</span><h3>Druckereignisse</h3><p>Reagiere auf beobachtete Druckstarts, Fortschrittsmarken und Ereignisse, die Aufmerksamkeit erfordern. Live-Ereignisse werden nicht gespeichert und nach einer erneuten Verbindung nicht wiederholt.</p></article>
+            <article><span>03</span><h3>Home Assistant Discovery</h3><p>Lass Home Assistant Geräte und Entitäten über die integrierte MQTT-Integration automatisch anlegen. Oder nutze PrintDeck über HACS mit MQTT und lasse die Standard-Discovery ausgeschaltet.</p></article>
+          </div>
+          <div class="site-actions"><a class="site-button" href="/de/unified-printer-api/home-assistant-mqtt/">MQTT-Einrichtung öffnen</a></div>
+        </div>
+      </section>
     </main>
 
     <footer class="site-footer">
