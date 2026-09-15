@@ -2,7 +2,7 @@
   "schema": 1,
   "channel": "stable",
   "target": "amoled_1_75",
-  "version": "1.0.17",
-  "url": "https://github.com/PrintDeck/PrintDeck/releases/download/amoled_1_75-v1.0.17/printdeck_amoled_1_75_layout_912618a15488_ota-1.0.17.bin",
-  "sha256": "de80b5350c8fb131da44adcaf4aab3d0a9079a9e039fc1a87be7829fb6194bae"
+  "version": "1.0.18",
+  "url": "https://github.com/PrintDeck/PrintDeck/releases/download/amoled_1_75-v1.0.18/printdeck_amoled_1_75_layout_912618a15488_ota-1.0.18.bin",
+  "sha256": "af4fb0b8d8461a7d5dc7409e2816e5cb8a43cc12baf69277920c371bde35d501"
 }
