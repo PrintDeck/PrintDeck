@@ -1,0 +1,66 @@
+/* Release history uses the compact shared legal heading and marketing typography. */
+.releases-page { --release-paper: #fff; --release-ink: #161b19; --release-muted: #59615e; --release-line: #d8dcda; --release-wash: #eff1f0; --release-link: #00775d; }
+:root[data-appearance="dark"] .releases-page { --release-paper: #141716; --release-ink: #f5f7f6; --release-muted: #b0b9b5; --release-line: #363d39; --release-wash: #1d2220; --release-link: #2bd1a7; }
+.releases-content { background: var(--release-paper); color: var(--release-ink); }
+.releases-inner { width: min(1180px, calc(100% - 96px)); margin-inline: auto; }
+.releases-history { padding-block: 64px 88px; scroll-margin-top: 28px; }
+.release-device-picker h2 { margin: 0 0 24px; font-size: clamp(1.6rem, 2.4vw, 2rem); letter-spacing: -.045em; }
+.release-device-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.release-device-options .hardware-option-shell { min-width: 0; }
+.release-device-options .hardware-option { display: flex; align-items: center; gap: 20px; position: relative; height: 100%; padding: 24px; border: 1px solid var(--release-line); border-radius: 22px; background: var(--release-wash); cursor: pointer; transition: border-color .18s, background .18s; }
+.release-device-options .hardware-option:has(:checked) { border-color: var(--release-link); box-shadow: inset 0 0 0 1px var(--release-link); background: var(--release-paper); }
+.release-device-options .hardware-option:hover { border-color: var(--release-link); }
+.release-device-options .hardware-option:focus-within { outline: 2px solid var(--release-link); outline-offset: 4px; }
+.release-device-options input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.release-device-options .hardware-icon { width: 66px; flex: 0 0 66px; }
+.release-device-options svg { width: 100%; fill: none; stroke: var(--release-link); }
+.release-device-options svg text { fill: var(--release-muted); stroke: none; font-size: 7px; text-anchor: middle; }
+.release-device-options .icon-detail { fill: var(--release-link); stroke: none; }
+.release-device-options .hardware-copy { min-width: 0; }
+.release-device-options b { display: block; font-size: 1.08rem; margin-bottom: 6px; }
+.release-device-options small { display: grid; gap: 4px; font-size: .75rem; color: var(--release-muted); line-height: 1.5; }
+.releases-scope { margin: 20px 0 36px; color: var(--release-muted); font-size: .83rem; line-height: 1.65; }
+.release-reset { border: 1px solid #c4772b; border-left: 4px solid #d87b21; padding: 24px 28px; border-radius: 18px; background: #fff6e9; color: #583a19; }
+:root[data-appearance="dark"] .release-reset { background: #2a2116; color: #f8dfbd; }
+.release-reset p { font-size: .86rem; line-height: 1.7; }
+.release-stream { scroll-margin-top: 30px; }
+.release-stream > h2 { font-size: clamp(1.8rem, 3vw, 2.5rem); letter-spacing: -.055em; margin: 0 0 32px; }
+.release-stream[hidden] { display: none; }
+.release-card { position: relative; border: 0; border-top: 1px solid var(--release-line); border-radius: 0; margin: 0; background: transparent; scroll-margin-top: 28px; }
+.release-card:last-child { border-bottom: 1px solid var(--release-line); }
+.release-card summary { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 34px; padding: 32px 38px 32px 0; cursor: pointer; position: relative; list-style: none; }
+.release-card summary::-webkit-details-marker { display: none; }
+.release-card summary:focus-visible { outline: 2px solid var(--release-link); outline-offset: 4px; }
+.release-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; color: var(--release-muted); font-size: .78rem; }
+.release-version { color: var(--release-link); font-size: 1.55rem; line-height: 1.3; font-weight: 600; letter-spacing: -.04em; }
+.release-badge, .release-warning-badge { display: inline-block; padding: 4px 9px; border-radius: 5px; background: var(--release-wash); font-size: .65rem; font-weight: 600; color: var(--release-ink); }
+.release-warning-badge { background: #a94008; color: #fff; }
+.release-title { display: block; align-self: center; color: var(--release-ink); font-size: clamp(1.2rem, 2.1vw, 1.7rem); font-weight: 600; line-height: 1.35; letter-spacing: -.035em; }
+.release-toggle { position: absolute; right: 4px; top: 38px; color: var(--release-muted); font-size: 1.4rem; }
+.release-card[open] .release-toggle { transform: rotate(45deg); }
+.release-body { padding: 0 38px 38px 224px; }
+.release-body ul { padding-left: 20px; margin: 0 0 24px; }
+.release-body li { color: var(--release-muted); font-size: .96rem; line-height: 1.8; margin: 10px 0; }
+.release-install { color: var(--release-muted); font-size: .8rem; line-height: 1.7; }
+.release-links { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-top: 22px; font-size: .85rem; }
+.release-links a { color: var(--release-link); font-weight: 600; text-underline-offset: 4px; }
+.release-reset .release-links a { color: inherit; }
+@media (max-width: 1100px) {
+ .release-device-options .hardware-option { gap: 12px; padding: 18px 14px; }
+ .release-device-options .hardware-icon { width: 48px; flex-basis: 48px; }
+}
+@media (max-width: 740px) {
+ .releases-inner { width: calc(100% - 40px); }
+ .releases-history { padding-block: 40px 56px; }
+ .release-device-options { grid-template-columns: 1fr; gap: 10px; }
+ .release-device-options .hardware-option { gap: 20px; padding: 15px 20px; }
+ .release-device-options .hardware-icon { width: 54px; flex-basis: 54px; }
+ .release-card summary { grid-template-columns: 1fr; gap: 14px; padding: 26px 32px 24px 0; }
+ .release-meta { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+ .release-version { font-size: 1.2rem; }
+ .release-title { font-size: 1.3rem; }
+ .release-body { padding: 0 0 30px; }
+ .release-body li { font-size: .9rem; }
+ .release-reset { padding: 20px; }
+ .release-toggle { top: 26px; }
+}

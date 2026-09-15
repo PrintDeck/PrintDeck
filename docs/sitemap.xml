@@ -1,6 +1,66 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://printdeck.xyz/releases/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/releases/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/releases/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/releases/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/releases/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/releases/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/releases/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/releases/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/releases/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/releases/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/releases/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/releases/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/releases/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/releases/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/releases/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/releases/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/releases/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/releases/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/releases/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/releases/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/releases/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/releases/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/releases/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/releases/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/releases/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/releases/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/releases/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/releases/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/releases/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/releases/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/releases/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/releases/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/releases/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/releases/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/releases/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/releases/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/releases/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/releases/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/releases/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/releases/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/releases/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/releases/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/releases/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/releases/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/releases/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/releases/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/releases/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/releases/"/>
+  </url>
+  <url>
     <loc>https://printdeck.xyz/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/"/>
     <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/"/>

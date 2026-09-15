@@ -1,0 +1,260 @@
+<!DOCTYPE html><html lang="fr"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5f6">
+    <title>Notes de version · PrintDeck</title>
+  <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/releases.css">
+    <link rel="stylesheet" href="/assets/legal-hero.css?v=20260910-2">
+  <script>window.printDeckInstallerI18n={language:"fr",t:(source,values={})=>{let result=({"Play":"Lire","Pause":"Pause","Seek":"Rechercher","{currentTime} of {duration}":"{currentTime} sur {duration}","Played":"Lu","Buffered":"Mis en mémoire tampon","Current time":"Temps actuel","Volume":"Volume","Mute":"Couper le son","Unmute":"Rétablir le son","Enter fullscreen":"Passer en plein écran","Exit fullscreen":"Quitter le plein écran","Automatic appearance":"Apparence automatique"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
+
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
+
+    <meta name="description" content="Découvrez les nouveautés pour votre écran, des améliorations quotidiennes aux étapes importantes d’installation.">
+    <link rel="canonical" href="https://printdeck.xyz/fr/releases/">
+    <link rel="alternate" hreflang="en" href="https://printdeck.xyz/releases/">
+    <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/releases/">
+    <link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/releases/">
+    <link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/releases/">
+    <link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/releases/">
+    <link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/releases/">
+    <link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/releases/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PrintDeck">
+    <meta property="og:locale" content="fr_FR">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="pl_PL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:title" content="Notes de version · PrintDeck">
+    <meta property="og:description" content="Découvrez les nouveautés pour votre écran, des améliorations quotidiennes aux étapes importantes d’installation.">
+    <meta property="og:url" content="https://printdeck.xyz/fr/releases/">
+    <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Notes de version · PrintDeck">
+    <meta name="twitter:description" content="Découvrez les nouveautés pour votre écran, des améliorations quotidiennes aux étapes importantes d’installation.">
+    <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Notes de version · PrintDeck","description":"Découvrez les nouveautés pour votre écran, des améliorations quotidiennes aux étapes importantes d’installation.","url":"https://printdeck.xyz/fr/releases/","inLanguage":"fr","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
+  </head>
+  <body class="site-page legal-page releases-page" data-page-title="Notes de version · PrintDeck">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="/fr/" aria-label="Accueil">
+          <img class="site-logo site-logo-white" src="/assets/brand/printdeck-logo-white.svg" alt="PrintDeck">
+          <img class="site-logo site-logo-black" src="/assets/brand/printdeck-logo-black.svg" alt="" aria-hidden="true">
+        </a>
+        <nav class="site-tabs" aria-label="Site PrintDeck">
+          <a class="site-tab" href="/fr/">Accueil</a>
+          <a class="site-tab" href="/fr/firmware/">Micrologiciel</a>
+          <a class="site-tab" href="/fr/gifs/">GIFs</a>
+          <a class="site-tab" href="/fr/case-designs/">Modèles de boîtiers</a>
+          <a class="site-tab" href="/fr/knomi/">KNOMI</a>
+          <a class="site-tab" href="/fr/unified-printer-api/">Unified API</a>
+          <a class="site-tab" href="/fr/hi-esp/" translate="no">HI ESP!</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="legal-content releases-content">
+      <header class="legal-heading">
+        <h1>Notes de version</h1>
+      </header>
+      <div class="releases-inner releases-history" id="release-history">
+<div class="release-device-picker"><h2 id="releases-hardware-label">Choisissez votre écran</h2>
+            <div class="hardware-options release-device-options" role="radiogroup" aria-labelledby="releases-hardware-label">
+              <label class="hardware-option selected">
+                <input type="radio" name="release-hardware" value="amoled_1_75" checked="">
+                <span class="hardware-icon" aria-hidden="true">
+                  <svg viewBox="0 0 72 72">
+                    <circle class="icon-frame" cx="36" cy="36" r="32" stroke-width="3"></circle>
+                    <text x="36" y="19" text-anchor="middle">PrintDeck</text>
+                    <rect class="icon-screen" x="17" y="23" width="38" height="26" rx="2.5" stroke-width="2.5"></rect>
+                    <path class="icon-screen" d="M29 30a7 7 0 1 0 4.9 12M29 30v7h7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <rect class="icon-detail" x="40" y="38" width="3.5" height="7" rx=".7"></rect>
+                    <rect class="icon-detail" x="46" y="33" width="3.5" height="12" rx=".7"></rect>
+                    <rect class="icon-detail" x="23" y="55" width="3" height="7" rx=".6"></rect>
+                    <rect class="icon-detail" x="29" y="52" width="3" height="10" rx=".6"></rect>
+                    <rect class="icon-detail" x="40" y="54" width="3" height="8" rx=".6"></rect>
+                    <rect class="icon-detail" x="46" y="50" width="3" height="12" rx=".6"></rect>
+                  </svg>
+                </span>
+                <span class="hardware-copy"><b>Rond</b><small><span>Waveshare</span><span>ESP32-S3 Touch AMOLED 1.75″</span></small></span>
+              </label>
+              <label class="hardware-option">
+                <input type="radio" name="release-hardware" value="lcd_1_54">
+                <span class="hardware-icon" aria-hidden="true">
+                  <svg viewBox="0 0 72 72">
+                    <rect class="icon-frame" x="5" y="5" width="62" height="62" rx="10" stroke-width="3"></rect>
+                    <text x="36" y="20" text-anchor="middle">PrintDeck</text>
+                    <rect class="icon-screen" x="17" y="24" width="38" height="25" rx="2" stroke-width="2.5"></rect>
+                    <path class="icon-screen" d="m21 43 8-8 7 5 12-12 4 3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <rect class="icon-detail" x="22" y="55" width="3" height="7" rx=".6"></rect>
+                    <rect class="icon-detail" x="28" y="52" width="3" height="10" rx=".6"></rect>
+                    <rect class="icon-detail" x="39" y="54" width="3" height="8" rx=".6"></rect>
+                    <rect class="icon-detail" x="45" y="50" width="3" height="12" rx=".6"></rect>
+                  </svg>
+                </span>
+                <span class="hardware-copy"><b>Carré</b><small><span>Waveshare</span><span>ESP32-S3 LCD 1.54″</span></small></span>
+              </label>
+              <div class="hardware-option-shell">
+                <label class="hardware-option hardware-option--with-link">
+                  <input type="radio" name="release-hardware" value="knomi2">
+                  <span class="hardware-icon hardware-icon-knomi" aria-hidden="true">
+                    <svg viewBox="0 0 72 76">
+                      <path d="M27 63h18v6h-4v3h-4v-3h-6v3h-4v-3h-4v-6Z" fill="#232323" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"></path>
+                      <rect x="31" y="68" width="5" height="3" rx=".6" fill="#c9a34a"></rect>
+                      <rect x="38" y="68" width="5" height="3" rx=".6" fill="#c9a34a"></rect>
+                      <circle class="icon-frame" cx="36" cy="34" r="30" stroke-width="3"></circle>
+                      <text x="36" y="17" text-anchor="middle">PrintDeck</text>
+                      <rect class="icon-screen" x="18" y="22" width="36" height="25" rx="2" stroke-width="2.5"></rect>
+                      <path class="icon-screen" d="m22 41 7-7 7 5 11-11 4 3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                      <rect class="icon-detail" x="22" y="53" width="3" height="7" rx=".6"></rect>
+                      <rect class="icon-detail" x="28" y="50" width="3" height="10" rx=".6"></rect>
+                      <rect class="icon-detail" x="39" y="52" width="3" height="8" rx=".6"></rect>
+                      <rect class="icon-detail" x="45" y="48" width="3" height="12" rx=".6"></rect>
+                    </svg>
+                  </span>
+                  <span class="hardware-copy"><b>KNOMI2</b><small><span>BIGTREETECH</span><span>KNOMI2</span></small></span>
+                </label>
+              </div>
+            </div>
+
+</div>
+        <p class="releases-scope">L’historique commence à 1.0.10 pour chaque écran. Les numéros de version sont indépendants.</p>
+
+      <section class="release-stream" id="amoled_1_75" aria-labelledby="heading-amoled_1_75">
+      <h2 id="heading-amoled_1_75" translate="no">AMOLED 1.75″</h2>
+      <details class="release-card" id="amoled_1_75-v1.0.19" open="">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.19</span><time datetime="2026-09-15" translate="no">2026-09-15</time><span class="release-badge">Dernière pour cet écran</span></span><span class="release-title">Des connexions plus simples, moins d’interruptions</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>PrintDeck peut retrouver les imprimantes enregistrées compatibles après un changement d’adresse IP locale, en conservant leurs profils et les caméras associées.</li><li>L’identité de l’imprimante est vérifiée avant l’enregistrement d’une nouvelle adresse. Les imprimantes sans identifiant pris en charge nécessitent toujours une modification manuelle.</li><li>L’API REST, MQTT et la découverte automatique Home Assistant disposent d’interrupteurs plus clairs, avec confirmation avant de déconnecter des applications ou de supprimer des entités découvertes.</li><li>Home Assistant propose la configuration automatique de PrintDeck lorsque MQTT est activé et que la découverte MQTT standard est désactivée. L’accès HTTP reste indépendant.</li><li>Pour profiter de la configuration améliorée, mettez l’intégration PrintDeck HACS à jour vers la version 0.1.7 ou ultérieure, puis redémarrez Home Assistant. Choisissez HACS ou la découverte MQTT standard pour chaque PrintDeck.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.19">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="amoled_1_75-v1.0.18">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.18</span><time datetime="2026-09-15" translate="no">2026-09-15</time></span><span class="release-title">Votre maison suit votre impression</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Envoyez l’état, la progression et les températures vers votre propre serveur MQTT local. Configurez la connexion dans Web Config.</li><li>Utilisez les débuts d’impression, les étapes de progression et les alertes dans les automatisations locales Home Assistant, avec la découverte MQTT pour simplifier la configuration.</li><li>Home Assistant reçoit des capteurs de condition et des entités d’événements d’impression, tout en conservant les identités des capteurs existants.</li><li>La progression et le temps écoulé connus sont aussi disponibles pour les imprimantes suivies par des résumés périodiques.</li><li>PrintDeck Camera démarre plus fiablement, avec un meilleur cadrage du zoom et une meilleure gestion des anciennes images.</li><li>Vous utilisez les événements HACS ? Mettez l’intégration PrintDeck à jour vers 0.1.5 ou plus et redémarrez Home Assistant. Choisissez HACS ou la découverte MQTT native pour chaque PrintDeck.</li><li>Les événements sont conservés temporairement sur l’appareil. Leur livraison n’est pas garantie et un redémarrage efface l’historique.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.18">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="amoled_1_75-v1.0.17">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.17</span><time datetime="2026-09-14" translate="no">2026-09-14</time></span><span class="release-title">Plus de caméras. Plus d’imprimantes.</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Trouvez les PrintDeck Cameras sur votre réseau local et associez-les aux imprimantes depuis l’écran ou Web Config.</li><li>Balayez entre les caméras, touchez pour agrandir et gérez toutes les associations au même endroit.</li><li>Détectez et suivez les imprimantes TinyMaker sur votre réseau local, avec un test de connexion avant l’enregistrement.</li><li>Les associations et réglages des caméras sont inclus dans les sauvegardes. La nouvelle gestion des caméras conserve les réglages existants de l’appareil.</li><li>Une icône apparaît sur la fiche d’imprimante lorsqu’une PrintDeck Camera lui est associée.</li><li>Les aperçus caméra AMOLED utilisent mieux l’écran, avec un seul son de navigation au changement de page caméra.</li><li>Sur AMOLED, stockez vos réactions personnalisées sur une microSD FAT32. Les images existantes sont copiées et vérifiées avant de supprimer les copies internes.</li><li>Sur AMOLED, le démarrage, les seuils de 25/50/75 % et les alertes HMS utilisent des sons plutôt que des messages vocaux. La voix reste pour les événements majeurs d’impression, l’arrêt et le redémarrage.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.17">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="amoled_1_75-v1.0.16">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.16</span><time datetime="2026-09-11" translate="no">2026-09-11</time></span><span class="release-title">Sachez quand l’impression est vraiment terminée</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Voyez tour à tour l’heure de fin estimée et le temps écoulé, tout en gardant le temps restant visible. Les réactions résine affichent aussi les couches.</li><li>Le GK3 Ultra affiche la phase de finition pendant le dernier mouvement de rangement et attend la confirmation de l’imprimante.</li><li>Les corrections du compte à rebours du GK3 Ultra sont plus progressives, y compris pendant les derniers mouvements.</li><li>Les chiffres d’état gardent une taille constante à la réouverture. Les animations de réaction pour l’impression filament n’affichent plus de légendes d’activité.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.16">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="amoled_1_75-v1.0.15">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.15</span><time datetime="2026-09-10" translate="no">2026-09-10</time></span><span class="release-title">Un compte à rebours plus utile</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Les estimations du GK3 Ultra s’adaptent aux durées des couches et aux pauses, avec des corrections progressives.</li><li>Consultez la puissance du signal Wi-Fi en direct dans Web Config.</li><li>L’AMOLED positionne plus clairement le texte d’état et conserve les longs noms d’activité sur une seule ligne.</li><li>L’installateur identifie plus clairement les versions nécessitant une réinitialisation d’usine.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.15">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="amoled_1_75-v1.0.14">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.14</span><time datetime="2026-09-10" translate="no">2026-09-10</time></span><span class="release-title">Sauvegardes améliorées et aperçu des couches</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Les sauvegardes conservent le nom de l’appareil et sont plus faciles à identifier. Le mot de passe nécessite seulement trois caractères ou plus.</li><li>Sur GK3 Ultra, voyez le modèle et la couche actuelle depuis le fichier d’impression, même en vue agrandie.</li><li>Les aperçus de couche du GK3 Ultra restent visibles deux secondes après l’exposition pour mieux les examiner.</li><li>Les chiffres et signes manquants sont rétablis dans le grand affichage d’impression résine.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.14">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card release-factory" id="amoled_1_75-v1.0.13">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.13</span><time datetime="2026-09-10" translate="no">2026-09-10</time><span class="release-warning-badge">Réinitialisation d’usine obligatoire</span></span><span class="release-title">De nouvelles scènes. Une vue plus complète.</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Profitez de scènes animées et choisissez le comportement de l’écran pendant l’impression.</li><li>Des tableaux de bord dédiés et une configuration locale permettent de suivre les imprimantes résine UniFormation compatibles.</li><li>Sur AMOLED, activez HI ESP! pour interroger votre impression avec des commandes vocales locales.</li><li>Le Snapmaker U1 affiche les étapes de préparation, comme le nivellement et le préchauffage du plateau, pour mieux suivre l’attente avant l’impression.</li><li>Les imprimantes connectées via Moonraker fournissent de meilleures informations pour les configurations à plusieurs outils.</li><li>La réception caméra et les aperçus d’impression sont améliorés pour les imprimantes Creality K2 et Bambu compatibles.</li><li>Une configuration plus claire et de meilleures indications de mise à jour aident à choisir le firmware du bon écran.</li></ul>
+          <aside class="release-reset"><strong>Réinitialisation d’usine obligatoire</strong><p>Installez par USB avec Première installation / Réinitialisation d’usine. Cette version ne prend pas en charge une mise à jour sans fil classique.</p><p>Sauvegardez d’abord votre configuration. L’installation d’usine efface les réglages et les images personnalisées. Vous devrez reconfigurer le Wi-Fi et les imprimantes.</p></aside>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.13&amp;mode=install">Ouvrir l’installation d’usine</a></div></div>
+        </details><details class="release-card" id="amoled_1_75-v1.0.12">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.12</span><time datetime="2026-09-06" translate="no">2026-09-06</time></span><span class="release-title">Une mise en veille plus simple</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Réglez séparément l’extinction pendant l’impression et au repos. La luminosité réduite et les options supplémentaires restent dans les réglages avancés.</li><li>Choisissez Jamais séparément au repos et pendant l’impression, avec confirmation avant de désactiver l’extinction automatique.</li><li>Ouvrir les réglages avancés ou annuler une modification conserve les réglages d’écran existants.</li><li>L’AMOLED avertit du risque de marquage avant de désactiver l’extinction automatique. Les réglages avancés couvrent aussi le réveil à la rotation et l’alimentation USB.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.12">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="amoled_1_75-v1.0.11">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.11</span><time datetime="2026-09-06" translate="no">2026-09-06</time></span><span class="release-title">Une vue plus fluide de votre impression</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Regardez la caméra Snapmaker U1 PAXX en direct et déplacez-vous dans l’image agrandie.</li><li>Les événements des réactions sont classés par ordre alphabétique dans la langue de Web Config.</li><li>L’AMOLED indique plus clairement la charge et l’alimentation externe, même sans batterie.</li><li>Essayez les connexions locales expérimentales pour les imprimantes PrusaLink et Elegoo. La compatibilité dépend du modèle.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.11">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="amoled_1_75-v1.0.10">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.10</span><time datetime="2026-09-05" translate="no">2026-09-05</time></span><span class="release-title">Des débuts plus simples en Wi-Fi</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>PrintDeck vérifie les données Wi-Fi avant de les enregistrer pour repérer plus facilement les fautes de frappe.</li><li>Recherche de réseaux, configuration des réseaux masqués et aide à la reconnexion plus claires sur téléphone et écran.</li><li>La configuration des imprimantes et la navigation dans Web Config sont plus claires sur téléphone et ordinateur.</li><li>La réinitialisation demande confirmation, efface les réglages et réactions personnalisées, rétablit les animations intégrées et affiche le QR du Wi-Fi de configuration. Ce nouveau départ est facultatif, pas obligatoire pour cette mise à jour.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=amoled_1_75&amp;version=1.0.10">Mettez votre écran à jour</a></div></div>
+        </details>
+    </section><section class="release-stream" id="knomi2" aria-labelledby="heading-knomi2">
+      <h2 id="heading-knomi2" translate="no">KNOMI2</h2>
+      <details class="release-card" id="knomi2-v1.0.20" open="">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.20</span><time datetime="2026-09-15" translate="no">2026-09-15</time><span class="release-badge">Dernière pour cet écran</span></span><span class="release-title">Des connexions plus simples, moins d’interruptions</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>PrintDeck peut retrouver les imprimantes enregistrées compatibles après un changement d’adresse IP locale, en conservant leurs profils et les caméras associées.</li><li>L’identité de l’imprimante est vérifiée avant l’enregistrement d’une nouvelle adresse. Les imprimantes sans identifiant pris en charge nécessitent toujours une modification manuelle.</li><li>L’API REST, MQTT et la découverte automatique Home Assistant disposent d’interrupteurs plus clairs, avec confirmation avant de déconnecter des applications ou de supprimer des entités découvertes.</li><li>Home Assistant propose la configuration automatique de PrintDeck lorsque MQTT est activé et que la découverte MQTT standard est désactivée. L’accès HTTP reste indépendant.</li><li>Pour profiter de la configuration améliorée, mettez l’intégration PrintDeck HACS à jour vers la version 0.1.7 ou ultérieure, puis redémarrez Home Assistant. Choisissez HACS ou la découverte MQTT standard pour chaque PrintDeck.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.20">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.19">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.19</span><time datetime="2026-09-15" translate="no">2026-09-15</time></span><span class="release-title">Votre maison suit votre impression</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Envoyez l’état, la progression et les températures vers votre propre serveur MQTT local. Configurez la connexion dans Web Config.</li><li>Utilisez les débuts d’impression, les étapes de progression et les alertes dans les automatisations locales Home Assistant, avec la découverte MQTT pour simplifier la configuration.</li><li>Home Assistant reçoit des capteurs de condition et des entités d’événements d’impression, tout en conservant les identités des capteurs existants.</li><li>La progression et le temps écoulé connus sont aussi disponibles pour les imprimantes suivies par des résumés périodiques.</li><li>PrintDeck Camera démarre plus fiablement, avec un meilleur cadrage du zoom et une meilleure gestion des anciennes images.</li><li>Vous utilisez les événements HACS ? Mettez l’intégration PrintDeck à jour vers 0.1.5 ou plus et redémarrez Home Assistant. Choisissez HACS ou la découverte MQTT native pour chaque PrintDeck.</li><li>Les événements sont conservés temporairement sur l’appareil. Leur livraison n’est pas garantie et un redémarrage efface l’historique.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.19">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.18">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.18</span><time datetime="2026-09-14" translate="no">2026-09-14</time></span><span class="release-title">Plus de caméras. Plus d’imprimantes.</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Trouvez les PrintDeck Cameras sur votre réseau local et associez-les aux imprimantes depuis l’écran ou Web Config.</li><li>Balayez entre les caméras, touchez pour agrandir et gérez toutes les associations au même endroit.</li><li>Détectez et suivez les imprimantes TinyMaker sur votre réseau local, avec un test de connexion avant l’enregistrement.</li><li>Les associations et réglages des caméras sont inclus dans les sauvegardes. La nouvelle gestion des caméras conserve les réglages existants de l’appareil.</li><li>Une icône apparaît sur la fiche d’imprimante lorsqu’une PrintDeck Camera lui est associée.</li><li>Les aperçus caméra du KNOMI2 remplissent mieux le petit écran rond et les commandes d’association n’ont plus de textes superposés.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.18">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.17">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.17</span><time datetime="2026-09-11" translate="no">2026-09-11</time></span><span class="release-title">Sachez quand l’impression est vraiment terminée</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Voyez tour à tour l’heure de fin estimée et le temps écoulé, tout en gardant le temps restant visible. Les réactions résine affichent aussi les couches.</li><li>Le GK3 Ultra affiche la phase de finition pendant le dernier mouvement de rangement et attend la confirmation de l’imprimante.</li><li>Les corrections du compte à rebours du GK3 Ultra sont plus progressives, y compris pendant les derniers mouvements.</li><li>Les chiffres d’état gardent une taille constante à la réouverture. Les animations de réaction pour l’impression filament n’affichent plus de légendes d’activité.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.17">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.16">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.16</span><time datetime="2026-09-10" translate="no">2026-09-10</time></span><span class="release-title">Un compte à rebours plus utile</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Les estimations du GK3 Ultra s’adaptent aux durées des couches et aux pauses, avec des corrections progressives.</li><li>Consultez la puissance du signal Wi-Fi en direct dans Web Config.</li><li>L’installateur identifie plus clairement les versions nécessitant une réinitialisation d’usine.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.16">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.15">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.15</span><time datetime="2026-09-10" translate="no">2026-09-10</time></span><span class="release-title">Sauvegardes améliorées et aperçu des couches</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Les sauvegardes conservent le nom de l’appareil et sont plus faciles à identifier. Le mot de passe nécessite seulement trois caractères ou plus.</li><li>Sur GK3 Ultra, voyez le modèle et la couche actuelle depuis le fichier d’impression, même en vue agrandie.</li><li>Les aperçus de couche du GK3 Ultra restent visibles deux secondes après l’exposition pour mieux les examiner.</li><li>Les chiffres et signes manquants sont rétablis dans le grand affichage d’impression résine.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.15">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card release-factory" id="knomi2-v1.0.14">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.14</span><time datetime="2026-09-10" translate="no">2026-09-10</time><span class="release-warning-badge">Réinitialisation d’usine obligatoire</span></span><span class="release-title">De nouvelles scènes. Une vue plus complète.</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Profitez de scènes animées et choisissez le comportement de l’écran pendant l’impression.</li><li>Des tableaux de bord dédiés et une configuration locale permettent de suivre les imprimantes résine UniFormation compatibles.</li><li>Le Snapmaker U1 affiche les étapes de préparation, comme le nivellement et le préchauffage du plateau, pour mieux suivre l’attente avant l’impression.</li><li>Les imprimantes connectées via Moonraker fournissent de meilleures informations pour les configurations à plusieurs outils.</li><li>La réception caméra et les aperçus d’impression sont améliorés pour les imprimantes Creality K2 et Bambu compatibles.</li><li>Une configuration plus claire et de meilleures indications de mise à jour aident à choisir le firmware du bon écran.</li></ul>
+          <aside class="release-reset"><strong>Réinitialisation d’usine obligatoire</strong><p>Installez par USB avec Première installation / Réinitialisation d’usine. Cette version ne prend pas en charge une mise à jour sans fil classique.</p><p>Sauvegardez d’abord votre configuration. L’installation d’usine efface les réglages et les images personnalisées. Vous devrez reconfigurer le Wi-Fi et les imprimantes.</p></aside>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.14&amp;mode=install">Ouvrir l’installation d’usine</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.13">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.13</span><time datetime="2026-09-06" translate="no">2026-09-06</time></span><span class="release-title">Une mise en veille plus simple</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Réglez séparément l’extinction pendant l’impression et au repos. La luminosité réduite et les options supplémentaires restent dans les réglages avancés.</li><li>Choisissez Jamais séparément au repos et pendant l’impression, avec confirmation avant de désactiver l’extinction automatique.</li><li>Ouvrir les réglages avancés ou annuler une modification conserve les réglages d’écran existants.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.13">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.12">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.12</span><time datetime="2026-09-06" translate="no">2026-09-06</time></span><span class="release-title">Une caméra Snapmaker U1 plus stable</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Le rafraîchissement suit le rythme du firmware d’origine du Snapmaker U1 et gère mieux les images incomplètes ou les retards réseau.</li><li>Si l’imprimante le permet, les images inchangées sont ignorées pour éviter les téléchargements inutiles.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.12">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.11">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.11</span><time datetime="2026-09-06" translate="no">2026-09-06</time></span><span class="release-title">Une vue plus fluide de votre impression</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Regardez la caméra Snapmaker U1 PAXX en direct et déplacez-vous dans l’image agrandie.</li><li>Les événements des réactions sont classés par ordre alphabétique dans la langue de Web Config.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.11">Mettez votre écran à jour</a></div></div>
+        </details><details class="release-card" id="knomi2-v1.0.10">
+          <summary><span class="release-meta"><span class="release-version" translate="no">1.0.10</span><time datetime="2026-09-06" translate="no">2026-09-06</time></span><span class="release-title">Plus d’imprimantes, plus de personnalité</span><span class="release-toggle" aria-hidden="true">+</span></summary>
+          <div class="release-body"><ul><li>Essayez les connexions locales expérimentales pour les imprimantes PrusaLink et Elegoo. La compatibilité dépend du modèle.</li><li>Les nouvelles réactions Cartoon et Cookie donnent plus de caractère au suivi d’impression.</li><li>La configuration des imprimantes et la navigation dans Web Config sont plus claires sur téléphone et ordinateur.</li></ul>
+          <p class="release-install">Pour une installation compatible, utilisez la mise à jour proposée dans Web Config. Les exigences antérieures d’installation d’usine restent applicables.</p>
+          <div class="release-links"><a href="/fr/firmware/?target=knomi2&amp;version=1.0.10">Mettez votre écran à jour</a></div></div>
+        </details>
+    </section><section class="release-stream" id="lcd_1_54" aria-labelledby="heading-lcd_1_54">
+      <h2 id="heading-lcd_1_54" translate="no">LCD 1.54″</h2>
+      <p>Cet écran n’a pas encore de version à partir de 1.0.10.</p><a href="/fr/firmware/?target=lcd_1_54">Mettez votre écran à jour</a>
+    </section>
+      </div>
+    </main>
+    <script src="/assets/releases.js" defer=""></script>
+    <footer class="site-footer">
+      <span class="footer-copy">Copyright 2026 © PrintDeck · <a class="footer-support" href="/fr/support/">Contacter l’assistance</a> · <a href="/fr/legal/license/">Licence</a> · <a href="/fr/legal/notice/">Mentions</a> · <a href="/fr/legal/privacy/">Confidentialité</a></span>
+      <div class="footer-controls">
+        <label hidden="" for="releases-language">Langue</label>
+        <select class="installer-language" id="releases-language" aria-label="Langue" data-site-language=""><option value="/releases/">English</option><option value="/pl/releases/">Polski</option><option value="/es/releases/">Español</option><option value="/fr/releases/" selected="">Français</option><option value="/de/releases/">Deutsch</option><option value="/zh-cn/releases/">简体中文</option></select>
+        <div class="appearance-switch" data-site-appearance="" role="switch" tabindex="0" aria-label="Apparence de la page">
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="light" aria-label="Apparence claire"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+          <button class="appearance-option" type="button" tabindex="-1" data-appearance-mode="dark" aria-label="Apparence sombre"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.4 8.4 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg></button>
+        </div>
+      </div>
+    </footer>
+
+
+
+
+<script>(()=>{const language="fr";try{localStorage.setItem('printdeck-installer-language',language)}catch(_){}document.querySelectorAll('[data-site-language]').forEach((selector)=>selector.addEventListener('change',()=>location.assign(selector.value)));})();</script></body></html>
