@@ -233,6 +233,12 @@ html[data-appearance=light]{--printer-logo-filter:brightness(0)}
 @media(prefers-color-scheme:light){html[data-appearance=system]{--printer-logo-filter:brightness(0)}}
 .brand-mark img,#detected-logo img,#tinymaker-logo img{filter:var(--printer-logo-filter)}
 html[data-appearance] .printer-avatar[data-brand="tinymaker"] img,.brand-mark[data-brand="tinymaker"] img,#detected-logo[data-brand="tinymaker"] img,#tinymaker-logo img{filter:none;opacity:1}
+.printer-row .printer-avatar{width:52px;height:58px;flex:0 0 52px}
+.printer-detail-head .printer-avatar{width:104px;height:104px;flex:0 0 104px}
+.printer-row .printer-avatar img:not(.printer-photo){max-width:40px;max-height:44px}
+.printer-detail-head .printer-avatar img:not(.printer-photo){max-width:64px;max-height:64px}
+html[data-appearance] .printer-avatar img.printer-photo{filter:none;opacity:1;object-fit:contain}
+@media(max-width:570px){.printer-detail-head .printer-avatar{width:76px;height:76px;flex-basis:76px}}
 .brand-mark img{opacity:.52}
 #printer-dialog-title:focus{outline:none}
 .printer-add{min-height:52px;border:3px solid var(--panel);border-radius:16px;background:var(--device-theme-accent);color:var(--device-theme-on-accent);font-weight:800;box-shadow:0 0 0 3px var(--ink),0 4px 12px color-mix(in srgb,var(--device-theme-accent) 16%,transparent);transition:filter .16s,box-shadow .16s}
@@ -2032,6 +2038,50 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     let printers=[],editing=null,addingFromDiscovery=false,discoveryTimer=0,discoveryRunning=false,discoveryGeneration=0,discoveryScanId=0,discoveryOwnsScan=false,compatibilityTimer=0,brandLogos={},detectedNameSeed='',printerVerificationFingerprint='',printerVerificationPromise=null,printerVerificationGeneration=0;
     const markFor=p=>({tinymaker:'TM',uniformation:'UF',ankermake:'AM',anycubic:'AC',bambu:'BL',creality:'CR',elegoo:'EL',flashforge:'FF',lulzbot:'LZ',makerbot:'MB',prusa:'PR',qidi:'QD',ratrig:'RR',snapmaker:'SN',sovol:'SV',ultimaker:'UM',voron:'VR',klipper:'KL'}[p.brand]||'3D');
     function setBrandMark(host,brand){host.replaceChildren();host.dataset.brand=brand||'';if(brand&&brandLogos[brand]){const img=new Image;img.src=brandLogos[brand];img.alt=brand+' logo';host.append(img)}else host.textContent=markFor({brand})}
+    const printerPhotoRoot='https://printdeck.xyz/assets/printers/v1/';
+    const printerPhotoLoads=new Map(),printerPhotoHosts=new WeakMap();
+    let printerPhotoCatalogPromise;
+    const printerModelKey=value=>String(value||'').toLowerCase().replace(/[^a-z0-9+]/g,'');
+    function loadPrinterPhotoCatalog(){
+      if(!printerPhotoCatalogPromise)printerPhotoCatalogPromise=(async()=>{
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
+        try{
+          const response=await fetch(printerPhotoRoot+'catalog.json',{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer',redirect:'error'});
+          if(!response.ok)throw new Error('catalog unavailable');
+          const reader=response.body.getReader(),decoder=new TextDecoder();let text='',bytes=0;
+          while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.byteLength;if(bytes>98304){await reader.cancel();throw new Error('catalog size')}text+=decoder.decode(value,{stream:true})}
+          const data=JSON.parse(text+decoder.decode()),catalog=new Map();
+          if(data.version!==1||!Array.isArray(data.printers)||data.printers.length>512)throw new Error('catalog schema');
+          for(const entry of data.printers){
+            if(!/^[a-z0-9-]{1,32}$/.test(entry.brand)||!Array.isArray(entry.models)||entry.models.length>32||!/^[a-z0-9-]{1,100}\.(png|webp)$/.test(entry.file))continue;
+            for(const model of entry.models){if(typeof model==='string'&&model.length<=96)catalog.set(entry.brand+':'+printerModelKey(model),entry.file)}
+          }
+          return catalog;
+        }catch{return new Map()}finally{clearTimeout(timer)}
+      })();
+      return printerPhotoCatalogPromise;
+    }
+    function loadPrinterPhoto(file){
+      if(printerPhotoLoads.has(file))return printerPhotoLoads.get(file);
+      if(printerPhotoLoads.size>=64)return Promise.resolve(null);
+      const promise=new Promise(resolve=>{
+        const img=new Image();let finished=false;
+        const finish=value=>{if(finished)return;finished=true;clearTimeout(timer);img.onload=null;img.onerror=null;if(!value)img.removeAttribute('src');resolve(value)};
+        const timer=setTimeout(()=>finish(null),6000);
+        img.alt='';img.className='printer-photo';img.referrerPolicy='no-referrer';img.decoding='async';
+        img.onload=()=>{if(img.naturalWidth>512||img.naturalHeight>512){finish(null);return}img.decode().then(()=>finish(img),()=>finish(null))};
+        img.onerror=()=>finish(null);img.src=printerPhotoRoot+file;
+      });
+      printerPhotoLoads.set(file,promise);return promise;
+    }
+    async function setPrinterMark(host,printer){
+      setBrandMark(host,printer.brand);
+      const token={};printerPhotoHosts.set(host,token);
+      const model=printerModelKey(printer.model);if(!model||!printer.brand)return;
+      const catalog=await loadPrinterPhotoCatalog(),file=catalog.get(printer.brand+':'+model);if(!file)return;
+      const img=await loadPrinterPhoto(file);
+      if(img&&host.isConnected&&printerPhotoHosts.get(host)===token)host.replaceChildren(img.cloneNode());
+    }
     function paintThemePrinterPreview(){const p=printers[0];$$('.theme-card').forEach(card=>{const name=$('.status-printer',card),file=$('.status-file',card),thumb=$('.status-thumb',card);if(!name||!file||!thumb)return;name.textContent=p?.name||'U1';file.textContent=p?([p.manufacturer,p.model].filter(Boolean).join(' · ')||'Saved printer'):'example_print.3mf';thumb.replaceChildren();if(p?.brand&&brandLogos[p.brand]){const img=new Image;img.src=brandLogos[p.brand];img.alt=p.brand+' logo';thumb.append(img)}else thumb.textContent='3D'})}
     async function selectPrinter(p,button){if(p.selected||p.dashboard_available===false)return;const status=$('#printer-list-status');status.classList.remove('error');if(p.reachability==='offline'){status.textContent=(p.name||'This printer')+' is offline. Turn it on and wait for the list to refresh.';status.classList.add('error');return}status.textContent='Selecting '+(p.name||'printer')+'…';button.disabled=true;try{await jsonFetch('/api/printers/manage',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id:p.id,action:'select'})});await loadPrinters();status.textContent=''}catch(e){button.disabled=false;status.textContent=e.message;status.classList.add('error')}}
     let printerPollTimer=0,printerLoadPromise=null,printerRenderKey='',printerLightRequest=null;
@@ -2050,7 +2100,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
           select.disabled=p.reachability==='offline'||p.dashboard_available===false;select.setAttribute('aria-pressed',String(!!p.selected));
           select.title=p.dashboard_available===false?translated('The device view for this printer is not available yet.'):select.disabled?translated('Offline printers cannot be selected'):'';
           select.innerHTML='<span class="printer-avatar" aria-hidden="true"></span><span class="printer-row-copy"><strong></strong><span class="printer-row-meta"><span class="printer-reachability"></span></span></span>';
-          setBrandMark($('.printer-avatar',select),p.brand);$('strong',select).textContent=p.name||translated('Printer');if(isResin(p.protocol))$('.printer-row-meta',select).append(resinBadge());
+          setPrinterMark($('.printer-avatar',select),p);$('strong',select).textContent=p.name||translated('Printer');if(isResin(p.protocol))$('.printer-row-meta',select).append(resinBadge());
           const status=$('.printer-reachability',select);status.textContent=printerStatus(p);status.classList.toggle('online',p.reachability==='online');
           select.addEventListener('click',()=>selectPrinter(p,select));
           manage.type='button';manage.className='printer-manage';manage.innerHTML=printerGearIcon;
@@ -2063,7 +2113,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
         add.textContent='+ '+translated('Add printer');add.addEventListener('click',openAdd);grid.append(add);
         if(selected){
           detail.innerHTML='<div class="printer-detail-head"><span class="printer-avatar" aria-hidden="true"></span><div class="printer-detail-copy"><div class="printer-detail-title"><h3></h3><span class="printer-detail-badge"></span></div><p class="micro"></p></div></div><div class="printer-control"><span class="printer-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2Z"/></svg></span><div class="printer-control-copy"><strong id="printer-light-label"></strong><small id="printer-light-help"></small></div><label class="printer-light-toggle"><span class="printer-light-state" aria-hidden="true"></span><input class="reaction-switch-input" id="printer-light" type="checkbox" role="switch" aria-labelledby="printer-light-label" aria-describedby="printer-light-help"><span class="reaction-switch" aria-hidden="true"></span></label></div><p class="status" id="printer-light-status" role="status" aria-live="polite"></p><div class="printer-detail-footer"><span class="printer-endpoint"></span><button type="button" class="printer-settings-link"></button></div>';
-          setBrandMark($('.printer-avatar',detail),selected.brand);$('h3',detail).textContent=selected.name||translated('Printer');
+          setPrinterMark($('.printer-avatar',detail),selected);$('h3',detail).textContent=selected.name||translated('Printer');
           $('.printer-detail-badge',detail).textContent=translated('ACTIVE');
           $('.micro',detail).textContent=[selected.manufacturer,selected.model].filter(Boolean).join(' · ')||(selected.protocol==='bambu_lan'?'Bambu Lab':'Klipper · Moonraker');
           $('#printer-light-label').textContent=translated('Printer light');

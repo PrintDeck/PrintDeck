@@ -36,6 +36,7 @@ struct BambuModelCapabilities {
 BambuPrinterModel bambu_model_from_identity(std::string_view product_name,
                                              std::string_view configured_model = {});
 const char* bambu_model_name(BambuPrinterModel model);
+BambuPrinterModel bambu_model_from_serial(std::string_view serial);
 BambuModelCapabilities bambu_capabilities_for(BambuPrinterModel model);
 
 }  // namespace printdeck::platform

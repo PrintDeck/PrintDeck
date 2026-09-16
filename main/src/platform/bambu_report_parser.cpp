@@ -608,7 +608,10 @@ void parse_identity(const cJSON* document, BambuReportParseResult& result) {
   const cJSON* info = member(document, "info");
   if (!cJSON_IsObject(info)) return;
   std::string direct;
-  if (read_text(info, "product_name", direct) && !direct.empty()) {
+  if (!read_text(info, "product_name", direct) || direct.empty()) {
+    read_text(info, "project_name", direct);
+  }
+  if (!direct.empty()) {
     result.product_name = direct;
   }
   const cJSON* modules = member(info, "module");
@@ -616,7 +619,10 @@ void parse_identity(const cJSON* document, BambuReportParseResult& result) {
     const cJSON* module = nullptr;
     cJSON_ArrayForEach(module, modules) {
       std::string product;
-      if (!read_text(module, "product_name", product) || product.empty()) continue;
+      if (!read_text(module, "product_name", product) || product.empty()) {
+        read_text(module, "project_name", product);
+      }
+      if (product.empty()) continue;
       std::string name;
       read_text(module, "name", name);
       if (result.product_name.empty() || name == "ota" || name == "mc") {

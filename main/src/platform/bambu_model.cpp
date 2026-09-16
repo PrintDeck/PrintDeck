@@ -76,6 +76,28 @@ BambuPrinterModel bambu_model_from_identity(std::string_view product_name,
   return reported != BambuPrinterModel::unknown ? reported : model_from_one(configured_model);
 }
 
+BambuPrinterModel bambu_model_from_serial(std::string_view serial) {
+  if (serial.size() != 15) return BambuPrinterModel::unknown;
+  for (const unsigned char character : serial) {
+    if (std::isalnum(character) == 0) return BambuPrinterModel::unknown;
+  }
+  // Bambu Studio resources/printers sn_prefix values identify model families.
+  // Used only for display identity when an older saved profile has no model.
+  const std::string_view prefix = serial.substr(0, 3);
+  if (prefix == "039") return BambuPrinterModel::a1;
+  if (prefix == "030") return BambuPrinterModel::a1_mini;
+  if (prefix == "01S") return BambuPrinterModel::p1p;
+  if (prefix == "01P") return BambuPrinterModel::p1s;
+  if (prefix == "22E") return BambuPrinterModel::p2s;
+  if (prefix == "00W") return BambuPrinterModel::x1;
+  if (prefix == "00M") return BambuPrinterModel::x1c;
+  if (prefix == "03W") return BambuPrinterModel::x1e;
+  if (prefix == "094") return BambuPrinterModel::h2d;
+  if (prefix == "093") return BambuPrinterModel::h2s;
+  if (prefix == "31B") return BambuPrinterModel::h2c;
+  return BambuPrinterModel::unknown;
+}
+
 const char* bambu_model_name(BambuPrinterModel model) {
   switch (model) {
     case BambuPrinterModel::a1_mini: return "A1 mini";

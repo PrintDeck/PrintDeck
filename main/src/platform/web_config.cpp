@@ -36,6 +36,7 @@
 #include "printdeck/core/localization.hpp"
 #include "printdeck/core/timezone.hpp"
 #include "printdeck/platform/board.hpp"
+#include "printdeck/platform/bambu_model.hpp"
 #include "printdeck/platform/mqtt_export_service.hpp"
 #include "printdeck/platform/display_shell.hpp"
 #include "printdeck/platform/reset_diagnostics.hpp"
@@ -651,9 +652,11 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   return ESP_OK;
 }
 
-void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snapshot) {
+void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snapshot,
+                                                std::string_view detected_model) {
   const std::lock_guard<std::mutex> lock(mutex_);
   selected_status_profile_ = snapshot.profile_id;
+  selected_printer_model_.assign(detected_model.substr(0, 48));
   selected_link_ = snapshot.link;
   selected_phase_ = snapshot.job.phase;
   selected_completion_ = std::clamp(snapshot.job.completion, 0.0F, 100.0F);
@@ -3748,6 +3751,7 @@ esp_err_t WebConfig::serve_wifi_scan(httpd_req_t* request) {
 esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
   core::DeviceSettings current;
   std::uint32_t selected_status_profile = 0;
+  std::string selected_model;
   core::LinkState selected_link = core::LinkState::stopped;
   PrinterLightState light;
   UnifiedApiActivityCallback activity = nullptr;
@@ -3756,6 +3760,7 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
     const std::lock_guard<std::mutex> lock(mutex_);
     current = settings_;
     selected_status_profile = selected_status_profile_;
+    selected_model = selected_printer_model_;
     selected_link = selected_link_;
     light = selected_light_;
     activity = printer_controls_activity_callback_;
@@ -3816,7 +3821,14 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
     body += ",\"manufacturer\":";
     append_json_string(body, profile.manufacturer);
     body += ",\"model\":";
-    append_json_string(body, profile.model);
+    std::string model = profile.id == current.selected_profile &&
+        profile.id == selected_status_profile && !selected_model.empty()
+        ? selected_model : profile.model;
+    if (model.empty() && profile.protocol == core::PrinterProtocol::bambu_lan) {
+      const BambuPrinterModel inferred = bambu_model_from_serial(profile.serial);
+      if (inferred != BambuPrinterModel::unknown) model = bambu_model_name(inferred);
+    }
+    append_json_string(body, model);
     body += ",\"brand\":";
     append_json_string(body, profile.brand);
     if (profile.id == current.selected_profile && profile.id == selected_status_profile) {

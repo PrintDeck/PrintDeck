@@ -1702,7 +1702,11 @@ void Runtime::monitor_loop() {
         }
       }
       web_config_.update_selected_printer_status(
-          selected != nullptr ? selected_snapshot : core::PrinterSnapshot{});
+          selected != nullptr ? selected_snapshot : core::PrinterSnapshot{},
+          selected != nullptr && selected_is_bambu && selected_snapshot_ready &&
+              selected_snapshot.profile_id == selected->id &&
+              bambu_lan_.detected_model() != BambuPrinterModel::unknown
+              ? bambu_model_name(bambu_lan_.detected_model()) : "");
       const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
       const bool selected_online = selected != nullptr && selected_snapshot_ready &&
                                    selected_snapshot.link == core::LinkState::online;

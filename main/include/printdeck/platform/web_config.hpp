@@ -78,7 +78,8 @@ class WebConfig {
   void synchronize_settings(const core::DeviceSettings& settings);
   bool save_recovered_printer(const core::PrinterProfile& expected,
                              const core::PrinterProfile& recovered, const NetworkStatus& network);
-  void update_selected_printer_status(const core::PrinterSnapshot& snapshot);
+  void update_selected_printer_status(const core::PrinterSnapshot& snapshot,
+                                      std::string_view detected_model = {});
   void update_power_status(const PowerSnapshot& snapshot);
   esp_err_t save_brightness(int percent);
   esp_err_t save_audio(bool enabled, int volume_percent);
@@ -290,6 +291,7 @@ class WebConfig {
   const InactivePrinterPoller* inactive_printer_poller_ = nullptr;
   DisplayShell* display_ = nullptr;
   std::uint32_t selected_status_profile_ = 0;
+  std::string selected_printer_model_;
   core::LinkState selected_link_ = core::LinkState::stopped;
   core::JobPhase selected_phase_ = core::JobPhase::unknown;
   float selected_completion_ = 0.0F;
