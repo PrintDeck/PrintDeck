@@ -154,3 +154,14 @@ PrintDeck does not vendor or copy that application code and does not link it;
 the target is implemented with ESP-IDF and managed Espressif GC9A01 and CST816S
 drivers. The pinned upstream revision does not contain a license file, so it is
 used only as factual hardware documentation.
+
+## Website printer thumbnails
+
+Optional Web Config printer photographs are served as separate website assets
+under `docs/assets/printers/v1/`; they are not embedded in firmware. The original
+PNG cover images come from OrcaSlicer and its contributors at revision
+`ade9e77b6bc0dc3f234b2504fd22af5ed434a18e` and retain GNU AGPL version 3.
+They are unmodified except for filenames. Per-image original source links and
+SHA-256 digests are in `docs/assets/printers/v1/NOTICE.md`; the license text is in
+`docs/assets/printers/v1/LICENSE.txt`. Product names and marks belong to their
+respective owners.
