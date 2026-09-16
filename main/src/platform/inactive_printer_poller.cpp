@@ -433,7 +433,9 @@ void InactivePrinterPoller::finish_recovery() {
   for (const auto& printer : result.printers) {
     if (!printer.seen_in_current_scan || printer.protocol != run.profile.protocol || printer.port != address->port) continue;
     const bool same = run.profile.protocol == core::PrinterProtocol::moonraker
-        ? printer.network_identity == run.profile.network_identity : printer.serial == run.profile.serial;
+        ? (printer.network_identity == run.profile.network_identity ||
+           core::moonraker_host_evidence_matches(printer.network_identity, run.profile.network_identity))
+        : printer.serial == run.profile.serial;
     if (same) matches.observe(printer.host);
   }
   const auto host = matches.result();
@@ -489,7 +491,9 @@ void InactivePrinterPoller::recover_or_learn(const core::PrinterProfile& profile
     }
     if (connected) { attempt->recovery.observe(true); attempt->recovery_offset = 0; }
     if (connected && profile.protocol == core::PrinterProtocol::moonraker &&
-        profile.network_identity.empty() && now >= attempt->learn_after_ms && !discovery_->running()) {
+        (profile.network_identity.empty() || profile.network_identity.starts_with("mr:") ||
+         core::valid_moonraker_uuid(profile.network_identity)) &&
+        now >= attempt->learn_after_ms && !discovery_->running()) {
       learn = true;
       attempt->learn_after_ms = now + 300000;
     } else if (!active && core::printer_address_recoverable(profile) && attempt->recovery.due(now) &&
@@ -546,7 +550,9 @@ void InactivePrinterPoller::reconcile_manual_search(const std::vector<core::Prin
     for (const auto& printer : result.printers) {
       if (!printer.seen_in_current_scan || printer.protocol != profile.protocol || printer.port != address->port) continue;
       const bool same = profile.protocol == core::PrinterProtocol::moonraker
-          ? printer.network_identity == profile.network_identity : printer.serial == profile.serial;
+          ? (printer.network_identity == profile.network_identity ||
+             core::moonraker_host_evidence_matches(printer.network_identity, profile.network_identity))
+          : printer.serial == profile.serial;
       if (same) matches.observe(printer.host);
     }
     const auto host = matches.result();

@@ -416,19 +416,25 @@ void PrinterDiscoveryService::publish_progress(std::size_t completed, std::size_
 
 void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
   if (!valid_ipv4(result.host)) return;
-  if (!recovery_profile_ && result.protocol == core::PrinterProtocol::moonraker && result.network_identity.empty()) {
+  if (!recovery_profile_ && result.protocol == core::PrinterProtocol::moonraker) {
+    bool known_identity = false;
     {
       const std::lock_guard<std::mutex> lock(mutex_);
       const auto known = std::find_if(snapshot_.printers.begin(), snapshot_.printers.end(), [&](const auto& value) {
         return value.seen_in_current_scan && value.protocol == result.protocol && value.host == result.host && value.port == result.port;
       });
-      if (known != snapshot_.printers.end()) result.network_identity = known->network_identity;
+      if (known != snapshot_.printers.end() && !known->network_identity.empty()) {
+        result.network_identity = known->network_identity;
+        known_identity = true;
+      }
     }
-    if (result.network_identity.empty()) {
+    if (!known_identity) {
       core::PrinterProfile endpoint;
       endpoint.protocol = core::PrinterProtocol::moonraker;
       endpoint.endpoint = "http://" + result.host + ":" + std::to_string(result.port);
-      result.network_identity = moonraker_host_identity(endpoint, [&] { return cancel_requested_.load(); });
+      const auto identity = moonraker_host_identity(endpoint, [&] { return cancel_requested_.load(); });
+      if (result.network_identity.empty() || identity.starts_with("mp:") || identity.starts_with("mh:"))
+        result.network_identity = identity;
     }
   }
   if (recovery_profile_) {
@@ -437,7 +443,9 @@ void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
     const auto address = core::printer_address(*recovery_profile_);
     if (!address || result.protocol != recovery_profile_->protocol || result.port != address->port) return;
     if (result.protocol == core::PrinterProtocol::moonraker) {
-      if (result.network_identity.empty() || recovery_profile_->network_identity.starts_with("mr:")) {
+      if (result.network_identity.empty() || recovery_profile_->network_identity.starts_with("mr:") ||
+          recovery_profile_->network_identity.starts_with("mp:") ||
+          recovery_profile_->network_identity.starts_with("mh:")) {
         auto candidate = core::printer_at_address(*recovery_profile_, result.host);
         if (!candidate || !moonraker_endpoint_identity_matches(*candidate)) return;
         result.network_identity = recovery_profile_->network_identity;

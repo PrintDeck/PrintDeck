@@ -35,6 +35,9 @@ class MoonrakerConnectionProbe {
  public:
   esp_err_t start(core::PrinterProfile profile);
   MoonrakerProbeSnapshot snapshot() const;
+  // A deliberate connection check followed by Save may re-enrol this exact
+  // endpoint. Failed, expired or different connection checks cannot rebind it.
+  bool verified(const core::PrinterProfile& profile) const;
 
  private:
   static void task_entry(void* context);
@@ -48,6 +51,7 @@ class MoonrakerConnectionProbe {
   core::PrinterProfile pending_profile_;
   MoonrakerProbeSnapshot snapshot_;
   TaskHandle_t task_ = nullptr;
+  std::uint64_t verified_at_ms_ = 0;
 };
 
 }  // namespace printdeck::platform
