@@ -8,6 +8,7 @@
 #include <array>
 #include <cctype>
 #include <charconv>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -659,7 +660,9 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
   selected_printer_model_.assign(detected_model.substr(0, 48));
   selected_link_ = snapshot.link;
   selected_phase_ = snapshot.job.phase;
-  selected_completion_ = std::clamp(snapshot.job.completion, 0.0F, 100.0F);
+  selected_completion_known_ = snapshot.job.completion_known && std::isfinite(snapshot.job.completion);
+  selected_completion_ = selected_completion_known_
+      ? std::clamp(snapshot.job.completion, 0.0F, 100.0F) : 0.0F;
   selected_light_ = {snapshot.job.chamber_light_supported, snapshot.job.chamber_light_on,
                      snapshot.job.chamber_light_pending, snapshot.job.chamber_light_target_on};
 }
@@ -3753,6 +3756,9 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
   std::uint32_t selected_status_profile = 0;
   std::string selected_model;
   core::LinkState selected_link = core::LinkState::stopped;
+  core::JobPhase selected_phase = core::JobPhase::unknown;
+  float selected_completion = 0.0F;
+  bool selected_completion_known = false;
   PrinterLightState light;
   UnifiedApiActivityCallback activity = nullptr;
   void* context = nullptr;
@@ -3762,6 +3768,9 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
     selected_status_profile = selected_status_profile_;
     selected_model = selected_printer_model_;
     selected_link = selected_link_;
+    selected_phase = selected_phase_;
+    selected_completion = selected_completion_;
+    selected_completion_known = selected_completion_known_;
     light = selected_light_;
     activity = printer_controls_activity_callback_;
     context = printer_controls_context_;
@@ -3781,13 +3790,19 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
     body += "{\"id\":" + std::to_string(profile.id) + ",\"selected\":";
     body += profile.id == current.selected_profile ? "true" : "false";
     core::PrinterReachability reachability = core::PrinterReachability::unknown;
+    core::JobPhase phase = core::JobPhase::unknown;
+    float completion = 0.0F;
+    bool completion_known = false;
     if (profile.id == current.selected_profile && profile.id == selected_status_profile) {
       if (selected_link == core::LinkState::online) {
         reachability = core::PrinterReachability::online;
+        phase = selected_phase;
+        completion = selected_completion;
+        completion_known = selected_completion_known;
       } else if (selected_link == core::LinkState::failed) {
         reachability = core::PrinterReachability::offline;
       }
-    } else {
+    } else if (profile.id != current.selected_profile) {
       const auto status = std::find_if(
           inactive.printers.begin(), inactive.printers.end(),
           [&profile](const InactivePrinterStatus& value) {
@@ -3796,12 +3811,30 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
       if (status != inactive.printers.end()) {
         reachability = status->connected ? core::PrinterReachability::online
                                          : core::PrinterReachability::offline;
+        phase = status->phase;
+        completion = status->completion;
+        completion_known = status->completion_known;
       }
     }
     body += ",\"reachability\":\"";
     body += reachability == core::PrinterReachability::online ? "online"
           : reachability == core::PrinterReachability::offline ? "offline" : "unknown";
     body += "\"";
+    // Reuse the selected snapshot or the existing bounded inactive poll. No extra printer I/O.
+    body += ",\"job\":";
+    if (reachability == core::PrinterReachability::online && phase != core::JobPhase::unknown) {
+      body += "{\"phase\":\"";
+      body += job_phase_id(phase);
+      body += "\",\"progress\":";
+      if (phase != core::JobPhase::idle && completion_known && std::isfinite(completion)) {
+        body += std::to_string(static_cast<int>(std::clamp(completion, 0.0F, 100.0F) + 0.5F));
+      } else {
+        body += "null";
+      }
+      body += "}";
+    } else {
+      body += "null";
+    }
     body += ",\"protocol\":\"";
     body += core::printer_driver(profile.protocol).id;
     body += "\",\"technology\":\"";

@@ -295,6 +295,7 @@ class WebConfig {
   core::LinkState selected_link_ = core::LinkState::stopped;
   core::JobPhase selected_phase_ = core::JobPhase::unknown;
   float selected_completion_ = 0.0F;
+  bool selected_completion_known_ = false;
   PowerSnapshot power_status_;
   std::atomic<std::uint8_t> voice_state_{0};
   struct PrinterLightState {

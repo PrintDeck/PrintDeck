@@ -234,6 +234,23 @@ html[data-appearance=light]{--printer-logo-filter:brightness(0)}
 .brand-mark img,#detected-logo img,#tinymaker-logo img{filter:var(--printer-logo-filter)}
 html[data-appearance] .printer-avatar[data-brand="tinymaker"] img,.brand-mark[data-brand="tinymaker"] img,#detected-logo[data-brand="tinymaker"] img,#tinymaker-logo img{filter:none;opacity:1}
 .printer-row .printer-avatar{width:52px;height:58px;flex:0 0 52px}
+.printer-row-copy{flex:1}
+.printer-job{display:grid;gap:8px;min-width:0}
+.printer-job-heading{font-size:12px;color:var(--muted)}
+.printer-job-summary{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px}
+.printer-job-state{min-width:0;overflow-wrap:anywhere}
+.printer-job-percent{flex:none;font-variant-numeric:tabular-nums;font-weight:750}
+.printer-job-track{display:block;height:8px;overflow:hidden;border-radius:99px;background:var(--line)}
+.printer-job-fill{display:block;height:100%;width:0;background:var(--device-theme-accent);border-radius:inherit}
+.printer-job[data-phase=paused] .printer-job-fill{background:#b97909}
+.printer-job[data-phase=completed] .printer-job-fill{background:#299b5a}
+.printer-job[data-phase=failed] .printer-job-fill,.printer-job[data-phase=cancelled] .printer-job-fill{background:var(--muted)}
+.printer-job[hidden],.printer-job [hidden]{display:none}
+.printer-row .printer-job{gap:5px;margin-top:3px}
+.printer-row .printer-job-summary{font-size:11px;color:var(--muted)}
+.printer-row .printer-job-track{height:5px}
+.printer-detail>.printer-job{padding:18px 0 22px;border-top:1px solid var(--line)}
+.printer-detail .printer-job-summary{font-size:16px}
 .printer-detail-head .printer-avatar{width:104px;height:104px;flex:0 0 104px}
 .printer-row .printer-avatar img:not(.printer-photo){max-width:40px;max-height:44px}
 .printer-detail-head .printer-avatar img:not(.printer-photo){max-width:64px;max-height:64px}
@@ -1719,7 +1736,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     function readSettings(){settings.device_name=$('#device-name').value.trim();settings.brightness=Number($('#brightness').value);settings.rotation=$('#rotation').value;settings.printer_animations_enabled=$('#printer-animations-enabled').checked;settings.reaction_progress_bar_enabled=$('#reaction_progress_bar_enabled').checked;settings.reaction_progress_percent_enabled=$('#reaction_progress_percent_enabled').checked;const audioVolume=$('#audio-volume');if(audioVolume){settings.audio_volume=Number(audioVolume.value);settings.audio_enabled=settings.audio_volume>0;settings.audio_preset=$('input[name="audio-preset"]:checked')?.value||'modern';settings.audio_muted_events=$$('[data-audio-mute-bit]').reduce((mask,input)=>input.checked?mask|(1<<Number(input.dataset.audioMuteBit)):mask&~(1<<Number(input.dataset.audioMuteBit)),Number(settings.audio_muted_events)||0)}else{settings.audio_volume=0;settings.audio_enabled=false;settings.audio_preset=settings.audio_preset||'modern';settings.audio_muted_events=Number(settings.audio_muted_events)||0}settings.printer_list_poll_s=Number($('#printer-list-poll').value);settings.camera_mode=$('#camera-mode').value;settings.camera_snapshot_fps=Number($('#camera-snapshot-fps').value);readPowerSettings();settings.timezone=$('#timezone').value}
     function settingsParams(){readSettings();const p=new URLSearchParams({device_name:settings.device_name,brightness:settings.brightness,printer_animations_enabled:settings.printer_animations_enabled?'1':'0',reaction_progress_bar_enabled:settings.reaction_progress_bar_enabled?'1':'0',reaction_progress_percent_enabled:settings.reaction_progress_percent_enabled?'1':'0',theme:settings.theme,timezone:settings.timezone,language:settings.language||currentLanguage,rotation:settings.rotation,audio_enabled:settings.audio_enabled?'1':'0',audio_volume:settings.audio_volume,audio_preset:settings.audio_preset,audio_muted_events:settings.audio_muted_events,printer_list_poll_s:settings.printer_list_poll_s,camera_mode:settings.camera_mode,camera_snapshot_fps:settings.camera_snapshot_fps});Object.values(powerNumbers).forEach(key=>p.set(key,String(settings[key])));Object.values(powerSwitches).forEach(key=>p.set(key,settings[key]?'1':'0'));Object.entries(settings.custom_theme||{}).forEach(([k,v])=>p.set('color_'+k,hex(v)));return p}
     async function saveAllSettings(status,silent=false){status.classList.remove('error');if(!silent)status.textContent=translated('Saving your changes…');settingsWrites++;try{const result=await jsonFetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:settingsParams()});settingsDirty=false;if(!silent)status.textContent=result.restart_required?translated('Saved. PrintDeck is restarting to apply this change…'):'';else status.textContent='';return result}catch(e){status.textContent=e.message;status.classList.add('error');return false}finally{settingsWrites--}}
-    $$('.language-select').forEach(selector=>selector.addEventListener('change',async event=>{currentLanguage=event.target.value;settings.language=currentLanguage;applyLanguage();wifiForms.forEach(renderWifiScanState);if(reactionData){delete $('#reaction-set-grid').dataset.catalog;paintReactionState()}if('wifi_connected'in health){paintHeaderStatus();paintDeviceHealth();paintConnectedNetwork()}await saveAllSettings($('#'+event.target.dataset.statusTarget),true)}));
+    $$('.language-select').forEach(selector=>selector.addEventListener('change',async event=>{currentLanguage=event.target.value;settings.language=currentLanguage;applyLanguage();paintPrinters();wifiForms.forEach(renderWifiScanState);if(reactionData){delete $('#reaction-set-grid').dataset.catalog;paintReactionState()}if('wifi_connected'in health){paintHeaderStatus();paintDeviceHealth();paintConnectedNetwork()}await saveAllSettings($('#'+event.target.dataset.statusTarget),true)}));
     const deviceNameSlug=value=>value.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[łŁ]/g,'l').replace(/[ß]/g,'ss').replace(/[œŒ]/g,'oe').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     function paintDeviceNameAddress(){const input=$('#device-name'),slug=deviceNameSlug(input?.value.trim()||''),stable=String(health.stable_hostname||health.hostname||'');$('#device-friendly-hostname').textContent=slug?'printdeck-'+slug+'.local':stable||'—';$('#device-ipv4').textContent=health.ipv4||'—';$('#device-mac-address').textContent=health.mac_address||'—'}
     async function saveDeviceName(){const status=$('#device-name-status'),button=$('#device-name-save'),previous=String(settings.device_name||''),name=$('#device-name').value.trim();status.classList.remove('error');if([...name].length>16||new TextEncoder().encode(name).length>64){status.textContent=translated('The device name is too long.');status.classList.add('error');return}button.disabled=true;status.textContent=translated('Saving device name…');settings.device_name=name;const result=await saveAllSettings(status,true);if(!result){settings.device_name=previous;button.disabled=false;return}try{let latest=null;for(let attempt=0;attempt<12;attempt++){latest=await jsonFetch('/api/health');Object.assign(health,latest);if(latest.device_name===name||!name)break;await new Promise(resolve=>setTimeout(resolve,200))}paintDeviceIdentity();paintDeviceNameAddress();status.textContent=translated('Device name saved.');const target=String(latest?.friendly_hostname||''),same=target.replace(/\.$/,'').toLowerCase()===location.hostname.replace(/\.$/,'').toLowerCase();if(target&&!same&&!result.preview){for(let attempt=0;attempt<8;attempt++){try{await fetch('http://'+target+'/api/health',{cache:'no-store',mode:'no-cors'});location.assign('http://'+target+'/'+currentPageHash());return}catch(_){await new Promise(resolve=>setTimeout(resolve,300))}}status.textContent=translated('Device name saved. Use the local address shown above when it becomes available.')}}finally{button.disabled=false}}
@@ -2084,11 +2101,33 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     }
     function paintThemePrinterPreview(){const p=printers[0];$$('.theme-card').forEach(card=>{const name=$('.status-printer',card),file=$('.status-file',card),thumb=$('.status-thumb',card);if(!name||!file||!thumb)return;name.textContent=p?.name||'U1';file.textContent=p?([p.manufacturer,p.model].filter(Boolean).join(' · ')||'Saved printer'):'example_print.3mf';thumb.replaceChildren();if(p?.brand&&brandLogos[p.brand]){const img=new Image;img.src=brandLogos[p.brand];img.alt=p.brand+' logo';thumb.append(img)}else thumb.textContent='3D'})}
     async function selectPrinter(p,button){if(p.selected||p.dashboard_available===false)return;const status=$('#printer-list-status');status.classList.remove('error');if(p.reachability==='offline'){status.textContent=(p.name||'This printer')+' is offline. Turn it on and wait for the list to refresh.';status.classList.add('error');return}status.textContent='Selecting '+(p.name||'printer')+'…';button.disabled=true;try{await jsonFetch('/api/printers/manage',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id:p.id,action:'select'})});await loadPrinters();status.textContent=''}catch(e){button.disabled=false;status.textContent=e.message;status.classList.add('error')}}
-    let printerPollTimer=0,printerLoadPromise=null,printerRenderKey='',printerLightRequest=null;
+    let printerPollTimer=0,printerLoadPromise=null,printerRenderKey='',printerLightRequest=null,printerStatusFresh=false;
     const printerGearIcon=$('.advanced-tab svg').outerHTML;
     function printerStatus(p){return translated(p.reachability==='online'?'Online':p.reachability==='offline'?'Offline':'Connecting…')}
+    const printerJobLabels={idle:'Ready',preparing:'Preparing',printing:'Printing',paused:'Paused',completed:'Print complete',failed:'Print failed',cancelled:'Cancelled'};
+    function createPrinterJob(detail=false){
+      const host=document.createElement(detail?'div':'span');host.className='printer-job';
+      host.innerHTML=(detail?'<span class="printer-job-heading"></span>':'')+'<span class="printer-job-summary"><span class="printer-job-state"></span><span class="printer-job-percent"></span></span><span class="printer-job-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span class="printer-job-fill"></span></span>';
+      if(detail)$('.printer-job-heading',host).textContent=translated('Print progress');
+      return host;
+    }
+    function paintPrinterJob(host,p,detail=false){
+      const job=printerStatusFresh&&p.reachability==='online'?p.job:null;
+      const phase=job&&Object.hasOwn(printerJobLabels,job.phase)?job.phase:'';
+      host.hidden=!detail&&!phase;host.dataset.phase=phase;
+      let label=translated(phase?printerJobLabels[phase]:!printerStatusFresh?'Status unavailable':p.reachability==='offline'?'Printer offline':p.reachability!=='online'?'Waiting for the printer to connect.':'Status unavailable');
+      if(phase&&!p.selected)label=translated('Last check: {state}').replace('{state}',label);
+      $('.printer-job-state',host).textContent=label;
+      const known=phase&&phase!=='idle'&&typeof job.progress==='number'&&Number.isFinite(job.progress);
+      const value=known?Math.round(Math.min(100,Math.max(0,job.progress))):0;
+      const percent=$('.printer-job-percent',host),track=$('.printer-job-track',host);
+      percent.hidden=!known;percent.textContent=known?value+'%':'';track.hidden=!known;
+      track.setAttribute('aria-label',translated('Print progress')+' · '+(p.name||translated('Printer')));
+      if(known)track.setAttribute('aria-valuenow',String(value));else track.removeAttribute('aria-valuenow');
+      $('.printer-job-fill',host).style.width=value+'%';
+    }
     function paintPrinters(){
-      const key=JSON.stringify([currentLanguage,Object.keys(brandLogos),printers.map(({light,...p})=>p),companionState.cameras.map(c=>c.printers)]);
+      const key=JSON.stringify([currentLanguage,Object.keys(brandLogos),printers.map(({light,job,...p})=>p),companionState.cameras.map(c=>c.printers)]);
       const selected=printers.find(p=>p.selected);
       if(key!==printerRenderKey){
         printerRenderKey=key;
@@ -2100,6 +2139,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
           select.disabled=p.reachability==='offline'||p.dashboard_available===false;select.setAttribute('aria-pressed',String(!!p.selected));
           select.title=p.dashboard_available===false?translated('The device view for this printer is not available yet.'):select.disabled?translated('Offline printers cannot be selected'):'';
           select.innerHTML='<span class="printer-avatar" aria-hidden="true"></span><span class="printer-row-copy"><strong></strong><span class="printer-row-meta"><span class="printer-reachability"></span></span></span>';
+          row.dataset.printerId=p.id;$('.printer-row-copy',select).append(createPrinterJob());
           setPrinterMark($('.printer-avatar',select),p);$('strong',select).textContent=p.name||translated('Printer');if(isResin(p.protocol))$('.printer-row-meta',select).append(resinBadge());
           const status=$('.printer-reachability',select);status.textContent=printerStatus(p);status.classList.toggle('online',p.reachability==='online');
           select.addEventListener('click',()=>selectPrinter(p,select));
@@ -2114,6 +2154,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
         if(selected){
           detail.innerHTML='<div class="printer-detail-head"><span class="printer-avatar" aria-hidden="true"></span><div class="printer-detail-copy"><div class="printer-detail-title"><h3></h3><span class="printer-detail-badge"></span></div><p class="micro"></p></div></div><div class="printer-control"><span class="printer-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2Z"/></svg></span><div class="printer-control-copy"><strong id="printer-light-label"></strong><small id="printer-light-help"></small></div><label class="printer-light-toggle"><span class="printer-light-state" aria-hidden="true"></span><input class="reaction-switch-input" id="printer-light" type="checkbox" role="switch" aria-labelledby="printer-light-label" aria-describedby="printer-light-help"><span class="reaction-switch" aria-hidden="true"></span></label></div><p class="status" id="printer-light-status" role="status" aria-live="polite"></p><div class="printer-detail-footer"><span class="printer-endpoint"></span><button type="button" class="printer-settings-link"></button></div>';
           setPrinterMark($('.printer-avatar',detail),selected);$('h3',detail).textContent=selected.name||translated('Printer');
+          $('.printer-detail-head',detail).after(createPrinterJob(true));
           $('.printer-detail-badge',detail).textContent=translated('ACTIVE');
           $('.micro',detail).textContent=[selected.manufacturer,selected.model].filter(Boolean).join(' · ')||(selected.protocol==='bambu_lan'?'Bambu Lab':'Klipper · Moonraker');
           $('#printer-light-label').textContent=translated('Printer light');
@@ -2128,6 +2169,8 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
           empty.textContent=translated(printers.length?'Choose a printer to view its controls.':'Add your first printer to get started.');detail.append(empty);
         }
       }
+      $$('.printer-row').forEach(row=>{const p=printers.find(p=>String(p.id)===row.dataset.printerId);if(p)paintPrinterJob($('.printer-job',row),p)});
+      if(selected)paintPrinterJob($('#printer-detail>.printer-job'),selected,true);
       if(selected&&!isResin(selected.protocol)){
         const light=selected.light||{},input=$('#printer-light'),request=printerLightRequest?.id===selected.id?printerLightRequest:null;
         if(request&&Date.now()>=request.started+12000){
@@ -2147,8 +2190,10 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
       clearTimeout(printerPollTimer);
       const controls=!document.hidden&&!$('[data-panel="printers"]').hidden;
       printerLoadPromise=(async()=>{
-        try{const b=await jsonFetch('/api/printers'+(controls?'?controls=1':''));printers=b.printers||[];paintPrinters()}
-        finally{printerLoadPromise=null;if(!document.hidden&&!$('[data-panel="printers"]').hidden)printerPollTimer=setTimeout(()=>loadPrinters().catch(()=>{}),2000)}
+        const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),5000);
+        try{const b=await jsonFetch('/api/printers'+(controls?'?controls=1':''),{signal:controller.signal});printers=b.printers||[];printerStatusFresh=true;paintPrinters()}
+        catch(error){printerStatusFresh=false;paintPrinters();throw error}
+        finally{clearTimeout(timeout);printerLoadPromise=null;if(!document.hidden&&!$('[data-panel="printers"]').hidden)printerPollTimer=setTimeout(()=>loadPrinters().catch(()=>{}),2000)}
       })();return printerLoadPromise;
     }
     async function setPrinterLight(id,enabled){
