@@ -165,3 +165,9 @@ They are unmodified except for filenames. Per-image original source links and
 SHA-256 digests are in `docs/assets/printers/v1/NOTICE.md`; the license text is in
 `docs/assets/printers/v1/LICENSE.txt`. Product names and marks belong to their
 respective owners.
+
+Additional TinyMaker and UniFormation GK3 Ultra product photographs are supplied
+from the per-image sources listed in the thumbnail notice. Their backgrounds
+are removed and the photographs are scaled for display; rights remain with
+the respective owners. The OrcaSlicer license statement above applies only
+to the OrcaSlicer artwork.
