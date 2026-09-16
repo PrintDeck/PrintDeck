@@ -4446,7 +4446,9 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
       if (profile.api_key.empty()) profile.api_key = existing->api_key;
       if (profile.access_code.empty()) profile.access_code = existing->access_code;
     }
-    if (profile.protocol == existing->protocol && profile.endpoint == existing->endpoint)
+    if (profile.protocol == existing->protocol && profile.endpoint == existing->endpoint &&
+        !(profile.protocol == core::PrinterProtocol::moonraker && moonraker_probe_ &&
+          moonraker_probe_->verified(profile)))
       profile.network_identity = existing->network_identity;
     *existing = std::move(profile);
   }

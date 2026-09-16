@@ -16,7 +16,33 @@ inline bool valid_moonraker_uuid(std::string_view value) {
 }
 
 inline bool valid_moonraker_identity(std::string_view value) {
-  return valid_moonraker_uuid(value) || (value.starts_with("mr:") && valid_moonraker_uuid(value.substr(3)));
+  if (value.starts_with("mh:")) {
+    value.remove_prefix(3);
+    std::string_view previous;
+    unsigned count = 0;
+    while (!value.empty()) {
+      const auto end = value.find(',');
+      const auto digest = value.substr(0, end);
+      if (++count > 8 || !valid_moonraker_uuid(digest) ||
+          (!previous.empty() && digest <= previous)) return false;
+      previous = digest;
+      if (end == value.npos) return true;
+      value.remove_prefix(end + 1);
+    }
+    return false;
+  }
+  return valid_moonraker_uuid(value) ||
+      ((value.starts_with("mr:") || value.starts_with("mp:")) &&
+       valid_moonraker_uuid(value.substr(3)));
+}
+
+inline bool moonraker_host_evidence_matches(std::string_view saved, std::string_view current) {
+  if (!saved.starts_with("mh:") || !current.starts_with("mh:") ||
+      !valid_moonraker_identity(saved) || !valid_moonraker_identity(current)) return false;
+  for (std::size_t i = 3; i < saved.size(); i += 33)
+    for (std::size_t j = 3; j < current.size(); j += 33)
+      if (saved.substr(i, 32) == current.substr(j, 32)) return true;
+  return false;
 }
 
 struct PrinterAddress {
@@ -120,8 +146,14 @@ inline bool merge_printer_address(DeviceSettings& settings, const PrinterProfile
   if (expected.endpoint == recovered.endpoint && expected.network_identity == recovered.network_identity) return false;
   if (expected.endpoint != recovered.endpoint &&
       (!printer_address_recoverable(expected) || expected.network_identity != recovered.network_identity)) return false;
+  // The worker may upgrade freshly matched legacy evidence at the same endpoint.
+  // Never combine an identity upgrade with an address change.
+  const bool identity_upgrade = expected.endpoint == recovered.endpoint &&
+      (expected.network_identity.starts_with("mr:") || valid_moonraker_uuid(expected.network_identity)) &&
+      (recovered.network_identity.starts_with("mp:") || recovered.network_identity.starts_with("mh:"));
   if (expected.network_identity != recovered.network_identity &&
-      (expected.protocol != PrinterProtocol::moonraker || !expected.network_identity.empty() ||
+      (expected.protocol != PrinterProtocol::moonraker ||
+       (!expected.network_identity.empty() && !identity_upgrade) ||
        !valid_moonraker_identity(recovered.network_identity))) return false;
   const auto before = printer_address(expected);
   const auto after = printer_address(recovered);

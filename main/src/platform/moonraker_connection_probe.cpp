@@ -9,6 +9,7 @@
 #include "cJSON.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
+#include "esp_timer.h"
 #include "printdeck/platform/task_affinity.hpp"
 
 namespace printdeck::platform {
@@ -143,6 +144,7 @@ esp_err_t MoonrakerConnectionProbe::start(core::PrinterProfile profile) {
     const std::lock_guard<std::mutex> lock(mutex_);
     if (snapshot_.running) return ESP_ERR_INVALID_STATE;
     pending_profile_ = std::move(profile);
+    verified_at_ms_ = 0;
     snapshot_ = {
         .state = MoonrakerProbeState::connecting,
         .progress_percent = 15,
@@ -169,6 +171,16 @@ esp_err_t MoonrakerConnectionProbe::start(core::PrinterProfile profile) {
 MoonrakerProbeSnapshot MoonrakerConnectionProbe::snapshot() const {
   const std::lock_guard<std::mutex> lock(mutex_);
   return snapshot_;
+}
+
+bool MoonrakerConnectionProbe::verified(const core::PrinterProfile& profile) const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  return snapshot_.state == MoonrakerProbeState::ready && !snapshot_.running &&
+      verified_at_ms_ != 0 && now >= verified_at_ms_ && now - verified_at_ms_ <= 300000 &&
+      profile.protocol == core::PrinterProtocol::moonraker &&
+      profile.id == pending_profile_.id && profile.endpoint == pending_profile_.endpoint &&
+      profile.api_key == pending_profile_.api_key;
 }
 
 void MoonrakerConnectionProbe::task_entry(void* context) {
@@ -281,6 +293,8 @@ void MoonrakerConnectionProbe::finish(MoonrakerProbeState state, std::string det
   snapshot_.brand = std::move(brand);
   snapshot_.evidence = std::move(evidence);
   snapshot_.running = false;
+  verified_at_ms_ = state == MoonrakerProbeState::ready
+      ? static_cast<std::uint64_t>(esp_timer_get_time() / 1000) : 0;
   task_ = nullptr;
 }
 
