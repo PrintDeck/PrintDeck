@@ -21,6 +21,7 @@
 #include "printdeck/platform/bambu_trust.hpp"
 #include "printdeck/platform/bambu_model.hpp"
 #include "printdeck/platform/printer_discovery_timing.hpp"
+#include "printdeck/platform/printer_discovery_schedule.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "sdkconfig.h"
 #include "mdns.h"
@@ -53,7 +54,7 @@ constexpr std::uint64_t kMaximumDurationMs = 180000;
 // and MX response window closes, restore the original five-probe throughput.
 // This preserves reliable, spaced SSDP discovery without returning to the old
 // seven-descriptor peak or increasing the global socket table.
-constexpr std::size_t kProbeBatchSize = 5;
+constexpr std::size_t kProbeBatchSize = PrinterDiscoverySchedule::capacity;
 constexpr std::size_t kProbeBatchSizeWithSsdp = 3;
 constexpr std::size_t kSocketOpenAttempts = 12;
 constexpr std::size_t kMaximumResults = 24;
@@ -336,6 +337,7 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
         .network_netmask = network_.netmask,
     };
     cancel_requested_.store(false);
+    pause_requested_.store(false);
   }
   if (xTaskCreatePinnedToCoreWithCaps(task_entry, "printer_scan", 16384U, this, recovery_profile_ ? 1 : 2, &task_,
                                      kServiceCore,
@@ -361,6 +363,15 @@ bool PrinterDiscoveryService::cancel(std::uint32_t scan_id) {
     return false;
   }
   cancel_requested_.store(true);
+  return true;
+}
+
+bool PrinterDiscoveryService::set_paused(std::uint32_t scan_id, bool paused) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  if (!scan_id || snapshot_.scan_id != scan_id ||
+      snapshot_.state != PrinterDiscoveryState::scanning || recovery_mode_.load() ||
+      cancel_requested_.load()) return false;
+  pause_requested_.store(paused);
   return true;
 }
 
@@ -504,9 +515,9 @@ void PrinterDiscoveryService::run() {
     std::atomic<bool>& running;
     ~RunningGuard() { running.store(false, std::memory_order_release); }
   } running_guard{running_};
-  const std::uint64_t started = now_ms();
+  std::uint64_t started = now_ms();
   const bool targeted = !target_host_.empty();
-  const std::uint64_t deadline = started + (targeted ? 35000 : kMaximumDurationMs);
+  std::uint64_t deadline = started + (targeted ? 35000 : kMaximumDurationMs);
   // Resolve only the user-entered host, on the worker, then enforce the actual
   // station subnet before opening printer sockets. DNS never selects a remote
   // HTTP destination or expands a targeted request into a subnet scan.
@@ -707,7 +718,7 @@ void PrinterDiscoveryService::run() {
       close(elegoo_socket); elegoo_socket = -1;
     }
   }
-  const auto elegoo_started = now_ms();
+  auto elegoo_started = now_ms();
   unsigned elegoo_round = 0;
   const auto service_elegoo = [&] {
     if (elegoo_socket < 0) return;
@@ -883,22 +894,17 @@ void PrinterDiscoveryService::run() {
     bool verify_moonraker;
     std::uint32_t timeout_ms;
   };
+  // Complete the known services for each of a few concurrent addresses.
+  // HTTP goes first and gets the cold-neighbor timeout; later ports reuse ARP.
   std::vector<Pass> passes{
-      // GK3 Ultra does not reliably answer UDP discovery. Verify its known
-      // local WebSocket service and model before publishing a resin result.
-      {3030, core::PrinterProtocol::uniformation_sdcp, false, 1000},
-      // A cold Wi-Fi ARP lookup can exceed a few hundred milliseconds. Give
-      // Moonraker's primary port one full ARP window so the result does not
-      // depend on an earlier failed scan having warmed the neighbor cache.
-      {7125, core::PrinterProtocol::moonraker, false, 1000},
-      // Native PrusaLink uses HTTP, often without a Prusa-specific mDNS record.
-      // Check this primary service before alternate ports consume the budget.
       {80, core::PrinterProtocol::moonraker, true,
        PrinterDiscoveryTiming::http_tcp_connect_timeout_ms},
+      {3030, core::PrinterProtocol::uniformation_sdcp, false, 250},
+      {7125, core::PrinterProtocol::moonraker, false, 250},
       {kBambuTlsPort, core::PrinterProtocol::bambu_lan, false,
        PrinterDiscoveryTiming::bambu_tcp_connect_timeout_ms},
-      {4408, core::PrinterProtocol::moonraker, true, 1000},
-      {4409, core::PrinterProtocol::moonraker, true, 1000},
+      {4408, core::PrinterProtocol::moonraker, true, 250},
+      {4409, core::PrinterProtocol::moonraker, true, 250},
   };
   if (targeted && target_port_ != 0) {
     passes = {{target_port_, target_port_ == 3030 ? core::PrinterProtocol::uniformation_sdcp
@@ -918,158 +924,175 @@ void PrinterDiscoveryService::run() {
         recovery_profile_->protocol != core::PrinterProtocol::elegoo_sdcp)
       passes.push_back({address->port, recovery_profile_->protocol, recovery_profile_->protocol == core::PrinterProtocol::moonraker, 1000});
   }
-  struct Pending { int socket_fd; std::string host; std::uint16_t port;
-                   core::PrinterProtocol protocol; bool verify_moonraker; };
+  struct Pending {
+    int socket_fd;
+    PrinterDiscoverySchedule::Probe probe;
+    std::uint64_t deadline_ms;
+  };
+  PrinterDiscoverySchedule schedule(candidates.size(), passes.size());
   std::vector<Pending> pending;
   pending.reserve(kProbeBatchSize);
   const std::size_t total = std::max<std::size_t>(candidates.size() * passes.size(), 1);
   std::size_t completed = 0;
   bool resource_pressure = false;
-
-  const auto flush = [&](std::uint32_t timeout_ms) {
-    if (pending.empty()) return;
-    const std::uint64_t wait_deadline = std::min(deadline, now_ms() + timeout_ms);
-    while (!pending.empty() && !cancel_requested_.load()) {
-      fd_set writable;
-      fd_set errors;
-      FD_ZERO(&writable);
-      FD_ZERO(&errors);
-      int maximum_socket = -1;
-      for (const auto& probe : pending) {
-        FD_SET(probe.socket_fd, &writable);
-        FD_SET(probe.socket_fd, &errors);
-        maximum_socket = std::max(maximum_socket, probe.socket_fd);
-      }
-      const std::uint32_t remaining = PrinterDiscoveryTiming::bounded_wait_ms(
-          now_ms(), wait_deadline, timeout_ms);
-      if (remaining == 0) break;
-      timeval timeout{.tv_sec = static_cast<time_t>(remaining / 1000),
-                      .tv_usec = static_cast<suseconds_t>((remaining % 1000) * 1000)};
-      const int ready = select(maximum_socket + 1, nullptr, &writable, &errors, &timeout);
-      if (ready < 0 && errno == EINTR) continue;
-      if (ready <= 0) break;
-      std::size_t waiting_count = 0;
-      for (std::size_t index = 0; index < pending.size(); ++index) {
-        auto& probe = pending[index];
-        if (!FD_ISSET(probe.socket_fd, &writable) && !FD_ISSET(probe.socket_fd, &errors)) {
-          if (waiting_count != index) pending[waiting_count] = std::move(probe);
-          ++waiting_count;
-          continue;
-        }
-        int socket_error = ECONNREFUSED;
-        socklen_t error_size = sizeof(socket_error);
-        bool accepted = getsockopt(probe.socket_fd, SOL_SOCKET, SO_ERROR, &socket_error,
-                                   &error_size) == 0 && socket_error == 0;
-        if (accepted && probe.protocol == core::PrinterProtocol::uniformation_sdcp) {
-          close(probe.socket_fd); probe.socket_fd = -1;
-          uniformation_identity(probe.host, probe.port);
-          accepted = false;
-        } else if (accepted && probe.verify_moonraker) {
-          accepted = moonraker_signature(probe.socket_fd, probe.host, deadline);
-          if (!accepted && (probe.port == 80 || targeted)) {
-            close(probe.socket_fd);
-            probe.socket_fd = -1;
-            if (prusa_identity(probe.host, probe.port))
-              add_result({.protocol = core::PrinterProtocol::prusalink, .name = "Prusa", .host = probe.host, .port = probe.port});
-          }
-        } else if (accepted && probe.protocol == core::PrinterProtocol::bambu_lan) {
-          close(probe.socket_fd);
-          probe.socket_fd = -1;
-          accepted = bambu_tls_identity(probe.host, deadline, recovery_profile_ ? recovery_profile_->serial.c_str() : nullptr);
-        }
-        if (accepted) add_result({.protocol = probe.protocol,
-                                  .name = {},
-                                  .model = {},
-                                  .host = probe.host,
-                                  .serial = recovery_profile_ && probe.protocol == core::PrinterProtocol::bambu_lan ? recovery_profile_->serial : std::string{},
-                                  .port = probe.port});
-        if (probe.socket_fd >= 0) close(probe.socket_fd);
-      }
-      pending.resize(waiting_count);
+  const auto stopped = [&] {
+    return cancel_requested_.load() || now_ms() >= deadline || target_found();
+  };
+  const auto complete = [&](PrinterDiscoverySchedule::Probe probe) {
+    schedule.complete(probe);
+    publish_progress(++completed, total);
+    if (recovery_profile_) {
+      for (unsigned pause = 0; pause < 3 && !stopped(); ++pause) vTaskDelay(pdMS_TO_TICKS(50));
     }
-    for (const auto& probe : pending) close(probe.socket_fd);
-    pending.clear();
-    service_ssdp();
-    service_elegoo();
+  };
+  const auto verify = [&](Pending& pending_probe) {
+    const auto& pass = passes[pending_probe.probe.service];
+    const auto& host = candidates[pending_probe.probe.address].host;
+    auto& socket_fd = pending_probe.socket_fd;
+    int socket_error = ECONNREFUSED;
+    socklen_t error_size = sizeof(socket_error);
+    bool accepted = getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, &socket_error,
+                               &error_size) == 0 && socket_error == 0;
+    if (accepted && pass.protocol == core::PrinterProtocol::uniformation_sdcp) {
+      close(socket_fd); socket_fd = -1;
+      uniformation_identity(host, pass.port);
+      accepted = false;
+    } else if (accepted && pass.verify_moonraker) {
+      accepted = moonraker_signature(socket_fd, host, deadline);
+      if (!accepted && (pass.port == 80 || targeted)) {
+        close(socket_fd); socket_fd = -1;
+        if (prusa_identity(host, pass.port))
+          add_result({.protocol = core::PrinterProtocol::prusalink, .name = "Prusa", .host = host, .port = pass.port});
+      }
+    } else if (accepted && pass.protocol == core::PrinterProtocol::bambu_lan) {
+      close(socket_fd); socket_fd = -1;
+      accepted = bambu_tls_identity(host, deadline, recovery_profile_ ? recovery_profile_->serial.c_str() : nullptr);
+    }
+    if (accepted) add_result({.protocol = pass.protocol,
+                              .name = {}, .model = {}, .host = host,
+                              .serial = recovery_profile_ && pass.protocol == core::PrinterProtocol::bambu_lan ? recovery_profile_->serial : std::string{},
+                              .port = pass.port});
+  };
+  // Resolve ready or individually expired probes, then immediately refill free
+  // lanes. A slow address never holds completed addresses behind a batch fence.
+  const auto service_pending = [&] {
+    if (pending.empty()) return;
+    fd_set writable;
+    fd_set errors;
+    FD_ZERO(&writable);
+    FD_ZERO(&errors);
+    int maximum_socket = -1;
+    auto wait_deadline = std::min(deadline, now_ms() + 50);
+    for (const auto& probe : pending) {
+      FD_SET(probe.socket_fd, &writable);
+      FD_SET(probe.socket_fd, &errors);
+      maximum_socket = std::max(maximum_socket, probe.socket_fd);
+      wait_deadline = std::min(wait_deadline, probe.deadline_ms);
+    }
+    const auto remaining = PrinterDiscoveryTiming::bounded_wait_ms(now_ms(), wait_deadline, 50);
+    timeval timeout{.tv_sec = 0, .tv_usec = static_cast<suseconds_t>(remaining * 1000)};
+    const int ready = select(maximum_socket + 1, nullptr, &writable, &errors, &timeout);
+    if (ready < 0 && errno == EINTR) return;
+    const auto observed_at = now_ms();
+    std::size_t waiting_count = 0;
+    for (std::size_t index = 0; index < pending.size(); ++index) {
+      auto& probe = pending[index];
+      const bool ready_now = ready > 0 &&
+          (FD_ISSET(probe.socket_fd, &writable) || FD_ISSET(probe.socket_fd, &errors));
+      if (ready >= 0 && !ready_now && observed_at < probe.deadline_ms && !stopped()) {
+        if (waiting_count != index) pending[waiting_count] = std::move(probe);
+        ++waiting_count;
+        continue;
+      }
+      if (ready < 0) resource_pressure = true;
+      if (ready_now && !stopped()) verify(probe);
+      if (probe.socket_fd >= 0) close(probe.socket_fd);
+      complete(probe.probe);
+    }
+    pending.resize(waiting_count);
   };
 
-  for (const auto& pass : passes) {
-    if (cancel_requested_.load() || now_ms() >= deadline || target_found()) break;
-    for (const auto& candidate : candidates) {
-      if (cancel_requested_.load() || now_ms() >= deadline) break;
-      service_ssdp();
-      service_elegoo();
+  // Acknowledge only at a quiet boundary, after every TCP probe has closed.
+  // The worker keeps its schedule/results and sends no traffic while paused.
+  const auto pause_at_boundary = [&] {
+    if (!pause_requested_.load() || cancel_requested_.load()) return;
+    while (!pending.empty() && !stopped()) service_pending();
+    if (stopped()) return;
+    const auto pause_started = now_ms();
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      snapshot_.paused = true;
+    }
+    while (pause_requested_.load() && !cancel_requested_.load()) {
+      // An abandoned browser must not reserve the worker forever.
+      if (now_ms() - pause_started >= 300000) {
+        cancel_requested_.store(true);
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    const auto elapsed = now_ms() - pause_started;
+    deadline += elapsed;
+    started += elapsed;
+    elegoo_started += elapsed;
+    next_ssdp_search_ms += elapsed;
+    if (last_ssdp_search_ms) last_ssdp_search_ms += elapsed;
+    const std::lock_guard<std::mutex> lock(mutex_);
+    snapshot_.paused = false;
+  };
+
+  while (!schedule.done() && !stopped()) {
+    pause_at_boundary();
+    if (stopped()) break;
+    service_ssdp();
+    service_elegoo();
+    const std::size_t batch_size = recovery_profile_ ? 1 :
+        (ssdp_active() ? kProbeBatchSizeWithSsdp : kProbeBatchSize) - (elegoo_socket >= 0 ? 1 : 0);
+    while (pending.size() < batch_size && !stopped() && !pause_requested_.load()) {
+      const auto probe = schedule.next();
+      if (!probe) break;
+      const auto& pass = passes[probe->service];
+      const auto& candidate = candidates[probe->address];
       int socket_fd = -1;
       for (std::size_t attempt = 0;
-           attempt < kSocketOpenAttempts && socket_fd < 0 && now_ms() < deadline;
-           ++attempt) {
+           attempt < kSocketOpenAttempts && socket_fd < 0 && !stopped(); ++attempt) {
         socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (socket_fd >= 0) break;
-        // Web Config polling and the selected-printer connection also own a
-        // few descriptors. Resolve our bounded batch, close it and retry so a
-        // momentarily full table does not silently skip most of the subnet.
-        flush(pass.timeout_ms);
+        service_pending();
         service_ssdp();
         service_elegoo();
         vTaskDelay(pdMS_TO_TICKS(10));
       }
       if (socket_fd < 0) {
         resource_pressure = true;
-      } else {
-        fcntl(socket_fd, F_SETFL, O_NONBLOCK);
-        sockaddr_in target{};
-        target.sin_family = AF_INET;
-        target.sin_port = htons(pass.port);
-        target.sin_addr = candidate.address;
-        const int result = connect(socket_fd, reinterpret_cast<const sockaddr*>(&target),
-                                   sizeof(target));
-        if (result == 0) {
-          bool accepted = !pass.verify_moonraker;
-          if (pass.protocol == core::PrinterProtocol::uniformation_sdcp) {
-            close(socket_fd); socket_fd = -1;
-            uniformation_identity(candidate.host, pass.port);
-            accepted = false;
-          } else if (pass.verify_moonraker) {
-            accepted = moonraker_signature(socket_fd, candidate.host, deadline);
-            if (!accepted && (pass.port == 80 || targeted)) {
-              close(socket_fd);
-              socket_fd = -1;
-              if (prusa_identity(candidate.host, pass.port))
-                add_result({.protocol = core::PrinterProtocol::prusalink, .name = "Prusa", .host = candidate.host, .port = pass.port});
-            }
-          } else if (pass.protocol == core::PrinterProtocol::bambu_lan) {
-            close(socket_fd);
-            socket_fd = -1;
-            accepted = bambu_tls_identity(candidate.host, deadline, recovery_profile_ ? recovery_profile_->serial.c_str() : nullptr);
-          }
-          if (accepted) add_result({.protocol = pass.protocol,
-                                    .name = {},
-                                    .model = {},
-                                    .host = candidate.host,
-                                    .serial = recovery_profile_ && pass.protocol == core::PrinterProtocol::bambu_lan ? recovery_profile_->serial : std::string{},
-                                    .port = pass.port});
-          if (socket_fd >= 0) close(socket_fd);
-        } else if (errno == EINPROGRESS) {
-          pending.push_back({socket_fd, candidate.host, pass.port, pass.protocol,
-                             pass.verify_moonraker});
-          const std::size_t batch_size =
-              recovery_profile_ ? 1 :
-              (ssdp_active() ? kProbeBatchSizeWithSsdp : kProbeBatchSize) - (elegoo_socket >= 0 ? 1 : 0);
-          if (pending.size() >= batch_size) flush(pass.timeout_ms);
-        } else {
-          close(socket_fd);
-        }
+        complete(*probe);
+        continue;
       }
-      publish_progress(++completed, total);
-      if (recovery_profile_) {
-        for (unsigned pause = 0; pause < 3 && !cancel_requested_.load(); ++pause) vTaskDelay(pdMS_TO_TICKS(50));
+      if (stopped()) { close(socket_fd); complete(*probe); break; }
+      fcntl(socket_fd, F_SETFL, O_NONBLOCK);
+      sockaddr_in target{};
+      target.sin_family = AF_INET;
+      target.sin_port = htons(pass.port);
+      target.sin_addr = candidate.address;
+      const auto probe_deadline = std::min(deadline, now_ms() +
+          PrinterDiscoveryTiming::tcp_connect_timeout_ms(probe->service, pass.timeout_ms));
+      const int result = connect(socket_fd, reinterpret_cast<const sockaddr*>(&target), sizeof(target));
+      if (result == 0 || errno == EINPROGRESS) {
+        pending.push_back({socket_fd, *probe, probe_deadline});
+      } else {
+        close(socket_fd);
+        complete(*probe);
       }
     }
-    flush(pass.timeout_ms);
+    service_pending();
   }
+  for (const auto& probe : pending) close(probe.socket_fd);
+  pending.clear();
 
   while (!cancel_requested_.load() && now_ms() < deadline && !target_found() &&
          (now_ms() < started + kMinimumDurationMs || ssdp_active() || elegoo_socket >= 0)) {
+    pause_at_boundary();
+    if (stopped()) break;
     service_ssdp();
     service_elegoo();
     vTaskDelay(pdMS_TO_TICKS(40));
@@ -1085,6 +1108,7 @@ void PrinterDiscoveryService::run() {
   std::vector<std::vector<std::string>> moonraker_identities;
   if (!cancelled) {
     for (auto& printer : snapshot(true).printers) {
+      pause_at_boundary();
       if (cancel_requested_.load()) {
         cancelled = true;
         break;
@@ -1123,6 +1147,8 @@ void PrinterDiscoveryService::run() {
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     cancelled = cancel_requested_.exchange(false) || cancelled;
+    snapshot_.paused = false;
+    pause_requested_.store(false);
     if (!cancelled && deduplication_complete) snapshot_.printers = std::move(deduplicated);
     const std::uint64_t completed_at_ms = now_ms();
     for (auto& printer : snapshot_.printers) {

@@ -557,7 +557,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 75;
+  constexpr unsigned route_capacity = 77;
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
@@ -590,6 +590,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/printers/discover", .method = HTTP_POST, .handler = printer_discovery_start_entry, .user_ctx = this},
       {.uri = "/api/printers/discover", .method = HTTP_GET, .handler = printer_discovery_status_entry, .user_ctx = this},
       {.uri = "/api/printers/discover/cancel", .method = HTTP_POST, .handler = printer_discovery_cancel_entry, .user_ctx = this},
+      {.uri = "/api/printers/discover/pause", .method = HTTP_POST, .handler = printer_discovery_cancel_entry, .user_ctx = this},
+      {.uri = "/api/printers/discover/resume", .method = HTTP_POST, .handler = printer_discovery_cancel_entry, .user_ctx = this},
       {.uri = "/api/update/status", .method = HTTP_GET, .handler = update_status_entry, .user_ctx = this},
       {.uri = "/api/update/check", .method = HTTP_POST, .handler = update_check_entry, .user_ctx = this},
       {.uri = "/api/update/install", .method = HTTP_POST, .handler = update_install_entry, .user_ctx = this},
@@ -3895,6 +3897,8 @@ esp_err_t WebConfig::serve_printer_discovery(httpd_req_t* request,
   body += state;
   body += "\",\"running\":";
   body += snapshot.state == PrinterDiscoveryState::scanning ? "true" : "false";
+  body += ",\"paused\":";
+  body += snapshot.paused ? "true" : "false";
   body += ",\"scan_id\":" + std::to_string(snapshot.scan_id);
   if (started.has_value()) {
     body += ",\"started\":";
@@ -3988,7 +3992,11 @@ esp_err_t WebConfig::cancel_printer_discovery(httpd_req_t* request) {
     return send_json(request, "400 Bad Request",
                      "{\"error\":\"The current printer search could not be stopped. Please try again.\"}");
   }
-  printer_discovery_->cancel(scan_id);
+  if (std::string_view(request->uri) == "/api/printers/discover/pause")
+    printer_discovery_->set_paused(scan_id, true);
+  else if (std::string_view(request->uri) == "/api/printers/discover/resume")
+    printer_discovery_->set_paused(scan_id, false);
+  else printer_discovery_->cancel(scan_id);
   return serve_printer_discovery(request);
 }
 

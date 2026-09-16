@@ -23,6 +23,13 @@ struct PrinterDiscoveryTiming {
   // A 50ms HTTP probe can miss a reachable Wi-Fi printer before its SYN reply.
   static constexpr std::uint32_t http_tcp_connect_timeout_ms = 250;
 
+  // The first port also resolves the Wi-Fi neighbor. Subsequent ports on the
+  // same address reuse that ARP attempt instead of each paying a cold timeout.
+  static constexpr std::uint32_t tcp_connect_timeout_ms(std::size_t service,
+                                                       std::uint32_t preferred_ms) {
+    return service == 0 ? std::max<std::uint32_t>(1000, preferred_ms) : preferred_ms;
+  }
+
   static constexpr std::uint32_t bounded_wait_ms(std::uint64_t now_ms,
                                                  std::uint64_t deadline_ms,
                                                  std::uint32_t preferred_ms) {

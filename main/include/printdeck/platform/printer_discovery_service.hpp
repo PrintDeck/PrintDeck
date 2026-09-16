@@ -33,6 +33,7 @@ struct DiscoveredPrinter {
 struct PrinterDiscoverySnapshot {
   PrinterDiscoveryState state = PrinterDiscoveryState::idle;
   std::uint32_t scan_id = 0;
+  bool paused = false;
   int progress_percent = 0;
   std::string network_name;
   std::string detail = "Ready to search";
@@ -48,6 +49,7 @@ class PrinterDiscoveryService {
                   std::optional<core::PrinterProfile> recovery = {}, std::uint32_t reserved_id = 0,
                   std::size_t recovery_offset = 0);
   bool cancel(std::uint32_t scan_id);
+  bool set_paused(std::uint32_t scan_id, bool paused);
   bool running() const { return running_.load(std::memory_order_acquire); }
   bool recovering() const { return running() && recovery_mode_.load(); }
   PrinterDiscoverySnapshot snapshot(bool include_recovery = false) const;
@@ -80,6 +82,7 @@ class PrinterDiscoveryService {
   PrinterDiscoverySnapshot snapshot_;
   std::optional<PrinterDiscoverySnapshot> last_manual_snapshot_;
   std::atomic<bool> cancel_requested_{false};
+  std::atomic<bool> pause_requested_{false};
   std::atomic<bool> running_{false};
   std::uint32_t next_scan_id_ = 0;
   TaskHandle_t task_ = nullptr;
