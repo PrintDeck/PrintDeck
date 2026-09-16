@@ -4,7 +4,7 @@
   "latest": {
     "version": "1.0.20",
     "layout": "620eeab9a77e91ce5756ae42651b94007d2a7caecca0a1cb0a01b61fd6e05d58",
-    "sha256": "eea1acf0bf83408f7c753aaa37b1df28b52a9bd7772d756bfb8e563302be4e82",
+    "sha256": "8b7c910098ccef745697398bdb2f9d84a35825e7fe43dfb2ebe179ebeab9888b",
     "url": "https://github.com/PrintDeck/PrintDeck/releases/download/knomi2-v1.0.20/printdeck_knomi2_layout_620eeab9a77e_ota-1.0.20.bin",
     "install_manifest": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.20/docs/manifests/manifest-install-knomi2-1.0.20.json"
   },
