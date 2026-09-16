@@ -471,30 +471,15 @@ MoonrakerJobTiming moonraker_job_timing(const cJSON* status,
   const cJSON* estimate = member(current_job_metadata(status), "estimated_time");
   if (bounded_number(estimate, 1, 4294967295.0))
     estimated_seconds = static_cast<std::uint32_t>(estimate->valuedouble);
-  // A slicer estimate is not a deadline: a live job can outlast it. Once it
-  // expires, project the remaining layers at the observed average layer time.
-  // Fall back to the same validated progress source used by the dashboard.
-  if (estimated_seconds > elapsed) {
+  // FDM layers and file/progress increments do not have equal durations.
+  // Use only the supplied total estimate; once exhausted, leave time unknown
+  // instead of extrapolating from layers or progress. Resin cycle correction
+  // belongs exclusively to the protocol adapter that measures those cycles.
+  const auto phase = moonraker_phase(string_member(member(status, "print_stats"), "state"));
+  const bool active = phase == core::JobPhase::printing || phase == core::JobPhase::paused;
+  if (active && estimated_seconds > elapsed) {
     result.remaining_seconds = estimated_seconds - result.elapsed_seconds;
     result.remaining_known = true;
-  } else if (elapsed > 0) {
-    const auto phase = moonraker_phase(string_member(member(status, "print_stats"), "state"));
-    const bool active = phase == core::JobPhase::printing || phase == core::JobPhase::paused;
-    double fraction = progress;
-    if (estimated_seconds > 0) {
-      const cJSON* info = member(member(status, "print_stats"), "info");
-      const cJSON* sd = member(status, "virtual_sdcard");
-      const auto layer = first_layer_value({member(info, "current_layer"), member(sd, "layer")});
-      const auto total = first_layer_value({member(info, "total_layer"), member(sd, "layer_count"),
-                                            member(current_job_metadata(status), "layer_count")});
-      if (layer > 0 && total > layer) fraction = static_cast<double>(layer) / total;
-    }
-    const double remaining = fraction > 0.001 && fraction < 1.0
-                                 ? elapsed * (1.0 - fraction) / fraction : 0;
-    if (active && std::isfinite(remaining) && remaining > 0 && remaining <= 4294967295.0) {
-      result.remaining_seconds = static_cast<std::uint32_t>(std::ceil(remaining));
-      result.remaining_known = true;
-    }
   }
   return result;
 }
