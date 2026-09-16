@@ -4,7 +4,8 @@ OrcaSlicer cover artwork and contributions are distributed under GNU AGPL
 version 3. See LICENSE.txt in this directory. Images linked to OrcaSlicer
 are unmodified upstream originals; only filenames differ.
 Additional product photographs retain their respective owners’ rights.
-Their exterior backgrounds are removed and they are scaled to 240 × 240 PNGs.
+They use transparent backgrounds and are scaled to 240 × 240 PNGs.
+The GK3 Ultra photograph is mirrored horizontally.
 Product names and marks belong to their respective owners.
 
 Source revision: https://github.com/OrcaSlicer/OrcaSlicer/tree/ade9e77b6bc0dc3f234b2504fd22af5ed434a18e
@@ -46,4 +47,4 @@ Source revision: https://github.com/OrcaSlicer/OrcaSlicer/tree/ade9e77b6bc0dc3f2
 | voron-2-4-300-bffc2aa11c53.png | [Original image](https://github.com/OrcaSlicer/OrcaSlicer/blob/ade9e77b6bc0dc3f234b2504fd22af5ed434a18e/resources/profiles/Voron/Voron%202.4%20300_cover.png) | bffc2aa11c533d6e1f255c1d5188065d2585941a59e6df958449c3ed6f487956 |
 | voron-trident-300-0375ac368bd6.png | [Original image](https://github.com/OrcaSlicer/OrcaSlicer/blob/ade9e77b6bc0dc3f234b2504fd22af5ed434a18e/resources/profiles/Voron/Voron%20Trident%20300_cover.png) | 0375ac368bd6b5c7fb06c10899c60180b8e9d7ba852cd4343dd14ee32d1f29f0 |
 | tinymaker-e7722fbcb96a.png | [Original image](https://lider-3d.ru/upload/iblock/67f/67f66ad0b04ed814b165a5b85db9f131.jpg) | e7722fbcb96aaed5fda41ccd86e1f4b7ef737336356b6928321357682f61fb5c |
-| uniformation-gk3-ultra-210cfccf6c52.png | [Original image](https://3dpartnershop.pl/wp-content/uploads/2026/07/Drukarka-zywiczna-3D-UniFormation-GK3-Ultra-42560.webp) | 210cfccf6c52e911fc7e759499d4a9446b9844d5329a0b7e2a910af99e911582 |
+| uniformation-gk3-ultra-943079fefe71.png | [Original image](https://3d.nice-cdn.com/upload/image/product/large/default/uniformation-gk3-ultra-1-st-2880944-pl.png) | 943079fefe71d22ab8488d2d33ec86fcdfceae8ce270a586b36ba7031008d739 |
