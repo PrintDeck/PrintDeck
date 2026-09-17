@@ -528,6 +528,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
     const std::lock_guard<std::mutex> lock(mutex_);
     settings_ = settings;
   }
+  cloud_.initialize();
   store_ = &store;
   network_ = &network;
   moonraker_probe_ = &moonraker_probe;
@@ -557,7 +558,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 80;
+  constexpr unsigned route_capacity = 84;
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
@@ -565,6 +566,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   if (result != ESP_OK) return result;
 
   const httpd_uri_t routes[] = {
+      {.uri = "/api/cloud", .method = HTTP_GET, .handler = cloud_entry, .user_ctx = this},
+      {.uri = "/api/cloud", .method = HTTP_POST, .handler = cloud_entry, .user_ctx = this},
       {.uri = "/api/mqtt", .method = HTTP_GET, .handler = mqtt_entry, .user_ctx = this},
       {.uri = "/api/mqtt", .method = HTTP_POST, .handler = mqtt_entry, .user_ctx = this},
       {.uri = "/", .method = HTTP_GET, .handler = root_entry, .user_ctx = this},
@@ -2533,6 +2536,29 @@ core::MqttSettings WebConfig::mqtt_settings() const {
   return settings_.mqtt;
 }
 
+esp_err_t WebConfig::cloud_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->cloud_request(request);
+}
+
+esp_err_t WebConfig::cloud_request(httpd_req_t* request) {
+  if(request->method==HTTP_POST) {
+    // A cross-origin HTML form cannot supply this header. No permissive CORS is exposed.
+    std::array<char,16> intent{};
+    std::string body,action;
+    if(request->content_len>128 ||
+       httpd_req_get_hdr_value_str(request,"X-PrintDeck-Cloud",intent.data(),intent.size())!=ESP_OK ||
+       std::string_view(intent.data())!="pairing" || !receive_form(request,body) || !form_value(body,"action",action))
+      return send_json(request,"400 Bad Request","{\"error\":\"Cloud request failed. Try again.\"}");
+    const auto network=network_->status();
+    if(!cloud_.request(action,network.device_id,network.device_name,export_language()))
+      return send_json(request,"409 Conflict","{\"error\":\"Cloud request failed. Try again.\"}");
+    cloud_.tick(network.station_connected);
+  }
+  const auto body=cloud_.status_json();
+  httpd_resp_set_hdr(request,"Cache-Control","no-store");
+  return send_json(request,"200 OK",body.c_str());
+}
+
 esp_err_t WebConfig::mqtt_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->mqtt_request(request);
 }
@@ -4385,8 +4411,10 @@ esp_err_t WebConfig::factory_reset(httpd_req_t* request) {
   const std::string setup_network = network_->status().setup_network_name;
   const std::string setup_qr_svg = setup_wifi_qr_svg(setup_network);
   mqtt_reset_guard.release();
+  cloud_.pause(true);
   const esp_err_t erase_result = nvs_flash_erase();
   if (erase_result != ESP_OK) {
+    cloud_.pause(false);
     ESP_LOGE(kLogTag, "Factory reset could not erase NVS: %s",
              esp_err_to_name(erase_result));
     return send_json(

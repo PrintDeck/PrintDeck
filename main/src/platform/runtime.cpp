@@ -1451,6 +1451,7 @@ void Runtime::monitor_loop() {
     const bool unified_api_connection_active = settings_.unified_api_enabled &&
         connection_now_ms <
             unified_api_active_until_ms_.load(std::memory_order_acquire);
+    web_config_.tick_cloud(network.station_connected);
     mqtt_export_.tick(network.station_connected, settings_.mqtt.enabled);
     const bool full_connection_active = network.station_connected && selected != nullptr &&
         (printer_detail_active || unified_api_connection_active || mqtt_export_.connected() ||

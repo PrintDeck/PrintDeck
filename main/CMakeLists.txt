@@ -21,6 +21,7 @@ set(PRINTDECK_SRCS
         "src/core/unified_printer_api.cpp"
         "src/core/mqtt_discovery.cpp"
         "src/platform/mqtt_export_service.cpp"
+        "src/platform/cloud_pairing_service.cpp"
         "include/font/mdi_40.c"
         "src/platform/embedded_resources.cpp"
         "src/platform/runtime.cpp"

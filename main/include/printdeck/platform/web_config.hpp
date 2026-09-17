@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include "printdeck/platform/cloud_pairing_service.hpp"
 #include <array>
 #include <mutex>
 #include <map>
@@ -97,6 +98,7 @@ class WebConfig {
   bool octoprint_check_running() const { return octoprint_probe_.snapshot().running; }
   bool uniformation_check_running() const { return uniformation_probe_.snapshot().running; }
 
+  void tick_cloud(bool online) { cloud_.tick(online); }
   core::MqttSettings mqtt_settings() const;
   bool mqtt_settings_equal(const core::MqttSettings& config) const;
   std::array<std::uint32_t,core::kMaximumProfiles> unified_printer_ids() const;
@@ -108,6 +110,9 @@ class WebConfig {
   void set_mqtt_export(MqttExportService* service) { mqtt_export_ = service; }
 
  private:
+  CloudPairingService cloud_;
+  static esp_err_t cloud_entry(httpd_req_t* request);
+  esp_err_t cloud_request(httpd_req_t* request);
   MqttExportService* mqtt_export_ = nullptr;
   static esp_err_t mqtt_entry(httpd_req_t* request);
   esp_err_t mqtt_request(httpd_req_t* request);
