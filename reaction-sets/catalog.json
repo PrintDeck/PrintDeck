@@ -92,6 +92,15 @@
       "preview": "previews/cartoon.webp"
     },
     {
+      "id": "clay_frenzy",
+      "name": "Clay Frenzy",
+      "version": "1.0.0",
+      "family_id": "clay_frenzy",
+      "family_name": "Clay Frenzy",
+      "variant_name": "",
+      "preview": "previews/clay_frenzy.webp"
+    },
+    {
       "id": "cookie",
       "name": "Cookie",
       "version": "1.0.0",
