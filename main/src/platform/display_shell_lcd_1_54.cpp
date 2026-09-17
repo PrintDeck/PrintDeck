@@ -1324,7 +1324,8 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
       lv_obj_set_style_image_recolor(
           mark, lv_color_hex(brand_logo_color(profile, theme_style_.background)),
           LV_PART_MAIN);
-      lv_obj_set_style_image_recolor_opa(mark, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_image_recolor_opa(mark,
+          brand_logo_has_color(profile) ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
       lv_obj_center(mark);
       square_route_screen_gestures(mark);
     } else {
@@ -1535,7 +1536,7 @@ void DisplayShell::square_show_printer_status(const core::PrinterProfile& profil
     lv_obj_align(bed_cell, LV_ALIGN_TOP_LEFT,
                  bed_center - row_bounds.x1 - lv_obj_get_width(bed_cell) / 2, 0);
   }
-  lv_label_set_text(metrics_label_, kDisplayUsesCompactRoundLayout ? "" : snapshot.link == core::LinkState::online
+  lv_label_set_text(metrics_label_, (kDisplayUsesCompactRoundLayout || active) ? "" : snapshot.link == core::LinkState::online
       ? tr(snapshot.job.condition == core::PrinterCondition::normal || snapshot.job.condition == core::PrinterCondition::ready
                ? "Printer ready" : core::job_status_label(snapshot.job))
       : tr(square_link_label(snapshot.link)));

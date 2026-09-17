@@ -50,8 +50,8 @@ inline constexpr std::array<std::uint16_t, 481> kCjkCodepoints{{
 }};
 inline constexpr std::size_t kTerminalFontBytes = 6784;
 inline constexpr std::size_t kSmallLogoBytes = 1216;
-inline constexpr std::size_t kSmallLogosBytes = 20672;
-inline constexpr std::array<const char*, 17> kSmallLogoNames{{
+inline constexpr std::size_t kSmallLogosBytes = 21888;
+inline constexpr std::array<const char*, 18> kSmallLogoNames{{
     "ankermake",
     "anycubic",
     "bambu",
@@ -69,10 +69,11 @@ inline constexpr std::array<const char*, 17> kSmallLogoNames{{
     "voron",
     "uniformation",
     "tinymaker",
+    "octoprint",
 }};
 inline constexpr std::size_t kLargeLogoBytes = 6336;
-inline constexpr std::size_t kLargeLogosBytes = 107712;
-inline constexpr std::array<const char*, 17> kLargeLogoNames{{
+inline constexpr std::size_t kLargeLogosBytes = 114048;
+inline constexpr std::array<const char*, 18> kLargeLogoNames{{
     "ankermake",
     "anycubic",
     "bambu",
@@ -90,10 +91,11 @@ inline constexpr std::array<const char*, 17> kLargeLogoNames{{
     "voron",
     "uniformation",
     "tinymaker",
+    "octoprint",
 }};
 inline constexpr std::size_t kBootLogoWidth = 260;
 inline constexpr std::size_t kBootLogoHeight = 62;
 inline constexpr std::size_t kBootLogoStride = 130;
 inline constexpr std::size_t kBootLogoBytes = 8124;
-inline constexpr std::size_t kAmoledImagesBytes = 115836;
+inline constexpr std::size_t kAmoledImagesBytes = 122172;
 }  // namespace printdeck::platform::embedded_assets

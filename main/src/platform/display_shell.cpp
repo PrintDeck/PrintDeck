@@ -220,6 +220,7 @@ std::string DisplayShell::effective_brand(const core::PrinterProfile& profile) {
     return static_cast<char>(std::tolower(ch));
   });
   if (profile.protocol == core::PrinterProtocol::tinymaker) return "tinymaker";
+  if (profile.protocol == core::PrinterProtocol::octoprint) return "octoprint";
   if (identity.find("uniformation") != std::string::npos) return "uniformation";
   if (identity.find("creality") != std::string::npos ||
       identity.find("ender") != std::string::npos ||
@@ -239,6 +240,7 @@ std::string DisplayShell::effective_brand(const core::PrinterProfile& profile) {
 const char* DisplayShell::brand_mark(const core::PrinterProfile& profile) {
   const std::string brand = effective_brand(profile);
   if (brand == "tinymaker") return "TM";
+  if (brand == "octoprint") return "OP";
   if (brand == "uniformation") return "UF";
   if (brand == "creality") return "CR";
   if (brand == "snapmaker") return "SN";
@@ -284,6 +286,11 @@ std::uint32_t DisplayShell::brand_logo_color(const core::PrinterProfile& profile
   const std::uint32_t blue = background & 0xFFU;
   const std::uint32_t luminance = red * 2126U + green * 7152U + blue * 722U;
   return luminance >= 128U * 10000U ? 0x000000 : 0xFFFFFF;
+}
+
+bool DisplayShell::brand_logo_has_color(const core::PrinterProfile& profile) {
+  const std::string brand = effective_brand(profile);
+  return brand == "tinymaker" || brand == "octoprint";
 }
 
 lv_obj_t* DisplayShell::create_brand_logo(lv_obj_t* parent, const core::PrinterProfile& profile) {
@@ -2914,7 +2921,7 @@ void DisplayShell::show_my_printers(const char* ipv4, const char* local_hostname
         lv_obj_set_style_image_recolor(
             mark, lv_color_hex(brand_logo_color(profile, theme_style_.surface_raised)), 0);
         lv_obj_set_style_image_recolor_opa(mark,
-            effective_brand(profile) == "tinymaker" ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
+            brand_logo_has_color(profile) ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
         lv_obj_center(mark);
         make_gesture_passthrough(mark);
       } else {
@@ -4891,7 +4898,7 @@ void DisplayShell::show_resin_status(const core::PrinterProfile& profile,
       lv_obj_set_style_image_recolor(
           mark, lv_color_hex(brand_logo_color(profile, theme_style_.background)), LV_PART_MAIN);
       lv_obj_set_style_image_recolor_opa(mark,
-          effective_brand(profile) == "tinymaker" ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
+          brand_logo_has_color(profile) ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
       lv_obj_center(mark); make_gesture_passthrough(mark);
     } else if (!large && brand_logo_small(profile)) {
       auto* mark = lv_image_create(frame);
@@ -4899,7 +4906,7 @@ void DisplayShell::show_resin_status(const core::PrinterProfile& profile,
       lv_obj_set_style_image_recolor(
           mark, lv_color_hex(brand_logo_color(profile, theme_style_.background)), LV_PART_MAIN);
       lv_obj_set_style_image_recolor_opa(mark,
-          effective_brand(profile) == "tinymaker" ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
+          brand_logo_has_color(profile) ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
       lv_obj_center(mark); make_gesture_passthrough(mark);
     } else {
       auto* mark = lv_label_create(frame);
@@ -5016,7 +5023,7 @@ void DisplayShell::show_printer_status(const core::PrinterProfile& profile,
             mark, lv_color_hex(brand_logo_color(profile, theme_style_.background)),
             LV_PART_MAIN);
         lv_obj_set_style_image_recolor_opa(mark,
-            effective_brand(profile) == "tinymaker" ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
+            brand_logo_has_color(profile) ? LV_OPA_TRANSP : LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_center(mark);
         make_gesture_passthrough(mark);
       } else {

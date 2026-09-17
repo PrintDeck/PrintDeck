@@ -27,6 +27,7 @@
 #include "mdns.h"
 #include "printdeck/platform/prusalink_discovery.hpp"
 #include "printdeck/platform/tinymaker_client.hpp"
+#include "printdeck/platform/octoprint_client.hpp"
 #include "printdeck/platform/prusalink_http_transport.hpp"
 #include "printdeck/platform/elegoo_sdcp_parser.hpp"
 #include "printdeck/platform/uniformation_sdcp_parser.hpp"
@@ -318,7 +319,7 @@ esp_err_t PrinterDiscoveryService::start(NetworkStatus network,
     saved_prusa_origins_.clear();
     for (const auto& profile : settings.profiles) {
       if (recovery_profile_ || !target_host_.empty()) break;
-      if (profile.protocol == core::PrinterProtocol::prusalink) {
+      if (profile.protocol == core::PrinterProtocol::prusalink || profile.protocol == core::PrinterProtocol::octoprint) {
         if (const auto origin = prusalink_origin(profile.endpoint)) saved_prusa_origins_.push_back(*origin);
         continue;
       }
@@ -470,7 +471,7 @@ void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
   result.last_seen_ms = now_ms();
   result.retain_until_ms = 0;
   result.seen_in_current_scan = true;
-  if (result.protocol == core::PrinterProtocol::prusalink) {
+  if (result.protocol == core::PrinterProtocol::prusalink || result.protocol == core::PrinterProtocol::octoprint) {
     const auto origin = prusalink_origin(result.host + ":" + std::to_string(result.port));
     if (origin && std::find(saved_prusa_origins_.begin(), saved_prusa_origins_.end(), *origin) !=
                       saved_prusa_origins_.end()) return;
@@ -487,7 +488,7 @@ void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
       return value.host == result.host && value.port == result.port;
     if (!result.serial.empty() && !value.serial.empty())
       return value.serial == result.serial && (!value.seen_in_current_scan || value.host == result.host);
-    return value.host == result.host && ((result.protocol != core::PrinterProtocol::prusalink && result.protocol != core::PrinterProtocol::tinymaker) || value.port == result.port);
+    return value.host == result.host && ((result.protocol != core::PrinterProtocol::prusalink && result.protocol != core::PrinterProtocol::tinymaker && result.protocol != core::PrinterProtocol::octoprint) || value.port == result.port);
   });
   if (existing != snapshot_.printers.end()) {
     existing->host = result.host;
@@ -503,7 +504,7 @@ void PrinterDiscoveryService::add_result(DiscoveredPrinter result) {
   }
   if (snapshot_.printers.size() >= kMaximumResults) return;
   if (result.name.empty()) {
-    result.name = result.protocol == core::PrinterProtocol::prusalink ? "Prusa" : result.protocol == core::PrinterProtocol::bambu_lan
+    result.name = result.protocol == core::PrinterProtocol::octoprint ? "OctoPrint" : result.protocol == core::PrinterProtocol::prusalink ? "Prusa" : result.protocol == core::PrinterProtocol::bambu_lan
                       ? "Bambu Lab printer"
                       : "Klipper printer";
   }
@@ -804,6 +805,12 @@ void PrinterDiscoveryService::run() {
       }
       return false;
     }
+    if (version.error == PrusaLinkError::none && version.status == 200 &&
+        (version.content_encoding.empty() || version.content_encoding == "identity") && octoprint_identity(version.body)) {
+      add_result({.protocol = core::PrinterProtocol::octoprint, .name = "OctoPrint",
+                  .model = "OctoPrint", .host = host, .port = port});
+      return false;
+    }
     if (prusalink_discovery_identity(version, nullptr, advertised)) {
       if (const auto identity = parse_prusalink_identity(version.body))
         add_result({.protocol = core::PrinterProtocol::prusalink, .name = "Prusa",
@@ -819,6 +826,36 @@ void PrinterDiscoveryService::run() {
       if (cancel_requested_.load() || now_ms() >= deadline) break;
       if (valid_device_peer_ipv4(ntohl(inet_addr(printer.host.c_str())), local, mask)) add_result(std::move(printer));
     }
+  }
+  // OctoPrint advertises individual instances and their ports. This is only a
+  // candidate: its authenticated, read-only connection check is mandatory before
+  // saving. Never borrow saved keys for discovery or scan additional ports.
+  if (!targeted && !recovery_profile_ && !cancel_requested_.load() && now_ms() + 1400 < deadline) {
+    mdns_result_t* octoprint_results = nullptr;
+    if (mdns_query_ptr("_octoprint", "_tcp", 1400, 10, &octoprint_results) == ESP_OK) {
+      for (const auto* result = octoprint_results; result && !cancel_requested_.load() && now_ms() < deadline; result = result->next) {
+        if (!result->port) continue;
+        const auto append_address = [&](std::uint32_t address) {
+          if (!valid_device_peer_ipv4(ntohl(address), local, mask)) return;
+          char host[INET_ADDRSTRLEN]{};
+          const in_addr native{.s_addr = address};
+          if (inet_ntop(AF_INET, &native, host, sizeof(host)))
+            add_result({.protocol = core::PrinterProtocol::octoprint, .name = "OctoPrint",
+                        .model = "OctoPrint", .host = host, .port = result->port});
+        };
+        bool ipv4_found = false;
+        for (const auto* address = result->addr; address; address = address->next) {
+          if (address->addr.type != ESP_IPADDR_TYPE_V4) continue;
+          ipv4_found = true;
+          append_address(address->addr.u_addr.ip4.addr);
+        }
+        if (!ipv4_found && result->hostname && result->hostname[0] && now_ms() + 700 < deadline) {
+          esp_ip4_addr_t resolved{};
+          if (mdns_query_a(result->hostname, 700, &resolved) == ESP_OK && !cancel_requested_.load()) append_address(resolved.addr);
+        }
+      }
+    }
+    if (octoprint_results) mdns_query_results_free(octoprint_results);
   }
   mdns_result_t* mdns_results = nullptr;
   unsigned prusa_services = 0;

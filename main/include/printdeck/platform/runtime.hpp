@@ -15,6 +15,7 @@
 #include "printdeck/platform/print_preview_service.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
 #include "printdeck/platform/tinymaker_service.hpp"
+#include "printdeck/platform/octoprint_service.hpp"
 #include "printdeck/platform/elegoo_sdcp_service.hpp"
 #include "printdeck/platform/elegoo_cc2_service.hpp"
 #include "printdeck/platform/elegoo_connection_probe.hpp"
@@ -109,6 +110,7 @@ class Runtime {
   MoonrakerAdapter moonraker_;
   PrusaLinkAdapter prusalink_;
   TinyMakerAdapter tinymaker_;
+  OctoPrintAdapter octoprint_;
   PrusaLinkConnectionProbe prusalink_probe_;
   ElegooSdcpAdapter elegoo_sdcp_;
   ElegooCc2Adapter elegoo_cc2_;
@@ -187,6 +189,7 @@ class Runtime {
   bool moonraker_connection_requested_ = false;
   bool prusalink_connection_requested_ = false;
   bool tinymaker_connection_requested_ = false;
+  bool octoprint_connection_requested_ = false;
   bool elegoo_sdcp_connection_requested_ = false;
   bool elegoo_cc2_connection_requested_ = false;
   bool bambu_connection_requested_ = false;

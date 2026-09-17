@@ -176,7 +176,7 @@ std::string canonical_brand(std::string value) {
     return static_cast<char>(std::tolower(ch));
   });
   for (const auto& [needle, brand] : {
-           std::pair{"tinymaker", "tinymaker"}, std::pair{"uniformation", "uniformation"}, std::pair{"creality", "creality"}, std::pair{"snapmaker", "snapmaker"},
+           std::pair{"octoprint", "octoprint"}, std::pair{"tinymaker", "tinymaker"}, std::pair{"uniformation", "uniformation"}, std::pair{"creality", "creality"}, std::pair{"snapmaker", "snapmaker"},
            std::pair{"prusa", "prusa"}, std::pair{"bambu", "bambu"},
            std::pair{"anycubic", "anycubic"}, std::pair{"elegoo", "elegoo"},
            std::pair{"qidi", "qidi"}, std::pair{"sovol", "sovol"},
@@ -557,7 +557,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 77;
+  constexpr unsigned route_capacity = 80;
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
@@ -627,6 +627,9 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/tinymaker/check/start", .method = HTTP_POST, .handler = tinymaker_check_start_entry, .user_ctx = this},
       {.uri = "/api/tinymaker/check/status", .method = HTTP_GET, .handler = tinymaker_check_status_entry, .user_ctx = this},
       {.uri = "/api/tinymaker/check/cancel", .method = HTTP_POST, .handler = tinymaker_check_cancel_entry, .user_ctx = this},
+      {.uri = "/api/octoprint/check/start", .method = HTTP_POST, .handler = octoprint_check_start_entry, .user_ctx = this},
+      {.uri = "/api/octoprint/check/status", .method = HTTP_GET, .handler = octoprint_check_status_entry, .user_ctx = this},
+      {.uri = "/api/octoprint/check/cancel", .method = HTTP_POST, .handler = octoprint_check_cancel_entry, .user_ctx = this},
       {.uri = "/api/elegoo/check/start", .method = HTTP_POST, .handler = elegoo_check_start_entry, .user_ctx = this},
       {.uri = "/api/elegoo/check/status", .method = HTTP_GET, .handler = elegoo_check_status_entry, .user_ctx = this},
       {.uri = "/api/elegoo/check/cancel", .method = HTTP_POST, .handler = elegoo_check_cancel_entry, .user_ctx = this},
@@ -1417,6 +1420,76 @@ esp_err_t WebConfig::serve_tinymaker_check_status(httpd_req_t* request) const {
   append_json_string(body, snapshot.identity.model);
   body += ",\"version\":";
   append_json_string(body, snapshot.identity.firmware_version);
+  body += "}";
+  return send_json(request, "200 OK", body.c_str());
+}
+
+esp_err_t WebConfig::octoprint_check_start_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->start_octoprint_check(request);
+}
+
+esp_err_t WebConfig::octoprint_check_status_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_octoprint_check_status(request);
+}
+
+esp_err_t WebConfig::octoprint_check_cancel_entry(httpd_req_t* request) {
+  auto* self = static_cast<WebConfig*>(request->user_ctx);
+  std::string body, id;
+  if (request->content_len > 80 || !receive_form(request, body) ||
+      !form_value(body, "check_id", id) || id.size() != 32)
+    return send_json(request, "400 Bad Request", "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  self->octoprint_probe_.cancel(id);
+  return send_json(request, "200 OK", "{\"cancelled\":true}");
+}
+
+bool WebConfig::read_octoprint_connection(const std::string& body, core::PrinterProfile& profile) const {
+  if (!form_value(body, "api_key", profile.api_key)) return false;
+  const auto origin = prusalink_origin(profile.endpoint);
+  if (!origin) return false;
+  profile.endpoint = *origin;
+  core::clear_irrelevant_printer_credentials(profile);
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    for (auto existing : settings_.profiles) {
+      if (existing.id != profile.id || existing.protocol != profile.protocol) continue;
+      const auto saved_origin = prusalink_origin(existing.endpoint);
+      if (saved_origin) existing.endpoint = *saved_origin;
+      if (core::same_http_auth_context(existing, profile) && profile.api_key.empty()) profile.api_key = existing.api_key;
+      break;
+    }
+  }
+  return prusalink_credential_valid(profile.api_key, 128);
+}
+
+esp_err_t WebConfig::start_octoprint_check(httpd_req_t* request) {
+  if (!network_->status().station_connected)
+    return send_json(request, "409 Conflict", "{\"error\":\"Connect PrintDeck to Wi-Fi before testing a printer.\"}");
+  core::PrinterProfile profile;
+  profile.protocol = core::PrinterProtocol::octoprint;
+  std::string body, id;
+  if (!receive_form(request, body) || !form_value(body, "profile_id", id) ||
+      !parse_id(id, profile.id) || !form_value(body, "endpoint", profile.endpoint) ||
+      !read_octoprint_connection(body, profile))
+    return send_json(request, "400 Bad Request", "{\"error\":\"Please check the printer name, network address and connection details.\"}");
+  const auto result = octoprint_probe_.start(std::move(profile), *network_);
+  if (result != ESP_OK)
+    return send_json(request, "409 Conflict", "{\"error\":\"PrintDeck could not start the connection test. Please try again.\"}");
+  return serve_octoprint_check_status(request);
+}
+
+esp_err_t WebConfig::serve_octoprint_check_status(httpd_req_t* request) const {
+  const auto snapshot = octoprint_probe_.snapshot();
+  std::string body = "{\"check_id\":";
+  append_json_string(body, snapshot.id);
+  body += ",\"running\":";
+  body += snapshot.running ? "true" : "false";
+  body += ",\"ready\":";
+  body += snapshot.ready ? "true" : "false";
+  body += ",\"error_code\":" + std::to_string(static_cast<unsigned>(snapshot.error));
+  body += ",\"model\":";
+  append_json_string(body, snapshot.identity.model);
+  body += ",\"version\":";
+  append_json_string(body, snapshot.identity.server_version);
   body += "}";
   return send_json(request, "200 OK", body.c_str());
 }
@@ -4379,6 +4452,15 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     profile.manufacturer = "TinyMaker";
     profile.model = "TinyMaker";
   }
+  if (profile.protocol == core::PrinterProtocol::octoprint) {
+    profile.id = profile_id;
+    std::string check_id;
+    if (!read_octoprint_connection(body, profile) || !form_value(body, "check_id", check_id) ||
+        !octoprint_probe_.verified(profile, check_id))
+      return send_json(request, "409 Conflict", "{\"error\":\"Check the OctoPrint connection before saving.\"}");
+    profile.manufacturer = "OctoPrint";
+    profile.model = "OctoPrint";
+  }
   if (profile.protocol == core::PrinterProtocol::prusalink) {
     profile.id = profile_id;
     std::string check_id;
@@ -4450,7 +4532,7 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
     if (candidate.selected_profile == 0 && core::printer_driver(candidate.profiles.back().protocol).dashboard) candidate.selected_profile = next_id;
   } else {
     profile.id = profile_id;
-    if (profile.protocol == existing->protocol && profile.protocol != core::PrinterProtocol::prusalink && !elegoo && !uniformation && profile.protocol != core::PrinterProtocol::tinymaker) {
+    if (profile.protocol == existing->protocol && profile.protocol != core::PrinterProtocol::prusalink && !elegoo && !uniformation && profile.protocol != core::PrinterProtocol::tinymaker && profile.protocol != core::PrinterProtocol::octoprint) {
       if (profile.api_key.empty()) profile.api_key = existing->api_key;
       if (profile.access_code.empty()) profile.access_code = existing->access_code;
     }

@@ -870,6 +870,7 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   ,"API token copied.":["Skopiowano token API.","Token de API copiado.","Jeton d’API copié.","API-Token kopiert.","API 令牌已复制。"]
   ,"The API token could not be copied.":["Nie udało się skopiować tokenu API.","No se pudo copiar el token de API.","Le jeton d’API n’a pas pu être copié.","Das API-Token konnte nicht kopiert werden.","无法复制 API 令牌。"]
   ,"Use cases":["Zastosowania","Casos de uso","Cas d’usage","Anwendungsfälle","使用场景"]
+  ,"Works with:":["Współpracuje z:","Compatible con:","Compatible avec :","Kompatibel mit:","兼容："]
   ,"Use cases:":["Zastosowania:","Casos de uso:","Cas d’usage :","Anwendungsfälle:","使用场景："]
   ,"Home Assistant":["Home Assistant","Home Assistant","Home Assistant","Home Assistant","Home Assistant"]
   ,"Open the Home Assistant use case":["Otwórz zastosowanie Home Assistant","Abrir el caso de uso de Home Assistant","Ouvrir le cas d’usage Home Assistant","Home-Assistant-Anwendungsfall öffnen","打开 Home Assistant 使用场景"]
@@ -1685,3 +1686,86 @@ Object.assign(window.PRINTDECK_TRANSLATIONS.en, {
 ].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
 
 [["PrintDeck could not erase its saved settings. Restart PrintDeck before trying again.", "PrintDeck nie mógł usunąć zapisanych ustawień. Uruchom PrintDeck ponownie przed kolejną próbą.", "PrintDeck no pudo borrar los ajustes guardados. Reinicia PrintDeck antes de intentarlo de nuevo.", "PrintDeck n’a pas pu effacer les réglages enregistrés. Redémarrez PrintDeck avant de réessayer.", "PrintDeck konnte die gespeicherten Einstellungen nicht löschen. Starte PrintDeck vor einem erneuten Versuch neu.", "PrintDeck 无法清除已保存的设置。请先重启 PrintDeck，再重试。"]].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+  [
+    "Add OctoPrint printer",
+    "Dodaj drukarkę OctoPrint",
+    "Añadir impresora OctoPrint",
+    "Ajouter une imprimante OctoPrint",
+    "OctoPrint-Drucker hinzufügen",
+    "添加 OctoPrint 打印机"
+  ],
+  [
+    "Monitor the printer connected to OctoPrint over your local network. Each OctoPrint instance is added separately.",
+    "Monitoruj drukarkę podłączoną do OctoPrint w sieci lokalnej. Każdą instancję OctoPrint dodaje się osobno.",
+    "Supervisa la impresora conectada a OctoPrint en tu red local. Cada instancia de OctoPrint se añade por separado.",
+    "Suivez l’imprimante connectée à OctoPrint sur votre réseau local. Chaque instance d’OctoPrint s’ajoute séparément.",
+    "Überwache den an OctoPrint angeschlossenen Drucker im lokalen Netzwerk. Jede OctoPrint-Instanz wird einzeln hinzugefügt.",
+    "通过本地网络监控连接到 OctoPrint 的打印机。每个 OctoPrint 实例需单独添加。"
+  ],
+  [
+    "OctoPrint address",
+    "Adres OctoPrint",
+    "Dirección de OctoPrint",
+    "Adresse d’OctoPrint",
+    "OctoPrint-Adresse",
+    "OctoPrint 地址"
+  ],
+  [
+    "OctoPrint API key",
+    "Klucz API OctoPrint",
+    "Clave API de OctoPrint",
+    "Clé API d’OctoPrint",
+    "OctoPrint-API-Schlüssel",
+    "OctoPrint API 密钥"
+  ],
+  [
+    "Create an application API key in OctoPrint with permission to read printer status and job information. PrintDeck only reads these values.",
+    "Utwórz w OctoPrint klucz API aplikacji z uprawnieniami do odczytu stanu drukarki i informacji o zadaniu. PrintDeck tylko odczytuje te dane.",
+    "Crea una clave API de aplicación en OctoPrint con permiso para leer el estado de la impresora y los datos del trabajo. PrintDeck solo consulta estos datos.",
+    "Créez une clé API d’application dans OctoPrint autorisant la lecture de l’état de l’imprimante et des informations de tâche. PrintDeck lit uniquement ces données.",
+    "Erstelle in OctoPrint einen Anwendungs-API-Schlüssel mit Leserechten für Druckerstatus und Auftragsinformationen. PrintDeck liest diese Daten ausschließlich.",
+    "在 OctoPrint 中创建具有读取打印机状态和任务信息权限的应用 API 密钥。PrintDeck 仅会读取这些数据。"
+  ],
+  [
+    "Check the OctoPrint connection before saving.",
+    "Sprawdź połączenie z OctoPrint przed zapisaniem.",
+    "Comprueba la conexión con OctoPrint antes de guardar.",
+    "Vérifiez la connexion à OctoPrint avant d’enregistrer.",
+    "Prüfe vor dem Speichern die OctoPrint-Verbindung.",
+    "保存前请检查 OctoPrint 连接。"
+  ],
+  [
+    "OctoPrint did not accept this API key.",
+    "OctoPrint nie zaakceptował tego klucza API.",
+    "OctoPrint no aceptó esta clave API.",
+    "OctoPrint n’a pas accepté cette clé API.",
+    "OctoPrint hat diesen API-Schlüssel nicht akzeptiert.",
+    "OctoPrint 未接受此 API 密钥。"
+  ],
+  [
+    "OctoPrint is available, but its printer is not connected.",
+    "OctoPrint jest dostępny, ale drukarka nie jest do niego podłączona.",
+    "OctoPrint está disponible, pero su impresora no está conectada.",
+    "OctoPrint est disponible, mais son imprimante n’est pas connectée.",
+    "OctoPrint ist erreichbar, aber der Drucker ist nicht verbunden.",
+    "OctoPrint 可访问，但打印机尚未连接。"
+  ],
+  [
+    "OctoPrint is unavailable or returned an unsupported response.",
+    "OctoPrint jest niedostępny lub zwrócił nieobsługiwaną odpowiedź.",
+    "OctoPrint no está disponible o devolvió una respuesta no compatible.",
+    "OctoPrint est indisponible ou a renvoyé une réponse non prise en charge.",
+    "OctoPrint ist nicht erreichbar oder hat eine nicht unterstützte Antwort gesendet.",
+    "OctoPrint 不可访问或返回了不支持的响应。"
+  ],
+  [
+    "OctoPrint connection is ready.",
+    "Połączenie z OctoPrint jest gotowe.",
+    "La conexión con OctoPrint está lista.",
+    "La connexion à OctoPrint est prête.",
+    "Die OctoPrint-Verbindung ist bereit.",
+    "OctoPrint 连接已就绪。"
+  ]
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));

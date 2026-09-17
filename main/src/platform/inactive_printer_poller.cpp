@@ -2,6 +2,7 @@
 #include "printdeck/platform/printer_address_recovery.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
 #include "printdeck/platform/tinymaker_service.hpp"
+#include "printdeck/platform/octoprint_service.hpp"
 #include "printdeck/platform/elegoo_sdcp_service.hpp"
 #include "printdeck/platform/uniformation_sdcp_parser.hpp"
 #include "printdeck/platform/elegoo_cc2_service.hpp"
@@ -680,7 +681,8 @@ InactivePrinterStatus InactivePrinterPoller::probe(
     }
     return summary;
   }
-  if (profile.protocol == core::PrinterProtocol::prusalink || profile.protocol == core::PrinterProtocol::tinymaker) {
+  if (profile.protocol == core::PrinterProtocol::prusalink || profile.protocol == core::PrinterProtocol::tinymaker ||
+      profile.protocol == core::PrinterProtocol::octoprint) {
     const auto cancelled = [&] {
       if (network_ == nullptr || !network_->status().station_connected) return true;
       const std::lock_guard<std::mutex> lock(mutex_);
@@ -688,7 +690,9 @@ InactivePrinterStatus InactivePrinterPoller::probe(
           [&](const auto& value) { return core::same_printer_connection(value, profile); });
       return active_profile_ == profile.id || interval_s_ == 0 || found == profiles_.end();
     };
-    const auto result = profile.protocol == core::PrinterProtocol::tinymaker
+    const auto result = profile.protocol == core::PrinterProtocol::octoprint
+        ? octoprint_probe(profile, prusalink_now_ms() + 5000, cancelled)
+        : profile.protocol == core::PrinterProtocol::tinymaker
         ? tinymaker_probe(profile, prusalink_now_ms() + 8000, cancelled)
         : prusalink_probe(profile, prusalink_now_ms() + 5000, cancelled);
     // One resource observation per boot, never an endpoint or credential.

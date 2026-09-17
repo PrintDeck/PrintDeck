@@ -468,6 +468,12 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
       issues.push_back({prefix + "endpoint", "Printer address must be on the local network"});
     }
     check_text(issues, (prefix + "api_key").c_str(), profile.api_key, 128, false);
+    if (profile.protocol == PrinterProtocol::octoprint) {
+      check_text(issues, (prefix + "api_key").c_str(), profile.api_key, 128, true);
+      if (!profile.serial.empty() || !profile.access_code.empty() ||
+          std::any_of(profile.api_key.begin(), profile.api_key.end(), [](unsigned char ch) { return ch < 0x20 || ch == 0x7f; }))
+        issues.push_back({prefix + "credentials", "Credentials do not match the connection method"});
+    }
     if (profile.protocol == PrinterProtocol::prusalink) {
       const bool digest = profile.http_auth_mode == HttpAuthMode::digest;
       if (!digest && profile.http_auth_mode != HttpAuthMode::api_key)

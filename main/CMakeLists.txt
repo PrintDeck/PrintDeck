@@ -45,6 +45,8 @@ set(PRINTDECK_SRCS
         "src/platform/prusalink_http_decoder.cpp"
         "src/platform/prusalink_http_transport.cpp"
         "src/platform/prusalink_service.cpp"
+        "src/platform/octoprint_client.cpp"
+        "src/platform/octoprint_service.cpp"
         "src/platform/tinymaker_client.cpp"
         "src/platform/tinymaker_service.cpp"
         "src/platform/elegoo_sdcp_parser.cpp"

@@ -11,7 +11,7 @@ namespace printdeck::platform {
 using PrusaLinkAuthMode = core::HttpAuthMode;
 enum class PrusaLinkError : std::uint8_t {
   none, invalid_configuration, cancelled, timeout, unavailable,
-  authorization, unsupported_authentication, unsupported_response, service_not_ready,
+  authorization, unsupported_authentication, unsupported_response, service_not_ready, printer_disconnected,
 };
 
 struct PrusaLinkCredentials {

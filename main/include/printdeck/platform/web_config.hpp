@@ -23,6 +23,7 @@
 #include "printdeck/platform/moonraker_connection_probe.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
 #include "printdeck/platform/tinymaker_service.hpp"
+#include "printdeck/platform/octoprint_service.hpp"
 #include "printdeck/platform/elegoo_connection_probe.hpp"
 #include "printdeck/platform/uniformation_connection_probe.hpp"
 #include "printdeck/platform/printer_discovery_service.hpp"
@@ -93,6 +94,7 @@ class WebConfig {
   esp_err_t save_last_auto_rotation(int degrees);
 
   bool tinymaker_check_running() const { return tinymaker_probe_.snapshot().running; }
+  bool octoprint_check_running() const { return octoprint_probe_.snapshot().running; }
   bool uniformation_check_running() const { return uniformation_probe_.snapshot().running; }
 
   core::MqttSettings mqtt_settings() const;
@@ -176,6 +178,12 @@ class WebConfig {
   esp_err_t start_tinymaker_check(httpd_req_t* request);
   esp_err_t serve_tinymaker_check_status(httpd_req_t* request) const;
   bool read_tinymaker_connection(const std::string& body, core::PrinterProfile& profile) const;
+  static esp_err_t octoprint_check_start_entry(httpd_req_t* request);
+  static esp_err_t octoprint_check_status_entry(httpd_req_t* request);
+  static esp_err_t octoprint_check_cancel_entry(httpd_req_t* request);
+  esp_err_t start_octoprint_check(httpd_req_t* request);
+  esp_err_t serve_octoprint_check_status(httpd_req_t* request) const;
+  bool read_octoprint_connection(const std::string& body, core::PrinterProfile& profile) const;
   static esp_err_t elegoo_check_start_entry(httpd_req_t* request);
   static esp_err_t elegoo_check_status_entry(httpd_req_t* request);
   static esp_err_t elegoo_check_cancel_entry(httpd_req_t* request);
@@ -284,6 +292,7 @@ class WebConfig {
   ElegooConnectionProbe* elegoo_probe_ = nullptr;
   UniformationConnectionProbe uniformation_probe_;
   TinyMakerConnectionProbe tinymaker_probe_;
+  OctoPrintConnectionProbe octoprint_probe_;
   PrinterDiscoveryService* printer_discovery_ = nullptr;
   FirmwareUpdateService* firmware_update_ = nullptr;
   ReactionAssetService* reaction_assets_ = nullptr;

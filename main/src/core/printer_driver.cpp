@@ -15,7 +15,7 @@ constexpr std::uint32_t capability_mask(
   return result;
 }
 
-constexpr std::array<PrinterDriverDescriptor, 7> kDrivers{{
+constexpr std::array<PrinterDriverDescriptor, 8> kDrivers{{
     {
         .protocol = PrinterProtocol::moonraker,
         .storage_id = 0,
@@ -94,6 +94,16 @@ constexpr std::array<PrinterDriverDescriptor, 7> kDrivers{{
         .default_port = 80,
         .experimental = true,
         .resin = true,
+    },
+    {
+        .protocol = PrinterProtocol::octoprint,
+        .storage_id = 8,
+        .id = "octoprint",
+        .default_manufacturer = "OctoPrint",
+        .default_brand = "octoprint",
+        .capabilities = capability_mask({PrinterCapability::api_key, PrinterCapability::http_endpoint}),
+        .default_port = 80,
+        .experimental = true,
     },
 }};
 

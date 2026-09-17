@@ -31,6 +31,7 @@ std::string_view normalize_language(std::string_view browser_language) {
 const char* localized_text(std::string_view language, std::string_view english) {
   struct Entry { const char* en; const char* pl; const char* es; const char* fr; const char* de; const char* zh; };
   static constexpr Entry entries[]{
+      {"Check the OctoPrint connection before saving.", "Przed zapisaniem sprawdź połączenie z OctoPrint.", "Comprueba la conexión con OctoPrint antes de guardar.", "Vérifiez la connexion OctoPrint avant d’enregistrer.", "OctoPrint-Verbindung vor dem Speichern prüfen.", "保存前请检查 OctoPrint 连接。"},
       {"Search PrintDeck Camera", "Szukaj PrintDeck Camera", "Buscar PrintDeck Camera", "Chercher PrintDeck Camera", "PrintDeck Camera suchen", "搜索 PrintDeck Camera"},
       {"Choose a camera or search", "Wybierz kamerę lub wyszukaj", "Elige una cámara o busca", "Choisissez une caméra ou cherchez", "Kamera wählen oder suchen", "选择摄像头或搜索"},
       {"Searching for PrintDeck Camera", "Szukanie PrintDeck Camera", "Buscando PrintDeck Camera", "Recherche de PrintDeck Camera", "Suche nach PrintDeck Camera", "正在搜索 PrintDeck Camera"},

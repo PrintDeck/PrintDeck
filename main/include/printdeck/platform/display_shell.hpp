@@ -225,7 +225,8 @@ class DisplayShell {
   static const char* brand_mark(const core::PrinterProfile& profile);
   static std::uint32_t brand_color(const core::PrinterProfile& profile);
   static std::uint32_t brand_logo_color(const core::PrinterProfile& profile,
-                                        std::uint32_t background);
+                                             std::uint32_t background);
+  static bool brand_logo_has_color(const core::PrinterProfile& profile);
   static lv_obj_t* create_brand_logo(lv_obj_t* parent, const core::PrinterProfile& profile);
   static const lv_image_dsc_t* brand_logo_small(const core::PrinterProfile& profile);
   void create_printer_chrome(const core::PrinterProfile& profile,
