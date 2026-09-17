@@ -8,11 +8,11 @@
   "files": {
     "standby": {
       "file": "standby.gif",
-      "bytes": 115791,
+      "bytes": 114781,
       "width": 466,
       "height": 466,
       "frames": 6,
-      "sha256": "e968e91f7ab8ebf17845fe5c8bc81732da625fbebc6bcfe2bc829e4b22869c3a"
+      "sha256": "ed26fe34fe19fbbfcc617373b4e6b21a4ed1700f393599a4de4aefade3a13f56"
     },
     "preparing": {
       "file": "preparing.gif",
@@ -151,6 +151,6 @@
       "sha256": "3d3827ea1fc10ebe101f3955014ed5b0b1092dd1e704b38f4f66cdda386c5453"
     }
   },
-  "total_bytes": 1572454,
+  "total_bytes": 1571444,
   "pass": true
 }
