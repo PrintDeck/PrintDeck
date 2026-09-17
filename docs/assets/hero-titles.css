@@ -5,7 +5,7 @@
   --hero-title-size: clamp(2.8rem, 3.65vw, 4.3rem);
 }
 
-.site-page:not(.home-page) :is(.api-hero, .ha-hero, .case-campaign-hero, .knomi-hero, .gifs-hero, .voice-hero, .support-hero) h1 {
+.site-page:not(.home-page) :is(.connections-hero, .api-hero, .ha-hero, .case-campaign-hero, .knomi-hero, .gifs-hero, .voice-hero, .support-hero) h1 {
   max-width: 100%;
   font-size: var(--hero-title-size);
   line-height: 1.06;

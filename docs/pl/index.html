@@ -13,12 +13,13 @@
     <link rel="stylesheet" href="/assets/vendor/plyr/plyr.css?v=3.8.4">
     <link rel="stylesheet" href="/assets/site.css?v=20260915-mqtt-1">
     <script src="/assets/vendor/plyr/plyr.min.js?v=3.8.4" defer=""></script>
+    <link rel="stylesheet" href="/assets/connections.css?v=20260917-1">
     <script>window.printDeckInstallerI18n={language:"pl",t:(source,values={})=>{let result=({"Play":"Odtwórz","Pause":"Wstrzymaj","Seek":"Przewiń","{currentTime} of {duration}":"{currentTime} z {duration}","Played":"Odtworzono","Buffered":"Zbuforowano","Current time":"Bieżący czas","Volume":"Głośność","Mute":"Wycisz","Unmute":"Włącz dźwięk","Enter fullscreen":"Włącz pełny ekran","Exit fullscreen":"Wyjdź z pełnego ekranu","Automatic appearance":"Automatyczny wygląd"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260908-4"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
 
-    <meta name="description" content="Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab — bez konta w chmurze.">
+    <meta name="description" content="Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab.">
     <link rel="canonical" href="https://printdeck.xyz/pl/">
     <link rel="alternate" hreflang="en" href="https://printdeck.xyz/">
     <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/">
@@ -36,14 +37,14 @@
     <meta property="og:locale:alternate" content="de_DE">
     <meta property="og:locale:alternate" content="zh_CN">
     <meta property="og:title" content="PrintDeck · Firmware do ekranu drukarki 3D">
-    <meta property="og:description" content="Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab — bez konta w chmurze.">
+    <meta property="og:description" content="Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab.">
     <meta property="og:url" content="https://printdeck.xyz/pl/">
     <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="PrintDeck · Firmware do ekranu drukarki 3D">
-    <meta name="twitter:description" content="Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab — bez konta w chmurze.">
+    <meta name="twitter:description" content="Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab.">
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PrintDeck · Firmware do ekranu drukarki 3D","description":"Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab — bez konta w chmurze.","url":"https://printdeck.xyz/pl/","inLanguage":"pl"}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PrintDeck · Firmware do ekranu drukarki 3D","description":"Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab.","url":"https://printdeck.xyz/pl/","inLanguage":"pl"}</script>
   </head>
   <body class="site-page home-page home-page-v2" data-page-title="PrintDeck · Firmware do ekranu drukarki 3D">
     <header class="site-header">
@@ -97,7 +98,7 @@
           <div class="home-hero-copy">
             <span class="home-eyebrow">NIEZALEŻNY FIRMWARE DO EKRANÓW DRUKAREK 3D</span>
             <h1><strong>Twoja drukarka,</strong><br>zawsze na oku.</h1>
-            <p class="site-lead">Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab — bez konta w chmurze.</p>
+            <p class="site-lead">Firmware PrintDeck zmienia kompatybilny ekran ESP32 w dedykowany, lokalny panel do drukarki 3D. Łączy się bezpośrednio z Klipperem i obsługiwanymi drukarkami Bambu Lab.</p>
             <p class="home-origin-line">Niezależny firmware. Tworzony przez pasjonatów druku 3D — dla społeczności.</p>
             <div class="site-actions">
               <a class="site-button secondary" href="#at-a-glance">Zobacz, jak to działa</a>
@@ -134,7 +135,7 @@
         <span translate="no">Uniformation GK3</span>
         <span>KNOMI</span>
         <span>Gotowy na wiele narzędzi</span>
-        <span>Bez konta w chmurze</span>
+
       </div>
 
       <section class="home-section home-glance" id="at-a-glance">
@@ -414,6 +415,7 @@
           </div>
         </div>
       </section>
+      <section class="works-with-strip" id="works-with" aria-labelledby="works-with-title"><div class="connections-inner"><div class="works-with-heading"><h2 id="works-with-title">Współpracuje z</h2><a href="/pl/works-with/">Poznaj wszystkie połączenia <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a></div><div class="works-with-logos"><a href="/pl/works-with/bambu/"><span class="connection-logo connection-logo-bambu "><img src="/assets/integrations/printers/bambu.png" alt="" width="88" height="88"></span><strong translate="no">Bambu Lab</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a><a href="/pl/works-with/klipper/"><span class="connection-logo connection-logo-klipper "><img src="/assets/integrations/printers/klipper.svg" alt="" width="88" height="88"></span><strong translate="no">Klipper</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a><a href="/pl/works-with/prusalink/"><span class="connection-logo connection-logo-prusalink "><img src="/assets/integrations/printers/prusalink.png" alt="" width="88" height="88"></span><strong translate="no">PrusaLink</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a><a href="/pl/works-with/octoprint/"><span class="connection-logo connection-logo-octoprint "><img src="/assets/integrations/printers/octoprint.png" alt="" width="88" height="88"></span><strong translate="no">OctoPrint</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a><a href="/pl/works-with/klipper/#elegoo"><span class="connection-logo connection-logo-elegoo "><img src="/assets/integrations/printers/elegoo.png" alt="" width="88" height="88"></span><strong translate="no">ELEGOO</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a></div></div></section>
     </main>
 
     <footer class="site-footer home-footer">

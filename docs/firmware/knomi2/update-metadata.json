@@ -1,7 +1,7 @@
 {
   "target": "knomi2",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "layout": "620eeab9a77e91ce5756ae42651b94007d2a7caecca0a1cb0a01b61fd6e05d58",
-  "sha256": "62d68e33889842b9c0f7a07587b9e43e0473ece14d172bf8433c8df404a47772",
+  "sha256": "e82c96e262131850741c85accb8db8556f5661d0c6c3f5240b614acba0c674cb",
   "family": "knomi2_layout_620eeab9a77e"
 }

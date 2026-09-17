@@ -111,6 +111,13 @@
               <p><a href="/printdeck-user-manual.pdf#page=12">Run Compatibility Check</a>. PrintDeck gathers the required data locally, removes private information from the report and lets you download it. The report is not sent automatically—download it and email it to us.</p>
               <p>This report helps us support your printer model.</p>
             </article>
+            <article class="faq-item" id="octoprint">
+              <h3>Can I monitor a printer through OctoPrint?</h3>
+              <p>PrintDeck connects to OctoPrint on your local network and brings job progress and temperatures to your display.</p>
+              <p>Connect PrintDeck to the same local network as OctoPrint, then add its address and a user or application API key with status permission. Each OctoPrint instance is a separate printer connection. Its host must stay on and connected to the printer.</p>
+              <p>PrintDeck reads the job name, status, progress, available time estimates and temperatures for up to twelve tools, the bed and chamber. Missing readings stay unavailable. This connection does not provide printer controls, a native camera feed or print thumbnails.</p>
+              <p><a href="/printdeck-octoprint-en.pdf" target="_blank" rel="noopener">Open the OctoPrint setup guide (PDF)</a></p>
+            </article>
             <article class="faq-item" id="resin-printers">
               <h3>Does PrintDeck support resin printers?</h3>
               <p>Yes! PrintDeck has been tested with the Uniformation GK3 Ultra, and we expect it to work with other GK3 models too. We haven’t had access to other resin printers yet, so we can’t confirm compatibility.</p>

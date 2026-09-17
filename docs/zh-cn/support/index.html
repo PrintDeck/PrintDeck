@@ -111,6 +111,13 @@
               <p><a href="/printdeck-user-manual.pdf#page=12">运行兼容性检查</a>。PrintDeck 会在本地收集所需数据，从报告中移除隐私信息，并供你下载。报告不会自动发送；请下载后通过电子邮件发给我们。</p>
               <p>这份报告能帮助我们支持你的打印机型号。</p>
             </article>
+            <article class="faq-item" id="octoprint">
+              <h3>可以通过 OctoPrint 监控打印机吗？</h3>
+              <p>PrintDeck 通过本地网络连接 OctoPrint，将打印进度和温度呈现在你的显示屏上。</p>
+              <p>将 PrintDeck 与 OctoPrint 连接到同一本地网络，然后添加其地址及具有状态读取权限的用户或应用 API 密钥。每个 OctoPrint 实例对应一个独立的打印机连接。运行 OctoPrint 的主机必须保持开机并连接打印机。</p>
+              <p>PrintDeck 读取任务名称、状态、进度、可用的时间估算，以及最多十二个工具、热床和腔体的温度。缺失读数保持不可用。此连接不提供打印机控制、原生摄像头画面或打印缩略图。</p>
+              <p><a href="/printdeck-octoprint-zh-CN.pdf" target="_blank" rel="noopener">打开 OctoPrint 设置指南（PDF）</a></p>
+            </article>
             <article class="faq-item" id="resin-printers">
               <h3>PrintDeck 支持树脂打印机吗？</h3>
               <p>支持！我们已经用 Uniformation GK3 Ultra 测试过 PrintDeck，预计它也能用于 GK3 系列的其他机型。我们目前还没有其他树脂打印机可供测试，因此暂时无法确认兼容性。</p>

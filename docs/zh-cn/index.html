@@ -13,12 +13,13 @@
     <link rel="stylesheet" href="/assets/vendor/plyr/plyr.css?v=3.8.4">
     <link rel="stylesheet" href="/assets/site.css?v=20260915-mqtt-1">
     <script src="/assets/vendor/plyr/plyr.min.js?v=3.8.4" defer=""></script>
+    <link rel="stylesheet" href="/assets/connections.css?v=20260917-1">
     <script>window.printDeckInstallerI18n={language:"zh-CN",t:(source,values={})=>{let result=({"Play":"播放","Pause":"暂停","Seek":"跳转","{currentTime} of {duration}":"{currentTime} / {duration}","Played":"已播放","Buffered":"已缓冲","Current time":"当前时间","Volume":"音量","Mute":"静音","Unmute":"取消静音","Enter fullscreen":"进入全屏","Exit fullscreen":"退出全屏","Automatic appearance":"自动外观"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260908-4"></script>
 
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
 
-    <meta name="description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。">
+    <meta name="description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机。">
     <link rel="canonical" href="https://printdeck.xyz/zh-cn/">
     <link rel="alternate" hreflang="en" href="https://printdeck.xyz/">
     <link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/">
@@ -36,14 +37,14 @@
     <meta property="og:locale:alternate" content="fr_FR">
     <meta property="og:locale:alternate" content="de_DE">
     <meta property="og:title" content="PrintDeck · 3D 打印机显示屏固件">
-    <meta property="og:description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。">
+    <meta property="og:description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机。">
     <meta property="og:url" content="https://printdeck.xyz/zh-cn/">
     <meta property="og:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="PrintDeck · 3D 打印机显示屏固件">
-    <meta name="twitter:description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。">
+    <meta name="twitter:description" content="PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机。">
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PrintDeck · 3D 打印机显示屏固件","description":"PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。","url":"https://printdeck.xyz/zh-cn/","inLanguage":"zh-CN"}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PrintDeck · 3D 打印机显示屏固件","description":"PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机。","url":"https://printdeck.xyz/zh-cn/","inLanguage":"zh-CN"}</script>
   </head>
   <body class="site-page home-page home-page-v2" data-page-title="PrintDeck · 3D 打印机显示屏固件">
     <header class="site-header">
@@ -97,7 +98,7 @@
           <div class="home-hero-copy">
             <span class="home-eyebrow">适用于 3D 打印机显示屏的独立固件</span>
             <h1><strong>你的打印机，</strong><br>状态始终可见。</h1>
-            <p class="site-lead">PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机，无需云端账户。</p>
+            <p class="site-lead">PrintDeck 固件可让兼容的 ESP32 显示屏成为 3D 打印机的专属本地伴侣。它可直接连接 Klipper 和受支持的 Bambu Lab 打印机。</p>
             <p class="home-origin-line">独立固件。由 3D 打印爱好者打造，为整个社区而生。</p>
             <div class="site-actions">
               <a class="site-button secondary" href="#at-a-glance">了解使用方法</a>
@@ -134,7 +135,7 @@
         <span translate="no">Uniformation GK3</span>
         <span>KNOMI</span>
         <span>多工具就绪</span>
-        <span>无需云账户</span>
+
       </div>
 
       <section class="home-section home-glance" id="at-a-glance">
@@ -414,6 +415,7 @@
           </div>
         </div>
       </section>
+      <section class="works-with-strip" id="works-with" aria-labelledby="works-with-title"><div class="connections-inner"><div class="works-with-heading"><h2 id="works-with-title">兼容平台</h2><a href="/zh-cn/works-with/">查看所有连接方式 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a></div><div class="works-with-logos"><a href="/zh-cn/works-with/bambu/"><span class="connection-logo connection-logo-bambu "><img src="/assets/integrations/printers/bambu.png" alt="" width="88" height="88"></span><strong translate="no">Bambu Lab</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a><a href="/zh-cn/works-with/klipper/"><span class="connection-logo connection-logo-klipper "><img src="/assets/integrations/printers/klipper.svg" alt="" width="88" height="88"></span><strong translate="no">Klipper</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a><a href="/zh-cn/works-with/prusalink/"><span class="connection-logo connection-logo-prusalink "><img src="/assets/integrations/printers/prusalink.png" alt="" width="88" height="88"></span><strong translate="no">PrusaLink</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a><a href="/zh-cn/works-with/octoprint/"><span class="connection-logo connection-logo-octoprint "><img src="/assets/integrations/printers/octoprint.png" alt="" width="88" height="88"></span><strong translate="no">OctoPrint</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a><a href="/zh-cn/works-with/klipper/#elegoo"><span class="connection-logo connection-logo-elegoo "><img src="/assets/integrations/printers/elegoo.png" alt="" width="88" height="88"></span><strong translate="no">ELEGOO</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a></div></div></section>
     </main>
 
     <footer class="site-footer home-footer">

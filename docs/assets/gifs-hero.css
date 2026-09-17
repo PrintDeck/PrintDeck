@@ -61,7 +61,7 @@
 .reactions-page .gifs-workshop-photo { display: block; width: 100%; height: 100%; }
 /* Inner round glass: centre (1279, 430), radii (102, 103.5). */
 .reactions-page .gifs-round-screen { position: absolute; left: 54.2146%; top: 45.0967%; width: 9.3966%; height: 28.5912%; overflow: hidden; border-radius: 50%; background: #030504; }
-.reactions-page .gifs-round-screen img { display: block; width: 100%; height: 100%; object-fit: fill; transform: scale(1.13); }
+.reactions-page .gifs-round-screen img { display: block; width: 100%; height: 100%; object-fit: fill; transform: scale(1.13); animation: gifs-eye-color 30s ease-in-out infinite; }
 .reactions-page .gifs-square-projection { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
 .reactions-page .gifs-square-screen { width: 466px; height: 466px; overflow: hidden; border-radius: 6px; background: #050505; }
 .reactions-page .gifs-square-screen img { display: block; width: 100%; height: 100%; }
@@ -102,13 +102,23 @@
 .reactions-page .gifs-file-bmp { left: 84%; top: 57%; --tilt: 6deg; --period: 6.9s; --delay: -5.8s; --drift: .31cqw; }
 .reactions-page .gifs-file-heic { left: 62%; top: 79%; --tilt: -7deg; --period: 7.6s; --delay: -3.7s; }
 .reactions-page .gifs-file-heif { left: 80%; top: 80%; --tilt: -10deg; --period: 9.4s; --delay: -7.1s; --drift: .23cqw; }
-.reactions-page .gifs-hero.is-paused .gifs-file { animation-play-state: paused; }
+.reactions-page .gifs-hero.is-paused .gifs-file,
+.reactions-page .gifs-hero.is-paused .gifs-round-screen img { animation-play-state: paused; }
+/* Reuse the blue iris GIF; its neutral housing stays neutral under hue rotation. */
+@keyframes gifs-eye-color {
+  0%, 8%, 100% { filter: hue-rotate(0deg); }
+  20%, 28% { filter: hue-rotate(80deg); }
+  40%, 48% { filter: hue-rotate(150deg); }
+  60%, 68% { filter: hue-rotate(220deg); }
+  80%, 88% { filter: hue-rotate(300deg); }
+}
 @keyframes gifs-file-float {
   0%, 100% { transform: translate(0, 0) rotate(var(--tilt)); }
   50% { transform: translate(var(--sway), var(--drift)) rotate(calc(var(--tilt) + .7deg)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .reactions-page .gifs-file { animation: none; }
+  .reactions-page .gifs-file,
+  .reactions-page .gifs-round-screen img { animation: none; }
 }
 @media (min-width: 1101px) and (max-width: 1450px) {
   .reactions-page .gifs-hero .site-actions { gap: 12px 18px; }

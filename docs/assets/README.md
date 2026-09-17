@@ -34,3 +34,32 @@ from the embedded Web Config or documentation/manual asset trees.
 Home Assistant and its logo are trademarks of their respective owners. The
 mark is used only to identify an integration guide; PrintDeck is not affiliated
 with or endorsed by Home Assistant or the Open Home Foundation.
+
+## Printer connection marks
+
+The Works with pages use local copies of the reviewed marks:
+
+- `integrations/printers/bambu.png`, `prusalink.png` and `elegoo.png` retain
+  the existing PrintDeck Web Config brand-catalog PNG bytes for Bambu Lab,
+  Prusa and ELEGOO.
+- `integrations/printers/klipper.svg` is the unchanged upstream Klipper mark
+  from `https://github.com/Klipper3d/klipper/blob/master/docs/img/klipper.svg`.
+- `integrations/printers/octoprint.png` is the unchanged 500 px official
+  OctoPrint logo from `https://octoprint.org/trademark-rules/logo_png_kit.zip`.
+
+These marks identify compatible products and projects. They do not imply
+partnership or endorsement. OctoPrint is a registered trademark of Gina Häußge;
+the Notices page links to `https://octoprint.org/` alongside that attribution.
+
+## GIF hero rotation
+
+The U1 screen on the GIFs page alternates three Cartoon, three Cookie and three
+classic clips, changing style every five seconds. The six
+`marketing/gifs/cartoon-*.gif` and `marketing/gifs/cookie-*.gif` files are
+unchanged LCD reaction assets from the Cartoon and Cookie themes. The three
+classic clips reuse the existing violet printing, green filament loading and
+cyan filament changing assets under `marketing/home/`.
+
+The round display reuses `marketing/knomi2/blue-eye.gif`; CSS hue rotation
+changes its iris colour without extra eye files. Both animations pause when
+the hero or tab is hidden, and reduced-motion preferences show still posters.
