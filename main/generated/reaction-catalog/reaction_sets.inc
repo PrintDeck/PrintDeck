@@ -1,5 +1,5 @@
 #ifndef PRINTDECK_REACTION_SET_COUNT
-#define PRINTDECK_REACTION_SET_COUNT 11
+#define PRINTDECK_REACTION_SET_COUNT 12
 #endif
 PRINTDECK_REACTION_SET("alloy_iris_green", "Green", "4.0.0", "iris_palette", "Iris Palette", "Green")
 PRINTDECK_REACTION_SET("alloy_iris_blue", "Blue", "4.0.0", "iris_palette", "Iris Palette", "Blue")
@@ -12,3 +12,4 @@ PRINTDECK_REACTION_SET("alloy_iris_violet", "Violet", "4.0.0", "iris_palette", "
 PRINTDECK_REACTION_SET("alloy_iris_cyan", "Cyan", "4.0.0", "iris_palette", "Iris Palette", "Cyan")
 PRINTDECK_REACTION_SET("cartoon", "Cartoon", "1.0.0", "cartoon", "Cartoon", "")
 PRINTDECK_REACTION_SET("cookie", "Cookie", "1.0.0", "cookie", "Cookie", "")
+PRINTDECK_REACTION_SET("timmy", "Timmy", "1.0.0", "timmy", "Timmy", "")

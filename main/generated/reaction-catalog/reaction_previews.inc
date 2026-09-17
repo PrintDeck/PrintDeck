@@ -1,5 +1,5 @@
 #ifndef PRINTDECK_REACTION_PREVIEW_COUNT
-#define PRINTDECK_REACTION_PREVIEW_COUNT 11
+#define PRINTDECK_REACTION_PREVIEW_COUNT 12
 #endif
 PRINTDECK_REACTION_PREVIEW(alloy_iris_green, "alloy_iris_green")
 PRINTDECK_REACTION_PREVIEW(alloy_iris_green, "alloy_iris_blue")
@@ -12,3 +12,4 @@ PRINTDECK_REACTION_PREVIEW(alloy_iris_green, "alloy_iris_violet")
 PRINTDECK_REACTION_PREVIEW(alloy_iris_green, "alloy_iris_cyan")
 PRINTDECK_REACTION_PREVIEW(cartoon, "cartoon")
 PRINTDECK_REACTION_PREVIEW(cookie, "cookie")
+PRINTDECK_REACTION_PREVIEW(timmy, "timmy")

@@ -99,6 +99,15 @@
       "family_name": "Cookie",
       "variant_name": "",
       "preview": "previews/cookie.webp"
+    },
+    {
+      "id": "timmy",
+      "name": "Timmy",
+      "version": "1.0.0",
+      "family_id": "timmy",
+      "family_name": "Timmy",
+      "variant_name": "",
+      "preview": "previews/timmy.webp"
     }
   ]
 }
