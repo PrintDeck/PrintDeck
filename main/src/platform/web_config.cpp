@@ -1824,6 +1824,8 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
           std::to_string(kBoardHasAudio ? current.audio_volume_percent : 0);
   body += ",\"audio_preset\":";
   append_json_string(body, current.audio_preset);
+  body += ",\"printer_view\":";
+  append_json_string(body, current.printer_view);
   body += ",\"audio_muted_events\":" +
           std::to_string(current.audio_muted_events);
   body += ",\"dim_brightness\":" +
@@ -2143,6 +2145,8 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
           std::to_string(kBoardHasAudio ? current.audio_volume_percent : 0);
   body += ",\"audio_preset\":";
   append_json_string(body, current.audio_preset);
+  body += ",\"printer_view\":";
+  append_json_string(body, current.printer_view);
   body += ",\"audio_muted_events\":" +
           std::to_string(current.audio_muted_events);
   body += ",\"printer_list_poll_s\":" +
@@ -3051,6 +3055,34 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
   if (!receive_form(request, body)) {
     return send_json(request, "413 Payload Too Large",
                      "{\"error\":\"The entered values are too long. Please shorten them and try again.\"}");
+  }
+  // A view preference changes only this field; a stale browser must not overwrite
+  // device settings that another client has changed in the meantime.
+  std::string printer_view;
+  if (form_value(body, "printer_view", printer_view) && body.find('&') == std::string::npos) {
+    if (printer_view != "list" && printer_view != "tiles") {
+      return send_json(request, "400 Bad Request",
+                       "{\"error\":\"Some device settings could not be read. Please review the form and try again.\"}");
+    }
+    core::DeviceSettings candidate;
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      candidate = settings_;
+    }
+    if (candidate.printer_view != printer_view) {
+      candidate.printer_view = printer_view;
+      if (store_->save(candidate) != ESP_OK) {
+        return send_json(request, "500 Internal Server Error",
+                         "{\"error\":\"PrintDeck could not save these changes. Please try again.\"}");
+      }
+      {
+        const std::lock_guard<std::mutex> lock(mutex_);
+        settings_ = candidate;
+      }
+      // Browser layout does not change the physical display or its inactivity timer.
+      notify_settings_changed(candidate, false);
+    }
+    return send_json(request, "200 OK", "{\"saved\":true,\"restart_required\":false}");
   }
   std::string brightness_text;
   std::string device_name;

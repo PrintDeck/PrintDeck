@@ -188,6 +188,10 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     result = read_optional_u32(handle, "list_poll_s",
                                loaded.inactive_printer_poll_interval_s);
   }
+  if (result == ESP_OK && schema >= 19) {
+    result = read_text(handle, "printer_view", loaded.printer_view);
+    if (loaded.printer_view.empty()) loaded.printer_view = "list";
+  }
   if (result == ESP_OK) result = read_text(handle, "cam_mode", loaded.camera_mode);
   if (loaded.camera_mode.empty()) loaded.camera_mode = "snapshots";
   if (result == ESP_OK) {
@@ -378,6 +382,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
     for (std::size_t j=0;j<camera.printers.size();++j)
       write(nvs_set_u32(handle,(prefix+"r"+std::to_string(j)).c_str(),camera.printers[j]));
   }
+  write(write_text(handle, "printer_view", settings.printer_view));
   write(write_text(handle, "cam_mode", settings.camera_mode));
   write(nvs_set_u8(handle, "cam_snap_fps", settings.camera_snapshot_fps));
   write(nvs_set_u32(handle, "start_idle", settings.display_power.start_timeout_idle_s));

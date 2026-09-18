@@ -379,6 +379,7 @@ bool add_settings(cJSON* root, const DeviceSettings& settings) {
          add_number(object, "audio_muted_events", settings.audio_muted_events) &&
          add_number(object, "inactive_printer_poll_interval_s",
                     settings.inactive_printer_poll_interval_s) &&
+         add_string(object, "printer_view", settings.printer_view) &&
          add_string(object, "camera_mode", settings.camera_mode) &&
          add_number(object, "camera_snapshot_fps", settings.camera_snapshot_fps) &&
          add_bool(object, "voice_enabled", settings.voice_enabled) &&
@@ -430,6 +431,7 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
                        kAudioEventMuteMask, required) &&
          read_unsigned(object, "inactive_printer_poll_interval_s",
                        settings.inactive_printer_poll_interval_s, 300, required) &&
+         read_string(object, "printer_view", settings.printer_view, 5, source_schema >= 19) &&
          read_string(object, "camera_mode", settings.camera_mode, 16, required) &&
          read_unsigned(object, "camera_snapshot_fps", settings.camera_snapshot_fps, 5,
                        required) &&

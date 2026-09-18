@@ -260,6 +260,7 @@ bool valid_device_name(std::string_view name) {
 
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
+  if (source_schema < 19) settings.printer_view = "list";
   if (source_schema < 18) {
     for (auto& profile : settings.profiles) profile.network_identity.clear();
   }
@@ -414,6 +415,9 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
     issues.push_back({"unified_api_token", "Unified API token is invalid"});
   }
   if (!valid_mqtt_settings(settings.mqtt)) issues.push_back({"mqtt", "Check the MQTT connection settings."});
+  if (settings.printer_view != "list" && settings.printer_view != "tiles") {
+    issues.push_back({"printer_view", "Unsupported printer view"});
+  }
   const std::uint32_t poll_interval = settings.inactive_printer_poll_interval_s;
   if (poll_interval != 0 && poll_interval != 30 && poll_interval != 60 &&
       poll_interval != 180 && poll_interval != 300) {

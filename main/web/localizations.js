@@ -10,6 +10,13 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "No printers are online.":["Żadna drukarka nie jest online.","No hay impresoras en línea.","Aucune imprimante n’est en ligne.","Keine Drucker sind online.","没有在线打印机。"],
+  "Back to gallery":["Powrót do galerii", "Volver a la galería", "Retour à la galerie", "Zurück zur Galerie", "返回图库"],
+  "Printer view":["Widok drukarek", "Vista de impresoras", "Vue des imprimantes", "Druckeransicht", "打印机视图"],
+  "Tile view":["Widok kafelków", "Vista de mosaicos", "Vue en vignettes", "Kachelansicht", "网格视图"],
+  "List view":["Widok listy", "Vista de lista", "Vue en liste", "Listenansicht", "列表视图"],
+  "All printers":["Wszystkie drukarki", "Todas las impresoras", "Toutes les imprimantes", "Alle Drucker", "所有打印机"],
+
   "Beta feature — testing in progress":["Wersja beta — funkcja w trakcie testów", "Función beta — pruebas en curso", "Fonctionnalité bêta — tests en cours", "Beta-Funktion — Tests laufen", "测试版功能 — 正在测试中"],
   "PrintDeck Cloud is not ready for general use":["PrintDeck Cloud nie jest jeszcze gotowym rozwiązaniem", "PrintDeck Cloud aún no está listo para el uso general", "PrintDeck Cloud n’est pas encore prêt pour une utilisation générale", "PrintDeck Cloud ist noch nicht für den allgemeinen Einsatz bereit", "PrintDeck Cloud 尚未准备好供正式使用"],
   "Cloud":["Cloud", "Cloud", "Cloud", "Cloud", "云端"],
@@ -1791,3 +1798,58 @@ Object.assign(window.PRINTDECK_TRANSLATIONS.en, {
     "OctoPrint 连接已就绪。"
   ]
 ].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+// Labels for the private My Printers layout preview.
+[
+['Time left','Pozostały czas','Tiempo restante','Temps restant','Verbleibende Zeit','剩余时间'],
+['Ends at','Koniec o','Finaliza a las','Fin à','Ende um','结束时间'],
+['Nozzle','Dysza','Boquilla','Buse','Düse','喷嘴'],
+['Bed','Stół','Cama','Plateau','Druckbett','热床'],
+['Chamber','Komora','Cámara','Chambre','Bauraum','腔体'],
+['Nozzles','Dysze','Boquillas','Buses','Düsen','喷嘴'],
+['Tool','Narzędzie','Herramienta','Outil','Werkzeug','工具'],
+['Filament','Filament','Filamento','Filament','Filament','耗材'],
+['Current','Aktualnie','Actual','Actuelle','Aktuell','当前'],
+['Target','Docelowo','Objetivo','Cible','Soll','目标'],
+['Speed & power','Prędkość i moc','Velocidad y potencia','Vitesse et puissance','Geschwindigkeit und Leistung','速度与功率'],
+['Speed','Prędkość','Velocidad','Vitesse','Geschwindigkeit','速度'],
+['Flow','Przepływ','Flujo','Débit','Fluss','流量'],
+['Part fan','Wentylator wydruku','Ventilador de pieza','Ventilateur de pièce','Bauteillüfter','模型风扇'],
+['Nozzle power','Moc dyszy','Potencia de boquilla','Puissance de la buse','Düsenleistung','喷嘴功率'],
+['Bed power','Moc stołu','Potencia de cama','Puissance du plateau','Heizbettleistung','热床功率'],
+['Controls','Sterowanie','Controles','Commandes','Steuerung','控制'],
+['Enlarge thumbnail','Powiększ miniaturę','Ampliar miniatura','Agrandir la miniature','Vorschaubild vergrößern','放大缩略图'],
+['Print thumbnail','Miniatura wydruku','Miniatura de impresión','Miniature de l’impression','Druckvorschaubild','打印缩略图'],
+['Printer reaction','Reakcja drukarki','Reacción de la impresora','Réaction de l’imprimante','Druckerreaktion','打印机动态'],
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[['Position','Pozycja','Posición','Position','Position','位置']].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+['Pause','Wstrzymaj','Pausar','Pause','Pausieren','暂停'],
+['Resume','Wznów','Reanudar','Reprendre','Fortsetzen','继续'],
+['Stop','Zatrzymaj','Detener','Arrêter','Stoppen','停止'],
+['Print controls','Sterowanie wydrukiem','Controles de impresión','Commandes d’impression','Drucksteuerung','打印控制'],
+['Not available yet','Jeszcze niedostępne','Aún no disponible','Pas encore disponible','Noch nicht verfügbar','暂不可用']
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+['Printer Controls','Sterowanie drukarką','Control de la impresora','Commandes de l’imprimante','Druckersteuerung','打印机控制'],
+['Speed & movement','Prędkość i ruch','Velocidad y movimiento','Vitesse et déplacement','Geschwindigkeit und Bewegung','速度与移动'],
+['Print speed','Prędkość druku','Velocidad de impresión','Vitesse d’impression','Druckgeschwindigkeit','打印速度'],
+['Movement','Ruch','Movimiento','Déplacement','Bewegung','移动'],
+['Move distance','Długość kroku','Distancia de movimiento','Distance de déplacement','Schrittweite','移动距离'],
+['Home XY','Bazuj X i Y','Referenciar X e Y','Référencer X et Y','X und Y referenzieren','XY 归零'],
+['Home Z','Bazuj Z','Referenciar Z','Référencer Z','Z referenzieren','Z 归零'],
+['Apply','Zastosuj','Aplicar','Appliquer','Anwenden','应用']
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+['Camera & movement','Kamera i ruch','Cámara y movimiento','Caméra et déplacement','Kamera und Bewegung','摄像头与移动'],
+['Camera preview','Podgląd kamery','Vista de cámara','Aperçu de la caméra','Kameravorschau','摄像头预览'],
+['Camera unavailable','Kamera niedostępna','Cámara no disponible','Caméra indisponible','Kamera nicht verfügbar','摄像头不可用']
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[['No camera detected','Nie wykryto kamery','No se ha detectado ninguna cámara','Aucune caméra détectée','Keine Kamera erkannt','未检测到摄像头']].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[['Open in new tab','Otwórz w nowej karcie','Abrir en una pestaña nueva','Ouvrir dans un nouvel onglet','In neuem Tab öffnen','在新标签页中打开']].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
