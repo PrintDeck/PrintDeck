@@ -30,8 +30,16 @@ std::string encode(cJSON* object) {
   cJSON_free(value);
   return result;
 }
-bool token_valid(const std::string& token) {
+bool pairing_code_valid(const std::string& token) {
   return token.size()==60 && token.find_first_not_of("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")==std::string::npos;
+}
+bool token_valid(const std::string& token) {
+  const auto separator=token.find('|');
+  if(separator==std::string::npos || separator==0 || separator>20 || token.front()=='0')return false;
+  const auto secret_size=token.size()-separator-1;
+  if(secret_size<40 || secret_size>128)return false;
+  return token.find_first_not_of("0123456789",0)>=separator &&
+         token.find_first_not_of("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",separator+1)==std::string::npos;
 }
 struct Reply { int status=0; std::string body; bool overflow=false; };
 void ensure_dns_backup() {
@@ -232,7 +240,7 @@ void CloudPairingService::step() {
       const auto secret=field(data,"device_code"),code=field(data,"user_code"),link=field(data,"verification_uri");
       const auto expected=std::string(kPanelOrigin)+"/cloud/pair/"+code;
       command_.clear();
-      if(!token_valid(secret) || code.size()!=16 || code.find_first_not_of("0123456789ABCDEF")!=std::string::npos || link!=expected) {
+      if(!pairing_code_valid(secret) || code.size()!=16 || code.find_first_not_of("0123456789ABCDEF")!=std::string::npos || link!=expected) {
         state_="error";return;
       }
       secret_=secret;code_=code;link_=link;expires_=millis()+600000;state_="pending";
