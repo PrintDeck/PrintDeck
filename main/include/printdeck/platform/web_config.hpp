@@ -81,7 +81,10 @@ class WebConfig {
   bool save_recovered_printer(const core::PrinterProfile& expected,
                              const core::PrinterProfile& recovered, const NetworkStatus& network);
   void update_selected_printer_status(const core::PrinterSnapshot& snapshot,
-                                      std::string_view detected_model = {});
+                                      std::string_view detected_model = {}, std::string_view preview_key = {});
+  bool printer_preview_requested(std::uint64_t now_ms) const {
+    return now_ms < printer_preview_active_until_ms_.load(std::memory_order_acquire);
+  }
   void update_power_status(const PowerSnapshot& snapshot);
   esp_err_t save_brightness(int percent);
   esp_err_t save_audio(bool enabled, int volume_percent);
@@ -133,7 +136,13 @@ class WebConfig {
   static esp_err_t wifi_entry(httpd_req_t* request);
   static esp_err_t wifi_scan_entry(httpd_req_t* request);
   static esp_err_t printer_entry(httpd_req_t* request);
+  static esp_err_t printer_preview_entry(httpd_req_t* request);
   static esp_err_t printers_get_entry(httpd_req_t* request);
+  static esp_err_t printer_events_entry(httpd_req_t* request);
+  static void printer_events_task(void* context);
+  void run_printer_events();
+  esp_err_t open_printer_events(httpd_req_t* request);
+  std::string printer_state_json(bool controls, bool preview) const;
   static esp_err_t printers_manage_entry(httpd_req_t* request);
   static esp_err_t printer_light_entry(httpd_req_t* request);
   static esp_err_t printer_discovery_start_entry(httpd_req_t* request);
@@ -223,6 +232,7 @@ class WebConfig {
   esp_err_t save_wifi(httpd_req_t* request);
   esp_err_t serve_wifi_scan(httpd_req_t* request);
   esp_err_t save_printer(httpd_req_t* request);
+  esp_err_t serve_printer_preview(httpd_req_t* request) const;
   esp_err_t serve_printers(httpd_req_t* request) const;
   esp_err_t manage_printer(httpd_req_t* request);
   esp_err_t set_printer_light(httpd_req_t* request);
@@ -310,6 +320,18 @@ class WebConfig {
   core::JobPhase selected_phase_ = core::JobPhase::unknown;
   float selected_completion_ = 0.0F;
   bool selected_completion_known_ = false;
+  InactivePrinterStatus selected_job_;
+  std::string selected_details_json_ = "null";
+  struct PrinterPreviewImage {
+    std::shared_ptr<std::vector<std::uint8_t>> bytes;
+    std::string version;
+  };
+  std::string selected_preview_key_;
+  PrinterPreviewImage selected_model_preview_, selected_layer_preview_;
+  std::uint32_t preview_session_ = 0;
+  std::uint64_t preview_revision_ = 0;
+  std::uint64_t layer_preview_until_ms_ = 0;
+  mutable std::atomic<std::uint64_t> printer_preview_active_until_ms_{0};
   PowerSnapshot power_status_;
   std::atomic<std::uint8_t> voice_state_{0};
   struct PrinterLightState {
@@ -321,6 +343,16 @@ class WebConfig {
   UnifiedApiActivityCallback printer_controls_activity_callback_ = nullptr;
   PrinterLightCallback printer_light_callback_ = nullptr;
   void* printer_controls_context_ = nullptr;
+  struct PrinterStreamClient {
+    httpd_req_t* request = nullptr;
+    std::uint64_t connected_ms = 0;
+    bool initialized = false;
+    bool preview = false;
+  };
+  std::mutex printer_stream_mutex_;
+  std::array<PrinterStreamClient, 2> printer_stream_clients_{};
+  bool printer_stream_worker_running_ = false;
+  std::atomic<std::uint32_t> printer_stream_urgent_revision_{0};
   httpd_handle_t server_ = nullptr;
   esp_timer_handle_t restart_timer_ = nullptr;
   SettingsChangedCallback settings_changed_callback_ = nullptr;

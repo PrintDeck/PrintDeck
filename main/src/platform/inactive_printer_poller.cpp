@@ -669,6 +669,8 @@ InactivePrinterStatus InactivePrinterPoller::probe(
       summary.job_name = job.name;
       summary.phase = job.phase;
       summary.kind = job.kind;
+      summary.resin_stage = job.resin_stage;
+      summary.resin_exposure = job.resin_exposure;
       summary.condition = job.condition;
       summary.completion = job.completion;
       summary.completion_known = job.completion_known;
@@ -676,6 +678,8 @@ InactivePrinterStatus InactivePrinterPoller::probe(
       summary.elapsed_known = job.elapsed_known;
       summary.remaining_seconds = job.remaining_seconds;
       summary.remaining_known = job.remaining_known;
+      summary.current_layer = job.current_layer;
+      summary.total_layers = job.total_layers;
     } else if (result.error == ElegooError::capacity || result.error == ElegooError::service_not_ready) {
       summary.available = false;
     }
@@ -704,9 +708,12 @@ InactivePrinterStatus InactivePrinterPoller::probe(
     }
     if (result.sample && !cancelled()) {
       const auto& job = result.sample->snapshot.job;
+      summary.job_name = job.name;
       summary.connected = true;
       summary.phase = job.phase;
       summary.kind = job.kind;
+      summary.resin_stage = job.resin_stage;
+      summary.resin_exposure = job.resin_exposure;
       summary.condition = job.condition;
       summary.completion = job.completion;
       summary.completion_known = job.completion_known;
@@ -714,6 +721,8 @@ InactivePrinterStatus InactivePrinterPoller::probe(
       summary.elapsed_known = job.elapsed_known;
       summary.remaining_seconds = job.remaining_seconds;
       summary.remaining_known = job.remaining_known;
+      summary.current_layer = job.current_layer;
+      summary.total_layers = job.total_layers;
     }
     return summary;
   }
@@ -816,6 +825,8 @@ InactivePrinterStatus InactivePrinterPoller::probe(
     summary.remaining_seconds = static_cast<std::uint32_t>(std::max(
         0.0, number_member(print, "mc_remaining_time") * 60.0));
     summary.remaining_known = cJSON_IsNumber(member(print, "mc_remaining_time"));
+    summary.current_layer = static_cast<std::uint16_t>(std::clamp(number_member(print, "layer_num"), 0.0, 65535.0));
+    summary.total_layers = static_cast<std::uint16_t>(std::clamp(number_member(print, "total_layer_num"), 0.0, 65535.0));
     return summary;
   }
 
@@ -862,6 +873,12 @@ InactivePrinterStatus InactivePrinterPoller::probe(
   summary.elapsed_known = timing.elapsed_known;
   summary.remaining_seconds = timing.remaining_seconds;
   summary.remaining_known = timing.remaining_known;
+  const cJSON* info = member(stats, "info");
+  const cJSON* virtual_sd = member(status, "virtual_sdcard");
+  summary.current_layer = static_cast<std::uint16_t>(std::clamp(
+      number_member(info, "current_layer", number_member(virtual_sd, "layer")), 0.0, 65535.0));
+  summary.total_layers = static_cast<std::uint16_t>(std::clamp(
+      number_member(info, "total_layer", number_member(virtual_sd, "layer_count")), 0.0, 65535.0));
   return summary;
 }
 

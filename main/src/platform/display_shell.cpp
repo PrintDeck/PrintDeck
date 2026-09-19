@@ -3117,8 +3117,8 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
   }
   else if (screen_name == "resin-pause-resume" || screen_name == "resin-stop") {
     if (!selected_online_.load() || !selected_is_resin_.load() ||
-        horizontal_depth_count_.load() != 4) return ESP_ERR_INVALID_STATE;
-    target_depth = screen_name == "resin-stop" ? 3 : 2;
+        horizontal_depth_count_.load() != 5) return ESP_ERR_INVALID_STATE;
+    target_depth = screen_name == "resin-stop" ? 4 : 3;
   }
   else if (screen_name == "resin-printer-status" || screen_name == "resin-print-details" ||
            screen_name == "resin-bottom-layers" || screen_name == "resin-normal-layers" ||
@@ -3260,7 +3260,7 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
   selected_is_tinymaker_.store(profile.protocol == core::PrinterProtocol::tinymaker);
   if (resin) {
     const bool controls=profile.protocol==core::PrinterProtocol::uniformation_sdcp;
-    selected_camera_depth_.store(controls?4:2);
+    selected_camera_depth_.store(2);
     configure_camera_pages(profile.id,false);
     if(horizontal_depth_.load()==selected_camera_depth_.load()) {
       horizontal_depth_count_.store(controls?5:3);
@@ -3275,9 +3275,9 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
     const auto pages = core::resin_telemetry_pages(selected_is_tinymaker_.load());
     const int subpage_count = pages.size() + reaction_offset;
     horizontal_depth_count_.store(controls ? 5 : 3); printer_subpage_count_.store(subpage_count);
-    horizontal_depth_.store(std::min(controls ? 3 : 1, horizontal_depth_.load()));
-    if (controls && horizontal_depth_.load() >= 2) {
-      show_resin_controls(profile, snapshot, horizontal_depth_.load() == 3);
+    horizontal_depth_.store(std::min(controls ? 4 : 1, horizontal_depth_.load()));
+    if (controls && horizontal_depth_.load() >= 3) {
+      show_resin_controls(profile, snapshot, horizontal_depth_.load() == 4);
       return;
     }
     printer_subpage_.store(std::clamp(printer_subpage_.load(), 0, subpage_count - 1));

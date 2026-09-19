@@ -10,6 +10,29 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "Drag to reorder":["Przeciągnij, aby zmienić kolejność", "Arrastra para reordenar", "Faites glisser pour réorganiser", "Zum Sortieren ziehen", "拖动以调整顺序"],
+  "Use arrow keys to move, Enter to save, or Escape to cancel.":["Użyj strzałek, aby przesunąć, Enter, aby zapisać, lub Escape, aby anulować.", "Usa las flechas para mover, Intro para guardar o Escape para cancelar.", "Utilisez les flèches pour déplacer, Entrée pour enregistrer ou Échap pour annuler.", "Mit Pfeiltasten verschieben, mit Eingabe speichern oder mit Escape abbrechen.", "使用方向键移动，按 Enter 保存，按 Escape 取消。"],
+  "Saving printer order…":["Zapisywanie kolejności drukarek…", "Guardando el orden de las impresoras…", "Enregistrement de l’ordre des imprimantes…", "Druckerreihenfolge wird gespeichert…", "正在保存打印机顺序…"],
+  "Printer order saved.":["Kolejność drukarek zapisana.", "Orden de impresoras guardado.", "Ordre des imprimantes enregistré.", "Druckerreihenfolge gespeichert.", "打印机顺序已保存。"],
+  "The printer list changed. Try moving the printer again.":["Lista drukarek się zmieniła. Spróbuj ponownie przesunąć drukarkę.", "La lista de impresoras ha cambiado. Intenta mover la impresora de nuevo.", "La liste des imprimantes a changé. Réessayez de déplacer l’imprimante.", "Die Druckerliste hat sich geändert. Verschiebe den Drucker erneut.", "打印机列表已更改。请重新移动打印机。"],
+
+  "Lift Heights":["Wysokości podnoszenia", "Alturas de elevación", "Hauteurs de levage", "Hubhöhen", "抬升高度"],
+  "Lift Speeds":["Prędkości podnoszenia", "Velocidades de elevación", "Vitesses de levage", "Hubtempo", "抬升速度"],
+  "Normal layers":["Zwykłe warstwy", "Capas normales", "Couches normales", "Normale Schichten", "普通层"],
+  "Lift speeds & heights":["Prędkości i wysokości podnoszenia", "Velocidades y alturas de elevación", "Vitesses et hauteurs de levage", "Hubtempo und Hubhöhen", "抬升速度与高度"],
+  "Print profile":["Profil wydruku", "Perfil de impresión", "Profil d’impression", "Druckprofil", "打印配置"],
+
+  "Weight":["Masa","Peso","Poids","Gewicht","重量"],
+  "Print Details":["Szczegóły druku", "Detalles de impresión", "Détails d’impression", "Druckdetails", "打印详情"],
+  "Layer height":["Wysokość warstwy", "Altura de capa", "Hauteur de couche", "Schichthöhe", "层高"],
+  "Bottom layers":["Warstwy bazowe", "Capas base", "Couches de base", "Bodenschichten", "底层数"],
+  "Transition layers":["Warstwy przejśc.", "Capas transición", "Couches transition", "Übergangssch.", "过渡层数"],
+  "Resin volume":["Ilość żywicy", "Volumen resina", "Volume de résine", "Harzvolumen", "树脂体积"],
+  "Estimated weight":["Szacowana masa", "Peso estimado", "Poids estimé", "Geschätzte Masse", "预计重量"],
+  "Automatic refill":["Automatyczne dolewanie", "Relleno automático", "Remplissage auto", "Automatisch füllen", "自动补液"],
+  "Resin in bottle":["Żywica w butelce", "Resina en la botella", "Résine en bouteille", "Harz in der Flasche", "瓶中树脂"],
+  "No filament":["Brak filamentu", "Sin filamento", "Aucun filament", "Kein Filament", "无耗材"],
+
   "No printers are online.":["Żadna drukarka nie jest online.","No hay impresoras en línea.","Aucune imprimante n’est en ligne.","Keine Drucker sind online.","没有在线打印机。"],
   "Back to gallery":["Powrót do galerii", "Volver a la galería", "Retour à la galerie", "Zurück zur Galerie", "返回图库"],
   "Printer view":["Widok drukarek", "Vista de impresoras", "Vue des imprimantes", "Druckeransicht", "打印机视图"],
@@ -1853,3 +1876,117 @@ Object.assign(window.PRINTDECK_TRANSLATIONS.en, {
 [['No camera detected','Nie wykryto kamery','No se ha detectado ninguna cámara','Aucune caméra détectée','Keine Kamera erkannt','未检测到摄像头']].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
 
 [['Open in new tab','Otwórz w nowej karcie','Abrir en una pestaña nueva','Ouvrir dans un nouvel onglet','In neuem Tab öffnen','在新标签页中打开']].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+  [
+    "Homing",
+    "Bazowanie",
+    "Referenciando",
+    "Référencement",
+    "Referenzfahrt",
+    "归零"
+  ],
+  [
+    "Lowering",
+    "Opuszczanie",
+    "Bajando",
+    "Descente",
+    "Absenken",
+    "下降"
+  ],
+  [
+    "Exposing",
+    "Naświetlanie",
+    "Exponiendo",
+    "Exposition",
+    "Belichten",
+    "曝光"
+  ],
+  [
+    "Lifting",
+    "Podnoszenie",
+    "Subiendo",
+    "Montée",
+    "Anheben",
+    "上升"
+  ],
+  [
+    "Pausing",
+    "Wstrzymywanie",
+    "Pausando",
+    "Mise en pause",
+    "Pausieren",
+    "正在暂停"
+  ],
+  [
+    "Stopping",
+    "Zatrzymywanie",
+    "Deteniendo",
+    "Arrêt en cours",
+    "Anhalten",
+    "正在停止"
+  ],
+  [
+    "Finishing",
+    "Kończenie",
+    "Finalizando",
+    "Finalisation",
+    "Abschluss",
+    "正在结束"
+  ],
+  [
+    "Stopped",
+    "Zatrzymano",
+    "Detenido",
+    "Arrêté",
+    "Angehalten",
+    "已停止"
+  ],
+  [
+    "Checking file",
+    "Sprawdzanie pliku",
+    "Verificando archivo",
+    "Vérification du fichier",
+    "Datei prüfen",
+    "检查文件"
+  ],
+  [
+    "Device test",
+    "Test drukarki",
+    "Prueba de impresora",
+    "Test de l’appareil",
+    "Gerätetest",
+    "设备测试"
+  ],
+  [
+    "Exposure test",
+    "Test naświetlania",
+    "Prueba de exposición",
+    "Test d’exposition",
+    "Belichtungstest",
+    "曝光测试"
+  ],
+  [
+    "Transferring file",
+    "Przesyłanie pliku",
+    "Transfiriendo archivo",
+    "Transfert du fichier",
+    "Dateiübertragung",
+    "正在传输文件"
+  ]
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+['Printing for:','Drukuje od:','Imprimiendo desde:','Durée écoulée :','Druckt seit:','已打印：'],
+['Print time','Czas druku','Tiempo de impresión','Durée d’impression','Druckzeit','打印用时'],
+['Layer preview','Podgląd warstwy','Vista previa de capa','Aperçu de la couche','Schichtvorschau','层预览']
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+['Remaining','Pozostało','Restante','Restant','Verbleibend','剩余'],
+['End at','Koniec o','Fin a las','Fin à','Ende um','结束于']
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+['Waiting for printer data…','Oczekiwanie na dane drukarki…','Esperando datos de la impresora…','En attente des données de l’imprimante…','Warten auf Druckerdaten…','正在等待打印机数据…']
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));

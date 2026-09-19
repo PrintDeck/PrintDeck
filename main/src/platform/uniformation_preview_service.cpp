@@ -167,10 +167,14 @@ void UniformationPreviewService::update(const std::string& address, std::uint16_
     // to a newer exposure, a paused print or a status that went stale.
     if (ctb_exposure_preview_matches(result_key_, request_.key, layer_index_, request_.layer,
         job.resin_stage == core::ResinStage::exposing && request_.layer_needed,
-        state.updated_at_ms, layer_after_, now_ms())) job.exposure_preview = layer_;
+        state.updated_at_ms, layer_after_, now_ms())) {
+      job.exposure_preview = layer_;
+      job.exposure_preview_until_ms = state.updated_at_ms + 2000;
+    }
     else if (held_layer_ && moving && ctb_exposure_preview_matches(result_key_, request_.key,
         held_index_, request_.layer, false, state.updated_at_ms, held_after_, now_ms(), hold_until_))
-      job.exposure_preview = held_layer_;
+      { job.exposure_preview = held_layer_;
+        job.exposure_preview_until_ms = std::min(hold_until_, state.updated_at_ms + 2000); }
   }
 }
 void UniformationPreviewService::task_entry(void* context) { static_cast<UniformationPreviewService*>(context)->run(); }

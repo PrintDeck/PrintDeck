@@ -82,7 +82,8 @@ struct ResinReactionFrame {
 
 inline ResinReactionFrame resin_reaction_frame(ResinReaction reaction, std::uint32_t elapsed_ms) {
   ResinReactionFrame frame;
-  const int movement = static_cast<int>(std::min<std::uint32_t>(elapsed_ms, 1800U) * 23U / 1800U);
+  const auto travel_ms = reaction == ResinReaction::homing ? 1800U : 4000U;
+  const int movement = static_cast<int>(std::min<std::uint32_t>(elapsed_ms, travel_ms) * 23U / travel_ms);
   if (reaction == ResinReaction::lifting) frame.platform_y = 72 - movement;
   else if (reaction == ResinReaction::lowering || reaction == ResinReaction::homing)
     frame.platform_y = 49 + movement;

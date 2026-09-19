@@ -1468,10 +1468,12 @@ void Runtime::monitor_loop() {
          selected->protocol == core::PrinterProtocol::uniformation_sdcp);
     const bool want_elegoo_cc2_connection = full_connection_active &&
         selected->protocol == core::PrinterProtocol::elegoo_cc2;
-    const bool preview_visible = display_.background_content_needed() &&
+    const bool device_preview_visible = display_.background_content_needed() &&
         display_.printer_status_page_active() && !camera_cleanup_pending_;
-    if (printer_preview_visible_ && !preview_visible) display_.release_printer_preview();
-    printer_preview_visible_ = preview_visible;
+    const bool preview_visible = !camera_cleanup_pending_ && (device_preview_visible ||
+        web_config_.printer_preview_requested(connection_now_ms));
+    if (printer_preview_visible_ && !device_preview_visible) display_.release_printer_preview();
+    printer_preview_visible_ = device_preview_visible;
     if (!preview_visible) {
       moonraker_.set_preview_requested(false);
       bambu_a1_preview_.set_preview_requested(false);
@@ -1716,12 +1718,6 @@ void Runtime::monitor_loop() {
             audio_.play(AudioService::Event::test);
         }
       }
-      web_config_.update_selected_printer_status(
-          selected != nullptr ? selected_snapshot : core::PrinterSnapshot{},
-          selected != nullptr && selected_is_bambu && selected_snapshot_ready &&
-              selected_snapshot.profile_id == selected->id &&
-              bambu_lan_.detected_model() != BambuPrinterModel::unknown
-              ? bambu_model_name(bambu_lan_.detected_model()) : "");
       const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
       const bool selected_online = selected != nullptr && selected_snapshot_ready &&
                                    selected_snapshot.link == core::LinkState::online;
@@ -1805,8 +1801,7 @@ void Runtime::monitor_loop() {
           }
         }
       }
-      const bool thumbnail_visible = display_.background_content_needed() &&
-          display_.printer_status_page_active() && !camera_cleanup_pending_;
+      const bool thumbnail_visible = preview_visible;
       // Lightweight list probes do not contain the full job identity. Preserve
       // the flash entry while away; confirmed terminal states still invalidate it.
       const auto preview_link = selected_snapshot.link;
@@ -1827,7 +1822,14 @@ void Runtime::monitor_loop() {
           want_elegoo_sdcp_connection && selected->protocol == core::PrinterProtocol::uniformation_sdcp && thumbnail_visible);
       selected_snapshot.job.preview = matching_thumbnail && thumbnail_visible
           ? cached_thumbnail.image : nullptr;
-      if (thumbnail_visible && selected_snapshot.job.exposure_preview)
+      web_config_.update_selected_printer_status(
+          selected != nullptr ? selected_snapshot : core::PrinterSnapshot{},
+          selected != nullptr && selected_is_bambu && selected_snapshot_ready &&
+              selected_snapshot.profile_id == selected->id &&
+              bambu_lan_.detected_model() != BambuPrinterModel::unknown
+              ? bambu_model_name(bambu_lan_.detected_model()) : "",
+          matching_thumbnail ? cached_thumbnail.key : "");
+      if (device_preview_visible && selected_snapshot.job.exposure_preview)
         selected_snapshot.job.preview = selected_snapshot.job.exposure_preview;
       const int rendered_page = display_.page();
       const bool rendered_printer_list = display_.printer_list_visible();

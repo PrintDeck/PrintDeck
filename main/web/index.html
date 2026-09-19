@@ -341,6 +341,17 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
   @media(max-width:680px){.printer-compatibility{gap:10px;padding:10px 18px}.printer-compatibility-label{width:100%}.printer-compatibility-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}.printer-compatibility-list li{gap:8px;padding:7px 10px;font-size:13px}.printer-compatibility-list img{width:28px;height:28px;flex-basis:28px}}
   @media(max-width:360px){.printer-compatibility-list li{gap:7px;padding:7px 8px;font-size:12px}.printer-compatibility-list img{width:24px;height:24px;flex-basis:24px}}
 
+.printer-reorder{position:absolute;top:3px;left:3px;z-index:8;width:32px;height:32px;min-height:0;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--muted);opacity:0;cursor:grab;touch-action:none;transition:opacity .15s}
+.printer-reorder svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.printer-row:hover .printer-reorder,.printer-row:focus-within .printer-reorder{opacity:1}
+.printer-reorder:hover,.printer-reorder:focus-visible{color:var(--ink);background:var(--panel-2)}
+.printer-row.printer-dragging{opacity:.55}
+.printer-reorder:focus:not(:focus-visible),.printer-dragging .printer-reorder{outline:none;box-shadow:none}
+.printer-is-dragging,.printer-is-dragging *{cursor:grabbing!important;user-select:none!important}
+.printer-drag-ghost{position:fixed;z-index:10000;pointer-events:none;max-width:240px;padding:12px 18px;border:1px solid var(--device-theme-accent);border-radius:14px;background:var(--panel);color:var(--ink);box-shadow:0 10px 30px #0003;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#printer-grid[aria-busy=true]{opacity:.75;pointer-events:none}
+@media(hover:none),(pointer:coarse){.printer-reorder{opacity:1;width:36px;height:36px}}
+@media(prefers-reduced-motion:reduce){.printer-reorder{transition:none}}
 .printer-view-switch{display:flex;flex:0 0 auto;gap:3px;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--panel-2)}
 .printer-view-switch button{display:grid;place-items:center;width:44px;height:44px;padding:10px;border:0;border-radius:50%;background:transparent;color:var(--muted)}
 .printer-view-switch button[aria-pressed=true]{background:var(--line);color:var(--ink)}
@@ -383,9 +394,11 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .printer-manager .printer-job-summary{font-size:12px}
 .printer-manager .printer-job-track{height:5px}
 .printer-manager .printer-job-fill{background:#1687ef}
-.printer-address{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:12px;white-space:nowrap}
+.printer-address{min-width:0;overflow:hidden;display:flex;align-items:center;gap:5px;color:var(--muted);font-size:12px;white-space:nowrap}
 .printer-address svg{width:14px;height:14px;flex:0 0 14px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.printer-job-file{display:block;grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted);font-weight:400}
+.printer-address span,.printer-row .printer-reachability{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.printer-row .printer-reachability{display:block}
+.printer-row:has(.printer-camera:not([hidden])) .printer-job-file{padding-right:24px}
+.printer-job-file{display:block;min-width:0;grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted);font-weight:400}
 .printer-metrics{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:3px -16px 0;padding:12px 16px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--ink) 2%,transparent);font-variant-numeric:tabular-nums}
 .printer-metrics>span{display:grid;gap:4px;min-width:0}.printer-metrics small{font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap}.printer-metrics b{font-size:12px;white-space:nowrap;font-weight:700}.printer-metrics>span:nth-child(2){text-align:center}.printer-metrics>span:last-child{text-align:right}
 /* Gallery keeps the list hierarchy with a larger printer image. */
@@ -414,7 +427,8 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .printer-detail .pd-mini-screen[data-hardware=knomi2]:after{content:'';position:absolute;width:29%;height:13%;bottom:-10%;left:35%;background:#202522;border-radius:0 0 4px 4px}
 .printer-detail .pd-mini-screen[data-hardware=knomi2]:before{content:'';position:absolute;width:17%;height:8%;bottom:-15%;left:48%;background:repeating-linear-gradient(90deg,#997322 0 3px,#292622 3px 5px);border-radius:0 0 3px 3px}
 .pd-print-overview{display:grid;grid-template-columns:125px minmax(0,1fr);gap:20px;align-items:center}
-.pd-print-overview h3{font-size:19px}.pd-print-overview .printer-job{margin-top:16px;display:grid}
+.pd-print-copy,.pd-print-visuals{min-width:0}
+.pd-print-overview h3{font-size:19px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-print-overview .printer-job{margin-top:16px;display:grid}
 .pd-print-overview .printer-job-heading{display:none}
 .pd-print-overview .printer-job-percent{font-size:24px}
 .pd-print-overview .printer-job-summary{font-size:14px}
@@ -423,16 +437,16 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .pd-print-pot{display:block;position:relative;width:73px;height:88px;border-radius:40% 40% 40% 40%/10% 10% 13% 13%;background:linear-gradient(90deg,#0004,transparent 22%,#fff2 48%,transparent 65%,#0003),repeating-linear-gradient(90deg,#a95029 0px,#d67a4a 3px,#e99665 5px,#ca6337 8px);box-shadow:6px 12px 12px #0002;transform:rotate(-7deg)}
 .pd-print-pot:before{content:'';position:absolute;top:-7px;left:0;width:100%;height:23px;border-radius:50%;background:radial-gradient(ellipse,#5b2d20 0%,#81402a 54%,#ba603b 59%,#ecaa80 66%,#c2673d 76%)}
 .pd-thumbnail-dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:22px;padding:22px;width:min(620px,calc(100% - 32px));max-height:90vh}
-.pd-thumbnail-dialog::backdrop{background:#0009}.pd-thumbnail-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}.pd-thumbnail-dialog h3{margin:0;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-thumbnail-dialog .pd-enlarged{display:grid;place-items:center;height:min(55vh,450px)}.pd-thumbnail-dialog .pd-print-pot{transform:scale(2.7) rotate(-7deg)}
+.pd-thumbnail-dialog::backdrop{background:#0009}.pd-thumbnail-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.pd-thumbnail-dialog header button{flex-shrink:0}.pd-thumbnail-dialog h3{min-width:0;margin:0;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-thumbnail-dialog .pd-enlarged{display:grid;place-items:center;height:min(55vh,450px)}.pd-thumbnail-dialog .pd-print-pot{transform:scale(2.7) rotate(-7deg)}
 .pd-telemetry{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;border-top:1px solid var(--line);padding:20px 0;margin-top:22px}.pd-telemetry span{display:block;color:var(--muted);font-size:12px;margin-bottom:8px}.pd-telemetry strong{font-size:23px;white-space:nowrap}.pd-telemetry small{display:block;margin-top:5px;font-size:12px;font-weight:400;color:var(--muted)}
 .printer-detail details{border-top:1px solid var(--line)}.printer-detail summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;padding:17px 0;font-size:14px;font-weight:700}.printer-detail summary::-webkit-details-marker{display:none}.printer-detail summary:after{content:'⌄';margin-left:auto;color:var(--muted)}.printer-detail details[open]>summary:after{transform:rotate(180deg)}
 .printer-detail .printer-control{border:0;margin:0;padding:0 0 14px}.printer-detail #printer-light-status:empty{display:none}
 .pd-nozzle-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px}.pd-nozzle-table th{color:var(--muted);font-weight:400;padding:0 0 10px;text-align:right}.pd-nozzle-table td{border-top:1px solid var(--line);padding:12px 0;text-align:right}.pd-nozzle-table th:nth-child(-n+2),.pd-nozzle-table td:nth-child(-n+2){text-align:left}.pd-filament-dot{display:inline-block;width:10px;height:10px;background:#d87346;border-radius:50%;margin-right:7px}.pd-speeds-grid{display:flex;gap:20px;flex-wrap:wrap;padding-bottom:18px}.pd-speeds-grid span{display:grid;gap:6px;font-size:12px;color:var(--muted)}.pd-speeds-grid b{font-size:16px;color:var(--ink)}
 @media(max-width:1100px){.pd-print-overview{grid-template-columns:95px minmax(0,1fr);gap:14px}.pd-print-thumb{width:95px}}
-@media(max-width:520px){.pd-print-overview{grid-template-columns:1fr}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-overview{padding-right:0}.pd-print-thumb{width:calc(100% - 150px);min-width:90px}.pd-telemetry{gap:8px}.pd-telemetry strong{font-size:20px}.pd-telemetry small{display:block;margin-top:4px}.printer-detail{padding:18px}.printer-metrics small{white-space:normal}.printer-detail .pd-detail-tools{right:8px;top:8px}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy h3,.printer-detail .pd-print-copy h3{padding-right:0}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy{padding-top:0}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy .printer-job{margin-top:16px}}
+@media(max-width:520px){.pd-print-overview{grid-template-columns:minmax(0,1fr)}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-overview{padding-right:0}.pd-print-thumb{width:calc(100% - 150px);min-width:90px}.pd-telemetry{gap:8px}.pd-telemetry strong{font-size:20px}.pd-telemetry small{display:block;margin-top:4px}.printer-detail{padding:18px}.printer-metrics small{white-space:normal}.printer-detail .pd-detail-tools{right:8px;top:8px}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy h3,.printer-detail .pd-print-copy h3{padding-right:0}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy{padding-top:0}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy .printer-job{margin-top:16px}}
 
 @media(max-width:380px){.printer-detail .pd-mini-screen{width:76px;height:76px;flex-basis:76px}.printer-detail .pd-detail-tools{gap:6px}.printer-detail .pd-detail-tools .printer-manage{width:30px;flex-basis:30px}.pd-print-thumb{width:calc(100% - 120px);min-width:70px}}
-@container(max-width:420px){.pd-print-overview{grid-template-columns:1fr}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-overview{padding-right:0}.pd-print-thumb{width:calc(100% - 150px);min-width:90px}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy h3,.printer-detail .pd-print-copy h3{padding-right:0}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy{padding-top:0}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy .printer-job{margin-top:16px}}
+@container(max-width:420px){.pd-print-overview{grid-template-columns:minmax(0,1fr)}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-overview{padding-right:0}.pd-print-thumb{width:calc(100% - 150px);min-width:90px}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy h3,.printer-detail .pd-print-copy h3{padding-right:0}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy{padding-top:0}.printer-detail:has(.pd-mini-screen:not([hidden])) .pd-print-copy .printer-job{margin-top:16px}}
 @container(max-width:250px){.printer-detail .pd-mini-screen{width:76px;height:76px;flex-basis:76px}.printer-detail .pd-detail-tools{gap:6px}.printer-detail .pd-detail-tools .printer-manage{width:30px;flex-basis:30px}.pd-print-thumb{width:calc(100% - 120px);min-width:70px}}
 
 /* Nozzle/bed glyphs: existing Pictogrammers device font subset (Apache-2.0).
@@ -450,7 +464,14 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 
 .printer-manager[data-printer-view] .printer-row .printer-select-action:has(>.printer-metrics[hidden]){padding-bottom:18px}
 .pd-print-thumb .pd-print-pot{width:min(73px,60%);height:auto;aspect-ratio:73/88}
-.pd-print-thumb img{display:block;width:100%;height:100%;object-fit:contain}
+.pd-print-media{position:relative;display:grid;place-items:center;width:100%;height:100%;min-width:0;overflow:hidden;background:#000}
+.pd-print-media img{grid-area:1/1;width:100%;height:100%;object-fit:contain;min-height:0;min-width:0}
+.pd-print-media .pd-no-preview{grid-area:1/1;color:#9aa9b7}
+.pd-print-thumb:disabled{cursor:default}
+.pd-enlarged .pd-print-media{max-height:55vh}
+.pd-mini-screen canvas{display:block;width:100%;height:100%;border-radius:inherit}
+.pd-resin-enlarged{display:block;width:min(100%,466px);aspect-ratio:1;height:auto;margin:0 auto;border-radius:50%;background:#000}
+.pd-mini-screen[data-resin=true]{border-color:#263346;background:#000}
 
 .pd-print-visuals{display:flex;flex-direction:column;align-items:center;align-self:start;gap:14px;min-width:0}
 .pd-print-visuals .pd-print-thumb{width:125px;min-width:0}
@@ -463,8 +484,20 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .printer-manager[data-printer-view] .printer-row-tools{position:absolute;right:8px;top:10px;display:flex;align-items:center;gap:6px;z-index:5}
 .printer-manager[data-printer-view] .printer-row.active .printer-row-tools{top:48px}
 .printer-manager[data-printer-view] .printer-row .printer-row-tools .printer-manage{position:static;margin:0}
-.printer-manager[data-printer-view=tiles]:not(.show-printer-detail) .printer-row.active:has(.resin-badge) .printer-row-copy{align-self:end;transform:translateY(8px)}
+.printer-manager[data-printer-view=tiles]:not(.show-printer-detail) .printer-row .printer-row-copy{align-self:center;transform:none;padding-top:0;padding-right:36px}
+.printer-manager[data-printer-view=tiles]:not(.show-printer-detail) .printer-row .printer-row-tools{display:contents}
+.printer-manager[data-printer-view=tiles]:not(.show-printer-detail) .printer-row .printer-row-tools .resin-badge{position:absolute;right:50px;top:14px}
+.printer-manager[data-printer-view=tiles]:not(.show-printer-detail) .printer-row .printer-row-tools .printer-manage{position:absolute;right:8px;top:48px}
+.printer-manager[data-printer-view=tiles]:not(.show-printer-detail) .printer-row .printer-camera{right:8px;top:87px}
+.printer-manager[data-printer-view=tiles]:not(.show-printer-detail) .printer-row .printer-job-file{padding-right:0}
 .printer-manager[data-printer-view=list] .printer-row:has(.resin-badge) .printer-row-copy{padding-right:96px}
+.printer-manager[data-printer-view] .printer-row .printer-camera{display:grid;place-items:center;width:36px;height:36px;padding:0;right:8px;top:48px;z-index:5}
+.printer-manager[data-printer-view] .printer-row.active .printer-camera,.printer-manager[data-printer-view=tiles]:not(.show-printer-detail) .printer-row .printer-camera{top:87px}
+.printer-manager[data-printer-view] .printer-row:has(.printer-camera) .printer-select-action{grid-template-rows:minmax(72px,auto)}
+.printer-manager[data-printer-view] .printer-row.active:has(.printer-camera) .printer-select-action{grid-template-rows:minmax(106px,auto)}
+.printer-data-loading{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:28px 16px;text-align:center;color:var(--muted);font-size:16px;font-weight:600}
+.printer-data-spinner{width:60px;height:60px;flex:0 0 auto;border:5px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .9s linear infinite}
+@media(prefers-reduced-motion:reduce){.printer-data-spinner{animation-duration:1.8s}}
 .printer-manager .printer-select-action:disabled:hover{background:transparent}
 .printer-detail .pd-print-copy:has(.printer-job[data-phase=idle]){align-self:start}
 .printer-detail .pd-print-copy .printer-job[data-phase=idle]{margin-top:0}
@@ -546,7 +579,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .pd-camera-block .pd-camera-label{display:none}
 @container(max-width:420px){.pd-camera-block .pd-camera-section>summary{width:calc(100% - 145px)}.pd-camera-block .pd-detail-state{font-size:12px;max-width:105px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-camera-block .pd-control-camera{height:auto;aspect-ratio:16/9;min-height:140px}}
 
-.printer-detail details.pd-nozzles,.printer-detail details.pd-speeds,.printer-detail details.pd-controls{border-top:0;margin-top:14px}
+.printer-detail>details{border-top:0;margin-top:14px}
 .printer-detail details>summary{box-sizing:border-box;min-height:48px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--ink) 4%,var(--panel-2));gap:10px;font-size:14px;line-height:22px}
 .printer-detail details[open]>summary{margin-bottom:16px}
 .printer-detail details>summary:hover{background:color-mix(in srgb,var(--ink) 7%,var(--panel-2))}
@@ -567,6 +600,22 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .pd-static-data :is(span,small,strong,b,th,td,h3,button,output){color:#ff0000!important}
 .pd-static-data:is(button):disabled,.pd-static-data button:disabled{opacity:1}
 .pd-static-visual{border:1px solid #ff0000!important}
+
+.pd-weight-icon{width:15px;height:15px;flex-shrink:0}.pd-telemetry small:has(svg){display:flex;justify-content:center;align-items:center;gap:4px}.pd-telemetry small>span{display:inline;color:inherit;font-size:inherit;margin:0}
+.pd-resin-icon{display:inline-flex;flex:0 0 22px;width:22px;height:24px}.pd-resin-icon svg{width:100%;height:100%}
+.pd-telemetry>div{min-width:0}.pd-telemetry strong{font-size:clamp(16px,3.2cqw,23px)}.pd-telemetry small{overflow-wrap:anywhere}
+.pd-resin-profile{margin:0 0 14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.pd-resin-fields{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 20px;margin:0 0 20px;font-size:13px}.pd-resin-fields dt{color:var(--muted)}.pd-resin-fields dd{margin:0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.pd-nozzle-table{table-layout:fixed}.pd-nozzle-table th{overflow-wrap:anywhere}.pd-nozzle-table td{overflow-wrap:anywhere}.pd-nozzle-table th:first-child{width:18%}.pd-nozzle-table th:nth-child(2){width:30%}.pd-nozzle-table td small{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:4px}.pd-nozzle-table tr.is-active td:first-child{color:var(--accent);font-weight:700}.pd-nozzle-table td:nth-child(2)>span:last-child{display:inline;overflow-wrap:anywhere}
+.printer-metrics b{white-space:normal;overflow-wrap:anywhere}.pd-telemetry>div>span{overflow-wrap:anywhere}
+@container(max-width:260px){.pd-telemetry{grid-template-columns:1fr;gap:16px}.pd-telemetry>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:8px;text-align:right}.pd-telemetry>div>span{grid-row:1/3;flex-direction:row;justify-content:flex-start;margin:0;text-align:left}.pd-telemetry small:has(svg){justify-content:flex-end}.pd-telemetry strong{font-size:18px}}
+
+.pd-resin-profile{display:flex;align-items:center;gap:12px;padding:14px 16px;margin:0 0 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;white-space:normal}.pd-resin-profile>.pd-section-icon{width:24px;height:24px;flex-shrink:0;color:var(--accent)}.pd-resin-profile>div{min-width:0}.pd-resin-profile small{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;color:var(--muted)}.pd-resin-profile strong{display:block;font-size:14px;line-height:1.4;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pd-resin-fields{grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:20px}.pd-resin-fields>div{grid-column:span 2;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2);min-width:0}.pd-resin-fields>div:nth-child(n+4){grid-column:span 2}.pd-resin-fields dt{font-size:11px;line-height:1.4;min-height:30px}.pd-resin-fields dd{text-align:left;margin-top:8px;font-size:20px;line-height:1.3}
+.pd-lift-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px}.pd-lift-mode-label{font-size:16px;font-weight:700;color:var(--ink)}.pd-lift-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:20px}.pd-lift-grid figure{min-width:0;margin:0;padding:16px 8px 8px;border:1px solid var(--line);border-radius:16px;background:var(--panel-2)}.pd-lift-grid figcaption{text-align:center;min-height:51px;font-size:13px;line-height:1.45}.pd-lift-grid figcaption strong{display:block}.pd-lift-grid figcaption small{display:block;font-size:11px;color:var(--muted);margin-top:4px}.pd-lift-grid svg{display:block;width:100%;height:auto;overflow:visible}.pd-lift-grid text{font-size:14px;fill:var(--ink);text-anchor:middle;font-variant-numeric:tabular-nums}.pd-lift-vat{fill:none;stroke:#8a98aa;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}.pd-lift-platform{fill:#a9bac6}.pd-lift-model{fill:#59cdef}.pd-lift-arrow{fill:none;stroke:#34b8df;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}.pd-lift-divider{fill:none;stroke:#34b8df;stroke-opacity:.4;stroke-dasharray:5 6}.pd-lift-grid .pd-lift-stage-one,.pd-lift-grid .pd-lift-unit{fill:#1895bb}.pd-lift-unit-bg{fill:var(--line)}.pd-lift-grid .pd-lift-unit{font-size:12px}
+@container(max-width:360px){.pd-resin-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.pd-resin-fields>div{grid-column:span 1!important;padding:12px}.pd-resin-fields>div:first-child{grid-column:span 1!important}.pd-resin-fields dt{min-height:0}.pd-resin-fields dd{font-size:16px}.pd-lift-grid{grid-template-columns:1fr}.pd-lift-grid svg{max-width:320px;margin:auto}.pd-lift-grid figcaption{min-height:45px}}
+@container(max-width:260px){.pd-resin-fields{grid-template-columns:1fr}.pd-resin-fields>div{display:flex;align-items:center;justify-content:space-between;gap:10px}.pd-resin-fields dd{margin:0;font-size:15px}}
+.pd-speeds .pd-position-grid>div,.pd-speeds .pd-position-grid b{min-width:0;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -2213,7 +2262,7 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     const settingsSections=['device','wifi','live-view','hi-esp','camera','unified-api','cloud','time','backup','firmware'];
     function currentPageHash(){const tab=$('.tab[aria-selected=true]')?.dataset.tab||'printers';return '#'+(tab==='device'?$('.side-tab[aria-selected=true]')?.dataset.section||'device':tab)}
     function setSettingsSection(section){if(!settingsSections.includes(section)||(section==='hi-esp'&&settings.voice_available!==true))section='device';$$('.side-tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.section===section)));$$('[data-settings-pane]').forEach(p=>p.hidden=p.dataset.settingsPane!==section);clearTimeout(deviceInfoTimer);history.replaceState(null,'','#'+section);if(section==='live-view'){paintLiveViewDevice();refreshLiveView(true)}else stopLiveView(true);if(section==='device')loadDeviceInfo();if(section==='wifi'&&!wifiScanned)scanAllWifi();if(section==='camera')loadCompanionCameras().catch(()=>{});if(section==='unified-api'){loadUnifiedApi();loadMqtt();}if(section==='cloud')loadCloud();if(section==='firmware')loadOfficialReleases()}
-    function setTab(id,section=''){const settingsSection=section||(id!=='device'&&settingsSections.includes(id)?id:'');if(settingsSection)id='device';$$('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===id)));$$('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==id);if(id==='device'){setSettingsSection(settingsSection||$('.side-tab[aria-selected=true]')?.dataset.section||'device')}else{stopLiveView(true);clearTimeout(deviceInfoTimer);history.replaceState(null,'','#'+id)}if(id==='printers'){loadPrinters();if(!reactionData)loadReactions().catch(()=>{})}if(id==='reactions')loadReactions()}
+    function setTab(id,section=''){const settingsSection=section||(id!=='device'&&settingsSections.includes(id)?id:'');if(settingsSection)id='device';$$('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===id)));$$('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==id);if(id!=='printers')stopPrinterTransport();if(id==='device'){setSettingsSection(settingsSection||$('.side-tab[aria-selected=true]')?.dataset.section||'device')}else{stopLiveView(true);clearTimeout(deviceInfoTimer);history.replaceState(null,'','#'+id)}if(id==='printers'){loadPrinters();if(!reactionData)loadReactions().catch(()=>{})}if(id==='reactions')loadReactions()}
     $$('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));$$('.side-tab').forEach(b=>b.addEventListener('click',()=>setSettingsSection(b.dataset.section)));$('#wifi-badge').addEventListener('click',event=>{if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();setTab('wifi')});$('#audio-badge').addEventListener('click',event=>{if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();setTab('sounds')});$('#battery-badge').addEventListener('click',event=>{if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();setTab('device','device')});
 
     function wifiSignalRssi(){const rssi=health.wifi_rssi_dbm;return health.wifi_connected&&Number.isInteger(rssi)&&rssi<0&&rssi>=-127?rssi:null}
@@ -2406,7 +2455,102 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
       if(img&&host.isConnected&&printerPhotoHosts.get(host)===token)host.replaceChildren(img.cloneNode());
     }
     function paintThemePrinterPreview(){const p=printers[0];$$('.theme-card').forEach(card=>{const name=$('.status-printer',card),file=$('.status-file',card),thumb=$('.status-thumb',card);if(!name||!file||!thumb)return;name.textContent=p?.name||'U1';file.textContent=p?([p.manufacturer,p.model].filter(Boolean).join(' · ')||'Saved printer'):'example_print.3mf';thumb.replaceChildren();if(p?.brand&&brandLogos[p.brand]){const img=new Image;img.src=brandLogos[p.brand];img.alt=p.brand+' logo';thumb.append(img)}else thumb.textContent='3D'})}
-    async function selectPrinter(p,button){if(p.selected||p.dashboard_available===false)return;const status=$('#printer-list-status');status.classList.remove('error');if(p.reachability==='offline'){status.textContent=(p.name||'This printer')+' is offline. Turn it on and wait for the list to refresh.';status.classList.add('error');return}status.textContent='Selecting '+(p.name||'printer')+'…';button.disabled=true;try{await jsonFetch('/api/printers/manage',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id:p.id,action:'select'})});await loadPrinters();status.textContent=''}catch(e){button.disabled=false;status.textContent=e.message;status.classList.add('error')}}
+    let printerDrag=null,printerOrderSaving=false,printerDragClickUntil=0;
+    const printerOrderIds=()=>$$('#printer-grid > .printer-row').map(row=>Number(row.dataset.printerId));
+    function printerOrderMessage(text,error=false){const status=$('#printer-list-status');status.textContent=translated(text);status.classList.toggle('error',error)}
+    function startPrinterDrag(row,handle,event){
+      if(printerDrag||printerOrderSaving||printerSelectionPending||printers.length<2)return;
+      const keyboard=event.type==='keydown';
+      if(!keyboard&&(event.button!==0||!event.isPrimary))return;
+      event.preventDefault();event.stopPropagation();
+      printerDrag={row,handle,keyboard,expected:printers.map(p=>p.id),x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:keyboard,frame:0};
+      if(keyboard)handle.focus({preventScroll:true});else handle.blur();handle.setAttribute('aria-pressed','true');
+      if(keyboard){row.classList.add('printer-dragging');printerOrderMessage('Use arrow keys to move, Enter to save, or Escape to cancel.')}
+      else $('#printer-grid').setPointerCapture(event.pointerId);
+    }
+    function movePrinterDrag(){
+      const drag=printerDrag;if(!drag||drag.keyboard||!drag.moved)return;
+      if(!drag.ghost){
+        drag.ghost=document.createElement('div');drag.ghost.className='printer-drag-ghost';
+        drag.ghost.textContent=$('.printer-row-copy strong',drag.row)?.textContent||translated('Printer');document.body.append(drag.ghost);
+        drag.row.classList.add('printer-dragging');document.body.classList.add('printer-is-dragging');
+      }
+      drag.ghost.style.left=(Math.min(innerWidth-180,Math.max(8,drag.x+16)))+'px';drag.ghost.style.top=Math.max(8,drag.y-20)+'px';
+      const target=document.elementsFromPoint(drag.x,drag.y).map(el=>el.closest('#printer-grid > .printer-row')).find(Boolean);
+      if(target&&target!==drag.row){
+        const box=target.getBoundingClientRect(),gallery=printerView==='tiles'&&!$('.printer-manager').classList.contains('show-printer-detail');
+        const before=gallery?drag.x<box.left+box.width/2:drag.y<box.top+box.height/2;
+        target.parentNode.insertBefore(drag.row,before?target:target.nextSibling);
+      }
+    }
+    function scrollPrinterDrag(){
+      const drag=printerDrag;if(!drag||drag.keyboard||!drag.moved)return;
+      const speed=drag.y<70?-Math.ceil((70-drag.y)/5):drag.y>innerHeight-70?Math.ceil((drag.y-innerHeight+70)/5):0;
+      if(speed){window.scrollBy(0,Math.max(-18,Math.min(18,speed)));movePrinterDrag()}
+      drag.frame=requestAnimationFrame(scrollPrinterDrag);
+    }
+    async function finishPrinterDrag(save){
+      const drag=printerDrag;if(!drag)return;
+      printerDrag=null;cancelAnimationFrame(drag.frame);drag.ghost?.remove();drag.row.classList.remove('printer-dragging');
+      drag.handle.setAttribute('aria-pressed','false');document.body.classList.remove('printer-is-dragging');printerDragClickUntil=performance.now()+350;
+      const order=printerOrderIds(),changed=order.join(',')!==drag.expected.join(',');
+      if(!save||!changed){printerOrderMessage('');printerRenderKey='';paintPrinters();if(drag.keyboard)$('#printer-grid [data-printer-id="'+drag.row.dataset.printerId+'"] .printer-reorder')?.focus({preventScroll:true});return}
+      printerOrderSaving=true;$('#printer-grid').setAttribute('aria-busy','true');printerOrderMessage('Saving printer order…');
+      try{
+        await jsonFetch('/api/printers/manage',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'reorder',expected:drag.expected.join(','),order:order.join(',')})});
+        // Keep current telemetry, but show the accepted order even if the resync
+        // read temporarily fails. The next SSE snapshot remains authoritative.
+        const byId=new Map(printers.map(p=>[p.id,p]));if(order.every(id=>byId.has(id))&&order.length===printers.length)printers=order.map(id=>byId.get(id));
+        printerOrderMessage('Printer order saved.');
+      }catch(error){printerOrderMessage(error.message,true)}
+      finally{
+        if(printerLoadPromise)await printerLoadPromise.catch(()=>{});
+        await loadPrinters().catch(()=>{});
+        printerOrderSaving=false;$('#printer-grid').removeAttribute('aria-busy');printerRenderKey='';paintPrinters();
+        if(drag.keyboard)$('#printer-grid [data-printer-id="'+drag.row.dataset.printerId+'"] .printer-reorder')?.focus({preventScroll:true});
+      }
+    }
+    function printerDragKey(event,row,handle){
+      if(!printerDrag){if([' ','Enter'].includes(event.key))startPrinterDrag(row,handle,event);return}
+      if(!printerDrag.keyboard||printerDrag.row!==row)return;
+      if(['Escape','Enter',' '].includes(event.key)){event.preventDefault();finishPrinterDrag(event.key!=='Escape');return}
+      const direction=['ArrowUp','ArrowLeft'].includes(event.key)?-1:['ArrowDown','ArrowRight'].includes(event.key)?1:0;
+      if(!direction)return;event.preventDefault();
+      const sibling=direction<0?row.previousElementSibling:row.nextElementSibling;
+      if(sibling)row.parentNode.insertBefore(row,direction<0?sibling:sibling.nextSibling);
+      handle.focus({preventScroll:true});row.scrollIntoView({block:'nearest'});
+    }
+    document.addEventListener('pointermove',event=>{
+      const drag=printerDrag;if(!drag||drag.keyboard)return;
+      drag.x=event.clientX;drag.y=event.clientY;
+      if(!drag.moved&&Math.hypot(drag.x-drag.startX,drag.y-drag.startY)>=6){drag.moved=true;scrollPrinterDrag()}
+      if(drag.moved){event.preventDefault();movePrinterDrag()}
+    },{passive:false});
+    document.addEventListener('pointerup',()=>{if(printerDrag&&!printerDrag.keyboard)finishPrinterDrag(printerDrag.moved)});
+    document.addEventListener('pointercancel',()=>finishPrinterDrag(false));
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&printerDrag){event.preventDefault();finishPrinterDrag(false)}});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)finishPrinterDrag(false)});
+    window.addEventListener('blur',()=>{if(printerDrag)finishPrinterDrag(false)});
+    $('#printer-grid').addEventListener('click',event=>{if(printerDrag||printerOrderSaving||performance.now()<printerDragClickUntil){event.preventDefault();event.stopImmediatePropagation()}},true);
+    let printerSelectionPending=false,printerSelectionId=null;
+    async function selectPrinter(p){
+      if(printerSelectionPending||printerOrderSaving||printerDrag)return false;
+      p=printers.find(value=>value.id===p.id);
+      if(!p||!printerDetailsAvailable(p))return false;
+      if(p.selected)return true;
+      const status=$('#printer-list-status');status.classList.remove('error');status.textContent=translated('Connecting…');
+      const previousDetailId=printerDetailId;
+      printerSelectionPending=true;printerSelectionId=p.id;printerDetailId=String(p.id);paintPrinters();
+      try{
+        await jsonFetch('/api/printers/manage',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id:p.id,action:'select'})});
+        // Drain an older poll before reading the selection confirmed by the device.
+        if(printerLoadPromise)await printerLoadPromise.catch(()=>{});
+        await loadPrinters();status.textContent='';
+        return printers.some(value=>value.id===p.id&&value.selected);
+      }catch(e){printerDetailId=previousDetailId;status.textContent=translated(e.message);status.classList.add('error');return false}
+      finally{printerSelectionPending=false;printerSelectionId=null;paintPrinters()}
+    }
+
     let printerPollTimer=0,printerLoadPromise=null,printerRenderKey='',printerLightRequest=null,printerStatusFresh=false;
 
     let printerView='list',printerDetailId=null,printerViewSaving=false,printerViewRevision=0;
@@ -2443,6 +2587,32 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     const printerGearIcon=$('.advanced-tab svg').outerHTML;
     function printerStatus(p){return translated(p.reachability==='online'?'Online':p.reachability==='offline'?'Offline':'Connecting…')}
     const printerJobLabels={idle:'Standby',preparing:'Preparing',printing:'Printing',paused:'Paused',completed:'Print complete',failed:'Print failed',cancelled:'Cancelled'};
+    let printerStatusReceivedAt=0;
+    const resinStageLabels={standby:'Standby',homing:'Homing',lowering:'Lowering',exposing:'Exposing',lifting:'Lifting',pausing:'Pausing',paused:'Paused',stopping:'Stopping',stopped:'Stopped',completed:'Print complete',checking_file:'Checking file',transferring_file:'Transferring file',exposure_test:'Exposure test',device_test:'Device test',finishing:'Finishing'};
+    function printerJobLabel(p){
+      const job=printerStatusFresh&&p.reachability==='online'?p.job:null;
+      const phase=job&&Object.hasOwn(printerJobLabels,job.phase)?job.phase:'';
+      let label=translated(phase?printerJobLabels[phase]:!printerStatusFresh?'Status unavailable':p.reachability==='offline'?'Printer offline':p.reachability!=='online'?'Waiting for the printer to connect.':'Status unavailable');
+      if(phase&&p.technology==='resin'&&Object.hasOwn(resinStageLabels,job.resin_stage)){
+        let stage=translated(resinStageLabels[job.resin_stage]);
+        const age=Math.max(0,performance.now()-(job?._receivedAt??printerStatusReceivedAt));
+        if(['printing','preparing'].includes(phase)&&['exposing','exposure_test'].includes(job.resin_stage)&&Number.isFinite(job.exposure_remaining_ms)&&job.exposure_remaining_ms>=0&&age<Math.min(2500,job.exposure_valid_for_ms)){
+          const seconds=Math.ceil(Math.max(0,job.exposure_remaining_ms-age)/100)/10;
+          stage+=' '+new Intl.NumberFormat(currentLanguage,{minimumFractionDigits:1,maximumFractionDigits:1,style:'unit',unit:'second',unitDisplay:'short'}).format(seconds);
+        }
+        if(stage!==label)label+=' – '+stage;
+      }
+      return phase&&!p.selected?translated('Last check: {state}').replace('{state}',label):label;
+    }
+    setInterval(()=>{
+      if(document.hidden||$('[data-panel="printers"]').hidden)return;
+      $$('.printer-job').forEach(host=>{
+        const id=host.dataset.printerId,p=printers.find(value=>String(value.id)===id);
+        if(p?.technology==='resin')$('.printer-job-state',host).textContent=printerJobLabel(p);
+      });
+      $$('.printer-metrics').forEach(host=>{const p=printers.find(p=>String(p.id)===host.dataset.printerId);if(p)paintPrinterMetrics(host,p)});
+      $$('.pd-print-media').forEach(host=>{const p=printers.find(p=>String(p.id)===host.dataset.printerId);if(p)paintPrintPreview(host,p)});
+    },100);
     function createPrinterJob(detail=false){
       const host=document.createElement(detail?'div':'span');host.className='printer-job';
       host.innerHTML=(detail?'<span class="printer-job-heading"></span>':'')+'<span class="printer-job-summary"><span class="printer-job-state"></span><span class="printer-job-percent"></span></span><span class="printer-job-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span class="printer-job-fill"></span></span>';
@@ -2453,9 +2623,8 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
       const job=printerStatusFresh&&p.reachability==='online'?p.job:null;
       const phase=job&&Object.hasOwn(printerJobLabels,job.phase)?job.phase:'';
       host.hidden=!detail&&!phase;host.dataset.phase=phase;
-      let label=translated(phase?printerJobLabels[phase]:!printerStatusFresh?'Status unavailable':p.reachability==='offline'?'Printer offline':p.reachability!=='online'?'Waiting for the printer to connect.':'Status unavailable');
-      if(phase&&!p.selected)label=translated('Last check: {state}').replace('{state}',label);
-      $('.printer-job-state',host).textContent=label;
+      host.dataset.printerId=String(p.id);
+      $('.printer-job-state',host).textContent=printerJobLabel(p);
       const known=phase&&phase!=='idle'&&typeof job.progress==='number'&&Number.isFinite(job.progress);
       const showProgress=phase==='idle'||known;
       const value=known?Math.round(Math.min(100,Math.max(0,job.progress))):0;
@@ -2465,29 +2634,174 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
       if(showProgress)track.setAttribute('aria-valuenow',String(value));else track.removeAttribute('aria-valuenow');
       $('.printer-job-fill',host).style.width=value+'%';
     }
-    // Layout values for fields not yet provided by the Web Config API.
-    // Connection, job phase, progress and light state remain device-backed.
     function printerDesignData(p){
       const online=printerStatusFresh&&p.reachability==='online';
       const printing=online&&['printing','paused','preparing'].includes(p.job?.phase);
-      const sample=true;
-      return {online,printing,idleSample:online&&!printing,known:sample&&printing,file:sample&&printing?'ribbed_planter_v3.3mf':'',left:sample&&printing?'1 h 24 min':'—',ends:sample&&printing?'18:42':'—',layer:sample&&printing?'356 / 523':'—'};
+      const job=online&&p.job?.phase!=='idle'?p.job:null;
+      const valid=value=>Number.isInteger(value)&&value>=0;
+      const remaining=printing&&valid(job?.remaining_seconds)?job.remaining_seconds:null;
+      let left='—',ends='—';
+      if(remaining!==null){
+        const minutes=Math.ceil(remaining/60),hours=Math.floor(minutes/60);
+        const unit=(value,name)=>new Intl.NumberFormat(currentLanguage,{style:'unit',unit:name,unitDisplay:'short'}).format(value);
+        left=hours?unit(hours,'hour')+' '+unit(minutes%60,'minute'):unit(minutes,'minute');
+      }
+      if(printing&&job.phase!=='paused'&&valid(job.estimated_finish_unix)&&job.estimated_finish_unix>0){
+        try{ends=new Intl.DateTimeFormat(currentLanguage,{timeZone:settings.timezone||'UTC',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(job.estimated_finish_unix*1000))}catch{}
+      }
+      const current=valid(job?.current_layer)&&job.current_layer>0?job.current_layer:'—';
+      const total=valid(job?.total_layers)&&job.total_layers>0?job.total_layers:'—';
+      return {online,printing,idleSample:online&&!printing,known:printing,file:typeof job?.name==='string'?job.name:'',left,ends,layer:printing&&(current!=='—'||total!=='—')?current+' / '+total:'—'};
     }
     function createPrinterMetrics(){
-      const host=document.createElement('span');host.className='printer-metrics pd-static-data';
+      const host=document.createElement('span');host.className='printer-metrics';
       ['Time left','Layer','Ends at'].forEach(label=>{const cell=document.createElement('span'),caption=document.createElement('small'),value=document.createElement('b');caption.textContent=translated(label);value.textContent='—';cell.append(caption,value);host.append(cell)});return host;
     }
-    function paintPrinterMetrics(host,p){const d=printerDesignData(p);$$('b',host).forEach((el,i)=>el.textContent=[d.left,d.layer,d.ends][i])}
+    function paintPrinterMetrics(host,p){
+      host.dataset.printerId=String(p.id);
+      if(!host.dataset.startedAt)host.dataset.startedAt=String(performance.now());
+      const d=printerDesignData(p),job=d.online?p.job:null;
+      const elapsed=Number.isInteger(job?.elapsed_seconds)&&job.elapsed_seconds>=0&&job.phase!=='idle';
+      const elapsedTurn=elapsed&&(d.ends==='—'||Math.floor((performance.now()-Number(host.dataset.startedAt))/10000)%2===1);
+      const values=[d.left,d.layer,elapsedTurn?printerElapsed(job):d.ends];
+      $$('b',host).forEach((el,i)=>{if(el.textContent!==values[i])el.textContent=values[i]});
+      const caption=$$('small',host)[2],label=translated(elapsedTurn?['printing','preparing','paused'].includes(job.phase)?'Printing for:':'Print time':'Ends at');
+      if(caption.textContent!==label)caption.textContent=label;
+    }
+    function printerDuration(seconds){seconds=Math.max(0,Math.floor(seconds));return Math.floor(seconds/3600)+':'+String(Math.floor(seconds/60)%60).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0')}
+    function printerElapsed(job){return printerDuration(job.elapsed_seconds+(['printing','preparing'].includes(job.phase)?Math.floor(Math.max(0,performance.now()-(job?._receivedAt??printerStatusReceivedAt))/1000):0))}
+
     function refinePrinterRow(row,p){
       const select=$('.printer-select-action',row),copy=$('.printer-row-copy',row),job=$('.printer-job',row),address=document.createElement('span');
       address.className='printer-address';address.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="5" rx="1"/><path d="M12 8v5M5 17v-4h14v4"/><rect x="2" y="17" width="6" height="4" rx="1"/><rect x="16" y="17" width="6" height="4" rx="1"/></svg><span></span>';
       $('span',address).textContent=splitEndpoint(p.endpoint,p.protocol)[0];copy.insertBefore(address,$('.printer-row-meta',copy));
-      const file=document.createElement('span');file.className='printer-job-file pd-static-data';select.append(file,job,createPrinterMetrics());
+      const file=document.createElement('span');file.className='printer-job-file';select.append(file,job,createPrinterMetrics());
     }
     function paintDesignRow(row,p){const d=printerDesignData(p),file=$('.printer-job-file',row);file.textContent=d.file;file.title=d.file;file.hidden=!d.file;const metrics=$('.printer-metrics',row);paintPrinterMetrics(metrics,p);metrics.hidden=![d.left,d.layer,d.ends].some(value=>value!=='—')}
+    function previewUrl(value){return typeof value==='string'&&/^\/api\/printers\/preview\?id=\d+&kind=(model|layer)&v=\d+-\d+$/.test(value)?value:''}
+    function createPrintPreview(p){
+      const host=document.createElement('span');host.className='pd-print-media';host.dataset.printerId=String(p.id);
+      for(const kind of ['model','layer']){const img=document.createElement('img');img.dataset.kind=kind;img.alt=translated(kind==='model'?'Print thumbnail':'Layer preview');img.hidden=true;host.append(img)}
+      const empty=document.createElement('span');empty.className='pd-no-preview';empty.textContent='—';host.append(empty);return host;
+    }
+    function paintPrintPreview(host,p){
+      const active=printerStatusFresh&&p.selected&&p.reachability==='online',preview=active?p.job?.preview:null;
+      const age=Math.max(0,performance.now()-(p.job?._receivedAt??printerStatusReceivedAt));
+      const layerLease=Number(preview?.layer_valid_for_ms)||0;
+      // During a confirmed exposure, retain the image until the next fresh job
+      // report. Its server lease may already be almost spent when SSE/HTTP
+      // arrives; counting it down again causes model/layer flashes between reports.
+      // Movement uses the exact remaining two-second hold, never this grace.
+      const exposing=p.job?.phase==='printing'&&p.job?.resin_stage==='exposing';
+      const layerVisible=layerLease>0&&age<(exposing?2500:Math.min(2500,layerLease));
+      const sources={model:previewUrl(preview?.model),layer:p.technology==='resin'&&layerVisible?previewUrl(preview?.layer):''};
+      const show=()=>{
+        const model=$('[data-kind=model]',host),layer=$('[data-kind=layer]',host);
+        const layerReady=!!sources.layer&&layer.dataset.ready===sources.layer,modelReady=!!sources.model&&model.dataset.ready===sources.model;
+        layer.hidden=!layerReady;model.hidden=layerReady||!modelReady;$('.pd-no-preview',host).hidden=layerReady||modelReady;
+        const button=host.closest('.pd-print-thumb');if(button)button.disabled=!layerReady&&!modelReady;
+      };
+      for(const kind of ['model','layer']){
+        const img=$('[data-kind='+kind+']',host),url=sources[kind];
+        if(!url){img.hidden=true;continue}
+        const changed=img.dataset.url!==url;
+        if(changed){img.dataset.tries='0';img.dataset.failedAt='0';img.dataset.ready=''}
+        const retry=Number(img.dataset.failedAt)>0&&performance.now()-Number(img.dataset.failedAt)>5000&&Number(img.dataset.tries)<3;
+        if(changed||retry){
+          img.dataset.url=url;img.dataset.tries=String(Number(img.dataset.tries)+1);img.dataset.failedAt='0';img.hidden=true;
+          img.onload=()=>{if(img.dataset.url===url){img.dataset.ready=url;paintPrintPreview(host,printers.find(value=>value.id===p.id)||p)}};
+          img.onerror=()=>{if(img.dataset.url===url){img.dataset.ready='';img.dataset.failedAt=String(performance.now());show()}};
+          img.src=url;
+        }
+      }
+      show();
+    }
+    function printerPreviewDialog(title,trigger){
+      const dialog=document.createElement('dialog');dialog.className='pd-thumbnail-dialog';
+      dialog.innerHTML='<header><h3></h3><button type="button" class="secondary"></button></header>';
+      $('h3',dialog).textContent=title;$('h3',dialog).title=title;$('button',dialog).textContent=translated('Close');$('button',dialog).onclick=()=>dialog.close();
+      dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close()}});
+      dialog.addEventListener('close',()=>{dialog.remove();if(trigger.isConnected)trigger.focus()});document.body.append(dialog);return dialog;
+    }
+    function openPrintPreview(id,trigger){
+      const p=printers.find(p=>p.id===id);if(!p)return;
+      const dialog=printerPreviewDialog(p.job?.name||translated('Print thumbnail'),trigger),large=document.createElement('div');large.className='pd-enlarged';
+      const media=createPrintPreview(p);large.append(media);dialog.append(large);paintPrintPreview(media,p);dialog.showModal();
+    }
+    function resinReactionKind(p){
+      const job=printerStatusFresh&&p.reachability==='online'?p.job:null;
+      if(!job)return 'unavailable';if(job.condition==='error'||job.phase==='failed')return 'error';
+      if(job.phase==='cancelled')return 'stopped';if(job.phase==='completed')return 'complete';if(job.phase==='paused')return 'paused';
+      return ({standby:'standby',homing:'homing',lowering:'lowering',exposing:'exposing',exposure_test:'exposing',lifting:'lifting',pausing:'paused',paused:'paused',stopping:'stopped',stopped:'stopped',completed:'complete',checking_file:'waiting',transferring_file:'waiting',device_test:'waiting',finishing:'waiting'})[job.resin_stage]||(job.phase==='printing'?'printing':job.phase==='preparing'?'waiting':'standby');
+    }
+    // Same 240-unit coordinates and phase motion as the device resin screen.
+    function resinReactionFrame(kind,elapsed){
+      const travel=kind==='homing'?1800:4000,movement=Math.floor(Math.min(elapsed,travel)*23/travel),frame={y:49,light:0,dot:0};
+      if(kind==='lifting')frame.y=72-movement;
+      else if(kind==='lowering'||kind==='homing')frame.y=49+movement;
+      else if(kind==='exposing'){frame.y=72;const phase=elapsed%1600;frame.light=Math.floor(96+(phase<=800?phase:1600-phase)*159/800)}
+      else if(kind==='printing'||kind==='waiting'){frame.y=60;frame.dot=Math.floor(elapsed/300)%3}
+      return frame;
+    }
+    function createResinCanvas(id){
+      const canvas=document.createElement('canvas');canvas.width=466;canvas.height=466;canvas.dataset.printerId=String(id);canvas.dataset.resinReaction='true';
+      canvas.setAttribute('role','img');canvas.setAttribute('aria-label',translated('Printer reaction'));return canvas;
+    }
+    function openResinReaction(id,trigger){
+      const p=printers.find(p=>p.id===id);if(!p)return;
+      const dialog=printerPreviewDialog(p.job?.name||translated('Printer reaction'),trigger),canvas=createResinCanvas(id);canvas.className='pd-resin-enlarged';
+      dialog.append(canvas);dialog.showModal();paintResinReaction(canvas,p,performance.now());
+    }
+    function paintResinReaction(canvas,p,now){
+      const kind=resinReactionKind(p),job=p.job||{},d=printerDesignData(p);
+      if(canvas.dataset.kind!==kind){canvas.dataset.kind=kind;canvas.dataset.phaseAt=String(now)}
+      if(!canvas.dataset.readoutAt)canvas.dataset.readoutAt=String(now);
+      const frame=resinReactionFrame(kind,now-Number(canvas.dataset.phaseAt)),ctx=canvas.getContext('2d');if(!ctx)return;
+      const palette=themePalette(settings.theme),accent=hex(palette.accent_secondary??palette.done??palette.printing??0x39c8ec);
+      const color=kind==='paused'?hex(palette.paused??0xb180f2):kind==='error'?hex(palette.error??0xf4777f):kind==='complete'?hex(palette.done??0x67d9ad):['standby','unavailable'].includes(kind)?'#6e8c9c':accent;
+      const tint=kind==='paused'?'#b180f2':['error','stopped'].includes(kind)?'#f4777f':kind==='complete'?'#67d9ad':['standby','unavailable'].includes(kind)?'#7299ae':kind==='exposing'?'#419eff':'#39c8ec';
+      ctx.setTransform(canvas.width/240,0,0,canvas.height/240,0,0);ctx.clearRect(0,0,240,240);ctx.fillStyle='#000';ctx.fillRect(0,0,240,240);
+      const box=(x,y,w,h,fill,r=0,alpha=1)=>{ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=fill;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();ctx.restore()};
+      const line=(points,stroke,width=1)=>{ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke()};
+      const text=(value,x,y,width,size,fill)=>{ctx.fillStyle=fill;ctx.font='500 '+size+'px Inter, system-ui, sans-serif';ctx.textAlign='center';ctx.textBaseline='top';while(size>8&&ctx.measureText(value).width>width){size--;ctx.font='500 '+size+'px Inter, system-ui, sans-serif'}if(ctx.measureText(value).width>width){while(value.length&&ctx.measureText(value+'…').width>width)value=value.slice(0,-1);value+='…'}ctx.fillText(value,x,y)};
+      text(p.name||translated('Printer'),120,27,156,12,'#9aa9b7');
+      box(69,92,3,14,'#6e8c9c',1);box(168,92,3,14,'#6e8c9c',1);box(69,104,102,3,'#6e8c9c',1);
+      if(frame.light){ctx.save();ctx.shadowColor='#007bff';ctx.shadowBlur=16;box(74,88,92,15,'#168bff',3,frame.light/765);ctx.restore();for(let i=0;i<4;i++)box(98+i*13,88,3,15,'#61b8ff',1,frame.light/255)}
+      box(116,frame.y,8,8,'#a9bac6',1);box(89,frame.y+8,62,3,'#a9bac6',1);box(104,frame.y+11,32,12,color,2);
+      if(kind==='lifting')line([[164,68],[168,63],[172,68],[168,63],[168,82]],accent,2);
+      if(['lowering','homing'].includes(kind))line([[164,77],[168,82],[172,77],[168,82],[168,63]],accent,2);
+      if(['printing','waiting'].includes(kind))for(let i=0;i<3;i++)box(109+i*9,91,4,4,accent,2,i===frame.dot?1:.3);
+      const symbol={paused:'Ⅱ',stopped:'■',complete:'✓',error:'!',unavailable:'×'}[kind];if(symbol)text(symbol,120,69,44,24,color);
+      const valid=!['error','unavailable','standby','stopped'].includes(kind),remaining=kind==='complete'?'0:00:00':valid&&Number.isInteger(job.remaining_seconds)?printerDuration(job.remaining_seconds):'--:--:--';
+      const fields=[[translated('Remaining'),remaining],[translated('Layer'),valid&&job.total_layers>0?(job.current_layer??'—')+'/'+job.total_layers:'--/--']];
+      if(valid&&!['paused','complete'].includes(kind)&&d.ends!=='—')fields.push([translated('End at'),new Intl.DateTimeFormat(currentLanguage,{timeZone:settings.timezone||'UTC',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(job.estimated_finish_unix*1000))]);
+      if(valid&&Number.isInteger(job.elapsed_seconds))fields.push([translated(kind==='complete'?'Print time':'Printing for:'),printerElapsed(job)]);
+      const field=fields[Math.floor((now-Number(canvas.dataset.readoutAt))/5000)%fields.length];text(field[0].replace(/:$/,'')+':',120,117,170,12,'#9aa9b7');text(field[1],120,136,194,29,'#f4faff');
+      ctx.save();ctx.beginPath();ctx.roundRect(35,181,170,31,16);ctx.clip();box(35,181,170,31,'#061017',16);box(35,181,170,31,tint,16,.094);
+      const progress=kind==='complete'?100:['standby','unavailable'].includes(kind)?0:Math.floor(Math.max(0,Math.min(100,job.progress||0)));if(progress)box(35,181,170*progress/100,31,tint,0,.4);ctx.restore();
+      ctx.save();ctx.globalAlpha=.5;ctx.strokeStyle=tint;ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(35,181,170,31,16);ctx.stroke();ctx.restore();
+      if(kind==='exposing'){box(66,194,6,6,'#61b8ff',3);for(let i=0;i<8;i++){const a=i*Math.PI/4;line([[69+Math.cos(a)*6,197+Math.sin(a)*6],[69+Math.cos(a)*9,197+Math.sin(a)*9]],'#61b8ff')}}
+      else{const icon={homing:'⌂',lifting:'↑',lowering:'↓',paused:'Ⅱ',stopped:'■',complete:'✓',error:'!',printing:'↻',waiting:'↻'}[kind]||'⏻';text(icon,69,188,24,17,tint)}
+      let status=translated(resinStageLabels[job.resin_stage]||printerJobLabels[job.phase]||'Status unavailable');
+      if(kind==='unavailable')status=translated('Status unavailable');if(kind==='error')status=translated('Print failed');
+      const age=Math.max(0,now-(job?._receivedAt??printerStatusReceivedAt));
+      if(kind==='exposing'&&Number.isFinite(job.exposure_remaining_ms)&&age<Math.min(2500,job.exposure_valid_for_ms)){status+=' '+new Intl.NumberFormat(currentLanguage,{minimumFractionDigits:1,maximumFractionDigits:1}).format(Math.ceil(Math.max(0,job.exposure_remaining_ms-age)/100)/10)+'s'}
+      text(status,140,190,113,12,'#e7f5fd');canvas.setAttribute('aria-label',translated('Printer reaction')+' · '+status+' · '+field[0]+' '+field[1]);
+      // The same page/depth indicators fit inside the round device margin.
+      for(let i=0;i<7;i++)box(222,89+i*9.5,3,3,i===0?'#1687ef':'#263346',2);
+      for(let i=0;i<5;i++)box(100+i*9,224,3,3,i===1?'#1687ef':'#263346',2);
+    }
+    let resinLastFrame=0;
+    function paintResinFrames(now){
+      requestAnimationFrame(paintResinFrames);
+      if(document.hidden||$('[data-panel="printers"]').hidden||now-resinLastFrame<1000/30)return;
+      resinLastFrame=now;
+      $$('canvas[data-resin-reaction]').forEach(canvas=>{const r=canvas.getBoundingClientRect();if(r.width&&r.height&&r.bottom>0&&r.top<innerHeight){const p=printers.find(p=>String(p.id)===canvas.dataset.printerId);if(p)paintResinReaction(canvas,p,now)}});
+    }
+    requestAnimationFrame(paintResinFrames);
     function printerSectionIcon(label){
-      const paths={Camera:'<rect x="3" y="6" width="18" height="14" rx="3"/><path d="m8 6 1-3h6l1 3"/><circle cx="12" cy="13" r="4"/>',Nozzles:'<path d="M7 3h10v6l3 3-5 5H9l-5-5 3-3ZM10 17v4h4v-4M7 7h10"/>','Speed & power':'<path d="M4 19a9 9 0 1 1 16 0M12 4v3M5 9l2 1M19 9l-2 1M12 15l4-5"/><circle cx="12" cy="16" r="2"/>',Controls:'<path d="M4 6h5m4 0h7M4 12h10m4 0h2M4 18h2m4 0h10"/><circle cx="11" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>'};
-      return '<svg class="pd-section-icon" viewBox="0 0 24 24" aria-hidden="true">'+paths[label]+'</svg>';
+      const paths={'Print Details':'<path d="M6 2h8l4 4v16H6Z M14 2v5h4 M9 11h6 M9 15h6 M9 19h4"/>',Camera:'<rect x="3" y="6" width="18" height="14" rx="3"/><path d="m8 6 1-3h6l1 3"/><circle cx="12" cy="13" r="4"/>',Nozzles:'<path d="M7 3h10v6l3 3-5 5H9l-5-5 3-3ZM10 17v4h4v-4M7 7h10"/>','Speed & power':'<path d="M4 19a9 9 0 1 1 16 0M12 4v3M5 9l2 1M19 9l-2 1M12 15l4-5"/><circle cx="12" cy="16" r="2"/>',Controls:'<path d="M4 6h5m4 0h7M4 12h10m4 0h2M4 18h2m4 0h10"/><circle cx="11" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>'};
+      return '<svg class="pd-section-icon" viewBox="0 0 24 24" aria-hidden="true">'+(paths[label]||paths['Speed & power'])+'</svg>';
     }
     const printerSectionStorageKey='printdeck-printer-sections';
     let printerSectionPreferences={};
@@ -2499,15 +2813,27 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
     function refinePrinterDetail(detail,p){
       $('.printer-detail-head',detail).remove();$('.printer-detail-footer',detail).remove();
       const tools=document.createElement('div');tools.className='pd-detail-tools';tools.innerHTML='<span class="pd-detail-state"></span><button type="button" class="pd-mini-screen"><img alt=""></button><button type="button" class="printer-manage"></button>';
-      const reaction=$('.pd-mini-screen',tools);reaction.setAttribute('aria-label',translated('Reactions'));reaction.title=translated('Reactions');reaction.addEventListener('click',()=>setTab('reactions'));const gear=$('.printer-manage',tools);gear.innerHTML=printerGearIcon;gear.setAttribute('aria-label',translated('Connection settings'));gear.addEventListener('click',()=>openPrinter(p));detail.prepend(tools);
-      const overview=document.createElement('section');overview.className='pd-print-overview';overview.innerHTML='<button type="button" class="pd-print-thumb pd-static-data pd-static-visual"><span class="pd-print-pot"></span><span class="pd-no-preview" hidden>—</span></button><div class="pd-print-copy"><h3 class="pd-static-data"></h3></div>';
-      const thumb=$('button',overview);thumb.setAttribute('aria-label',translated('Enlarge thumbnail'));
+      const reaction=$('.pd-mini-screen',tools);reaction.setAttribute('aria-label',translated('Reactions'));reaction.title=translated('Reactions');reaction.addEventListener('click',()=>p.technology==='resin'?openResinReaction(p.id,reaction):setTab('reactions'));const gear=$('.printer-manage',tools);gear.innerHTML=printerGearIcon;gear.setAttribute('aria-label',translated('Connection settings'));gear.addEventListener('click',()=>openPrinter(p));detail.prepend(tools);
+      const overview=document.createElement('section');overview.className='pd-print-overview';overview.innerHTML='<button type="button" class="pd-print-thumb"></button><div class="pd-print-copy"><h3></h3></div>';
+      const thumb=$('button',overview);thumb.setAttribute('aria-label',translated('Enlarge thumbnail'));thumb.append(createPrintPreview(p));
       const visuals=document.createElement('div');visuals.className='pd-print-visuals';overview.prepend(visuals);visuals.append(thumb,$('.pd-mini-screen',tools));const job=$(':scope > .printer-job',detail);$('.pd-print-copy',overview).append(job,createPrinterMetrics());const cameraSection=document.createElement('details');cameraSection.className='pd-camera-section';rememberPrinterSection(cameraSection,'camera',true);const cameraSummary=document.createElement('summary');cameraSummary.innerHTML=printerSectionIcon('Camera');cameraSummary.append(document.createTextNode(translated('Camera')));cameraSection.append(cameraSummary,createCameraPreview(p));const cameraBlock=document.createElement('div');cameraBlock.className='pd-camera-block';tools.before(cameraBlock);cameraBlock.append(cameraSection,tools);cameraBlock.after(overview);
-      thumb.addEventListener('click',()=>{if(!printerDesignData(p).known)return;const dialog=document.createElement('dialog');dialog.className='pd-thumbnail-dialog';dialog.innerHTML='<header><h3 class="pd-static-data"></h3><button type="button" class="secondary"></button></header><div class="pd-enlarged pd-static-data pd-static-visual"><span class="pd-print-pot"></span></div>';$('h3',dialog).textContent=printerDesignData(p).file;dialog.setAttribute('aria-label',translated('Print thumbnail'));$('button',dialog).textContent=translated('Close');$('button',dialog).onclick=()=>dialog.close();dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close()}});dialog.addEventListener('close',()=>{dialog.remove();if(thumb.isConnected)thumb.focus()});document.body.append(dialog);dialog.showModal()});
-      const telemetry=document.createElement('div');telemetry.className='pd-telemetry pd-static-data';['Nozzle','Bed','Chamber'].forEach(label=>{const cell=document.createElement('div');cell.innerHTML='<span></span><strong></strong><small></small>';const icon=document.createElement('i');icon.className='pd-temperature-icon '+label.toLowerCase();icon.setAttribute('aria-hidden','true');$('span',cell).append(icon,document.createTextNode(translated(label)));telemetry.append(cell)});overview.after(telemetry);
-      const section=(label,cls)=>{const el=document.createElement('details');el.className=cls;const summary=document.createElement('summary');summary.innerHTML=printerSectionIcon(label);summary.append(document.createTextNode(translated(label)));el.append(summary);rememberPrinterSection(el,cls,label==='Nozzles');return el};
-      const nozzles=section('Nozzles','pd-nozzles');const table=document.createElement('table');table.className='pd-nozzle-table pd-static-data';table.innerHTML='<thead><tr></tr></thead><tbody></tbody>';['Tool','Filament','Current','Target'].forEach(text=>{const th=document.createElement('th');th.textContent=translated(text);$('tr',table).append(th)});['T0','T1'].forEach((tool,i)=>{const tr=document.createElement('tr');tr.innerHTML='<td></td><td><span class="pd-filament-dot"></span><span></span></td><td></td><td></td>';const cells=$$('td',tr);cells[0].textContent=tool;$('span:last-child',cells[1]).textContent=i?'PETG':'PLA';if(i)$('.pd-filament-dot',tr).style.background='#63717a';$('tbody',table).append(tr)});nozzles.append(table);telemetry.after(nozzles);
-      const speeds=section('Speed & power','pd-speeds'),values=document.createElement('div');values.className='pd-speeds-grid pd-static-data';['Speed','Flow','Part fan','Nozzle power','Bed power'].forEach(label=>{const el=document.createElement('span');el.append(document.createTextNode(translated(label)),document.createElement('b'));values.append(el)});const position=document.createElement('div');position.className='pd-position-grid pd-static-data';position.setAttribute('aria-label',translated('Position'));['X','Y','Z'].forEach(axis=>{const cell=document.createElement('div'),label=document.createElement('span'),value=document.createElement('b');label.textContent=axis;value.textContent='—';cell.append(label,value);position.append(cell)});speeds.append(values,position);nozzles.after(speeds);
+      thumb.addEventListener('click',()=>openPrintPreview(p.id,thumb));
+      const resin=p.technology==='resin',telemetry=document.createElement('div');telemetry.className='pd-telemetry';
+      (resin?['Resin volume','Resin in bottle','Chamber']:['Nozzle','Bed','Chamber']).forEach((label,index)=>{
+        const cell=document.createElement('div');cell.innerHTML='<span></span><strong></strong><small></small>';
+        const icon=document.createElement('i');icon.setAttribute('aria-hidden','true');
+        if(resin&&index<2){icon.className='pd-resin-icon';icon.innerHTML=index===1?'<svg viewBox="0 0 64 100"><rect x="18" y="2" width="28" height="12" rx="3" fill="currentColor"/><rect x="8" y="15" width="48" height="75" rx="10" fill="none" stroke="currentColor" stroke-width="3"/><rect x="20" y="37" width="24" height="29" rx="6" fill="currentColor"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2C9 6 5 10 5 14a7 7 0 0 0 14 0c0-4-4-8-7-12Z M8 15a4 4 0 0 0 4 4"/></svg>'}
+        else icon.className='pd-temperature-icon '+label.toLowerCase();
+        $('span',cell).append(icon,document.createTextNode(translated(label)));if(resin&&index===0)$('small',cell).innerHTML='<svg class="pd-weight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6 8h12l3 13H3Z"/></svg><span></span>';telemetry.append(cell);
+      });overview.after(telemetry);
+      const section=(label,cls)=>{const el=document.createElement('details');el.className=cls;const summary=document.createElement('summary');summary.innerHTML=printerSectionIcon(label);summary.append(document.createTextNode(translated(label)));el.append(summary);rememberPrinterSection(el,cls,label==='Nozzles'||label==='Print Details');return el};
+      const nozzles=section(resin?'Print Details':'Nozzles',resin?'pd-resin-details':'pd-nozzles');
+      if(resin){const profile=document.createElement('div');profile.className='pd-resin-profile';profile.innerHTML=printerSectionIcon('Print Details')+'<div><small></small><strong></strong></div>';$('small',profile).textContent=translated('Print profile');const list=document.createElement('dl');list.className='pd-resin-fields';for(const [key,label] of [['layer_height_mm','Layer height'],['weight_g','Estimated weight'],['volume_ml','Resin volume'],['bottom_layers','Bottom layers'],['transition_layers','Transition layers'],['normal_layers','Normal layers']]){const field=document.createElement('div'),term=document.createElement('dt'),value=document.createElement('dd');term.textContent=translated(label);value.dataset.field=key;field.append(term,value);list.append(field)}nozzles.append(profile,list)}
+      else{const table=document.createElement('table');table.className='pd-nozzle-table';table.innerHTML='<thead><tr></tr></thead><tbody></tbody>';['Tool','Filament','Current','Target'].forEach(text=>{const th=document.createElement('th');th.textContent=translated(text);$('tr',table).append(th)});nozzles.append(table)}
+      telemetry.after(nozzles);
+      const speeds=section(resin?'Lift speeds & heights':'Speed & power',resin?'pd-lift-settings':'pd-speeds');
+      if(resin)buildResinLiftSettings(speeds,p);
+      else{const values=document.createElement('div');values.className='pd-speeds-grid';['Speed','Flow','Part fan','Nozzle power','Bed power'].forEach(label=>{const el=document.createElement('span');el.append(document.createTextNode(translated(label)),document.createElement('b'));values.append(el)});const position=document.createElement('div');position.className='pd-position-grid';position.setAttribute('aria-label',translated('Position'));['X','Y','Z'].forEach(axis=>{const cell=document.createElement('div'),label=document.createElement('span'),value=document.createElement('b');label.textContent=axis;value.textContent='—';cell.append(label,value);position.append(cell)});speeds.append(values,position)}nozzles.after(speeds);
       const controls=section('Controls','pd-controls'),light=$('.printer-control',detail),status=$('#printer-light-status',detail);
       const commands=document.createElement('div');commands.className='pd-print-commands pd-static-data';commands.setAttribute('role','group');commands.setAttribute('aria-label',translated('Print controls'));
       const commandIcons={Pause:'<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',Resume:'<path d="m8 4 12 8-12 8Z"/>',Stop:'<rect x="5" y="5" width="14" height="14" rx="2"/>'};
@@ -2553,40 +2879,110 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
       dialog.addEventListener('close',()=>{dialog.remove();if(trigger.isConnected)trigger.focus()});document.body.append(dialog);dialog.showModal();
     }
 
+    let resinLiftMode='height';
+    try{if(localStorage.getItem('printdeck-resin-lift-mode')==='speed')resinLiftMode='speed'}catch{}
+    function buildResinLiftSettings(section,p){
+      const toolbar=document.createElement('div');toolbar.className='pd-lift-toolbar';toolbar.innerHTML='<span class="pd-lift-mode-label"></span><div class="printer-view-switch" role="group"></div>';
+      const group=$('.printer-view-switch',toolbar);group.setAttribute('aria-label',translated('Lift speeds & heights'));
+      const icons={height:'<path d="m3 16 13-13 5 5L8 21Z M13 6l3 3M10 9l2 2M7 12l3 3M4 15l2 2"/>',speed:'<path d="M4 19a9 9 0 1 1 16 0M12 4v3M5 9l2 1M19 9l-2 1M12 15l4-5"/><circle cx="12" cy="16" r="2"/>'};
+      for(const mode of ['height','speed']){const button=document.createElement('button');button.type='button';button.dataset.liftMode=mode;button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+icons[mode]+'</svg>';button.title=translated(mode==='height'?'Lift Heights':'Lift Speeds');button.setAttribute('aria-label',button.title);button.addEventListener('click',()=>{resinLiftMode=mode;try{localStorage.setItem('printdeck-resin-lift-mode',mode)}catch{}const current=printers.find(item=>item.id===p.id);if(current)paintResinLiftSettings(section,current)});group.append(button)}
+      const grid=document.createElement('div');grid.className='pd-lift-grid';
+      for(const kind of ['bottom','normal']){const figure=document.createElement('figure');figure.dataset.liftGroup=kind;figure.innerHTML='<figcaption><strong></strong><small></small></figcaption><svg viewBox="0 85 240 119" role="img"><title></title><path class="pd-lift-vat" d="M69 153v21h102v-21"/><g class="pd-lift-platform"><rect x="115" y="101" width="10" height="12" rx="2"/><rect x="84" y="113" width="72" height="5" rx="2"/></g><rect class="pd-lift-model" x="101" y="118" width="38" height="25" rx="5"/><path class="pd-lift-arrow" d="m40 96 5-5 5 5m-5-5v18m143-5 5 5 5-5m-5 5V91"/><path class="pd-lift-divider" d="M20 130h200"/><text x="38" y="146" class="pd-lift-stage-one" data-lift-value="0"></text><text x="38" y="124" data-lift-value="1"></text><text x="202" y="146" class="pd-lift-stage-one" data-lift-value="2"></text><text x="202" y="124" data-lift-value="3"></text><rect class="pd-lift-unit-bg" x="83" y="180" width="74" height="20" rx="8"/><text class="pd-lift-unit" x="120" y="194"></text></svg>';grid.append(figure)}
+      section.append(toolbar,grid);
+    }
+    function normalResinLayers(r,total){return r&&Number.isInteger(r.bottom_layers)&&Number.isInteger(r.transition_layers)&&Number.isInteger(total)&&total>0&&r.bottom_layers>=0&&r.transition_layers>=0&&r.bottom_layers+r.transition_layers<=total?total-r.bottom_layers-r.transition_layers:null}
+    function paintResinLiftSettings(section,p){
+      const r=printerStatusFresh&&p.selected&&p.reachability==='online'?p.job?.details?.resin:null,speed=resinLiftMode==='speed';
+      $('.pd-lift-mode-label',section).textContent=translated(speed?'Lift Speeds':'Lift Heights');
+      $$('[data-lift-mode]',section).forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.liftMode===resinLiftMode)));
+      const count=value=>Number.isInteger(value)&&value>=0?String(value):'—';
+      $$('[data-lift-group]',section).forEach(figure=>{
+        const bottom=figure.dataset.liftGroup==='bottom',data=r?.[bottom?'bottom':'normal']||{};
+        const normal=normalResinLayers(r,p.job?.total_layers);
+        const title=translated(bottom?'Bottom layers':'Normal layers')+': '+count(bottom?r?.bottom_layers:normal);
+        $('figcaption strong',figure).textContent=title;$('figcaption small',figure).textContent=bottom?translated('Transition layers')+': '+count(r?.transition_layers):'\u00a0';
+        const up=data[speed?'lift_mm_s':'lift_mm']||[],down=data[speed?'retract_mm_s':'retract_mm']||[],values=[up[0],up[1],down[0],down[1]];
+        // Stage 1 is below the boundary and stage 2 above it, exactly as on PD.
+        $$('[data-lift-value]',figure).forEach((el,index)=>el.textContent=printerDetailNumber(typeof values[index]==='number'?values[index]*(speed?60:1):null,'',speed?0:1));
+        $('.pd-lift-unit',figure).textContent=speed?'mm/min':'mm';
+        $('title',figure).textContent=title+' · '+translated(speed?'Lift Speeds':'Lift Heights')+' · '+translated('Lifting')+': '+values.slice(0,2).map(v=>printerDetailNumber(typeof v==='number'?v*(speed?60:1):null,'',speed?0:1)).join(' / ')+' · '+translated('Lowering')+': '+values.slice(2).map(v=>printerDetailNumber(typeof v==='number'?v*(speed?60:1):null,'',speed?0:1)).join(' / ');
+      });
+    }
+    function paintPrinterMotion(detail,p){
+      if(p.technology==='resin'){paintResinLiftSettings($('.pd-lift-settings',detail),p);return}
+      const data=printerStatusFresh&&p.selected&&p.reachability==='online'?p.job?.details?.motion:null;
+      $$('.pd-speeds-grid b',detail).forEach((el,i)=>el.textContent=printerDetailNumber(data?.[['speed_percent','flow_percent','fan_percent','nozzle_power_percent','bed_power_percent'][i]],'%'));
+      $$('.pd-position-grid b',detail).forEach((el,i)=>el.textContent=printerDetailNumber(data?.[['x_mm','y_mm','z_mm'][i]],'mm',i===2?2:1).replace('\u00a0',' '));
+    }
+
+    function printerDetailNumber(value,unit='',digits=0){return typeof value==='number'&&Number.isFinite(value)?new Intl.NumberFormat(currentLanguage,{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(value)+(unit?'\u00a0'+unit:''):'—'}
+    function paintPrinterDetails(detail,p){
+      const data=printerStatusFresh&&p.selected&&p.reachability==='online'?p.job?.details:null,t=data?.temperatures||{},r=data?.resin||{},resin=p.technology==='resin';
+      const target=value=>translated('Target')+' '+(typeof value==='number'&&value===0?translated('Off'):printerDetailNumber(value,'°C'));
+      const readings=resin?[[printerDetailNumber(r.volume_ml,'ml',2),translated('Weight')+' '+printerDetailNumber(r.weight_g,'g',1)],[printerDetailNumber(r.bottle_ml,'ml'),translated('Automatic refill')+' '+(typeof r.feeder_enabled==='boolean'?translated(r.feeder_enabled?'On':'Off'):'—')],[printerDetailNumber(t.chamber_c,'°C'),target(t.chamber_target_c)]]:[[printerDetailNumber(t.nozzle_c,'°C'),target(t.nozzle_target_c)],[printerDetailNumber(t.bed_c,'°C'),target(t.bed_target_c)],[printerDetailNumber(t.chamber_c,'°C'),target(t.chamber_target_c)]];
+      $$('.pd-telemetry>div',detail).forEach((el,i)=>{$('strong',el).textContent=readings[i][0];($('small>span',el)||$('small',el)).textContent=readings[i][1]});
+      if(resin){const profile=$('.pd-resin-profile strong',detail);profile.textContent=r.profile_name||'—';profile.title=r.profile_name||'';$$('.pd-resin-fields dd',detail).forEach(el=>{const key=el.dataset.field,value=key==='normal_layers'?normalResinLayers(r,p.job?.total_layers):r[key];el.textContent=printerDetailNumber(value,key==='layer_height_mm'?'mm':key==='volume_ml'?'ml':key==='weight_g'?'g':'',key==='layer_height_mm'?3:key==='volume_ml'?2:key==='weight_g'?1:0)})}
+      else{
+        const body=$('.pd-nozzle-table tbody',detail),tools=Array.isArray(data?.nozzles)?data.nozzles.slice(0,12):[];
+        const signature=JSON.stringify([currentLanguage,tools]);if(body.dataset.values===signature)return;body.dataset.values=signature;body.replaceChildren();
+        if(!tools.length){const row=body.insertRow(),cell=row.insertCell();cell.colSpan=4;cell.textContent='—';return}
+        for(const tool of tools){const row=body.insertRow();row.classList.toggle('is-active',tool.active===true);const id=row.insertCell(),material=row.insertCell();id.textContent='T'+tool.id;if(tool.active){id.title=translated('Active');id.setAttribute('aria-label','T'+tool.id+' · '+translated('Active'))}const diameter=document.createElement('small');diameter.textContent=printerDetailNumber(tool.diameter_mm,'mm',2);id.append(diameter);const dot=document.createElement('span');dot.className='pd-filament-dot';dot.hidden=tool.filament_detected===false||!/^#[a-f0-9]{6}$/i.test(tool.color||'');if(!dot.hidden)dot.style.background=tool.color;const name=document.createElement('span');name.textContent=tool.filament_detected===false?translated('No filament'):tool.material||'—';name.title=name.textContent;material.append(dot,name);row.insertCell().textContent=printerDetailNumber(tool.current_c,'°C');row.insertCell().textContent=typeof tool.target_c==='number'&&tool.target_c===0?translated('Off'):printerDetailNumber(tool.target_c,'°C')}
+      }
+    }
+
     function paintDesignDetail(detail,p){
       const d=printerDesignData(p),heading=$('.pd-print-copy h3',detail);heading.textContent=d.file;heading.title=d.file;heading.hidden=!d.file;$('.pd-detail-state',detail).textContent=printerStatus(p);$('.pd-print-copy .printer-job',detail).hidden=!d.online;$('.pd-print-copy .printer-metrics',detail).hidden=!d.printing;
-      const thumb=$('.pd-print-thumb',detail);thumb.disabled=!d.known;$('.pd-print-pot',thumb).hidden=!d.known;$('.pd-no-preview',thumb).hidden=d.known;
+      const thumb=$('.pd-print-thumb',detail);paintPrintPreview($('.pd-print-media',thumb),p);
       paintPrinterMetrics($('.printer-metrics',detail),p);
-      $$('.pd-telemetry>div',detail).forEach((el,i)=>{$('strong',el).textContent=d.known?[220,60,35][i]+' °C':d.idleSample?[29,25,27][i]+' °C':'—';$('small',el).textContent=translated('Target')+' '+(d.known&&i<2?[220,60][i]+' °C':d.idleSample&&i<2?translated('Off'):'—')});
-      $$('.pd-nozzle-table tbody tr',detail).forEach((row,i)=>{const cells=$$('td',row);row.hidden=d.idleSample&&i>0;cells[2].textContent=d.known?(i?'28 °C':'220 °C'):d.idleSample?'29 °C':'—';cells[3].textContent=d.known?(i?translated('Off'):'220 °C'):d.idleSample?translated('Off'):'—';$('.pd-filament-dot',row).hidden=!d.known;$('td:nth-child(2)>span:last-child',row).textContent=d.known?(i?'PETG':'PLA'):'—'});
-      $$('.pd-speeds-grid b',detail).forEach((el,i)=>el.textContent=d.known?['100%','100%','80%','67%','38%'][i]:'—');
-      $$('.pd-position-grid b',detail).forEach((el,i)=>el.textContent=d.known?['125.4','98.2','71.2'][i]+' mm':'—');
-      const mini=$('.pd-mini-screen',detail),img=$('img',mini),phase=p.job?.phase||'unknown',event=phase==='idle'?'standby':phase==='unknown'?'unavailable':phase;
-      mini.hidden=!p.selected||!d.online||!settings.printer_animations_enabled||!reactionData||reactionData.events?.find(item=>item.id===event)?.enabled===false;mini.dataset.hardware=health.hardware||settings.hardware||'amoled_1_75';img.alt=translated('Printer reaction');
-      if(mini.hidden){img.removeAttribute('src')}else{const src=reactionPreviewUrl(event);if(img.getAttribute('src')!==src)img.src=src}
+      paintPrinterDetails(detail,p);
+      paintPrinterMotion(detail,p);
+      const mini=$('.pd-mini-screen',detail),phase=p.job?.phase||'unknown',event=phase==='idle'?'standby':phase==='unknown'?'unavailable':phase;
+      mini.dataset.hardware=health.hardware||settings.hardware||'amoled_1_75';
+      mini.dataset.resin=String(p.technology==='resin');
+      if(p.technology==='resin'){
+        mini.hidden=!p.selected||!d.online;
+        $('img',mini)?.remove();
+        if(!$('canvas',mini))mini.append(createResinCanvas(p.id));
+      }else{
+        mini.hidden=!p.selected||!d.online||!settings.printer_animations_enabled||!reactionData||reactionData.events?.find(item=>item.id===event)?.enabled===false;
+        const img=$('img',mini);img.alt=translated('Printer reaction');
+        if(mini.hidden){img.removeAttribute('src')}else{const src=reactionPreviewUrl(event);if(img.getAttribute('src')!==src)img.src=src}
+      }
     }
 
     function printerDetailsAvailable(p){return printerStatusFresh&&p.reachability==='online'&&p.dashboard_available!==false}
+    function printerDetailsWaiting(p){return !!p&&p.dashboard_available!==false&&printerStatusFresh&&(p.reachability==='connecting'||p.reachability==='unknown'||p.reachability==='online'&&!p.job)}
     function paintPrinters(){
-      if(printerDetailId!==null&&!printers.some(p=>String(p.id)===printerDetailId&&printerDetailsAvailable(p)))printerDetailId=null;
-      const key=JSON.stringify([printerView,printerDetailId,printerStatusFresh,currentLanguage,Object.keys(brandLogos),printers.map(({light,job,...p})=>p),companionState.cameras.map(c=>c.printers)]);
-      const selected=printerDetailId!==null?printers.find(p=>String(p.id)===printerDetailId&&printerDetailsAvailable(p)):printerView==='list'?printers.find(p=>p.selected&&printerDetailsAvailable(p)):null;
+      if(printerDrag||printerOrderSaving)return;
+      if(printerDetailId!==null&&!printers.some(p=>String(p.id)===printerDetailId))printerDetailId=null;
+      const candidate=printerSelectionId!==null?printers.find(p=>p.id===printerSelectionId):printerView==='list'?printers.find(p=>p.selected):printers.find(p=>String(p.id)===printerDetailId&&p.selected);
+      const waiting=printerSelectionPending||printerDetailsWaiting(candidate);
+      const key=JSON.stringify([printerView,printerDetailId,printerSelectionPending,waiting,printerStatusFresh,currentLanguage,Object.keys(brandLogos),printers.map(({light,job,...p})=>p),companionState.cameras.map(c=>c.printers)]);
+      const selected=!waiting&&candidate&&printerDetailsAvailable(candidate)?candidate:null;
       paintPrinterView();
       if(key!==printerRenderKey){
         printerRenderKey=key;
         const grid=$('#printer-grid'),detail=$('#printer-detail');
-        grid.replaceChildren();detail.replaceChildren();$('.printer-add')?.remove();detail.classList.toggle('active',!!selected?.selected);
+        grid.replaceChildren();detail.replaceChildren();$('.printer-add')?.remove();detail.classList.toggle('active',!!candidate?.selected);detail.setAttribute('aria-busy',String(waiting));
         printers.forEach(p=>{
           const row=document.createElement('div'),select=document.createElement('button'),manage=document.createElement('button');
           row.className='printer-row'+(p.selected?' active':'');select.type='button';select.className='printer-select-action';
-          select.disabled=!printerDetailsAvailable(p);select.setAttribute('aria-pressed',String(!!p.selected));
+          select.disabled=printerSelectionPending||!printerDetailsAvailable(p);select.setAttribute('aria-pressed',String(!!p.selected));
           select.title=select.disabled?printerStatus(p):'';
           select.innerHTML='<span class="printer-avatar" aria-hidden="true"></span><span class="printer-row-copy"><strong></strong><span class="printer-row-meta"><span class="printer-reachability"></span></span></span>';
           row.dataset.printerId=p.id;$('.printer-row-copy',select).append(createPrinterJob());
+          if(printers.length>1){
+            const handle=document.createElement('button');handle.type='button';handle.className='printer-reorder';
+            handle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 10h14M5 14h14M5 18h14"/></svg>';
+            handle.title=translated('Drag to reorder');handle.setAttribute('aria-label',translated('Drag to reorder')+' · '+p.name);handle.setAttribute('aria-pressed','false');
+            handle.addEventListener('pointerdown',event=>startPrinterDrag(row,handle,event));
+            handle.addEventListener('keydown',event=>printerDragKey(event,row,handle));handle.addEventListener('click',event=>{event.preventDefault();event.stopPropagation()});row.append(handle);
+          }
+
           setPrinterMark($('.printer-avatar',select),p);$('strong',select).textContent=p.name||translated('Printer');$('strong',select).title=p.name||translated('Printer');
           const status=$('.printer-reachability',select);status.textContent=printerStatus(p);status.classList.toggle('online',p.reachability==='online');
-          select.addEventListener('click',()=>{
-            if(!printerDetailsAvailable(p))return;
+          select.addEventListener('click',async()=>{
+            if(!await selectPrinter(p))return;
             printerDetailId=String(p.id);printerRenderKey='';paintPrinters();
             const heading=$('#printer-detail .pd-detail-state');if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true})}
           });
@@ -2598,7 +2994,11 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
         });
         const add=document.createElement('button');add.type='button';add.className='secondary printer-add';
         add.textContent='+ '+translated('Add printer');add.addEventListener('click',openAdd);$('#printer-header-actions').prepend(add);
-        if(selected){
+        if(waiting){
+          const loading=document.createElement('div');loading.className='printer-data-loading';loading.setAttribute('role','status');
+          const spinner=document.createElement('span');spinner.className='printer-data-spinner';spinner.setAttribute('aria-hidden','true');
+          const label=document.createElement('span');label.textContent=translated('Waiting for printer data…');loading.append(spinner,label);detail.append(loading);
+        }else if(selected){
           detail.innerHTML='<div class="printer-detail-head"><span class="printer-avatar" aria-hidden="true"></span><div class="printer-detail-copy"><div class="printer-detail-title"><h3></h3><span class="printer-detail-badge"></span></div><p class="micro"></p></div></div><div class="printer-control"><span class="printer-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2Z"/></svg></span><div class="printer-control-copy"><strong id="printer-light-label"></strong><small id="printer-light-help"></small></div><label class="printer-light-toggle"><span class="printer-light-state" aria-hidden="true"></span><input class="reaction-switch-input" id="printer-light" type="checkbox" role="switch" aria-labelledby="printer-light-label" aria-describedby="printer-light-help"><span class="reaction-switch" aria-hidden="true"></span></label></div><p class="status" id="printer-light-status" role="status" aria-live="polite"></p><div class="printer-detail-footer"><span class="printer-endpoint"></span><button type="button" class="printer-settings-link"></button></div>';
           setPrinterMark($('.printer-avatar',detail),selected);$('h3',detail).textContent=selected.name||translated('Printer');
           $('.printer-detail-head',detail).after(createPrinterJob(true));
@@ -2632,17 +3032,105 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
         $('#printer-light-help').textContent=translated(selected.reachability!=='online'?'Waiting for the printer to connect.':!light.supported?'Light control is not available for this printer.':'See the print more clearly.');
       }
       paintThemePrinterPreview();
+      queueMicrotask(syncPrinterStreamPreview);
     }
     paintPrinterView();
-    async function loadPrinters(){
-      if(printerLoadPromise)return printerLoadPromise;
+    let printerEventSource=null,printerEventRevision=0,printerStreamHealthy=false;
+    let printerStreamWatchdog=0,printerStreamRetry=0,printerStreamRetryAt=0,printerStreamBackoff=10000;
+    let printerLoadController=null,printerDataEpoch=0,printerTransportSuspended=false;
+    const printerPageVisible=()=>!printerTransportSuspended&&!document.hidden&&!$('#app-shell').hidden&&!$('[data-panel="printers"]').hidden;
+    function closePrinterStream(){
+      clearTimeout(printerStreamWatchdog);printerStreamWatchdog=0;
+      if(printerEventSource){const source=printerEventSource;printerEventSource=null;source.onerror=null;source.close()}
+      printerStreamHealthy=false;
+    }
+    function stopPrinterTransport(){
+      closePrinterStream();clearTimeout(printerPollTimer);clearTimeout(printerStreamRetry);
+      printerDataEpoch++;printerLoadController?.abort();
+    }
+    function schedulePrinterPoll(){
       clearTimeout(printerPollTimer);
-      const controls=!document.hidden&&!$('[data-panel="printers"]').hidden;
+      if(printerPageVisible()&&!printerStreamHealthy)printerPollTimer=setTimeout(()=>loadPrinters(true).catch(()=>{}),2000);
+    }
+    function acceptPrinterState(rows){
+      if(!Array.isArray(rows)||rows.length>10||rows.some(p=>!p||!Number.isInteger(p.id)||p.id<=0)||new Set(rows.map(p=>p.id)).size!==rows.length)throw Error(translated('Status unavailable'));
+      const now=performance.now();printers=rows.map(p=>({...p,job:p.job?{...p.job,_receivedAt:now}:null}));
+      printerStatusReceivedAt=now;printerStatusFresh=true;paintPrinters();
+    }
+    function applyPrinterPatch(value,patch,depth=0){
+      if(depth>12)throw Error('Invalid printer update');
+      if(!patch||typeof patch!=='object'||Array.isArray(patch))return patch;
+      const result=value&&typeof value==='object'&&!Array.isArray(value)?{...value}:{};
+      for(const key of Object.keys(patch)){
+        if(['__proto__','prototype','constructor','_receivedAt'].includes(key))throw Error('Invalid printer update');
+        result[key]=applyPrinterPatch(result[key],patch[key],depth+1);
+      }
+      return result;
+    }
+    function failPrinterStream(source){
+      if(source!==printerEventSource)return;
+      closePrinterStream();
+      printerStreamRetryAt=performance.now()+printerStreamBackoff;
+      printerStreamBackoff=Math.min(60000,printerStreamBackoff*2);
+      clearTimeout(printerStreamRetry);
+      if(printerPageVisible()){
+        printerStreamRetry=setTimeout(ensurePrinterStream,Math.max(0,printerStreamRetryAt-performance.now()));
+        loadPrinters().catch(()=>{});
+      }
+    }
+    const printerStreamPreview=()=>!$('#printer-detail').hidden&&!!$('#printer-detail .pd-print-thumb');
+    function syncPrinterStreamPreview(){
+      if(printerEventSource&&printerEventSource.previewRequested!==printerStreamPreview()){closePrinterStream();ensurePrinterStream();schedulePrinterPoll()}
+    }
+    function ensurePrinterStream(){
+      if(!printerPageVisible()||printerEventSource||typeof EventSource==='undefined'||performance.now()<printerStreamRetryAt)return;
+      let source;
+      try{const preview=printerStreamPreview();source=new EventSource('/api/printers/events'+(preview?'?preview=1':''));source.previewRequested=preview}catch{printerStreamRetryAt=performance.now()+60000;return}
+      printerEventSource=source;
+      const watch=delay=>{clearTimeout(printerStreamWatchdog);printerStreamWatchdog=setTimeout(()=>failPrinterStream(source),delay)};
+      const receive=(event,snapshot)=>{
+        if(source!==printerEventSource||!printerPageVisible())return;
+        try{
+          if(event.data.length>65536)throw Error('Invalid printer update');
+          const message=JSON.parse(event.data);
+          if(!Number.isSafeInteger(message.revision)||message.revision<1)throw Error('Invalid printer revision');
+          if(snapshot){acceptPrinterState(message.state?.printers)}
+          else{
+            if(!printerStreamHealthy||message.base!==printerEventRevision||message.revision!==printerEventRevision+1||!Array.isArray(message.changes)||message.changes.length>10)throw Error('Printer state needs refresh');
+            const next=printers.slice(),ids=new Set();
+            for(const change of message.changes){
+              const index=next.findIndex(p=>p.id===change.id);
+              if(index<0||ids.has(change.id)||!change.patch||typeof change.patch!=='object'||Array.isArray(change.patch))throw Error('Invalid printer change');
+              ids.add(change.id);const updated=applyPrinterPatch(next[index],change.patch);
+              if(updated.id!==change.id)throw Error('Invalid printer identity');
+              if(Object.hasOwn(change.patch,'job')&&updated.job)updated.job._receivedAt=performance.now();
+              next[index]=updated;
+            }
+            printers=next;printerStatusFresh=true;paintPrinters();
+          }
+          printerEventRevision=message.revision;printerStreamHealthy=true;
+          printerDataEpoch++;printerLoadController?.abort();clearTimeout(printerPollTimer);
+          printerStreamBackoff=10000;printerStreamRetryAt=0;clearTimeout(printerStreamRetry);watch(8000);
+        }catch{failPrinterStream(source)}
+      };
+      source.addEventListener('snapshot',event=>receive(event,true));
+      source.addEventListener('update',event=>receive(event,false));
+      source.addEventListener('heartbeat',()=>{if(source===printerEventSource&&printerStreamHealthy)watch(8000)});
+      source.onerror=()=>failPrinterStream(source);watch(5000);
+    }
+    async function loadPrinters(poll=false){
+      if(printerLoadPromise)return printerLoadPromise;
+      // Explicit reads after a setting/selection change establish a new baseline.
+      if(printerEventSource&&!poll)closePrinterStream();
+      clearTimeout(printerPollTimer);
+      const controls=printerPageVisible(),epoch=printerDataEpoch;
       printerLoadPromise=(async()=>{
-        const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),5000);
-        try{const b=await jsonFetch('/api/printers'+(controls?'?controls=1':''),{signal:controller.signal});printers=b.printers||[];printerStatusFresh=true;paintPrinters()}
-        catch(error){printerStatusFresh=false;paintPrinters();throw error}
-        finally{clearTimeout(timeout);printerLoadPromise=null;if(!document.hidden&&!$('[data-panel="printers"]').hidden)printerPollTimer=setTimeout(()=>loadPrinters().catch(()=>{}),2000)}
+        const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),5000);printerLoadController=controller;
+        try{
+          const b=await jsonFetch('/api/printers'+(controls?'?controls=1'+($('#printer-detail .pd-print-thumb')?'&preview=1':''):''),{signal:controller.signal});
+          if(epoch===printerDataEpoch)acceptPrinterState(b.printers||[]);
+        }catch(error){if(epoch===printerDataEpoch){printerStatusFresh=false;paintPrinters();throw error}}
+        finally{clearTimeout(timeout);if(printerLoadController===controller)printerLoadController=null;printerLoadPromise=null;schedulePrinterPoll();ensurePrinterStream()}
       })();return printerLoadPromise;
     }
     async function setPrinterLight(id,enabled){
@@ -2654,7 +3142,9 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
         await loadPrinters();
       }catch(e){printerLightRequest=null;paintPrinters();const current=$('#printer-light-status');if(current){current.textContent=translated(e.message);current.classList.add('error')}}
     }
-    document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimeout(printerPollTimer);else if(!$('[data-panel="printers"]').hidden)loadPrinters().catch(()=>{})});
+    document.addEventListener('visibilitychange',()=>{if(!printerPageVisible())stopPrinterTransport();else loadPrinters().catch(()=>{})});
+    window.addEventListener('pagehide',()=>{printerTransportSuspended=true;stopPrinterTransport()});
+    window.addEventListener('pageshow',event=>{printerTransportSuspended=false;if(event.persisted&&printerPageVisible())loadPrinters().catch(()=>{})});
     function showModal(){printerModal.hidden=false;document.body.style.overflow='hidden'}function closeModal(){cancelIdentity();clearWizardIdentity();resetPrinterVerification();cancelDiscovery();clearTimeout(compatibilityTimer);printerModal.hidden=true;document.body.style.overflow='';$('.printer-add')?.focus()}const printerModal=$('#printer-modal'),printerDialogBody=$('.printer-dialog-body',printerModal);
     function showPrinterStep(step){$('#printer-choice').hidden=step!=='choice';$('#printer-discovery').hidden=step!=='discovery';$('#printer-form').hidden=step!=='form';updatePrinterSteps(step);printerDialogBody.scrollTop=0}function resetPrinterVerification(){cancelPrusaCheck();cancelElegooCheck();cancelUniformationCheck();cancelTinyMakerCheck();cancelOctoPrintCheck();printerVerificationGeneration++;printerVerificationFingerprint='';printerVerificationPromise=null;const status=$('#printer-connection-status');status.textContent='';status.classList.remove('ok')}function openAdd(){cancelIdentity();clearWizardIdentity();printerEntry='choice';editing=null;addingFromDiscovery=false;detectedNameSeed='';resetPrinterVerification();showModal();showPrinterStep('choice');$('#printer-dialog-title').textContent=translated('Add printer');const subtitle=$('#printer-dialog-subtitle');subtitle.hidden=true;subtitle.textContent='';$('#printer-dialog-title').focus()}
     function splitEndpoint(endpoint,protocol){let value=(endpoint||'').replace(/^https?:\/\//,'');if(protocol==='bambu_lan')return[value,''];const i=value.lastIndexOf(':');return i>0?[value.slice(0,i),value.slice(i+1)] :[value,defaultPrinterPort(protocol)]}

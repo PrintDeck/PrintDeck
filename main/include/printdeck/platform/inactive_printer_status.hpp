@@ -10,6 +10,8 @@ struct InactivePrinterStatus {
   bool connected = false;
   bool checking = false;
   core::JobPhase phase = core::JobPhase::unknown;
+  core::ResinStage resin_stage = core::ResinStage::unknown;
+  std::optional<core::ResinExposureTiming> resin_exposure;
   core::JobKind kind = core::JobKind::print;
   std::string job_name;
   float completion = 0.0F;
@@ -18,6 +20,8 @@ struct InactivePrinterStatus {
   bool elapsed_known = false;
   std::uint32_t remaining_seconds = 0;
   bool remaining_known = false;
+  std::uint16_t current_layer = 0;
+  std::uint16_t total_layers = 0;
   core::PrinterCondition condition = core::PrinterCondition::normal;
   std::uint64_t updated_at_ms = 0;
 
@@ -32,6 +36,8 @@ struct InactivePrinterStatus {
     snapshot.job.reachable = connected;
     snapshot.job.phase = phase;
     snapshot.job.kind = kind;
+    snapshot.job.resin_stage = resin_stage;
+    snapshot.job.resin_exposure = resin_exposure;
     snapshot.job.name = job_name;
     snapshot.job.completion = completion;
     snapshot.job.completion_known = completion_known;
@@ -39,6 +45,8 @@ struct InactivePrinterStatus {
     snapshot.job.elapsed_known = elapsed_known;
     snapshot.job.remaining_seconds = remaining_seconds;
     snapshot.job.remaining_known = remaining_known;
+    snapshot.job.current_layer = current_layer;
+    snapshot.job.total_layers = total_layers;
     snapshot.job.condition = condition;
     snapshot.updated_at_ms = updated_at_ms;
     return snapshot;
