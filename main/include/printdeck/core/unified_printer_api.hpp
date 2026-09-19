@@ -21,7 +21,9 @@ struct UnifiedPrinterView {
   std::string endpoint;
   std::string manufacturer;
   std::string model;
+  std::string brand;
   bool selected = false;
+  bool printer_control_enabled = false;
   PrinterReachability reachability = PrinterReachability::unknown;
   UnifiedApiDetailLevel detail_level = UnifiedApiDetailLevel::summary;
   PrinterSnapshot snapshot;
@@ -37,6 +39,19 @@ struct UnifiedDevicePower {
   bool charging = false;
   bool external_power = false;
 };
+
+// Transport-independent state contract. Local image URLs are supplied only by
+// Web Config; an eventual cloud transport must resolve media independently.
+struct PrinterStateMedia {
+  std::string model;
+  std::string layer;
+  std::uint64_t layer_valid_for_ms = 0;
+};
+std::string printer_state_json(const UnifiedPrinterView& printer, std::uint64_t now_ms,
+                              std::int64_t now_unix, const PrinterStateMedia& media = {});
+std::string printer_states_json(std::span<const UnifiedPrinterView> printers,
+                               std::uint64_t now_ms, std::int64_t now_unix);
+bool printer_light_available(const UnifiedPrinterView& printer);
 
 std::string unified_api_print_event_json(const PrintEventHistory& history, const PrintEvent& event);
 std::string unified_api_printers_json(std::span<const UnifiedPrinterView> printers);

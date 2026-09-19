@@ -12,7 +12,7 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 19;
+constexpr std::uint8_t kSettingsSchemaVersion = 20;
 constexpr std::uint32_t kDisplayDurationUntilWake = 86401;
 constexpr std::uint8_t kScreenSaverCircles = 0;
 constexpr std::uint8_t kScreenSaverGoingToSleep = 1;
@@ -114,6 +114,7 @@ struct DeviceSettings {
   std::string printer_view = "list";
   std::string camera_mode = "snapshots";
   std::uint8_t camera_snapshot_fps = 1;
+  bool printer_control_enabled = false;
   bool voice_enabled = false;
   bool unified_api_enabled = false;
   std::string unified_api_token;

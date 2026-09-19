@@ -9,9 +9,32 @@
 
 #include "printdeck/core/printer_driver.hpp"
 #include "printdeck/core/settings.hpp"
+#include "printdeck/core/printer_web_details.hpp"
 
 namespace printdeck::core {
 namespace {
+
+const char* resin_stage_id(ResinStage stage) {
+  switch (stage) {
+    case ResinStage::unknown: return "unknown";
+    case ResinStage::standby: return "standby";
+    case ResinStage::homing: return "homing";
+    case ResinStage::lowering: return "lowering";
+    case ResinStage::exposing: return "exposing";
+    case ResinStage::lifting: return "lifting";
+    case ResinStage::pausing: return "pausing";
+    case ResinStage::paused: return "paused";
+    case ResinStage::stopping: return "stopping";
+    case ResinStage::stopped: return "stopped";
+    case ResinStage::completed: return "completed";
+    case ResinStage::checking_file: return "checking_file";
+    case ResinStage::transferring_file: return "transferring_file";
+    case ResinStage::exposure_test: return "exposure_test";
+    case ResinStage::device_test: return "device_test";
+    case ResinStage::finishing: return "finishing";
+  }
+  return "unknown";
+}
 
 void append_json_string(std::string& output, std::string_view value) {
   output.push_back('"');
@@ -462,6 +485,112 @@ std::string unified_api_materials_json(const UnifiedPrinterView& printer) {
   }
   output += "]}";
   return output;
+}
+
+bool printer_light_available(const UnifiedPrinterView& printer) {
+  return printer.selected && !printer.stale &&
+      printer.detail_level == UnifiedApiDetailLevel::full &&
+      printer.reachability == PrinterReachability::online &&
+      printer.snapshot.link == LinkState::online &&
+      printer.snapshot.job.chamber_light_supported && !printer.snapshot.job.chamber_light_pending;
+}
+
+std::string printer_state_json(const UnifiedPrinterView& p, std::uint64_t now_ms,
+                              std::int64_t now_unix, const PrinterStateMedia& media) {
+  const auto& job = p.snapshot.job;
+  const auto& driver = printer_driver(p.protocol);
+  const bool full = p.detail_level == UnifiedApiDetailLevel::full;
+  const bool online = p.reachability == PrinterReachability::online;
+  const bool has_job = job.phase != JobPhase::idle && job.phase != JobPhase::unknown;
+  std::string out = "{\"id\":" + std::to_string(p.id);
+  const auto string = [&](const char* key, std::string_view value) {
+    out += ",\""; out += key; out += "\":"; web_detail::string(out, value, 192);
+  };
+  string("name", p.display_name); string("protocol", driver.id);
+  string("technology", driver.resin ? "resin" : "fdm");
+  string("manufacturer", p.manufacturer); string("model", p.model); string("brand", p.brand);
+  string("endpoint", p.endpoint);
+  out += ",\"selected\":"; out += p.selected ? "true" : "false";
+  out += ",\"dashboard_available\":"; out += driver.dashboard ? "true" : "false";
+  out += ",\"printer_control_enabled\":"; out += p.printer_control_enabled ? "true" : "false";
+  string("reachability", reachability_id(p.reachability));
+  out += ",\"connection\":"; append_connection(out, p);
+  out += ",\"capabilities\":{\"light.set\":{\"supported\":";
+  out += full && job.chamber_light_supported ? "true" : "false";
+  out += ",\"available\":"; out += printer_light_available(p) ? "true" : "false";
+  out += "},\"print.pause\":{\"supported\":false,\"available\":false},"
+         "\"print.resume\":{\"supported\":false,\"available\":false},"
+         "\"print.stop\":{\"supported\":false,\"available\":false},"
+         "\"speed.set\":{\"supported\":false,\"available\":false},"
+         "\"camera.view\":{\"supported\":false,\"available\":false}}";
+  out += ",\"light\":{\"supported\":";
+  out += full && job.chamber_light_supported ? "true" : "false";
+  out += ",\"on\":"; out += full && online && job.chamber_light_supported ? (job.chamber_light_on ? "true" : "false") : "null";
+  out += ",\"pending\":"; out += full && job.chamber_light_pending ? "true" : "false";
+  out += ",\"target_on\":"; out += full && job.chamber_light_pending ? (job.chamber_light_target_on ? "true" : "false") : "null";
+  out += "},\"job\":";
+  if (!online || job.phase == JobPhase::unknown) out += "null";
+  else {
+    out += "{\"phase\":"; append_json_string(out, phase_id(job.phase));
+    out += ",\"condition\":";
+    const char* condition = "unknown";
+    switch (job.condition) {
+      case PrinterCondition::normal: condition = "normal"; break;
+      case PrinterCondition::ready: condition = "ready"; break;
+      case PrinterCondition::busy: condition = "busy"; break;
+      case PrinterCondition::attention: condition = "attention"; break;
+      case PrinterCondition::error: condition = "error"; break;
+      case PrinterCondition::unknown: break;
+    }
+    append_json_string(out, condition);
+    out += ",\"progress\":";
+    append_nullable_float(out, has_job && job.completion_known, std::clamp(job.completion, 0.0F, 100.0F));
+    out += ",\"name\":";
+    if (has_job && !job.name.empty()) web_detail::string(out, job.name, 192); else out += "null";
+    out += ",\"elapsed_seconds\":" + (has_job && job.elapsed_known ? std::to_string(job.elapsed_seconds) : "null");
+    out += ",\"remaining_seconds\":" + (has_job && job.remaining_known ? std::to_string(job.remaining_seconds) : "null");
+    out += ",\"current_layer\":" + (has_job && job.current_layer > 0 ? std::to_string(job.current_layer) : "null");
+    out += ",\"total_layers\":" + (has_job && job.total_layers > 0 ? std::to_string(job.total_layers) : "null");
+    out += ",\"estimated_finish_unix\":";
+    const auto updated = p.snapshot.updated_at_ms;
+    const auto age_s = now_ms >= updated ? (now_ms - updated) / 1000 : 0;
+    if (!p.stale && (job.phase == JobPhase::printing || job.phase == JobPhase::preparing) &&
+        job.remaining_known && updated > 0 && now_ms >= updated && now_unix >= 1'577'836'800 && age_s <= job.remaining_seconds)
+      out += std::to_string(now_unix + job.remaining_seconds - static_cast<std::int64_t>(age_s));
+    else out += "null";
+    if (driver.resin) {
+      out += ",\"resin_stage\":"; append_json_string(out, resin_stage_id(job.resin_stage));
+      const bool countdown = !p.stale &&
+          (job.phase == JobPhase::printing || job.phase == JobPhase::preparing) &&
+          (job.resin_stage == ResinStage::exposing || job.resin_stage == ResinStage::exposure_test) &&
+          job.resin_exposure && resin_exposure_countdown_visible(*job.resin_exposure, updated, now_ms);
+      out += ",\"exposure_remaining_ms\":";
+      out += countdown ? std::to_string(resin_exposure_remaining_tenths(*job.resin_exposure, now_ms) * 100) : "null";
+      out += ",\"exposure_valid_for_ms\":" + std::to_string(countdown ?
+          (job.resin_exposure->retain_until_stage_change ? 2500 : 2500 - (now_ms - updated)) : 0);
+    }
+    out += ",\"details\":"; out += full ? printer_web_details_json(job, driver.resin) : "null";
+    out += ",\"preview\":{\"model\":";
+    if (!media.model.empty()) web_detail::string(out, media.model); else out += "null";
+    out += ",\"layer\":";
+    if (!media.layer.empty()) web_detail::string(out, media.layer); else out += "null";
+    out += ",\"layer_valid_for_ms\":" + std::to_string(media.layer_valid_for_ms) + "}}";
+  }
+  out += ",\"materials\":" + unified_api_materials_json(p);
+  out += '}';
+  return out;
+}
+
+std::string printer_states_json(std::span<const UnifiedPrinterView> printers,
+                               std::uint64_t now_ms, std::int64_t now_unix) {
+  std::string out = "{\"schema_version\":1,\"printers\":[";
+  bool first = true;
+  for (const auto& printer : printers) {
+    if (!first) out += ',';
+    first = false;
+    out += printer_state_json(printer, now_ms, now_unix);
+  }
+  return out + "]}";
 }
 
 }  // namespace printdeck::core

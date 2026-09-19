@@ -12,10 +12,11 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
-#include "printdeck/core/printer_web_details.hpp"
+#include "printdeck/core/printer_command.hpp"
 #include "printdeck/core/printer_event_delta.hpp"
 #include "printdeck/core/printer_order.hpp"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/task.h"
 #include "lwip/sockets.h"
 #include <cerrno>
@@ -91,28 +92,6 @@ esp_err_t send_gzip_asset(httpd_req_t* request,
   httpd_resp_set_hdr(request, "Content-Encoding", "gzip");
   httpd_resp_set_hdr(request, "Cache-Control", "no-store");
   return httpd_resp_send(request, asset.data(), asset.size());
-}
-
-const char* resin_stage_id(core::ResinStage stage) {
-  switch (stage) {
-    case core::ResinStage::unknown: return "unknown";
-    case core::ResinStage::standby: return "standby";
-    case core::ResinStage::homing: return "homing";
-    case core::ResinStage::lowering: return "lowering";
-    case core::ResinStage::exposing: return "exposing";
-    case core::ResinStage::lifting: return "lifting";
-    case core::ResinStage::pausing: return "pausing";
-    case core::ResinStage::paused: return "paused";
-    case core::ResinStage::stopping: return "stopping";
-    case core::ResinStage::stopped: return "stopped";
-    case core::ResinStage::completed: return "completed";
-    case core::ResinStage::checking_file: return "checking_file";
-    case core::ResinStage::transferring_file: return "transferring_file";
-    case core::ResinStage::exposure_test: return "exposure_test";
-    case core::ResinStage::device_test: return "device_test";
-    case core::ResinStage::finishing: return "finishing";
-  }
-  return "unknown";
 }
 
 const char* job_phase_id(core::JobPhase phase) {
@@ -332,6 +311,20 @@ bool receive_form(httpd_req_t* request, std::string& body) {
     if (count == HTTPD_SOCK_ERR_TIMEOUT) continue;
     if (count <= 0) return false;
     received += static_cast<std::size_t>(count);
+  }
+  return true;
+}
+
+// A stalled command upload must release the shared HTTP worker after one
+// socket timeout. State/HA requests remain usable without an unbounded retry.
+bool receive_command(httpd_req_t* request, std::string& body) {
+  if (request->content_len <= 0 || request->content_len > 256) return false;
+  body.resize(request->content_len);
+  std::size_t received = 0;
+  while (received < body.size()) {
+    const int count = httpd_req_recv(request, body.data() + received, body.size() - received);
+    if (count <= 0) return false;
+    received += count;
   }
   return true;
 }
@@ -588,7 +581,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 86;
+  constexpr unsigned route_capacity = 89;
   preview_session_ = esp_random();
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
@@ -622,6 +615,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/printers", .method = HTTP_GET, .handler = printers_get_entry, .user_ctx = this},
       {.uri = "/api/printers/events", .method = HTTP_GET, .handler = printer_events_entry, .user_ctx = this},
       {.uri = "/api/printers/manage", .method = HTTP_POST, .handler = printers_manage_entry, .user_ctx = this},
+      {.uri = "/api/printers/commands", .method = HTTP_POST, .handler = printer_command_entry, .user_ctx = this},
       {.uri = "/api/printers/light", .method = HTTP_POST, .handler = printer_light_entry, .user_ctx = this},
       {.uri = "/api/printers/discover", .method = HTTP_POST, .handler = printer_discovery_start_entry, .user_ctx = this},
       {.uri = "/api/printers/discover", .method = HTTP_GET, .handler = printer_discovery_status_entry, .user_ctx = this},
@@ -636,6 +630,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/factory-reset", .method = HTTP_POST, .handler = factory_reset_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_GET, .handler = settings_get_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_POST, .handler = settings_post_entry, .user_ctx = this},
+      {.uri = "/api/printer-control", .method = HTTP_POST, .handler = printer_control_settings_entry, .user_ctx = this},
 #if defined(PRINTDECK_LOCAL_VOICE)
       {.uri = "/api/voice", .method = HTTP_GET, .handler = voice_settings_entry, .user_ctx = this},
       {.uri = "/api/voice", .method = HTTP_POST, .handler = voice_settings_entry, .user_ctx = this},
@@ -678,6 +673,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/bambu/compatibility/report", .method = HTTP_GET, .handler = compatibility_report_entry, .user_ctx = this},
       {.uri = "/api/bambu/compatibility/cancel", .method = HTTP_POST, .handler = compatibility_cancel_entry, .user_ctx = this},
       {.uri = "/v1/info", .method = HTTP_GET, .handler = unified_api_info_entry, .user_ctx = this},
+      {.uri = "/v1/state", .method = HTTP_GET, .handler = unified_api_state_entry, .user_ctx = this},
       {.uri = "/v1/snapshot", .method = HTTP_GET, .handler = unified_api_snapshot_entry, .user_ctx = this},
       {.uri = "/v1/printers", .method = HTTP_GET, .handler = unified_api_printers_entry, .user_ctx = this},
       {.uri = "/v1/printers/status", .method = HTTP_GET, .handler = unified_api_statuses_entry, .user_ctx = this},
@@ -723,6 +719,7 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
   publish_image(selected_model_preview_, snapshot.job.preview);
   publish_image(selected_layer_preview_, snapshot.job.exposure_preview);
   layer_preview_until_ms_ = snapshot.job.exposure_preview_until_ms;
+  if (snapshot.profile_id != selected_status_profile_) light_command_pending_until_ms_ = 0;
   selected_status_profile_ = snapshot.profile_id;
   selected_printer_model_.assign(detected_model.substr(0, 48));
   selected_link_ = snapshot.link;
@@ -741,12 +738,27 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
   selected_job_.current_layer = snapshot.job.current_layer;
   selected_job_.total_layers = snapshot.job.total_layers;
   selected_job_.updated_at_ms = snapshot.updated_at_ms;
-  const auto profile = std::find_if(settings_.profiles.begin(), settings_.profiles.end(),
-      [&](const auto& item) { return item.id == snapshot.profile_id; });
-  selected_details_json_ = snapshot.link == core::LinkState::online && profile != settings_.profiles.end()
-      ? core::printer_web_details_json(snapshot.job, core::printer_driver(profile->protocol).resin) : "null";
+  if (!selected_telemetry_) selected_telemetry_ = std::make_unique<core::PrinterSnapshot>();
+  *selected_telemetry_ = snapshot;
+  // Image bytes remain solely in the existing media cache. State consumers
+  // share one normalized observation without retaining camera/preview buffers.
+  selected_telemetry_->job.preview.reset();
+  selected_telemetry_->job.camera_frame.reset();
+  selected_telemetry_->job.exposure_preview.reset();
+  selected_telemetry_->job.preview_hint.clear();
+  selected_telemetry_->job.preview_plate_hint.clear();
+  selected_telemetry_->job.camera_detail.clear();
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  const bool waiting = light_command_pending_until_ms_ > now &&
+      snapshot.link == core::LinkState::online && snapshot.job.chamber_light_supported &&
+      snapshot.job.chamber_light_on != selected_light_.target_on;
+  const auto previous_light = selected_light_;
   selected_light_ = {snapshot.job.chamber_light_supported, snapshot.job.chamber_light_on,
-                     snapshot.job.chamber_light_pending, snapshot.job.chamber_light_target_on};
+                     waiting || snapshot.job.chamber_light_pending,
+                     waiting ? selected_light_.target_on : snapshot.job.chamber_light_target_on};
+  if (!waiting) light_command_pending_until_ms_ = 0;
+  if (previous_light.on != selected_light_.on || previous_light.pending != selected_light_.pending)
+    printer_stream_urgent_revision_.fetch_add(1, std::memory_order_relaxed);
 }
 
 void WebConfig::update_power_status(const PowerSnapshot& snapshot) {
@@ -1250,6 +1262,28 @@ esp_err_t WebConfig::settings_get_entry(httpd_req_t* request) {
 
 esp_err_t WebConfig::settings_post_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->save_settings(request);
+}
+
+esp_err_t WebConfig::printer_control_settings_entry(httpd_req_t* request) {
+  auto* self = static_cast<WebConfig*>(request->user_ctx);
+  std::string body, enabled;
+  if (request->content_len > 32 || !receive_command(request, body) ||
+      !form_value(body, "enabled", enabled) || (enabled != "0" && enabled != "1"))
+    return send_json(request, "400 Bad Request", "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  const std::lock_guard<std::mutex> write_lock(self->settings_write_mutex_);
+  core::DeviceSettings candidate;
+  { const std::lock_guard<std::mutex> lock(self->mutex_); candidate = self->settings_; }
+  const bool changed = candidate.printer_control_enabled != (enabled == "1");
+  candidate.printer_control_enabled = enabled == "1";
+  if (changed) {
+    if (self->store_->save(candidate) != ESP_OK)
+      return send_json(request, "500 Internal Server Error", "{\"error\":\"PrintDeck could not save settings. Please try again.\"}");
+    { const std::lock_guard<std::mutex> lock(self->mutex_); self->settings_ = candidate; }
+    self->notify_settings_changed(candidate, true);
+    self->printer_stream_urgent_revision_.fetch_add(1, std::memory_order_relaxed);
+  }
+  return send_json(request, "200 OK", candidate.printer_control_enabled ?
+      "{\"printer_control_enabled\":true}" : "{\"printer_control_enabled\":false}");
 }
 
 esp_err_t WebConfig::voice_settings_entry(httpd_req_t* request) {
@@ -1890,6 +1924,8 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   body += ",\"camera_snapshot_fps\":" + std::to_string(current.camera_snapshot_fps);
   body += ",\"voice_available\":";
   body += kBoardHasLocalVoice ? "true" : "false";
+  body += ",\"printer_control_enabled\":";
+  body += current.printer_control_enabled ? "true" : "false";
   body += ",\"voice_enabled\":";
   body += kBoardHasLocalVoice && current.voice_enabled ? "true" : "false";
   body += ",\"voice_ready\":";
@@ -2211,6 +2247,8 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   body += current.reaction_progress_percent_enabled ? "true" : "false";
   body += ",\"voice_available\":";
   body += kBoardHasLocalVoice ? "true" : "false";
+  body += ",\"printer_control_enabled\":";
+  body += current.printer_control_enabled ? "true" : "false";
   body += ",\"voice_enabled\":";
   body += kBoardHasLocalVoice && current.voice_enabled ? "true" : "false";
   body += ",\"voice_ready\":";
@@ -2429,7 +2467,7 @@ bool WebConfig::authorize_unified_api(httpd_req_t* request) const {
   return true;
 }
 
-std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint32_t profile_id, bool metadata_only) const {
+std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint32_t profile_id, bool metadata_only, bool request_activity) const {
   // UnifiedPrinterView contains a complete normalized snapshot and is large.
   // Keep every copy in the request-owned vector (PSRAM for allocations above
   // the configured threshold) instead of placing snapshots on the 4 KiB HTTP
@@ -2438,16 +2476,21 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint
   std::uint32_t selected_profile = 0;
   std::uint32_t poll_interval_s = 60;
   std::vector<std::uint32_t> configured_ids;
-  SelectedPrinterSnapshotCallback snapshot_callback = nullptr;
-  void* snapshot_context = nullptr;
+  std::unique_ptr<core::PrinterSnapshot> selected_snapshot;
+  bool selected_snapshot_available = false;
   UnifiedApiActivityCallback activity_callback = nullptr;
   void* activity_context = nullptr;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     selected_profile = settings_.selected_profile;
     poll_interval_s = settings_.inactive_printer_poll_interval_s;
-    snapshot_callback = selected_printer_snapshot_callback_;
-    snapshot_context = selected_printer_snapshot_context_;
+    if (!metadata_only && selected_telemetry_ && selected_profile != 0 &&
+        (!profile_id || profile_id == selected_profile) && selected_telemetry_->profile_id == selected_profile) {
+      selected_snapshot = std::make_unique<core::PrinterSnapshot>(*selected_telemetry_);
+      selected_snapshot->job.chamber_light_pending = selected_light_.pending;
+      selected_snapshot->job.chamber_light_target_on = selected_light_.target_on;
+      selected_snapshot_available = true;
+    }
     activity_callback = unified_api_activity_callback_;
     activity_context = unified_api_activity_context_;
     views.reserve(profile_id ? 1 : settings_.profiles.size());
@@ -2461,25 +2504,19 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint
       view.display_name = profile.display_name;
       view.endpoint = profile.endpoint;
       view.manufacturer = profile.manufacturer;
-      view.model = profile.model;
+      view.model = profile.id == selected_status_profile_ && !selected_printer_model_.empty()
+          ? selected_printer_model_ : profile.model;
+      if (view.model.empty() && profile.protocol == core::PrinterProtocol::bambu_lan) {
+        const auto inferred = bambu_model_from_serial(profile.serial);
+        if (inferred != BambuPrinterModel::unknown) view.model = bambu_model_name(inferred);
+      }
+      view.brand = profile.brand;
       view.selected = profile.id == selected_profile;
+      view.printer_control_enabled = settings_.printer_control_enabled;
     }
   }
   if (metadata_only) return views;
-  if (activity_callback != nullptr) activity_callback(activity_context);
-  std::unique_ptr<core::PrinterSnapshot> selected_snapshot;
-  bool selected_snapshot_available = false;
-  if (selected_profile != 0 && (!profile_id || profile_id == selected_profile) && snapshot_callback != nullptr) {
-    selected_snapshot = std::make_unique<core::PrinterSnapshot>();
-    selected_snapshot_available = snapshot_callback(snapshot_context, *selected_snapshot) &&
-        selected_snapshot->profile_id == selected_profile;
-    selected_snapshot->job.preview.reset();
-    selected_snapshot->job.camera_frame.reset();
-    selected_snapshot->job.exposure_preview.reset();
-    selected_snapshot->job.preview_hint.clear();
-    selected_snapshot->job.preview_plate_hint.clear();
-    selected_snapshot->job.camera_detail.clear();
-  }
+  if (request_activity && activity_callback != nullptr) activity_callback(activity_context);
   const InactivePrinterSnapshot inactive = inactive_printer_poller_ != nullptr
       ? inactive_printer_poller_->snapshot() : InactivePrinterSnapshot{};
   const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
@@ -2525,6 +2562,8 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint
         view.snapshot.job.current_layer = status->current_layer;
         view.snapshot.job.total_layers = status->total_layers;
         view.snapshot.job.condition = status->condition;
+        view.snapshot.job.resin_stage = status->resin_stage;
+        view.snapshot.job.resin_exposure = status->resin_exposure;
         view.reachability = !status->available ? core::PrinterReachability::unknown
             : status->connected ? core::PrinterReachability::online
                                 : core::PrinterReachability::offline;
@@ -2720,6 +2759,14 @@ esp_err_t WebConfig::mqtt_request(httpd_req_t* request) {
   append_json_string(body,"printdeck/"+network_->status().device_id+"/v1");
   body+='}';
   return send_json(request,"200 OK",body.c_str());
+}
+
+esp_err_t WebConfig::unified_api_state_entry(httpd_req_t* request) {
+  const auto* self = static_cast<WebConfig*>(request->user_ctx);
+  if (!self->authorize_unified_api(request)) return ESP_OK;
+  const auto views = self->unified_printer_views();
+  const auto body = core::printer_states_json(views, esp_timer_get_time() / 1000, std::time(nullptr));
+  return send_json(request, "200 OK", body.c_str());
 }
 
 esp_err_t WebConfig::serve_unified_api_snapshot(httpd_req_t* request) const {
@@ -4002,196 +4049,49 @@ esp_err_t WebConfig::serve_printers(httpd_req_t* request) const {
 }
 
 std::string WebConfig::printer_state_json(bool controls, bool preview) const {
-  core::DeviceSettings current;
-  std::uint32_t selected_status_profile = 0;
-  std::string selected_model;
-  core::LinkState selected_link = core::LinkState::stopped;
-  core::JobPhase selected_phase = core::JobPhase::unknown;
-  float selected_completion = 0.0F;
-  bool selected_completion_known = false;
-  InactivePrinterStatus selected_job;
-  std::string selected_details;
-  std::string model_version, layer_version;
-  std::uint64_t layer_until_ms = 0;
-  PrinterLightState light;
   UnifiedApiActivityCallback activity = nullptr;
   void* context = nullptr;
-  {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    current = settings_;
-    selected_status_profile = selected_status_profile_;
-    selected_model = selected_printer_model_;
-    selected_link = selected_link_;
-    selected_phase = selected_phase_;
-    selected_completion = selected_completion_;
-    selected_completion_known = selected_completion_known_;
-    selected_job = selected_job_;
-    selected_details = selected_details_json_;
-    model_version = selected_model_preview_.version;
-    layer_version = selected_layer_preview_.version;
-    layer_until_ms = layer_preview_until_ms_;
-    light = selected_light_;
-    activity = printer_controls_activity_callback_;
-    context = printer_controls_context_;
-  }
-  if (preview)
-    printer_preview_active_until_ms_.store(esp_timer_get_time() / 1000 + 6000, std::memory_order_release);
-  if (controls && activity != nullptr) activity(context);
-  const InactivePrinterSnapshot inactive = inactive_printer_poller_ != nullptr
-      ? inactive_printer_poller_->snapshot() : InactivePrinterSnapshot{};
-  std::string body = "{\"printers\":[";
+  { const std::lock_guard<std::mutex> lock(mutex_);
+    activity = printer_controls_activity_callback_; context = printer_controls_context_; }
+  if (controls && activity) activity(context);
   const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  if (preview) printer_preview_active_until_ms_.store(now_ms + 6000, std::memory_order_release);
+  const auto views = unified_printer_views(0, false, false);
   const auto now_unix = static_cast<std::int64_t>(std::time(nullptr));
+  std::string body = "{\"schema_version\":1,\"printers\":[";
   bool first = true;
-  for (const auto& profile : current.profiles) {
-    if (!first) body.push_back(',');
+  for (const auto& view : views) {
+    core::PrinterStateMedia media;
+    std::string local = "{\"http_auth_mode\":";
+    {
+      const std::lock_guard<std::mutex> lock(mutex_);
+      const auto profile = std::find_if(settings_.profiles.begin(), settings_.profiles.end(),
+          [&](const auto& item) { return item.id == view.id; });
+      if (profile == settings_.profiles.end()) continue;
+      append_json_string(local, profile->http_auth_mode == core::HttpAuthMode::digest ? "digest" : "api_key");
+      local += ",\"http_username\":"; append_json_string(local, profile->http_username);
+      local += ",\"serial\":"; append_json_string(local, profile->serial); local += '}';
+      if (view.selected && view.id == selected_status_profile_ &&
+          view.reachability == core::PrinterReachability::online) {
+        const auto image = [&](const char* kind, const std::string& version) {
+          return version.empty() ? std::string{} : "/api/printers/preview?id=" + std::to_string(view.id) +
+              "&kind=" + kind + "&v=" + version;
+        };
+        media.model = image("model", selected_model_preview_.version);
+        if (core::printer_driver(view.protocol).resin) {
+          media.layer = image("layer", selected_layer_preview_.version);
+          media.layer_valid_for_ms = layer_preview_until_ms_ > now_ms ? layer_preview_until_ms_ - now_ms : 0;
+        }
+      }
+    }
+    if (!first) body += ',';
     first = false;
-    body += "{\"id\":" + std::to_string(profile.id) + ",\"selected\":";
-    body += profile.id == current.selected_profile ? "true" : "false";
-    core::PrinterReachability reachability = core::PrinterReachability::unknown;
-    core::JobPhase phase = core::JobPhase::unknown;
-    float completion = 0.0F;
-    bool completion_known = false;
-    InactivePrinterStatus job;
-    if (profile.id == current.selected_profile && profile.id == selected_status_profile) {
-      if (selected_link == core::LinkState::online) {
-        reachability = core::PrinterReachability::online;
-        job = selected_job;
-        phase = selected_phase;
-        completion = selected_completion;
-        completion_known = selected_completion_known;
-      } else if (selected_link == core::LinkState::failed) {
-        reachability = core::PrinterReachability::offline;
-      }
-    } else if (profile.id != current.selected_profile) {
-      const auto status = std::find_if(
-          inactive.printers.begin(), inactive.printers.end(),
-          [&profile](const InactivePrinterStatus& value) {
-            return value.profile_id == profile.id && value.available;
-          });
-      if (status != inactive.printers.end()) {
-        reachability = status->connected ? core::PrinterReachability::online
-                                         : core::PrinterReachability::offline;
-        job = *status;
-        phase = status->phase;
-        completion = status->completion;
-        completion_known = status->completion_known;
-      }
-    }
-    body += ",\"reachability\":\"";
-    body += reachability == core::PrinterReachability::online ? "online"
-          : reachability == core::PrinterReachability::offline ? "offline" : "unknown";
-    body += "\"";
-    // Reuse the selected snapshot or the existing bounded inactive poll. No extra printer I/O.
-    body += ",\"job\":";
-    if (reachability == core::PrinterReachability::online && phase != core::JobPhase::unknown) {
-      body += "{\"phase\":\"";
-      body += job_phase_id(phase);
-      body += "\",\"progress\":";
-      if (phase != core::JobPhase::idle && completion_known && std::isfinite(completion)) {
-        body += std::to_string(static_cast<int>(std::clamp(completion, 0.0F, 100.0F) + 0.5F));
-      } else {
-        body += "null";
-      }
-      body += ",\"details\":";
-      body += profile.id == current.selected_profile && profile.id == selected_status_profile ? selected_details : "null";
-      const bool has_job = phase != core::JobPhase::idle;
-      body += ",\"preview\":{\"model\":";
-      const bool selected_image = profile.id == current.selected_profile && profile.id == selected_status_profile;
-      const auto image_url = [&](const char* kind, const std::string& version) {
-        if (!selected_image || version.empty()) { body += "null"; return; }
-        append_json_string(body, "/api/printers/preview?id=" + std::to_string(profile.id) +
-            "&kind=" + kind + "&v=" + version);
-      };
-      image_url("model", model_version);
-      body += ",\"layer\":";
-      if (core::printer_driver(profile.protocol).resin) image_url("layer", layer_version);
-      else body += "null";
-      body += ",\"layer_valid_for_ms\":" + std::to_string(
-          selected_image && layer_until_ms > now_ms ? layer_until_ms - now_ms : 0) + "}";
-      body += ",\"condition\":";
-      append_json_string(body, job.condition == core::PrinterCondition::error ? "error" : "normal");
-      if (core::printer_driver(profile.protocol).resin) {
-        body += ",\"resin_stage\":";
-        append_json_string(body, resin_stage_id(job.resin_stage));
-        body += ",\"exposure_remaining_ms\":";
-        const bool countdown = (phase == core::JobPhase::printing || phase == core::JobPhase::preparing) &&
-            (job.resin_stage == core::ResinStage::exposing || job.resin_stage == core::ResinStage::exposure_test) &&
-            job.resin_exposure && core::resin_exposure_countdown_visible(
-                *job.resin_exposure, job.updated_at_ms, now_ms);
-        body += countdown ? std::to_string(core::resin_exposure_remaining_tenths(
-            *job.resin_exposure, now_ms) * 100) : "null";
-        body += ",\"exposure_valid_for_ms\":";
-        const auto valid_ms = countdown ? job.resin_exposure->retain_until_stage_change
-            ? 2500 : 2500 - (now_ms - job.updated_at_ms) : 0;
-        body += std::to_string(valid_ms);
-      }
-      body += ",\"name\":";
-      if (has_job && !job.job_name.empty()) append_json_string(body, job.job_name);
-      else body += "null";
-      body += ",\"elapsed_seconds\":";
-      body += has_job && job.elapsed_known ? std::to_string(job.elapsed_seconds) : "null";
-      body += ",\"remaining_seconds\":";
-      body += has_job && job.remaining_known ? std::to_string(job.remaining_seconds) : "null";
-      body += ",\"current_layer\":";
-      body += has_job && job.current_layer > 0 ? std::to_string(job.current_layer) : "null";
-      body += ",\"total_layers\":";
-      body += has_job && job.total_layers > 0 ? std::to_string(job.total_layers) : "null";
-      body += ",\"estimated_finish_unix\":";
-      // Anchor to the observation, so repeated HTTP reads do not move the estimate.
-      const auto age_s = now_ms >= job.updated_at_ms ? (now_ms - job.updated_at_ms) / 1000 : 0;
-      if ((phase == core::JobPhase::printing || phase == core::JobPhase::preparing) &&
-          job.remaining_known && job.updated_at_ms > 0 && now_unix >= 1'577'836'800 &&
-          age_s <= job.remaining_seconds) {
-        body += std::to_string(now_unix + job.remaining_seconds - static_cast<std::int64_t>(age_s));
-      } else body += "null";
-      body += "}";
-    } else {
-      body += "null";
-    }
-    body += ",\"protocol\":\"";
-    body += core::printer_driver(profile.protocol).id;
-    body += "\",\"technology\":\"";
-    body += core::printer_driver(profile.protocol).resin ? "resin" : "fdm";
-    body += "\",\"dashboard_available\":";
-    body += core::printer_driver(profile.protocol).dashboard ? "true" : "false";
-    body += ",\"name\":";
-    append_json_string(body, profile.display_name);
-    body += ",\"endpoint\":";
-    append_json_string(body, profile.endpoint);
-    body += ",\"http_auth_mode\":";
-    append_json_string(body, profile.http_auth_mode == core::HttpAuthMode::digest ? "digest" : "api_key");
-    body += ",\"http_username\":";
-    append_json_string(body, profile.http_username);
-    body += ",\"serial\":";
-    append_json_string(body, profile.serial);
-    body += ",\"manufacturer\":";
-    append_json_string(body, profile.manufacturer);
-    body += ",\"model\":";
-    std::string model = profile.id == current.selected_profile &&
-        profile.id == selected_status_profile && !selected_model.empty()
-        ? selected_model : profile.model;
-    if (model.empty() && profile.protocol == core::PrinterProtocol::bambu_lan) {
-      const BambuPrinterModel inferred = bambu_model_from_serial(profile.serial);
-      if (inferred != BambuPrinterModel::unknown) model = bambu_model_name(inferred);
-    }
-    append_json_string(body, model);
-    body += ",\"brand\":";
-    append_json_string(body, profile.brand);
-    if (profile.id == current.selected_profile && profile.id == selected_status_profile) {
-      body += ",\"light\":{\"supported\":";
-      body += light.supported ? "true" : "false";
-      body += ",\"on\":";
-      body += light.on ? "true" : "false";
-      body += ",\"pending\":";
-      body += light.pending ? "true" : "false";
-      body += ",\"target_on\":";
-      body += light.target_on ? "true}" : "false}";
-    }
-    body.push_back('}');
+    auto row = core::printer_state_json(view, now_ms, now_unix, media);
+    row.pop_back();
+    // Connection editing is local metadata, never part of the portable feed.
+    body += row + ",\"local\":" + local + '}';
   }
-  body += "]}";
-  return body;
+  return body + "]}";
 }
 
 esp_err_t WebConfig::printer_events_entry(httpd_req_t* request) {
@@ -4219,8 +4119,10 @@ esp_err_t WebConfig::open_printer_events(httpd_req_t* request) {
                 query_value(request, "preview", preview) && preview == "1"};
   if (!printer_stream_worker_running_) {
     printer_stream_worker_running_ = true;
-    if (xTaskCreatePinnedToCore(printer_events_task, "printer_events", 12288, this, 2,
-                                nullptr, kServiceCore) != pdPASS) {
+    // JSON publication uses no flash writes; keep its stack in PSRAM so a
+    // browser does not consume the internal RAM needed by Wi-Fi and TLS.
+    if (xTaskCreatePinnedToCoreWithCaps(printer_events_task, "printer_events", 12288, this, 2,
+                                nullptr, kServiceCore, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
       printer_stream_worker_running_ = false;
       send_json(asynchronous, "503 Service Unavailable", "{}");
       shutdown(socket, SHUT_RDWR);
@@ -4233,7 +4135,7 @@ esp_err_t WebConfig::open_printer_events(httpd_req_t* request) {
 
 void WebConfig::printer_events_task(void* context) {
   static_cast<WebConfig*>(context)->run_printer_events();
-  vTaskDelete(nullptr);
+  vTaskDeleteWithCaps(nullptr);
 }
 
 void WebConfig::run_printer_events() {
@@ -4907,26 +4809,56 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
   return response;
 }
 
-esp_err_t WebConfig::set_printer_light(httpd_req_t* request) {
+bool WebConfig::submit_printer_command(const core::PrinterCommand& command) {
+  const auto id = command.printer_id;
+  const auto enabled = command.light_on;
   const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+  const std::lock_guard<std::mutex> lock(mutex_);
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  if (id != settings_.selected_profile || id != selected_status_profile_ || !selected_telemetry_ ||
+      selected_link_ != core::LinkState::online || !selected_light_.supported ||
+      selected_telemetry_->updated_at_ms == 0 || now < selected_telemetry_->updated_at_ms ||
+      now - selected_telemetry_->updated_at_ms > kUnifiedApiSelectedStaleMs ||
+      printer_light_callback_ == nullptr) return false;
+  if (selected_light_.pending) return selected_light_.target_on == enabled;
+  if (selected_light_.on == enabled) return true;
+  if (!printer_light_callback_(printer_controls_context_, id, enabled)) return false;
+  selected_light_.pending = true;
+  selected_light_.target_on = enabled;
+  light_command_pending_until_ms_ = now + 10'000;
+  printer_stream_urgent_revision_.fetch_add(1, std::memory_order_relaxed);
+  return true;
+}
+
+esp_err_t WebConfig::printer_command_entry(httpd_req_t* request) {
+  auto* self = static_cast<WebConfig*>(request->user_ctx);
+  char content_type[64]{};
+  const bool json_content = httpd_req_get_hdr_value_str(request, "Content-Type", content_type, sizeof(content_type)) == ESP_OK &&
+      (std::strcmp(content_type, "application/json") == 0 || std::strncmp(content_type, "application/json;", 17) == 0);
+  std::string body;
+  core::PrinterCommand command;
+  if (!json_content || !receive_command(request, body) ||
+      !core::parse_printer_command(body, command))
+    return send_json(request, "400 Bad Request",
+        "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  if (!self->submit_printer_command(command))
+    return send_json(request, "409 Conflict",
+        "{\"error\":\"Printer light is unavailable. Wait for the printer to connect and try again.\"}");
+  return send_json(request, "202 Accepted", "{\"schema_version\":1,\"accepted\":true,\"status\":\"accepted\"}");
+}
+
+esp_err_t WebConfig::set_printer_light(httpd_req_t* request) {
+  // Compatibility adapter; both HTTP envelopes use the same execution gate.
   std::string body, id_text, enabled_text;
   std::uint32_t id = 0;
-  if (request->content_len > 64 || !receive_form(request, body) ||
+  if (request->content_len > 64 || !receive_command(request, body) ||
       !form_value(body, "id", id_text) || !parse_id(id_text, id) || id == 0 ||
-      !form_value(body, "enabled", enabled_text) || (enabled_text != "0" && enabled_text != "1")) {
+      !form_value(body, "enabled", enabled_text) || (enabled_text != "0" && enabled_text != "1"))
     return send_json(request, "400 Bad Request",
-                     "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
-  }
-  const std::lock_guard<std::mutex> lock(mutex_);
-  if (id != settings_.selected_profile || id != selected_status_profile_ ||
-      selected_link_ != core::LinkState::online || !selected_light_.supported ||
-      selected_light_.pending || printer_light_callback_ == nullptr ||
-      !printer_light_callback_(printer_controls_context_, id, enabled_text == "1")) {
+        "{\"error\":\"This action could not be understood. Refresh the page and try again.\"}");
+  if (!submit_printer_command({id, enabled_text == "1"}))
     return send_json(request, "409 Conflict",
-                     "{\"error\":\"Printer light is unavailable. Wait for the printer to connect and try again.\"}");
-  }
-  selected_light_.pending = true;
-  selected_light_.target_on = enabled_text == "1";
+        "{\"error\":\"Printer light is unavailable. Wait for the printer to connect and try again.\"}");
   return send_json(request, "202 Accepted", "{\"accepted\":true}");
 }
 

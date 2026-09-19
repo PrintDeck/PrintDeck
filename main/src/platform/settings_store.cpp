@@ -172,6 +172,12 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     if (result == ESP_OK && voice_enabled > 1) result = ESP_ERR_INVALID_ARG;
   }
   loaded.voice_enabled = voice_enabled == 1;
+  if (result == ESP_OK && schema >= 20) {
+    std::uint8_t control_enabled = 0;
+    result = read_optional_u8(handle, "printer_ctrl", control_enabled);
+    if (result == ESP_OK && control_enabled > 1) result = ESP_ERR_INVALID_ARG;
+    loaded.printer_control_enabled = control_enabled == 1;
+  }
   if (result == ESP_OK && schema >= 4) {
     result = read_text(handle, "audio_set", loaded.audio_preset);
   }
@@ -354,6 +360,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   write(nvs_set_u8(handle, "react_bar", settings.reaction_progress_bar_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "react_percent",
                    settings.reaction_progress_percent_enabled ? 1 : 0));
+  write(nvs_set_u8(handle, "printer_ctrl", settings.printer_control_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "voice_enabled", settings.voice_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "api_enabled", settings.unified_api_enabled ? 1 : 0));
   write(write_text(handle, "api_token", settings.unified_api_token));

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "printdeck/core/printer_command.hpp"
+
 #include <atomic>
 #include "printdeck/platform/cloud_pairing_service.hpp"
 #include <array>
@@ -109,7 +111,10 @@ class WebConfig {
   std::string unified_info_json() const;
   core::UnifiedDevicePower unified_power() const;
   std::vector<core::UnifiedPrinterView> unified_printer_views(
-      std::uint32_t profile_id = 0, bool metadata_only = false) const;
+      std::uint32_t profile_id = 0, bool metadata_only = false, bool request_activity = true) const;
+  // Queues work without printer I/O. HTTP parsing and future transports
+  // remain outside execution/selection/freshness checks.
+  bool submit_printer_command(const core::PrinterCommand& command);
   void set_mqtt_export(MqttExportService* service) { mqtt_export_ = service; }
 
  private:
@@ -144,6 +149,8 @@ class WebConfig {
   esp_err_t open_printer_events(httpd_req_t* request);
   std::string printer_state_json(bool controls, bool preview) const;
   static esp_err_t printers_manage_entry(httpd_req_t* request);
+  static esp_err_t unified_api_state_entry(httpd_req_t* request);
+  static esp_err_t printer_command_entry(httpd_req_t* request);
   static esp_err_t printer_light_entry(httpd_req_t* request);
   static esp_err_t printer_discovery_start_entry(httpd_req_t* request);
   static esp_err_t printer_discovery_status_entry(httpd_req_t* request);
@@ -156,6 +163,7 @@ class WebConfig {
   static esp_err_t factory_reset_entry(httpd_req_t* request);
   static esp_err_t settings_get_entry(httpd_req_t* request);
   static esp_err_t settings_post_entry(httpd_req_t* request);
+  static esp_err_t printer_control_settings_entry(httpd_req_t* request);
   static esp_err_t voice_settings_entry(httpd_req_t* request);
   static esp_err_t unified_api_settings_get_entry(httpd_req_t* request);
   static esp_err_t unified_api_settings_post_entry(httpd_req_t* request);
@@ -321,7 +329,7 @@ class WebConfig {
   float selected_completion_ = 0.0F;
   bool selected_completion_known_ = false;
   InactivePrinterStatus selected_job_;
-  std::string selected_details_json_ = "null";
+  std::unique_ptr<core::PrinterSnapshot> selected_telemetry_;
   struct PrinterPreviewImage {
     std::shared_ptr<std::vector<std::uint8_t>> bytes;
     std::string version;
@@ -340,6 +348,7 @@ class WebConfig {
     bool pending = false;
     bool target_on = false;
   } selected_light_;
+  std::uint64_t light_command_pending_until_ms_ = 0;
   UnifiedApiActivityCallback printer_controls_activity_callback_ = nullptr;
   PrinterLightCallback printer_light_callback_ = nullptr;
   void* printer_controls_context_ = nullptr;

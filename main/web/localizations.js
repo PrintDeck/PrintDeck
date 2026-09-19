@@ -1990,3 +1990,89 @@ Object.assign(window.PRINTDECK_TRANSLATIONS.en, {
 [
 ['Waiting for printer data…','Oczekiwanie na dane drukarki…','Esperando datos de la impresora…','En attente des données de l’imprimante…','Warten auf Druckerdaten…','正在等待打印机数据…']
 ].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+  [
+    "Allow printer control",
+    "Zezwalaj na sterowanie drukarką",
+    "Permitir controlar la impresora",
+    "Autoriser le contrôle de l’imprimante",
+    "Druckersteuerung erlauben",
+    "允许控制打印机"
+  ],
+  [
+    "Allow supported print and movement controls in Web Config. Printer light stays available.",
+    "Zezwalaj na obsługiwane polecenia druku i ruchu w Web Config. Lampka drukarki pozostaje dostępna.",
+    "Permite las órdenes de impresión y movimiento compatibles en Web Config. La luz de la impresora sigue disponible.",
+    "Autorisez les commandes d’impression et de mouvement prises en charge dans Web Config. L’éclairage reste disponible.",
+    "Erlaubt unterstützte Druck- und Bewegungsbefehle in Web Config. Die Druckerbeleuchtung bleibt verfügbar.",
+    "允许在 Web Config 中使用受支持的打印和移动控制。打印机照明始终可用。"
+  ],
+  [
+    "Printer control is off. Enable it in Settings → Device.",
+    "Sterowanie drukarką jest wyłączone. Włącz je w Ustawienia → Urządzenie.",
+    "El control de la impresora está desactivado. Actívalo en Ajustes → Dispositivo.",
+    "Le contrôle de l’imprimante est désactivé. Activez-le dans Paramètres → Appareil.",
+    "Die Druckersteuerung ist aus. Aktiviere sie unter Einstellungen → Gerät.",
+    "打印机控制已关闭。请在设置 → 设备中开启。"
+  ],
+  [
+    "Open Device settings",
+    "Otwórz ustawienia urządzenia",
+    "Abrir ajustes del dispositivo",
+    "Ouvrir les paramètres de l’appareil",
+    "Geräteeinstellungen öffnen",
+    "打开设备设置"
+  ],
+  [
+    "External spool",
+    "Szpula zewnętrzna",
+    "Bobina externa",
+    "Bobine externe",
+    "Externe Spule",
+    "外置料盘"
+  ],
+  [
+    "Empty",
+    "Puste",
+    "Vacío",
+    "Vide",
+    "Leer",
+    "空"
+  ],
+  [
+    "PrintDeck could not save settings. Please try again.",
+    "PrintDeck nie mógł zapisać ustawień. Spróbuj ponownie.",
+    "PrintDeck no pudo guardar los ajustes. Inténtalo de nuevo.",
+    "PrintDeck n’a pas pu enregistrer les paramètres. Réessayez.",
+    "PrintDeck konnte die Einstellungen nicht speichern. Bitte versuche es erneut.",
+    "PrintDeck 无法保存设置。请重试。"
+  ]
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[
+  [
+    "Printer options",
+    "Opcje drukarki",
+    "Opciones de impresora",
+    "Options de l’imprimante",
+    "Druckeroptionen",
+    "打印机选项"
+  ],
+  [
+    "Delete printer",
+    "Usuń drukarkę",
+    "Eliminar impresora",
+    "Supprimer l’imprimante",
+    "Drucker löschen",
+    "删除打印机"
+  ],
+  [
+    "Remove {printer} from this PrintDeck?",
+    "Usunąć drukarkę {printer} z tego PrintDeck?",
+    "¿Eliminar {printer} de este PrintDeck?",
+    "Supprimer {printer} de ce PrintDeck ?",
+    "{printer} von diesem PrintDeck entfernen?",
+    "要从此 PrintDeck 移除 {printer} 吗？"
+  ]
+].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));

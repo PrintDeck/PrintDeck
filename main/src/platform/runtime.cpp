@@ -993,6 +993,14 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   if (settings_.voice_enabled != settings.voice_enabled) voice_retry_after_ms_ = 0;
   if (!settings.voice_enabled) voice_.request_stop();
 #endif
+  if (printer_configuration_changed) {
+    // Invalidate the observed control state before clearing the queue. A
+    // command accepted for the previous connection must never follow an edit
+    // to another endpoint, even when the profile ID remains the same.
+    web_config_.update_selected_printer_status({});
+    pending_web_printer_light_.store(0, std::memory_order_release);
+    web_printer_light_profile_ = 0;
+  }
   settings_ = settings;
   const esp_err_t discovery_result = network_.set_home_assistant_mqtt(
       settings.mqtt.enabled && !settings.mqtt.discovery);
@@ -1693,7 +1701,9 @@ void Runtime::monitor_loop() {
       if (light_command != 0 && selected != nullptr && selected->id == light_profile &&
           selected_snapshot_ready && full_connection_active &&
           selected_snapshot.link == core::LinkState::online &&
-          selected_snapshot.job.chamber_light_supported) {
+          selected_snapshot.job.chamber_light_supported && selected_snapshot.updated_at_ms > 0 &&
+          light_now_ms >= selected_snapshot.updated_at_ms &&
+          light_now_ms - selected_snapshot.updated_at_ms <= 15'000) {
         const bool enabled = (light_command & 1U) != 0;
         const bool accepted = selected_is_bambu ? bambu_lan_.request_chamber_light(enabled)
             : selected_is_moonraker && moonraker_.request_chamber_light(enabled);

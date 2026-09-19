@@ -260,6 +260,7 @@ bool valid_device_name(std::string_view name) {
 
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
+  if (source_schema < 20) settings.printer_control_enabled = false;
   if (source_schema < 19) settings.printer_view = "list";
   if (source_schema < 18) {
     for (auto& profile : settings.profiles) profile.network_identity.clear();

@@ -352,7 +352,7 @@ void select_external_compatibility_slot(core::MaterialSystem& materials) {
 void merge_materials(const cJSON* print, core::MaterialSystem& materials) {
   const cJSON* ams = member(print, "ams");
   double active_value = -1;
-  if (cJSON_IsObject(ams)) read_number(ams, "tray_now", active_value);
+  const bool active_reported = cJSON_IsObject(ams) && read_number(ams, "tray_now", active_value);
   const int active = static_cast<int>(active_value);
   const cJSON* units = member(ams, "ams");
   if (cJSON_IsArray(units)) {
@@ -375,7 +375,10 @@ void merge_materials(const cJSON* print, core::MaterialSystem& materials) {
         const int tray_id = static_cast<int>(tray_value);
         if (tray_id < 0 || tray_id > 15 || next_slots.size() >= 64) continue;
         core::MaterialSlot slot = material_slot_from(tray, unit_id, tray_id);
-        slot.feeding = slot.installed && active_tray_matches(active, unit_id, tray_id);
+        const auto previous = std::find_if(materials.slots.begin(), materials.slots.end(),
+            [&](const auto& old) { return old.source_unit == unit_id && old.source_slot == tray_id; });
+        slot.feeding = slot.installed && (active_reported ? active_tray_matches(active, unit_id, tray_id)
+            : previous != materials.slots.end() && previous->feeding);
         next_slots.push_back(std::move(slot));
       }
     }
@@ -386,7 +389,7 @@ void merge_materials(const cJSON* print, core::MaterialSystem& materials) {
   const cJSON* external = member(print, "vt_tray");
   if (cJSON_IsObject(external)) {
     core::MaterialSlot slot = material_slot_from(external, 255, 0);
-    slot.feeding = slot.installed && active == 254;
+    slot.feeding = slot.installed && (active_reported ? active == 254 : materials.external_spool.feeding);
     materials.external_spools.assign(1, std::move(slot));
   } else if (cJSON_IsNull(external)) {
     materials.external_spools.clear();
@@ -416,6 +419,12 @@ void merge_materials(const cJSON* print, core::MaterialSystem& materials) {
     materials.external_spools = std::move(next_external);
   } else if (cJSON_IsNull(virtual_slots)) {
     materials.external_spools.clear();
+  }
+  if (active_reported) {
+    for (auto& slot : materials.slots)
+      slot.feeding = slot.installed && active_tray_matches(active, slot.source_unit, slot.source_slot);
+    for (auto& slot : materials.external_spools)
+      slot.feeding = slot.installed && active == 254;
   }
   select_external_compatibility_slot(materials);
 }
@@ -447,9 +456,16 @@ void apply_material_selections(const std::vector<MaterialSelection>& selections,
   }
   select_external_compatibility_slot(job.materials);
 
+ }
+
+void map_active_material(core::JobState& job) {
   for (std::size_t index = 0; index < job.toolhead_count; ++index) {
     auto& tool = job.toolheads[index];
     if (!tool.active) continue;
+    tool.material.clear();
+    tool.material_rgba = 0;
+    tool.filament_state_known = false;
+    tool.filament_detected = false;
     for (const auto& slot : job.materials.slots) {
       if (!slot.feeding) continue;
       tool.material = slot.material;
@@ -828,6 +844,7 @@ BambuReportParseResult parse_bambu_report(const char* payload, std::size_t lengt
       active_tool.target_c = next.job.temperatures.nozzle_target_c;
     }
   }
+  map_active_material(next.job);
   return result;
 }
 
