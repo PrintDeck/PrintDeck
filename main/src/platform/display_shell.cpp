@@ -3117,7 +3117,7 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
   }
   else if (screen_name == "resin-pause-resume" || screen_name == "resin-stop") {
     if (!selected_online_.load() || !selected_is_resin_.load() ||
-        horizontal_depth_count_.load() != 5) return ESP_ERR_INVALID_STATE;
+        !printer_control_enabled_.load() || horizontal_depth_count_.load() != 5) return ESP_ERR_INVALID_STATE;
     target_depth = screen_name == "resin-stop" ? 4 : 3;
   }
   else if (screen_name == "resin-printer-status" || screen_name == "resin-print-details" ||
@@ -3259,7 +3259,16 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
   selected_is_resin_.store(resin);
   selected_is_tinymaker_.store(profile.protocol == core::PrinterProtocol::tinymaker);
   if (resin) {
-    const bool controls=profile.protocol==core::PrinterProtocol::uniformation_sdcp;
+    const bool controls=printer_control_enabled_.load() && profile.protocol==core::PrinterProtocol::uniformation_sdcp;
+    if (!controls && (horizontal_depth_.load() >= 3 || resin_control_overlay_ ||
+        (horizontal_transition_active_ && horizontal_transition_target_depth_ >= 3))) {
+      close_resin_confirmation();
+      cancel_horizontal_transition_locked();
+      horizontal_depth_.store(1);
+      printer_subpage_.store(printer_animations_enabled_ ? 1 : 0);
+      resin_control_pending_ = false;
+      view_ = -1;
+    }
     selected_camera_depth_.store(2);
     configure_camera_pages(profile.id,false);
     if(horizontal_depth_.load()==selected_camera_depth_.load()) {
@@ -3994,7 +4003,7 @@ bool DisplayShell::resin_control_click_allowed(lv_event_t* event) const {
     lv_point_t point{}; lv_indev_get_point(input, &point);
     if (std::abs(point.x - gesture_start_x_) > limit || std::abs(point.y - gesture_start_y_) > limit) return false;
   }
-  return lv_event_get_code(event) == LV_EVENT_SHORT_CLICKED && !content_hidden() &&
+  return printer_control_enabled_.load() && lv_event_get_code(event) == LV_EVENT_SHORT_CLICKED && !content_hidden() &&
       !suppress_update_click_ && !horizontal_transition_active_ &&
       std::abs(square_gesture_peak_dx_) <= limit && std::abs(square_gesture_peak_dy_) <= limit;
 }
@@ -7059,6 +7068,28 @@ void DisplayShell::set_brightness(int percent) {
   applied_brightness_ = clamped;
   if (screen_power_mode_ == 0) board_display_brightness_set(applied_brightness_);
   if (ready) board_display_unlock();
+}
+
+void DisplayShell::set_printer_control_enabled(bool enabled) {
+  if (printer_control_enabled_.exchange(enabled) == enabled) return;
+  const bool ready = display_ready_.load(std::memory_order_acquire);
+  if (!ready || board_display_lock(1000) != ESP_OK) return;
+  if (selected_is_resin_.load() && page_.load() == 0) {
+    if (!enabled) {
+      horizontal_depth_count_.store(3);
+      if (horizontal_depth_.load() >= 3 || resin_control_overlay_ ||
+          (horizontal_transition_active_ && horizontal_transition_target_depth_ >= 3)) {
+        cancel_horizontal_transition_locked();
+        close_resin_confirmation();
+        horizontal_depth_.store(1);
+        printer_subpage_.store(printer_animations_enabled_ ? 1 : 0);
+        resin_control_pending_ = false;
+      }
+    }
+    view_ = -1;
+  }
+  board_display_unlock();
+  if (page_refresh_requested_) page_refresh_requested_(page_refresh_context_);
 }
 
 void DisplayShell::set_printer_animations_enabled(bool enabled) {

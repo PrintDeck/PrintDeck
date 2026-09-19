@@ -151,6 +151,7 @@ void Runtime::start() {
   display_.set_language(settings_.language);
   display_.set_theme(settings_.theme, settings_.custom_theme);
   display_.set_printer_animations_enabled(settings_.printer_animations_enabled);
+  display_.set_printer_control_enabled(settings_.printer_control_enabled);
   display_.set_reaction_progress_visibility(
       settings_.reaction_progress_bar_enabled,
       settings_.reaction_progress_percent_enabled);
@@ -1028,6 +1029,7 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   display_.set_power_save_policy(settings.display_power);
   display_.set_theme(settings.theme, settings.custom_theme);
   display_.set_printer_animations_enabled(settings.printer_animations_enabled);
+  display_.set_printer_control_enabled(settings.printer_control_enabled);
   display_.set_reaction_progress_visibility(
       settings.reaction_progress_bar_enabled,
       settings.reaction_progress_percent_enabled);

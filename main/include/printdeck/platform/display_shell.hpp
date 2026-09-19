@@ -93,6 +93,7 @@ class DisplayShell {
   bool set_rotation(int degrees);
   void set_brightness(int percent);
   void set_printer_animations_enabled(bool enabled);
+  void set_printer_control_enabled(bool enabled);
   void set_reaction_progress_visibility(bool bar_enabled, bool percent_enabled);
   void set_reaction_asset_service(ReactionAssetService* service);
   void set_power_save_policy(const core::DisplayPowerPolicy& policy);
@@ -655,6 +656,7 @@ class DisplayShell {
   bool last_on_battery_ = false;
   int applied_brightness_ = 75;
   bool printer_animations_enabled_ = false;
+  std::atomic<bool> printer_control_enabled_{false};
   bool reaction_progress_bar_enabled_ = true;
   bool reaction_progress_percent_enabled_ = true;
   bool capture_animation_override_active_ = false;

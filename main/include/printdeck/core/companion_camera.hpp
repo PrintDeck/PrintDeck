@@ -14,6 +14,26 @@ struct CompanionCamera {
     return std::find(printers.begin(), printers.end(), printer) != printers.end();
   }
 };
+// Content revision for browser cache invalidation, stable across device restarts
+// and configuration restores. This is not an authentication or integrity hash.
+inline std::uint64_t companion_camera_revision(const std::vector<CompanionCamera>& cameras) {
+  std::uint64_t revision = 14695981039346656037ULL;
+  const auto byte = [&](std::uint8_t value) { revision = (revision ^ value) * 1099511628211ULL; };
+  const auto number = [&](std::uint32_t value) {
+    for (unsigned shift = 0; shift < 32; shift += 8) byte(static_cast<std::uint8_t>(value >> shift));
+  };
+  const auto text = [&](const std::string& value) {
+    number(static_cast<std::uint32_t>(value.size()));
+    for (unsigned char value_byte : value) byte(value_byte);
+  };
+  number(static_cast<std::uint32_t>(cameras.size()));
+  for (const auto& camera : cameras) {
+    text(camera.id); text(camera.name); text(camera.host);
+    number(static_cast<std::uint32_t>(camera.printers.size()));
+    for (auto printer : camera.printers) number(printer);
+  }
+  return revision;
+}
 inline bool valid_companion_camera(const CompanionCamera& camera) {
   if (camera.id.size() != 36 || camera.name.empty() || camera.name.size() > 64 ||
       camera.host.empty() || camera.host.size() > 253 || camera.printers.size() > 10) return false;

@@ -2001,20 +2001,20 @@ Object.assign(window.PRINTDECK_TRANSLATIONS.en, {
     "允许控制打印机"
   ],
   [
-    "Allow supported print and movement controls in Web Config. Printer light stays available.",
-    "Zezwalaj na obsługiwane polecenia druku i ruchu w Web Config. Lampka drukarki pozostaje dostępna.",
-    "Permite las órdenes de impresión y movimiento compatibles en Web Config. La luz de la impresora sigue disponible.",
-    "Autorisez les commandes d’impression et de mouvement prises en charge dans Web Config. L’éclairage reste disponible.",
-    "Erlaubt unterstützte Druck- und Bewegungsbefehle in Web Config. Die Druckerbeleuchtung bleibt verfügbar.",
-    "允许在 Web Config 中使用受支持的打印和移动控制。打印机照明始终可用。"
+    "Show supported printer controls on PrintDeck and in Web Config. Printer light stays available.",
+    "Pokazuj obsługiwane sterowanie drukarką na PrintDeck i w Web Config. Lampka drukarki pozostaje dostępna.",
+    "Muestra los controles de impresora compatibles en PrintDeck y Web Config. La luz de la impresora sigue disponible.",
+    "Affichez les commandes d’imprimante prises en charge sur PrintDeck et dans Web Config. L’éclairage reste disponible.",
+    "Zeigt unterstützte Druckersteuerungen auf PrintDeck und in Web Config an. Die Druckerbeleuchtung bleibt verfügbar.",
+    "在 PrintDeck 和 Web Config 中显示受支持的打印机控制。打印机照明始终可用。"
   ],
   [
-    "Printer control is off. Enable it in Settings → Device.",
-    "Sterowanie drukarką jest wyłączone. Włącz je w Ustawienia → Urządzenie.",
-    "El control de la impresora está desactivado. Actívalo en Ajustes → Dispositivo.",
-    "Le contrôle de l’imprimante est désactivé. Activez-le dans Paramètres → Appareil.",
-    "Die Druckersteuerung ist aus. Aktiviere sie unter Einstellungen → Gerät.",
-    "打印机控制已关闭。请在设置 → 设备中开启。"
+    "Printer control is off. Enable it in Settings → Printer Controls.",
+    "Sterowanie drukarką jest wyłączone. Włącz je w Ustawienia → Sterowanie drukarką.",
+    "El control de la impresora está desactivado. Actívalo en Ajustes → Controles de impresora.",
+    "Le contrôle de l’imprimante est désactivé. Activez-le dans Paramètres → Commandes de l’imprimante.",
+    "Die Druckersteuerung ist aus. Aktiviere sie unter Einstellungen → Druckersteuerung.",
+    "打印机控制已关闭。请在设置 → 打印机控制中开启。"
   ],
   [
     "Open Device settings",

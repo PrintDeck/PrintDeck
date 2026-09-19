@@ -1035,9 +1035,17 @@ esp_err_t WebConfig::cameras_request(httpd_req_t* request) {
   const auto scan=companion_service_->snapshot();
   core::DeviceSettings current;
   {const std::lock_guard<std::mutex> lock(mutex_);current=settings_;}
-  std::string json="{\"scanning\":"+std::string(scan.scanning?"true":"false")+",\"progress\":"+std::to_string(scan.progress)+",\"cameras\":[";
+  // The revision and saved assignments must describe the same settings snapshot,
+  // even before the camera worker has processed a restored configuration.
+  auto cameras = current.companion_cameras;
+  for (const auto& camera : scan.cameras) {
+    if (cameras.size() >= core::kMaximumCompanionCameras) break;
+    if (std::none_of(cameras.begin(), cameras.end(), [&](const auto& saved) { return saved.id == camera.id; }))
+      cameras.push_back(camera);
+  }
+  std::string json="{\"revision\":\""+std::to_string(core::companion_camera_revision(current.companion_cameras))+"\",\"scanning\":"+std::string(scan.scanning?"true":"false")+",\"progress\":"+std::to_string(scan.progress)+",\"cameras\":[";
   bool comma=false;
-  for(const auto& camera:scan.cameras) {
+  for(const auto& camera:cameras) {
     if(comma)json+=',';
     comma=true;
     const auto known=std::find_if(current.companion_cameras.begin(),current.companion_cameras.end(),[&](const auto& c){return c.id==camera.id;});
@@ -1910,6 +1918,8 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   body += ",\"setup_access_point\":";
   body += network.recovery_ap_active ? "true" : "false";
   body += ",\"configured_printers\":" + std::to_string(current.profiles.size());
+  body += ",\"camera_revision\":\"" +
+          std::to_string(core::companion_camera_revision(current.companion_cameras)) + "\"";
   body += ",\"theme\":";
   append_json_string(body, current.theme);
   body += ",\"brightness\":" + std::to_string(current.brightness_percent);
