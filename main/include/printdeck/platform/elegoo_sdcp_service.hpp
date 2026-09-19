@@ -26,8 +26,9 @@ class ElegooSdcpAdapter {
   void stop();
   void set_preview_requested(bool requested, bool exposure_visible = false) {
     preview_requested_ = requested; exposure_visible_ = exposure_visible;
-    if (!requested && !exposure_visible) previews_.clear();
+    if (!requested && !exposure_visible) previews_.hide();
   }
+  UniformationPreviewService& preview_service() { return previews_; }
   bool request_control(const core::ResinControlRequest& request);
   bool running() const { return running_.load(); }
   core::PrinterSnapshot snapshot() const { return snapshots_.read(); }

@@ -1,3 +1,4 @@
+#include "printdeck/platform/uniformation_preview_service.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/web_config.hpp"
 #include "printdeck/core/printer_address.hpp"
@@ -581,7 +582,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 89;
+  constexpr unsigned route_capacity = 90;
   preview_session_ = esp_random();
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
@@ -611,6 +612,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/wifi/scan", .method = HTTP_GET, .handler = wifi_scan_entry, .user_ctx = this},
       {.uri = "/api/wifi", .method = HTTP_POST, .handler = wifi_entry, .user_ctx = this},
       {.uri = "/api/printers", .method = HTTP_POST, .handler = printer_entry, .user_ctx = this},
+      {.uri = "/api/printers/volume", .method = HTTP_GET, .handler = printer_volume_entry, .user_ctx = this},
       {.uri = "/api/printers/preview", .method = HTTP_GET, .handler = printer_preview_entry, .user_ctx = this},
       {.uri = "/api/printers", .method = HTTP_GET, .handler = printers_get_entry, .user_ctx = this},
       {.uri = "/api/printers/events", .method = HTTP_GET, .handler = printer_events_entry, .user_ctx = this},
@@ -745,6 +747,7 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
   selected_telemetry_->job.preview.reset();
   selected_telemetry_->job.camera_frame.reset();
   selected_telemetry_->job.exposure_preview.reset();
+  selected_volume_task_ = snapshot.job.preview_hint;
   selected_telemetry_->job.preview_hint.clear();
   selected_telemetry_->job.preview_plate_hint.clear();
   selected_telemetry_->job.camera_detail.clear();
@@ -4019,6 +4022,57 @@ esp_err_t WebConfig::serve_wifi_scan(httpd_req_t* request) {
   httpd_resp_set_type(request, "application/json");
   httpd_resp_set_hdr(request, "Cache-Control", "no-store");
   return httpd_resp_send(request, body.data(), body.size());
+}
+
+esp_err_t WebConfig::printer_volume_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_printer_volume(request);
+}
+esp_err_t WebConfig::serve_printer_volume(httpd_req_t* request) {
+  std::string id_text, kind, generation_text, index_text, width_text, height_text;
+  std::uint32_t id = 0, generation = 0, index = 0, width = 0, height = 0;
+  if (httpd_req_get_url_query_len(request) > 160 ||
+      !query_value(request, "id", id_text) || !parse_id(id_text, id) || !id ||
+      !query_value(request, "kind", kind) || (kind != "meta" && kind != "layer"))
+    return send_json(request, "400 Bad Request", "{}");
+  const bool metadata = kind == "meta";
+  if (!metadata && (!query_value(request, "generation", generation_text) || !parse_id(generation_text, generation) ||
+      !query_value(request, "index", index_text) || !parse_id(index_text, index) ||
+      !query_value(request, "width", width_text) || !parse_id(width_text, width) ||
+      !query_value(request, "height", height_text) || !parse_id(height_text, height) ||
+      !generation || index > 65534 || !width || width > 1536 || !height || height > 1536 || width * height > 1048576))
+    return send_json(request, "400 Bad Request", "{}");
+  std::string task;
+  {
+    const std::lock_guard lock(mutex_);
+    const auto found = std::find_if(settings_.profiles.begin(), settings_.profiles.end(),
+        [&](const auto& p) { return p.id == settings_.selected_profile; });
+    const auto* profile = found == settings_.profiles.end() ? nullptr : &*found;
+    if (!volume_service_ || !profile || profile->id != id || profile->protocol != core::PrinterProtocol::uniformation_sdcp ||
+        selected_status_profile_ != id || selected_link_ != core::LinkState::online || !selected_telemetry_)
+      return send_json(request, "404 Not Found", "{}");
+    task = selected_volume_task_;
+  }
+  printer_preview_active_until_ms_.store(esp_timer_get_time() / 1000 + 6000, std::memory_order_release);
+  const auto result = volume_service_->volume(id, task, generation, metadata, index, width, height);
+  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+  httpd_resp_set_hdr(request, "X-Content-Type-Options", "nosniff");
+  if (result.status != 200) {
+    httpd_resp_set_hdr(request, "Retry-After", "1");
+    const auto* status = result.status == 202 ? "202 Accepted" : result.status == 409 ? "409 Conflict" :
+        result.status == 429 ? "429 Too Many Requests" : result.status == 422 ? "422 Unprocessable Content" : result.status == 400 ? "400 Bad Request" : "503 Service Unavailable";
+    return send_json(request, status, "{}");
+  }
+  if (metadata) {
+    const auto& h = result.header;
+    const auto body = "{\"cache_key\":\"" + result.cache_key + "\",\"generation\":" + std::to_string(result.generation) + ",\"layers\":" + std::to_string(h.layers) +
+        ",\"layer_mm\":" + std::to_string(h.layer_mm) + ",\"size_mm\":[" + std::to_string(h.size_mm[0]) + "," +
+        std::to_string(h.size_mm[1]) + "," + std::to_string(h.size_mm[2]) + "],\"max_pixels\":1048576,\"min_interval_ms\":750}";
+    return send_json(request, "200 OK", body.c_str());
+  }
+  if (!result.bytes) return send_json(request, "503 Service Unavailable", "{}");
+  httpd_resp_set_type(request, "application/octet-stream");
+  // The browser receives occupancy only: no printer URL, path or credentials.
+  return httpd_resp_send(request, reinterpret_cast<const char*>(result.bytes->data()), result.bytes->size());
 }
 
 esp_err_t WebConfig::serve_printer_preview(httpd_req_t* request) const {

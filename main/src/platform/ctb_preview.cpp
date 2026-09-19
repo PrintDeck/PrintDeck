@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cmath>
 #ifdef ESP_PLATFORM
 #include "mbedtls/aes.h"
 #include "mbedtls/sha256.h"
@@ -126,6 +127,8 @@ bool ctb_preview_header(const CtbRead& read, std::uint64_t size, CtbHeader& out)
   value.size = size; value.signature = sig; value.table = u32(settings.data() + 8);
   value.width = u32(settings.data() + 56); value.height = u32(settings.data() + 60);
   value.layers = u32(settings.data() + 64); value.seed = u32(settings.data() + 128);
+  for (unsigned i = 0; i < 3; ++i) { const auto bits = u32(settings.data() + 12 + 4*i); std::memcpy(&value.size_mm[i], &bits, 4); }
+  { const auto bits = u32(settings.data() + 36); std::memcpy(&value.layer_mm, &bits, 4); }
   value.model[0] = u32(settings.data() + 68); value.model[1] = u32(settings.data() + 72);
   if (!value.width || !value.height || value.width > 32768 || value.height > 32768 ||
       std::uint64_t(value.width) * value.height > 160000000 || !value.layers || value.layers > 65535 ||
@@ -170,7 +173,8 @@ std::vector<std::uint8_t> ctb_model_preview(const CtbRead& read, const CtbHeader
   return position == w * height && !cancelled() ? result : std::vector<std::uint8_t>{};
 }
 
-std::vector<std::uint8_t> ctb_layer_preview(const CtbRead& read, const CtbHeader& h, std::uint32_t index, const CtbCancel& cancelled) {
+static std::vector<std::uint8_t> layer_image(const CtbRead& read, const CtbHeader& h, std::uint32_t index,
+    const CtbCancel& cancelled, unsigned ow, unsigned oh, bool packed) {
   if (cancelled() || index >= h.layers) return {};
   std::array<std::uint8_t, 32> pointers{};
   const auto count = index + 1 < h.layers ? 32 : 16;
@@ -198,7 +202,7 @@ std::vector<std::uint8_t> ctb_layer_preview(const CtbRead& read, const CtbHeader
       bytes[i] ^= key >> (8 * (i % 4)); if (i % 4 == 3) key += step;
     }
   }
-  unsigned ow, oh; output_size(h.width, h.height, ow, oh); auto result = bitmap(ow, oh);
+  auto result = packed ? std::vector<std::uint8_t>((ow * oh + 7) / 8) : bitmap(ow, oh);
   const auto stride = (ow * 3 + 3) & ~3U;
   const auto pixels = h.width * h.height;
   std::uint32_t position = 0, runs = 0;
@@ -219,18 +223,35 @@ std::vector<std::uint8_t> ctb_layer_preview(const CtbRead& read, const CtbHeader
     if (!length || length > pixels - position) return {};
     const auto gray = code & 127; const auto value = gray ? (gray << 1) | 1 : 0;
     const auto end = position + length;
-    if (!value) { position = end; continue; }
+    if (!value || (packed && gray < 48)) { position = end; continue; }
     while (position < end) {
       const auto row = position / h.width, x = position % h.width;
       if ((row & 63) == 0 && cancelled()) return {};
       const auto row_end = std::min(end, (row + 1) * h.width);
       const auto first = x * ow / h.width, last = (row_end - row * h.width - 1) * ow / h.width;
-      auto* output = result.data() + 54 + row * oh / h.height * stride;
-      for (unsigned ox = first; ox <= last; ++ox)
-        for (unsigned c = 0; c < 3; ++c) output[ox * 3 + c] = std::max<unsigned>(output[ox * 3 + c], value);
+      const auto oy = row * oh / h.height;
+      if (packed) {
+        for (unsigned ox = first; ox <= last; ++ox) {
+          const auto bit = oy * ow + ox; result[bit / 8] |= 1U << (bit % 8);
+        }
+      } else {
+        auto* output = result.data() + 54 + oy * stride;
+        for (unsigned ox = first; ox <= last; ++ox)
+          for (unsigned c = 0; c < 3; ++c) output[ox * 3 + c] = std::max<unsigned>(output[ox * 3 + c], value);
+      }
       position = row_end;
     }
   }
   return position == pixels && !cancelled() ? result : std::vector<std::uint8_t>{};
+}
+std::vector<std::uint8_t> ctb_layer_preview(const CtbRead& read, const CtbHeader& h, std::uint32_t index, const CtbCancel& cancel) {
+  unsigned w, height; output_size(h.width, h.height, w, height);
+  return layer_image(read, h, index, cancel, w, height, false);
+}
+std::vector<std::uint8_t> ctb_layer_mask(const CtbRead& read, const CtbHeader& h, std::uint32_t index,
+    unsigned w, unsigned height, const CtbCancel& cancel) {
+  if (!w || !height || w > 1536 || height > 1536 || w * height > 1048576 ||
+      !h.width || !h.height || w > h.width || height > h.height) return {};
+  return layer_image(read, h, index, cancel, w, height, true);
 }
 }  // namespace printdeck::platform

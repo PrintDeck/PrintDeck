@@ -39,6 +39,7 @@ namespace printdeck::platform {
 
 class DisplayShell;
 class MqttExportService;
+class UniformationPreviewService;
 
 class WebConfig {
  public:
@@ -92,6 +93,7 @@ class WebConfig {
   esp_err_t save_audio(bool enabled, int volume_percent);
   esp_err_t save_audio_preset(std::string_view preset);
   esp_err_t save_camera_mode(bool live);
+  void set_volume_service(UniformationPreviewService* service) { volume_service_ = service; }
   void set_companion_service(CompanionCameraService* service) { companion_service_=service; }
   esp_err_t assign_camera(const core::CompanionCamera& camera, std::uint32_t printer);
   esp_err_t save_theme(const char* theme, bool& changed);
@@ -141,6 +143,8 @@ class WebConfig {
   static esp_err_t wifi_entry(httpd_req_t* request);
   static esp_err_t wifi_scan_entry(httpd_req_t* request);
   static esp_err_t printer_entry(httpd_req_t* request);
+  static esp_err_t printer_volume_entry(httpd_req_t* request);
+  esp_err_t serve_printer_volume(httpd_req_t* request);
   static esp_err_t printer_preview_entry(httpd_req_t* request);
   static esp_err_t printers_get_entry(httpd_req_t* request);
   static esp_err_t printer_events_entry(httpd_req_t* request);
@@ -322,6 +326,7 @@ class WebConfig {
   BambuCompatibilityProbe* compatibility_probe_ = nullptr;
   const InactivePrinterPoller* inactive_printer_poller_ = nullptr;
   DisplayShell* display_ = nullptr;
+  UniformationPreviewService* volume_service_ = nullptr;
   std::uint32_t selected_status_profile_ = 0;
   std::string selected_printer_model_;
   core::LinkState selected_link_ = core::LinkState::stopped;
@@ -335,6 +340,7 @@ class WebConfig {
     std::string version;
   };
   std::string selected_preview_key_;
+  std::string selected_volume_task_;
   PrinterPreviewImage selected_model_preview_, selected_layer_preview_;
   std::uint32_t preview_session_ = 0;
   std::uint64_t preview_revision_ = 0;

@@ -220,6 +220,7 @@ void Runtime::start() {
     ESP_LOGW(kLogTag, "Firmware update service is unavailable: %s",
              esp_err_to_name(update_result));
   }
+  web_config_.set_volume_service(&elegoo_sdcp_.preview_service());
   web_config_.set_settings_changed_callback(settings_changed_entry, this);
   web_config_.set_audio_test_callback(audio_test_entry, this);
   web_config_.set_configuration_backup_activity_callback(

@@ -7,6 +7,9 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_random.h"
+#include "mbedtls/sha256.h"
+#include <cmath>
 #include "freertos/idf_additions.h"
 #include <algorithm>
 #include <array>
@@ -16,6 +19,18 @@
 namespace printdeck::platform {
 namespace {
 std::uint64_t now_ms() { return esp_timer_get_time() / 1000; }
+// Stable across selection and PD restarts; never expose printer paths or endpoints.
+std::string volume_cache_key(std::uint32_t profile, const std::string& job,
+    const CtbHeader& header, const std::string& etag) {
+  const auto identity = "volume-mask-v1\n" + std::to_string(profile) + "\n" + job + "\n" +
+      std::to_string(header.size) + "\n" + std::to_string(header.signature) + "\n" + etag;
+  std::array<unsigned char, 32> digest{};
+  if (mbedtls_sha256(reinterpret_cast<const unsigned char*>(identity.data()), identity.size(), digest.data(), 0)) return {};
+  constexpr char hex[] = "0123456789abcdef";
+  std::string result; result.reserve(64);
+  for (const auto byte : digest) { result += hex[byte >> 4]; result += hex[byte & 15]; }
+  return result;
+}
 class RangeReader {
  public:
   RangeReader(std::string url, const CtbCancel& cancel) : url_(std::move(url)), cancel_(cancel), deadline_(now_ms() + 5000) {}
@@ -118,13 +133,22 @@ std::vector<std::uint8_t> history_preview(const std::string& origin, const std::
 esp_err_t UniformationPreviewService::start() {
   const std::lock_guard lock(mutex_);
   if (task_) return ESP_OK;
+  volume_generation_ = esp_random() | 1U;
   // Idle worker retains only its bounded PSRAM stack. No socket or image is
   // kept when this printer/view stops being selected.
   return xTaskCreatePinnedToCoreWithCaps(task_entry, "resin_preview", 12288, this, 2,
       &task_, kServiceCore, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }
+void UniformationPreviewService::hide() {
+  const std::lock_guard lock(mutex_);
+  request_.visible = false; model_.reset(); layer_.reset(); held_layer_.reset(); hold_until_ = 0;
+  volume_work_ = {}; volume_bytes_.reset();
+  if (task_) xTaskNotifyGive(task_);
+}
 void UniformationPreviewService::clear() {
   const std::lock_guard lock(mutex_);
+  if (!request_.key.empty()) ++volume_generation_;
+  volume_work_ = {}; volume_header_ = {}; volume_cache_key_.clear(); volume_bytes_.reset();
   request_ = {}; model_.reset(); layer_.reset(); result_key_.clear();
   held_layer_.reset(); hold_until_ = 0;
   if (task_) xTaskNotifyGive(task_);
@@ -133,13 +157,14 @@ void UniformationPreviewService::update(const std::string& address, std::uint16_
     std::optional<std::uint64_t> begin, core::PrinterSnapshot& state, bool model_needed, bool visible) {
   auto& job = state.job;
   Request request;
-  if (visible && state.link == core::LinkState::online && uniformation_valid_task_id(job.preview_hint) &&
+  if (state.link == core::LinkState::online && uniformation_valid_task_id(job.preview_hint) &&
       (job.phase == core::JobPhase::printing || job.phase == core::JobPhase::preparing || job.phase == core::JobPhase::paused)) {
+    request.profile = state.profile_id;
     request.address = address; request.port = port; request.task = job.preview_hint;
     request.path = begin ? path : ""; request.layer = job.current_layer; request.layers = job.total_layers;
     request.key = address + ":" + std::to_string(port) + "\n" + request.task + "\n" + request.path + "\n" +
         (begin ? std::to_string(*begin) : "") + "\n" + std::to_string(request.layers);
-    request.visible = true; request.model_needed = model_needed; request.status_at = state.updated_at_ms;
+    request.visible = visible; request.model_needed = model_needed; request.status_at = state.updated_at_ms;
     request.exposing = job.resin_stage == core::ResinStage::exposing && job.phase == core::JobPhase::printing;
     request.layer_needed = job.phase == core::JobPhase::printing && job.current_layer < job.total_layers &&
         (job.resin_stage == core::ResinStage::lowering || job.resin_stage == core::ResinStage::exposing);
@@ -159,6 +184,7 @@ void UniformationPreviewService::update(const std::string& address, std::uint16_
   if (now_ms() >= hold_until_) held_layer_.reset();
   const bool changed = request.key != request_.key || request.layer != request_.layer ||
       request.layer_needed != request_.layer_needed || request.model_needed != request_.model_needed;
+  if (request.key != request_.key) { ++volume_generation_; volume_work_ = {}; volume_header_ = {}; volume_cache_key_.clear(); volume_bytes_.reset(); }
   request_ = std::move(request);
   if (changed && task_) xTaskNotifyGive(task_);
   if (request_.visible && request_.key == result_key_ && now_ms() >= state.updated_at_ms && now_ms() - state.updated_at_ms <= 2000) {
@@ -177,6 +203,33 @@ void UniformationPreviewService::update(const std::string& address, std::uint16_
         job.exposure_preview_until_ms = std::min(hold_until_, state.updated_at_ms + 2000); }
   }
 }
+UniformationPreviewService::VolumeResult UniformationPreviewService::volume(std::uint32_t profile,
+    std::string_view task, std::uint32_t generation, bool metadata, unsigned index, unsigned width, unsigned height) {
+  const std::lock_guard lock(mutex_);
+  VolumeResult out;
+  const auto now = now_ms();
+  if (!request_.visible || request_.path.empty() || request_.profile != profile || request_.task != task ||
+      now < request_.status_at || now - request_.status_at > 2500) return out;
+  out.generation = volume_generation_; out.header = volume_header_; out.cache_key = volume_cache_key_;
+  if (metadata && volume_header_.size) { out.status = 200; return out; }
+  if (!metadata && (!generation || generation != volume_generation_)) { out.status = 409; return out; }
+  if (!metadata && (!volume_header_.size || index >= volume_header_.layers || !width || !height ||
+      width > 1536 || height > 1536 || width * height > 1048576 ||
+      width > volume_header_.width || height > volume_header_.height)) { out.status = 400; return out; }
+  const bool same = metadata == volume_work_.metadata && (metadata ||
+      (index == volume_work_.index && width == volume_work_.width && height == volume_work_.height));
+  if (same && !volume_work_.pending && volume_bytes_) { out.bytes = volume_bytes_; out.status = 200; return out; }
+  if (same && volume_work_.failed) {
+    if (volume_work_.attempts >= 3) { out.status = 422; return out; }
+    if (now < next_volume_) return out;
+  }
+  if (volume_work_.pending && now < volume_work_.until && !same) { out.status = 429; return out; }
+  const auto attempts = same ? volume_work_.attempts : 0;
+  volume_work_ = {true, metadata, false, index, width, height, now + 6000, attempts};
+  volume_bytes_.reset(); out.status = 202;
+  if (task_) xTaskNotifyGive(task_);
+  return out;
+}
 void UniformationPreviewService::task_entry(void* context) { static_cast<UniformationPreviewService*>(context)->run(); }
 void UniformationPreviewService::run() {
   std::string key, etag;
@@ -187,32 +240,41 @@ void UniformationPreviewService::run() {
   while (true) {
     ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(500));
     Request request;
-    bool want_model, want_layer;
+    bool want_model, want_layer, want_volume;
+    VolumeWork volume_work; std::uint32_t volume_generation;
     {
       const std::lock_guard lock(mutex_); request = request_;
-      if (request.key != key || !request.visible) {
+      if (request.key != key) {
         key = request.key; etag.clear(); header = {}; model_attempts = 0; next_model = next_layer = 0; attempted_layer.reset();
         model_.reset(); layer_.reset(); result_key_ = key;
       }
+      if (now_ms() >= volume_work_.until) { volume_work_.pending = false; volume_bytes_.reset(); }
+      volume_work = volume_work_; volume_generation = volume_generation_;
+      want_volume = volume_work.pending && now_ms() >= next_volume_;
       want_model = request.model_needed && !model_ && model_attempts < 3 && now_ms() >= next_model;
       want_layer = request.layer_needed && !request.path.empty() && attempted_layer != request.layer && now_ms() >= next_layer;
     }
-    if (!request.visible || (!want_model && !want_layer)) continue;
+    if (!request.visible || (!want_model && !want_layer && !want_volume)) continue;
     // Fetch the model first; later requests read at most one current layer.
     const bool model = want_model;
+    const bool volume = !want_model && !want_layer && want_volume;
     const auto cancel = [&] {
       const std::lock_guard lock(mutex_);
       return !request_.visible || request_.key != request.key || now_ms() < request_.status_at ||
           now_ms() - request_.status_at > 2500 ||
-          (!model && (!request_.layer_needed || request_.layer != request.layer));
+          (volume ? (!volume_work_.pending || now_ms() >= volume_work_.until || volume_generation_ != volume_generation ||
+              volume_work_.metadata != volume_work.metadata || volume_work_.index != volume_work.index ||
+              volume_work_.width != volume_work.width || volume_work_.height != volume_work.height)
+                  : (!model && (!request_.layer_needed || request_.layer != request.layer)));
     };
     if (cancel()) continue;
     ImageWorkspaceLock workspace(20);
     if (!workspace || heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < kCtbImageLimit + 512 * 1024) continue;
     if (model) { ++model_attempts; next_model = now_ms() + 30000; }
-    else { attempted_layer = request.layer; next_layer = now_ms() + 5000; }
+    else if (!volume) { attempted_layer = request.layer; next_layer = now_ms() + 5000; }
     const auto origin = "http://" + request.address + ":" + std::to_string(request.port);
     std::vector<std::uint8_t> image;
+    bool volume_header_ok = false;
     if (!request.path.empty()) {
       RangeReader reader(origin + request.path, cancel);
       if (reader.open()) {
@@ -226,12 +288,32 @@ void UniformationPreviewService::run() {
             if (now_ms() - yielded >= 20) { vTaskDelay(1); yielded = now_ms(); }
             return reader.cancelled();
           };
-          image = model ? ctb_model_preview(read, header, stop) : ctb_layer_preview(read, header, request.layer, stop);
+          if (volume) {
+            volume_header_ok = std::isfinite(header.layer_mm) && header.layer_mm > 0 && header.layer_mm <= 1;
+            for (const auto mm : header.size_mm) volume_header_ok &= std::isfinite(mm) && mm > 0 && mm <= 2000;
+            if (volume_header_ok && !volume_work.metadata)
+              image = ctb_layer_mask(read, header, volume_work.index, volume_work.width, volume_work.height, stop);
+          } else image = model ? ctb_model_preview(read, header, stop) : ctb_layer_preview(read, header, request.layer, stop);
         }
       }
     }
     if (model && image.empty() && !cancel()) image = history_preview(origin, request.task, cancel);
     if (cancel()) continue;
+    if (volume) {
+      const std::lock_guard lock(mutex_);
+      if (request_.key == request.key && volume_generation_ == volume_generation) {
+        next_volume_ = now_ms() + 750;
+        volume_work_.pending = false;
+        volume_work_.failed = !volume_header_ok || (!volume_work.metadata && image.empty());
+        if (volume_work_.failed) { ++volume_work_.attempts; next_volume_ = now_ms() + 5000; }
+        if (!volume_work_.failed) {
+          volume_header_ = header;
+          volume_cache_key_ = volume_cache_key(request.profile, request.key, header, etag);
+          if (!volume_work.metadata) volume_bytes_ = std::make_shared<std::vector<std::uint8_t>>(std::move(image));
+        }
+      }
+      continue;
+    }
     if (image.empty()) { ESP_LOGD("resin_preview", "Selected %s preview unavailable", model ? "model" : "layer"); continue; }
     const auto finished = now_ms();
     auto result = std::make_shared<std::vector<std::uint8_t>>(std::move(image));
