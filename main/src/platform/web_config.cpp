@@ -318,8 +318,8 @@ bool receive_form(httpd_req_t* request, std::string& body) {
 
 // A stalled command upload must release the shared HTTP worker after one
 // socket timeout. State/HA requests remain usable without an unbounded retry.
-bool receive_command(httpd_req_t* request, std::string& body) {
-  if (request->content_len <= 0 || request->content_len > 256) return false;
+bool receive_command(httpd_req_t* request, std::string& body, std::size_t maximum = 256) {
+  if (request->content_len <= 0 || static_cast<std::size_t>(request->content_len) > maximum) return false;
   body.resize(request->content_len);
   std::size_t received = 0;
   while (received < body.size()) {
@@ -582,7 +582,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 90;
+  constexpr unsigned route_capacity = 92;
   preview_session_ = esp_random();
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
@@ -630,6 +630,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/update/upload", .method = HTTP_POST, .handler = update_upload_entry, .user_ctx = this},
       {.uri = "/api/update/url", .method = HTTP_POST, .handler = update_url_entry, .user_ctx = this},
       {.uri = "/api/factory-reset", .method = HTTP_POST, .handler = factory_reset_entry, .user_ctx = this},
+      {.uri = "/api/device/state", .method = HTTP_GET, .handler = device_state_entry, .user_ctx = this},
+      {.uri = "/api/device/commands", .method = HTTP_POST, .handler = device_command_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_GET, .handler = settings_get_entry, .user_ctx = this},
       {.uri = "/api/settings", .method = HTTP_POST, .handler = settings_post_entry, .user_ctx = this},
       {.uri = "/api/printer-control", .method = HTTP_POST, .handler = printer_control_settings_entry, .user_ctx = this},
@@ -1992,6 +1994,7 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
           std::to_string(static_cast<int>(selected_completion + 0.5F));
   body += ",\"usb_capture\":";
   append_json_string(body, usb_developer_status());
+  body += ",\"device_settings\":" + core::device_settings_json(current,kBoardHasAudio,kBoardHasPowerButton);
   body.push_back('}');
   return send_json(request, "200 OK", body.c_str());
 }
@@ -2229,6 +2232,120 @@ esp_err_t WebConfig::serve_device_info(httpd_req_t* request) const {
 
 esp_err_t WebConfig::serve_brand_logos(httpd_req_t* request) const {
   return send_gzip_asset(request, web_brand_logos_json(), "application/json; charset=utf-8");
+}
+
+std::string WebConfig::device_state_json(bool include_catalog) const {
+  core::DeviceSettings current;
+  { const std::lock_guard<std::mutex> lock(mutex_); current=settings_; }
+  std::string body=R"({"schema_version":1,"device":{"hardware":)";
+  append_json_string(body,kBoardVariant);
+  body+=R"(,"version":")" PRINTDECK_VERSION R"(","audio_available":)";
+  body+=kBoardHasAudio?"true":"false";
+  body+=R"(,"power_button_available":)";body+=kBoardHasPowerButton?"true":"false";
+  body+=R"(,"selected_printer_id":)"+std::to_string(current.selected_profile);
+  body+=R"(,"printer_control_enabled":)";body+=current.printer_control_enabled?"true":"false";
+  body+=R"(,"uptime_ms":)"+std::to_string(esp_timer_get_time()/1000)+"}";
+  body+=R"(,"settings":)"+core::device_settings_json(current,kBoardHasAudio,kBoardHasPowerButton);
+  body+=R"(,"reactions":)"+reaction_state_json(include_catalog);
+  body+=R"(,"capabilities":{"settings.patch":{"supported":true,"available":true},"audio.test":{"supported":)";
+  body+=kBoardHasAudio?"true":"false";body+=R"(,"available":)";body+=kBoardHasAudio?"true":"false";body+="}";
+  const auto reactions=reaction_assets_?reaction_assets_->snapshot():ReactionAssetSnapshot{};
+  for(const auto action:{"reactions.set.install","reactions.set.cancel","reactions.event.set","reactions.event.reset"}){
+    body+=",\""+std::string(action)+R"(":{"supported":true,"available":)";
+    const bool available=reactions.available&&(std::string_view(action)=="reactions.set.cancel"?reactions.cancellable:!reactions.busy);
+    body+=available?"true":"false";body+="}";
+  }
+  body+="}";
+  if(include_catalog){body+=R"(,"catalog":{"themes":)";append_theme_catalog(body,current.custom_theme);body+="}";}
+  body+="}";return body;
+}
+
+esp_err_t WebConfig::device_state_entry(httpd_req_t* request){
+  auto* self=static_cast<WebConfig*>(request->user_ctx);
+  if(std::string_view(request->uri)=="/api/device/state?section=reactions")
+    return send_json(request,"200 OK",(std::string(R"({"schema_version":1,"reactions":)")+self->reaction_state_json()+"}").c_str());
+  // Local bootstrap fields are attached only by the HTTP adapter, never by
+  // the portable exporter used by a future cloud worker.
+  std::string body=self->device_state_json(true);body.pop_back();
+  core::DeviceSettings current;{const std::lock_guard<std::mutex> lock(self->mutex_);current=self->settings_;}
+  body+=R"(,"local":{"wifi_name":)";append_json_string(body,current.wifi_name);
+  body+=R"(,"wifi_setup_active":)";body+=self->network_->status().recovery_ap_active?"true":"false";
+  body+=R"(,"camera_mode":)";append_json_string(body,current.camera_mode);
+  body+=R"(,"camera_snapshot_fps":)"+std::to_string(current.camera_snapshot_fps);
+  body+=R"(,"voice_available":)";body+=kBoardHasLocalVoice?"true":"false";
+  body+=R"(,"voice_enabled":)";body+=kBoardHasLocalVoice&&current.voice_enabled?"true":"false";
+  body+="}}";return send_json(request,"200 OK",body.c_str());
+}
+
+core::DeviceCommandResult WebConfig::execute_device_command(std::string_view payload,bool local){
+  core::DeviceCommand command;
+  if(!core::parse_device_command(payload,command))return {};
+  const auto* parameters=command.parameters.get();
+  const auto get=[&](const char* key){return cJSON_GetObjectItemCaseSensitive(parameters,key);};
+  const auto text=[&](const char* key)->std::string_view{auto* value=get(key);return cJSON_IsString(value)?std::string_view(value->valuestring):std::string_view{};};
+  const int count=cJSON_GetArraySize(parameters);
+  if(command.action=="settings.patch"||command.action=="local.settings.patch"){
+    if(command.action=="local.settings.patch"&&!local)return {};
+    const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+    core::DeviceSettings current;{const std::lock_guard<std::mutex> lock(mutex_);current=settings_;}
+    auto candidate=current;
+    if(command.action=="settings.patch"){
+      if(!core::apply_device_settings_patch(parameters,candidate,kBoardHasAudio,kBoardHasPowerButton))return {};
+    }else{
+      if(!count)return {};
+      for(auto* item=parameters->child;item;item=item->next){const std::string_view key(item->string);
+        if(key=="camera_mode"&&cJSON_IsString(item)&&(std::string_view(item->valuestring)=="live"||std::string_view(item->valuestring)=="snapshots"))candidate.camera_mode=item->valuestring;
+        else if(key=="camera_snapshot_fps"&&core::device_integer(item,1,5)&&(item->valueint==1||item->valueint==2||item->valueint==5))candidate.camera_snapshot_fps=item->valueint;
+        else return {};
+      }
+    }
+    const bool restart=current.timezone!=candidate.timezone;
+    const bool changed=core::device_settings_json(current,kBoardHasAudio,kBoardHasPowerButton)!=core::device_settings_json(candidate,kBoardHasAudio,kBoardHasPowerButton)||current.camera_mode!=candidate.camera_mode||current.camera_snapshot_fps!=candidate.camera_snapshot_fps;
+    if(changed){
+      if(store_->save(candidate)!=ESP_OK)return {500,R"({"error":"PrintDeck could not save these changes. Please try again."})"};
+      {const std::lock_guard<std::mutex> lock(mutex_);settings_=candidate;}
+      const bool view_only=count==1&&get("printer_view");
+      notify_settings_changed(candidate,!restart&&!view_only);
+      if(restart)request_restart();
+    }
+    return {200,std::string(R"({"schema_version":1,"status":"applied","saved":true,"restart_required":)")+(restart?"true":"false")+R"(,"settings":)"+core::device_settings_json(candidate,kBoardHasAudio,kBoardHasPowerButton)+"}"};
+  }
+  if(command.action=="audio.test"){
+    const auto preset=text("preset"),event=text("event");auto* volume=get("volume");
+    constexpr std::string_view events[]={"startup","navigation","orientation","print_started","progress_25","progress_50","progress_75","print_paused","print_finished","print_error","hms_alert","filament_attention","shutdown_countdown","shutdown"};
+    if(count!=3||!core::supported_audio_preset(preset)||!core::device_integer(volume,1,100)||std::find(std::begin(events),std::end(events),event)==std::end(events))return {};
+    AudioTestCallback callback;void* context;{const std::lock_guard<std::mutex> lock(mutex_);callback=audio_test_callback_;context=audio_test_context_;}
+    if(!kBoardHasAudio||!callback)return {503,R"({"error":"Sound testing is unavailable."})"};
+    if(!callback(context,preset,event,volume->valueint))return {409,R"({"error":"Wait for the current sound to finish and try again."})"};
+    return {202,R"({"schema_version":1,"status":"accepted","played":true})"};
+  }
+  if(command.action!="reactions.set.install"&&command.action!="reactions.set.cancel"&&command.action!="reactions.event.set"&&command.action!="reactions.event.reset")return {};
+  if(!reaction_assets_)return {503,R"({"error":"Reaction storage is unavailable."})"};
+  if(command.action=="reactions.set.install"){
+    const auto id=text("id");if(count!=1||id.empty()||std::none_of(ReactionAssetService::sets().begin(),ReactionAssetService::sets().end(),[&](const auto& set){return set.id==id;}))return {};
+    if(!reaction_assets_->request_set(id))return {409,R"({"error":"Another reaction change is already in progress."})"};
+    return {202,R"({"schema_version":1,"status":"accepted","started":true})"};
+  }
+  if(command.action=="reactions.set.cancel"){
+    if(count)return {};
+    if(!reaction_assets_->cancel_set())return {409,R"({"error":"The reaction set can no longer be cancelled."})"};
+    return {202,R"({"schema_version":1,"status":"accepted","cancelling":true})"};
+  }
+  const auto event=text("event");const bool set=command.action=="reactions.event.set";
+  if(count!=(set?2:1)||event.empty()||(set&&!cJSON_IsBool(get("enabled")))||std::none_of(core::reaction_events().begin(),core::reaction_events().end(),[&](const auto& item){return item.id==event;}))return {};
+  if(reaction_assets_->snapshot().busy)return {409,R"({"error":"Another reaction change is already in progress."})"};
+  const auto result=set?reaction_assets_->set_event_enabled(event,cJSON_IsTrue(get("enabled"))):reaction_assets_->reset_custom(event);
+  if(result==ESP_ERR_INVALID_STATE)return {409,R"({"error":"Another reaction change is already in progress."})"};
+  if(result!=ESP_OK)return {400,R"({"error":"The reaction change could not be saved."})"};
+  return {200,R"({"schema_version":1,"status":"applied","saved":true})"};
+}
+
+esp_err_t WebConfig::device_command_entry(httpd_req_t* request){
+  char type[64]{};std::string body;
+  if(httpd_req_get_hdr_value_str(request,"Content-Type",type,sizeof(type))!=ESP_OK||(std::string_view(type)!="application/json"&&std::string_view(type).substr(0,17)!="application/json;")||!receive_command(request,body,core::kDeviceCommandMaximumBytes))return send_json(request,"400 Bad Request",core::DeviceCommandResult{}.body.c_str());
+  const auto result=static_cast<WebConfig*>(request->user_ctx)->execute_device_command(body,true);
+  const char* status=result.status==200?"200 OK":result.status==202?"202 Accepted":result.status==409?"409 Conflict":result.status==500?"500 Internal Server Error":result.status==503?"503 Service Unavailable":"400 Bad Request";
+  return send_json(request,status,result.body.c_str());
 }
 
 esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
@@ -2897,11 +3014,8 @@ esp_err_t WebConfig::test_audio(httpd_req_t* request) {
   return send_json(request, "200 OK", "{\"played\":true}");
 }
 
-esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
-  if (reaction_assets_ == nullptr) {
-    return send_json(request, "503 Service Unavailable",
-                     "{\"error\":\"Reaction storage is unavailable.\"}");
-  }
+std::string WebConfig::reaction_state_json(bool include_catalog) const {
+  if(!reaction_assets_)return R"({"schema":1,"available":false,"busy":false,"sets":[],"events":[]})";
   const ReactionAssetSnapshot state = reaction_assets_->snapshot();
   std::string body = "{\"schema\":1,\"available\":";
   body += state.available ? "true" : "false";
@@ -2963,7 +3077,7 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
   body += "}";
   body += ",\"sets\":[";
   bool first = true;
-  for (const auto& set : ReactionAssetService::sets()) {
+  if (include_catalog) for (const auto& set : ReactionAssetService::sets()) {
     if (!first) body.push_back(',');
     first = false;
     body += "{\"id\":";
@@ -3017,9 +3131,10 @@ esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
     body += "}";
   }
   body += "],\"generation\":" + std::to_string(state.generation) + "}";
-  httpd_resp_set_type(request, "application/json");
-  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-  return httpd_resp_send(request, body.data(), body.size());
+  return body;
+}
+esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {
+  return send_json(request,"200 OK",reaction_state_json().c_str());
 }
 
 esp_err_t WebConfig::select_reaction_set(httpd_req_t* request) {

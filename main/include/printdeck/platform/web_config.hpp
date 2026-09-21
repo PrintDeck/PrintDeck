@@ -18,6 +18,7 @@
 #include "esp_timer.h"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/core/configuration_backup.hpp"
+#include "printdeck/core/device_api.hpp"
 #include "printdeck/core/unified_printer_api.hpp"
 #include "printdeck/platform/network_service.hpp"
 #include "printdeck/platform/companion_camera_service.hpp"
@@ -117,9 +118,14 @@ class WebConfig {
   // Queues work without printer I/O. HTTP parsing and future transports
   // remain outside execution/selection/freshness checks.
   bool submit_printer_command(const core::PrinterCommand& command);
+  std::string device_state_json(bool include_catalog = false) const;
+  core::DeviceCommandResult execute_device_command(std::string_view payload, bool local = false);
   void set_mqtt_export(MqttExportService* service) { mqtt_export_ = service; }
 
  private:
+  static esp_err_t device_state_entry(httpd_req_t* request);
+  static esp_err_t device_command_entry(httpd_req_t* request);
+  std::string reaction_state_json(bool include_catalog = true) const;
   CloudPairingService cloud_;
   static esp_err_t cloud_entry(httpd_req_t* request);
   esp_err_t cloud_request(httpd_req_t* request);
