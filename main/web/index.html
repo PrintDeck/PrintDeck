@@ -3879,7 +3879,7 @@ function openIdentifiedPrinter(identity,entry){
   if(entry==='scanner'){$('#detect-host').value=identity.host;$('#detect-port').value=identity.port;$('#manual-protocol').value='auto';$('#manual-connection').open=false}
   wizardIdentity=identity;printerEntry=entry;
   wizardAddressKey=printerAddressKey();
-  const name=[...new Set([identity.manufacturer,identity.model].filter(Boolean))].join(' ')||translated('My Printer');
+  const name=(identity.name||'').trim()||[...new Set([identity.manufacturer,identity.model].filter(Boolean))].join(' ')||translated('My Printer');
   openPrinter({_discovered:true,...identity,name,endpoint:identity.host+(identity.protocol!=='bambu_lan'?':'+identity.port:'')},identity.protocol);
   addingFromDiscovery=entry==='scanner';detectedNameSeed='';
   $('#printer-name').focus();

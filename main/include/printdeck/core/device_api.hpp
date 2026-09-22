@@ -8,6 +8,7 @@
 #include "cJSON.h"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/core/timezone.hpp"
+#include "printdeck/core/theme.hpp"
 
 namespace printdeck::core {
 constexpr std::size_t kDeviceCommandMaximumBytes = 4096;
@@ -28,9 +29,21 @@ inline bool device_unique_object(const cJSON* object) {
 inline bool device_integer(const cJSON* item,double minimum,double maximum){return cJSON_IsNumber(item)&&std::isfinite(item->valuedouble)&&item->valuedouble>=minimum&&item->valuedouble<=maximum&&std::floor(item->valuedouble)==item->valuedouble;}
 inline std::string device_json_text(const cJSON* value){char* raw=cJSON_PrintUnformatted(value);if(!raw)return {};std::string text(raw);cJSON_free(raw);return text;}
 
+// Export the resolved palette, so remote clients need no copy of firmware presets.
+inline std::string device_appearance_json(const DeviceSettings& settings) {
+  const auto colors=resolved_theme(settings.theme,settings.custom_theme);
+  const auto style=resolved_theme_style(settings.theme,colors);
+  DeviceJson root(cJSON_CreateObject(),cJSON_Delete);if(!root)return "{}";
+  const auto add=[&](const char* name,std::uint32_t value){cJSON_AddNumberToObject(root.get(),name,value&0xffffffU);};
+  add("accent",style.accent);add("on_accent",style.on_accent);
+  add("printing",colors.printing);add("done",colors.done);add("error",colors.error);
+  add("paused",colors.paused);add("preparing",colors.preparing);add("idle",colors.idle);
+  return device_json_text(root.get());
+}
+
 // The allowlist deliberately excludes credentials, pairing, printer-control
 // consent, networking and physical recovery settings.
-inline std::string device_settings_json(const DeviceSettings& s, bool audio_available = true, bool power_button = true) {
+inline std::string device_settings_json(const DeviceSettings& s, bool audio_available = true, bool power_button = true, bool cloud = false) {
   DeviceJson root(cJSON_CreateObject(),cJSON_Delete);if(!root)return {};
   cJSON_AddNumberToObject(root.get(),"brightness",s.brightness_percent);
   cJSON_AddNumberToObject(root.get(),"audio_volume",audio_available ? s.audio_volume_percent : 0);
@@ -54,9 +67,9 @@ inline std::string device_settings_json(const DeviceSettings& s, bool audio_avai
   cJSON_AddBoolToObject(root.get(),"usb_power_save",s.display_power.usb_power_save_enabled);
   cJSON_AddBoolToObject(root.get(),"wake_on_orientation_change",s.display_power.wake_on_orientation_change);
   cJSON_AddBoolToObject(root.get(),"wake_on_touch",!power_button || s.display_power.wake_on_touch);
-  cJSON_AddStringToObject(root.get(),"device_name",s.device_name.c_str());
+  if(!cloud)cJSON_AddStringToObject(root.get(),"device_name",s.device_name.c_str());
   cJSON_AddStringToObject(root.get(),"theme",s.theme.c_str());
-  cJSON_AddStringToObject(root.get(),"timezone",s.timezone.c_str());
+  if(!cloud)cJSON_AddStringToObject(root.get(),"timezone",s.timezone.c_str());
   cJSON_AddStringToObject(root.get(),"language",s.language.c_str());
   cJSON_AddStringToObject(root.get(),"rotation",s.rotation.c_str());
   cJSON_AddStringToObject(root.get(),"audio_preset",s.audio_preset.c_str());

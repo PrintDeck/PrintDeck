@@ -1,6 +1,9 @@
 #include "printdeck/platform/cloud_pairing_service.hpp"
 #include <array>
+#include <algorithm>
 #include <cstring>
+#include <cmath>
+#include "printdeck/core/printer_command.hpp"
 #include <memory>
 #include "cJSON.h"
 #include "esp_crt_bundle.h"
@@ -89,6 +92,17 @@ Reply exchange(const char* path, const std::string& body, const std::string& tok
   esp_http_client_cleanup(client);
   return reply;
 }
+}
+
+void CloudPairingService::set_command_sink(CommandSink sink) {
+  std::lock_guard lock(mutex_);
+  command_sink_ = sink;
+}
+
+void CloudPairingService::set_feed_source(FeedSource source, void* context) {
+  std::lock_guard lock(mutex_);
+  feed_source_ = source;
+  feed_context_ = context;
 }
 
 void CloudPairingService::initialize() {
@@ -213,9 +227,27 @@ void CloudPairingService::step() {
       cJSON_AddStringToObject(payload.get(),"hardware",kBoardVariant);
       cJSON_AddStringToObject(payload.get(),"locale",locale_.c_str());
     } else if(token.empty())cJSON_AddStringToObject(payload.get(),"device_code",secret_.c_str());
-    const auto body=encode(payload.get());
-    const auto* path=starting?"/pairings":token.empty()?"/pairings/poll":"/connection";
+    auto body=encode(payload.get());
+    const bool feeding=!starting && !removing && !token.empty() && confirmed_ && feed_source_;
+    const auto source=feed_source_;
+    auto* context=feed_context_;
+    const auto* path=feeding?"/feed":starting?"/pairings":token.empty()?"/pairings/poll":"/connection";
     lock.unlock();
+    // Reuse the pairing worker and cached state. No printer I/O, extra worker,
+    // pending snapshot queue or NVS writes; fresh state replaces failed uploads.
+    if(feeding)body=source(context);
+    lock.lock();
+    if(paused_ || generation!=generation_ || !online_)return;
+    if(feeding && result_pending_ && !body.empty() && body.back()=='}') {
+      body.pop_back();
+      body+=",\"command_results\":[{\"id\":\""+last_command_id_+"\",\"status\":\""+last_command_status_+"\"}]}";
+    }
+    if(feeding && (body.empty() || body.size()>65536)) {
+      due_=millis()+300000;
+      return;
+    }
+    lock.unlock();
+    const auto exchange_started=millis();
     const auto reply=exchange(path,body,token,removing);
     Json root(cJSON_ParseWithLength(reply.body.data(),reply.body.size()),cJSON_Delete);
     auto* data=cJSON_GetObjectItemCaseSensitive(root.get(),"data");
@@ -224,9 +256,48 @@ void CloudPairingService::step() {
     due_=millis()+(token.empty()?5000:60000);
     if(!token.empty() && (reply.status==401 || (removing && reply.status==200 && field(data,"state")=="disconnected"))) {
       if(save("","",false)) {
-        token_.clear();account_.clear();disconnect_=false;
+        token_.clear();account_.clear();disconnect_=false;confirmed_=false;feed_failures_=0;
+        last_command_id_.clear();last_command_status_.clear();result_pending_=false;
         state_=removing?"disconnected":"revoked";
       } else state_="error";
+      return;
+    }
+    if(feeding) {
+      if(reply.status==200 && cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(data,"accepted"))) {
+        feed_failures_=0;
+        due_=millis()+30000;
+        state_="connected";
+        result_pending_=false;
+        const auto* commands=cJSON_GetObjectItemCaseSensitive(data,"commands");
+        if(command_sink_ && cJSON_IsArray(commands) && cJSON_GetArraySize(commands)==1) {
+          auto* item=cJSON_GetArrayItem(commands,0);
+          const auto id=field(item,"id");
+          const auto* ttl=cJSON_GetObjectItemCaseSensitive(item,"valid_for_ms");
+          auto* envelope=cJSON_GetObjectItemCaseSensitive(item,"command");
+          const auto payload=encode(envelope);
+          core::PrinterCommand parsed;
+          const bool valid=!id.empty() && id.size()<=20 && id.front()!='0' &&
+              id.find_first_not_of("0123456789")==std::string::npos &&
+              cJSON_IsNumber(ttl) && ttl->valuedouble>millis()-exchange_started && ttl->valuedouble<=120000 &&
+              std::floor(ttl->valuedouble)==ttl->valuedouble && core::parse_printer_command(payload,parsed);
+          if(valid) {
+            if(id!=last_command_id_) {
+              // The existing light gate is bounded, performs no network I/O and
+              // rechecks the selected printer, freshness and light capability.
+              // Keep the pairing lock so disconnect/OTA cannot race dispatch.
+              const bool accepted=command_sink_(feed_context_,payload);
+              last_command_id_=id;last_command_status_=accepted?"accepted":"rejected";
+            }
+            result_pending_=true;
+          }
+        }
+      } else {
+        if(feed_failures_<5)++feed_failures_;
+        const auto delay=std::min(300000U,30000U << (feed_failures_-1));
+        due_=millis()+delay;
+        state_="offline";
+      }
+      // Receipt is carried by the next regular feed; only absolute light.set is accepted.
       return;
     }
     if(reply.status!=200 || !cJSON_IsObject(data)) {
@@ -249,7 +320,8 @@ void CloudPairingService::step() {
       const auto account=field(data,"account");
       if(account.size()>254){state_="error";return;}
       if(account!=account_ && !save(token_,account,false)){state_="error";return;}
-      account_=account;state_="connected";
+      account_=account;state_="connected";confirmed_=true;feed_failures_=0;
+      if(feed_source_)due_=millis()+1000;
     } else {
       const auto result=field(data,"state");
       if(result=="authorized") {

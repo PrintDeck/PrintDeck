@@ -552,6 +552,14 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
     const std::lock_guard<std::mutex> lock(mutex_);
     settings_ = settings;
   }
+  cloud_.set_feed_source([](void* context) {
+    return static_cast<WebConfig*>(context)->cloud_state_json();
+  }, this);
+  cloud_.set_command_sink([](void* context, const std::string& payload) {
+    core::PrinterCommand command;
+    return core::parse_printer_command(payload, command) &&
+        static_cast<WebConfig*>(context)->submit_printer_command(command, true);
+  });
   cloud_.initialize();
   store_ = &store;
   network_ = &network;
@@ -2234,7 +2242,7 @@ esp_err_t WebConfig::serve_brand_logos(httpd_req_t* request) const {
   return send_gzip_asset(request, web_brand_logos_json(), "application/json; charset=utf-8");
 }
 
-std::string WebConfig::device_state_json(bool include_catalog) const {
+std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const {
   core::DeviceSettings current;
   { const std::lock_guard<std::mutex> lock(mutex_); current=settings_; }
   std::string body=R"({"schema_version":1,"device":{"hardware":)";
@@ -2244,8 +2252,9 @@ std::string WebConfig::device_state_json(bool include_catalog) const {
   body+=R"(,"power_button_available":)";body+=kBoardHasPowerButton?"true":"false";
   body+=R"(,"selected_printer_id":)"+std::to_string(current.selected_profile);
   body+=R"(,"printer_control_enabled":)";body+=current.printer_control_enabled?"true":"false";
-  body+=R"(,"uptime_ms":)"+std::to_string(esp_timer_get_time()/1000)+"}";
-  body+=R"(,"settings":)"+core::device_settings_json(current,kBoardHasAudio,kBoardHasPowerButton);
+  body+=R"(,"appearance":)"+core::device_appearance_json(current);
+  body+=R"(,"command_schema_version":1,"uptime_ms":)"+std::to_string(esp_timer_get_time()/1000)+"}";
+  body+=R"(,"settings":)"+core::device_settings_json(current,kBoardHasAudio,kBoardHasPowerButton,cloud);
   body+=R"(,"reactions":)"+reaction_state_json(include_catalog);
   body+=R"(,"capabilities":{"settings.patch":{"supported":true,"available":true},"audio.test":{"supported":)";
   body+=kBoardHasAudio?"true":"false";body+=R"(,"available":)";body+=kBoardHasAudio?"true":"false";body+="}";
@@ -2258,6 +2267,27 @@ std::string WebConfig::device_state_json(bool include_catalog) const {
   body+="}";
   if(include_catalog){body+=R"(,"catalog":{"themes":)";append_theme_catalog(body,current.custom_theme);body+="}";}
   body+="}";return body;
+}
+
+std::string WebConfig::cloud_state_json() const {
+  auto body=device_state_json(false,true);
+  body.pop_back();
+  body+=",\"printers\":[";
+  auto views=unified_printer_views(0,false,false);
+  const auto now_ms=static_cast<std::uint64_t>(esp_timer_get_time()/1000);
+  const auto now_unix=static_cast<std::int64_t>(std::time(nullptr));
+  bool first=true;
+  for(auto& view:views) {
+    // Same printer contract, without LAN addresses or local media routes.
+    view.endpoint.clear();
+    auto row=core::printer_state_json(view,now_ms,now_unix);
+    if(body.size()+row.size()+3>65536)return {};
+    if(!first)body+=',';
+    first=false;
+    body+=row;
+  }
+  body+="]}";
+  return body.size()<=65536?body:std::string{};
 }
 
 esp_err_t WebConfig::device_state_entry(httpd_req_t* request){
@@ -4988,11 +5018,16 @@ esp_err_t WebConfig::save_printer(httpd_req_t* request) {
   return response;
 }
 
-bool WebConfig::submit_printer_command(const core::PrinterCommand& command) {
+bool WebConfig::submit_printer_command(const core::PrinterCommand& command, bool nonblocking) {
   const auto id = command.printer_id;
   const auto enabled = command.light_on;
-  const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
-  const std::lock_guard<std::mutex> lock(mutex_);
+  std::unique_lock<std::mutex> write_lock(settings_write_mutex_, std::defer_lock);
+  std::unique_lock<std::mutex> lock(mutex_, std::defer_lock);
+  if (nonblocking) {
+    if (!write_lock.try_lock() || !lock.try_lock()) return false;
+  } else {
+    write_lock.lock();lock.lock();
+  }
   const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
   if (id != settings_.selected_profile || id != selected_status_profile_ || !selected_telemetry_ ||
       selected_link_ != core::LinkState::online || !selected_light_.supported ||

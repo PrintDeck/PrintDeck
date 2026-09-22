@@ -117,8 +117,9 @@ class WebConfig {
       std::uint32_t profile_id = 0, bool metadata_only = false, bool request_activity = true) const;
   // Queues work without printer I/O. HTTP parsing and future transports
   // remain outside execution/selection/freshness checks.
-  bool submit_printer_command(const core::PrinterCommand& command);
-  std::string device_state_json(bool include_catalog = false) const;
+  bool submit_printer_command(const core::PrinterCommand& command, bool nonblocking = false);
+  std::string device_state_json(bool include_catalog = false, bool cloud = false) const;
+  std::string cloud_state_json() const;
   core::DeviceCommandResult execute_device_command(std::string_view payload, bool local = false);
   void set_mqtt_export(MqttExportService* service) { mqtt_export_ = service; }
 
