@@ -714,7 +714,7 @@ function accept(rows,lang){language=lang;const p=rows.find(p=>p.selected&&['unif
  status={...old,task_id:key,no_job:noJob,online:p.connection?.state==='online'&&!p.connection?.stale,name:j?.name||'',current_layer:noJob?0:j?.current_layer||0,total_layers:noJob?0:j?.total_layers||0,elapsed_ms:(j?.elapsed_seconds||0)*1000,phase:0};
  if(changed)resetData();viewer?.update(status);
 }
-async function getVolume(query,token){const r=await fetch('/api/printers/volume?'+new URLSearchParams({id:selected.id,...query}),{signal:AbortSignal.timeout(4500),cache:'no-store'});if(token!==epoch)throw Error('changed');if(r.status===409){resetData();throw Error('changed')}if(r.status===422){const problem=await r.json().catch(()=>({}));if(token!==epoch)return null;blocked=true;status.error=problem.reason==='firmware'?'firmware':'failed';return null}if(r.status!==200){retryAt=Date.now()+([202,429].includes(r.status)?650:3000);return null}const value=await(query.kind==='meta'?r.json():r.arrayBuffer());if(token!==epoch)throw Error('changed');return value}
+async function getVolume(query,token){const r=await fetch('/api/printers/volume?'+new URLSearchParams({id:selected.id,...query}),{signal:AbortSignal.timeout(4500),cache:'no-store'});if(token!==epoch)throw Error('changed');if(r.status===409){resetData();throw Error('changed')}if(r.status===422){const problem=await r.json().catch(()=>({}));if(token!==epoch)return null;blocked=true;status.error=problem.reason==='firmware'?'firmware':'failed';return null}if(r.status!==200){if(r.status>=500)status.error='unavailable';retryAt=Date.now()+([202,429].includes(r.status)?650:3000);return null}const value=await(query.kind==='meta'?r.json():r.arrayBuffer());if(token!==epoch)throw Error('changed');return value}
 function planVolume(m){const pitch=.25;let w=Math.ceil(m.size_mm[0]/pitch),h=Math.ceil(m.size_mm[1]/pitch),n=Math.min(m.layers,1600,Math.ceil((m.layers-1)*m.layer_mm/pitch)+1);let scale=Math.max(1,Math.sqrt(w*h/m.max_pixels),w/1536,h/1536);w=Math.floor(w/scale);h=Math.floor(h/scale);scale=Math.max(1,Math.cbrt(w*h*n/(32*1024*1024*8)));w=Math.floor(w/scale);h=Math.floor(h/scale);n=Math.max(2,Math.floor(n/scale));m.width=w;m.height=h;
  const indices=[...new Set(Array.from({length:n},(_,i)=>Math.round(i*(m.layers-1)/(n-1))))],order=[0,indices.length-1],queue=[[0,indices.length-1]];for(let at=0;at<queue.length;at++){const [a,b]=queue[at],mid=(a+b)>>1;if(!order.includes(mid))order.push(mid);if(mid-a>1)queue.push([a,mid]);if(b-mid>1)queue.push([mid,b])}return order.map(i=>indices[i]);}
 // Independently implemented against observed TinyMaker live-slices responses.
@@ -3651,8 +3651,8 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       if(printerPageVisible()&&!printerStreamHealthy)printerPollTimer=setTimeout(()=>loadPrinters(true).catch(()=>{}),2000);
     }
     function acceptPrinterState(rows){
-      window.PrintDeckVolume.accept(rows,currentLanguage);window.PrintDeckGcode.accept(rows,currentLanguage);
       if(!Array.isArray(rows)||rows.length>10||rows.some(p=>!p||!Number.isInteger(p.id)||p.id<=0)||new Set(rows.map(p=>p.id)).size!==rows.length)throw Error(translated('Status unavailable'));
+      window.PrintDeckVolume.accept(rows,currentLanguage);window.PrintDeckGcode.accept(rows,currentLanguage);
       const now=performance.now();printers=rows.map(p=>({...p,job:p.job?{...p.job,_receivedAt:now}:null}));
       printerStatusReceivedAt=now;printerStatusFresh=true;paintPrinters();
     }
@@ -3705,6 +3705,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
               if(Object.hasOwn(change.patch,'job')&&updated.job)updated.job._receivedAt=performance.now();
               next[index]=updated;
             }
+            window.PrintDeckVolume.accept(next,currentLanguage);window.PrintDeckGcode.accept(next,currentLanguage);
             printers=next;printerStatusFresh=true;paintPrinters();
           }
           printerEventRevision=message.revision;printerStreamHealthy=true;

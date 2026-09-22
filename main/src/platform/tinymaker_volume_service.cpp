@@ -3,6 +3,7 @@
 #include "printdeck/platform/task_affinity.hpp"
 #include "esp_heap_caps.h"
 #include "esp_random.h"
+#include "esp_log.h"
 #include "freertos/idf_additions.h"
 #include "mbedtls/sha256.h"
 #include <array>
@@ -74,7 +75,8 @@ TinyMakerVolumeService::Result TinyMakerVolumeService::request(std::uint32_t pro
   if (since == since_ && result_.bytes && result_.captured == source_.captured && result_.slots == source_.slots)
     return result_;
   if (pending_) return {.status = 202, .reason = "pending"};
-  if (now < next_) return {.status = 429, .reason = "busy"};
+  if (now < next_) return result_.status == 503 && result_.reason != "waiting"
+      ? result_ : Result{.status = 429, .reason = "busy"};
   if (!task_ && xTaskCreatePinnedToCoreWithCaps(entry, "tiny_volume", 12288, this, 1, &task_,
       kServiceCore, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS)
     return {.status = 503, .reason = "busy"};
@@ -100,10 +102,24 @@ void TinyMakerVolumeService::run() {
       return source.generation != source_.generation || !online_ || suspended_ ||
           now >= lease_ || now < status_at_ || now - status_at_ > 10000;
     };
-    if (heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 32 * 1024 ||
-        heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 256 * 1024) {
+    const auto internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    const auto internal = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    const auto psram = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    // The body and worker stack use PSRAM. Plain HTTP needs small socket
+    // allocations, not a contiguous 32 KiB TLS workspace. Keep a total
+    // internal reserve as well as a contiguous allocation floor; HTTPS
+    // retains the larger floor for its TLS handshake.
+    const bool secure = origin.starts_with("https://");
+    const auto internal_floor = secure ? 32 * 1024 : 4 * 1024;
+    const auto internal_budget = secure ? 32 * 1024 : 12 * 1024;
+    if (internal_free < internal_budget || internal < internal_floor || psram < 256 * 1024) {
       const std::lock_guard lock(mutex_);
-      if (source.generation == source_.generation) { pending_ = false; next_ = prusalink_now_ms() + 1500; }
+      if (source.generation == source_.generation) {
+        pending_ = false; next_ = prusalink_now_ms() + 5000;
+        ESP_LOGD("tiny_volume", "Memory wait: free=%u block=%u psram=%u",
+            unsigned(internal_free), unsigned(internal), unsigned(psram));
+        result_ = {.status = 503, .reason = "memory"};
+      }
       continue;
     }
     std::unique_lock transaction(prusalink_transaction_mutex(), std::defer_lock);
@@ -122,7 +138,10 @@ void TinyMakerVolumeService::run() {
     if (!valid) {
       if (++attempts_ >= 3) { next_ += 30000; attempts_ = 0; }
       else next_ += 2000;
-      result_ = {.status = 503, .reason = "unavailable"};
+      const char* reason = response.error == PrusaLinkError::timeout ? "timeout" :
+          response.error == PrusaLinkError::unsupported_response ? "response" : "transport";
+      ESP_LOGW("tiny_volume", "Read failed: error=%u status=%d bytes=%u", unsigned(response.error), response.status, unsigned(response.body.size()));
+      result_ = {.status = 503, .reason = reason};
       continue;
     }
     attempts_ = 0; result_ = source; result_.status = 200; result_.reason = "ready";
