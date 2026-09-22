@@ -1464,8 +1464,9 @@ void Runtime::monitor_loop() {
             unified_api_active_until_ms_.load(std::memory_order_acquire);
     web_config_.tick_cloud(network.station_connected);
     mqtt_export_.tick(network.station_connected, settings_.mqtt.enabled);
+    const bool cloud_preview_active = web_config_.cloud_preview_requested();
     const bool full_connection_active = network.station_connected && selected != nullptr &&
-        (printer_detail_active || unified_api_connection_active || mqtt_export_.connected() ||
+        (printer_detail_active || unified_api_connection_active || cloud_preview_active || mqtt_export_.connected() ||
          connection_now_ms < printer_controls_active_until_ms_.load(std::memory_order_acquire));
     const bool want_bambu_connection = full_connection_active && selected_is_bambu;
     const bool want_moonraker_connection = full_connection_active && selected_is_moonraker;
@@ -1482,7 +1483,7 @@ void Runtime::monitor_loop() {
     const bool device_preview_visible = display_.background_content_needed() &&
         display_.printer_status_page_active() && !camera_cleanup_pending_;
     const bool preview_visible = !camera_cleanup_pending_ && (device_preview_visible ||
-        web_config_.printer_preview_requested(connection_now_ms));
+        web_config_.printer_preview_requested(connection_now_ms) || cloud_preview_active);
     if (printer_preview_visible_ && !device_preview_visible) display_.release_printer_preview();
     printer_preview_visible_ = device_preview_visible;
     if (!preview_visible) {

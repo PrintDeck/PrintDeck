@@ -5,6 +5,8 @@
 #include <cmath>
 #include "printdeck/core/printer_command.hpp"
 #include <memory>
+#include "printdeck/platform/image_workspace.hpp"
+#include "esp_log.h"
 #include "cJSON.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
@@ -103,6 +105,95 @@ void CloudPairingService::set_feed_source(FeedSource source, void* context) {
   std::lock_guard lock(mutex_);
   feed_source_ = source;
   feed_context_ = context;
+}
+
+void CloudPairingService::set_thumbnail_source(ThumbnailSource source) {
+  std::lock_guard lock(mutex_);
+  thumbnail_source_ = source;
+}
+
+bool CloudPairingService::preview_enabled() const {
+  std::lock_guard lock(mutex_);
+  return confirmed_ && online_ && !paused_ && !disconnect_ && command_.empty() && !token_.empty();
+}
+
+void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::string& key,
+                                           std::uint32_t generation) {
+  if (!printer || key.size() != 64 || key.find_first_not_of("0123456789abcdef") != std::string::npos) return;
+  ThumbnailSource source;
+  void* context;
+  std::string token;
+  {
+    std::lock_guard lock(mutex_);
+    if (paused_ || !online_ || disconnect_ || generation_ != generation || result_pending_ || !thumbnail_source_) return;
+    if (thumbnail_key_ != key) { thumbnail_key_ = key; thumbnail_attempts_ = 0; }
+    if (thumbnail_attempts_ >= 3 || millis() < thumbnail_due_) return;
+    source = thumbnail_source_; context = feed_context_; token = token_;
+  }
+  auto thumbnail = source(context);
+  if (thumbnail.printer_id != printer || thumbnail.key != key || !thumbnail.image ||
+      thumbnail.image->empty() || thumbnail.image->size() > 512 * 1024) return;
+  // No copy, encoder, second connection worker or per-printer pending image queue.
+#ifdef ESP_PLATFORM
+  // The shipping configuration puts TLS allocations and ordinary HTTP buffers
+  // in PSRAM. Do not enable this optional transfer under an internal-only build.
+#if !CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC || CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL != 0
+  return;
+#endif
+#endif
+  ImageWorkspaceLock workspace(0);
+  if (!workspace || heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 24 * 1024 ||
+      heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 8 * 1024 ||
+      heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 384 * 1024 ||
+      heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 64 * 1024) return;
+  {
+    std::lock_guard lock(mutex_);
+    if (paused_ || !online_ || generation_ != generation || result_pending_) return;
+    ++thumbnail_attempts_;
+    thumbnail_due_ = millis() + 60000 * thumbnail_attempts_;
+  }
+  const auto deadline = millis() + 8000;
+  const auto current = [&]() {
+    { std::lock_guard lock(mutex_);
+      if (paused_ || !online_ || generation_ != generation || millis() >= deadline) return false;
+    }
+    const auto latest = source(context);
+    return latest.printer_id == printer && latest.key == key;
+  };
+  const auto url = std::string(kApi) + "/thumbnail/" + std::to_string(printer) + "/" + key;
+  esp_http_client_config_t config{};
+  config.url = url.c_str(); config.timeout_ms = 1500;
+  config.crt_bundle_attach = esp_crt_bundle_attach;
+  config.disable_auto_redirect = true;
+  config.buffer_size = 1024; config.buffer_size_tx = 1024;
+  auto* client = esp_http_client_init(&config);
+  if (!client) return;
+  esp_http_client_set_method(client, HTTP_METHOD_POST);
+  esp_http_client_set_header(client, "Content-Type", "application/octet-stream");
+  esp_http_client_set_header(client, "Accept", "application/json");
+  const auto bearer = std::string("Bearer ") + token;
+  esp_http_client_set_header(client, "Authorization", bearer.c_str());
+  std::size_t sent = 0;
+  const auto& bytes = *thumbnail.image;
+  if (current() && esp_http_client_open(client, static_cast<int>(bytes.size())) == ESP_OK) {
+    while (sent < bytes.size() && current()) {
+      const auto count = esp_http_client_write(client, reinterpret_cast<const char*>(bytes.data() + sent),
+          static_cast<int>(std::min<std::size_t>(2048, bytes.size() - sent)));
+      if (count <= 0) break;
+      sent += static_cast<std::size_t>(count);
+      vTaskDelay(1);
+    }
+  }
+  int status = 0;
+  if (sent == bytes.size() && current() && esp_http_client_fetch_headers(client) >= 0)
+    status = esp_http_client_get_status_code(client);
+  esp_http_client_cleanup(client);
+  if (status == 204) {
+    std::lock_guard lock(mutex_);
+    if (generation_ == generation && thumbnail_key_ == key) thumbnail_attempts_ = 3;
+  }
+  ESP_LOGI("cloud_thumbnail", "Upload %s (%u bytes, HTTP %d)", status == 204 ? "complete" : "deferred",
+           static_cast<unsigned>(sent), status);
 }
 
 void CloudPairingService::initialize() {
@@ -296,6 +387,18 @@ void CloudPairingService::step() {
         const auto delay=std::min(300000U,30000U << (feed_failures_-1));
         due_=millis()+delay;
         state_="offline";
+      }
+      if (reply.status == 200 && !result_pending_) {
+        auto* thumbnail = cJSON_GetObjectItemCaseSensitive(data, "thumbnail");
+        auto* printer = cJSON_GetObjectItemCaseSensitive(thumbnail, "printer_id");
+        const auto key = field(thumbnail, "key");
+        if (cJSON_IsNumber(printer) && printer->valuedouble >= 1 && printer->valuedouble <= UINT32_MAX &&
+            std::floor(printer->valuedouble) == printer->valuedouble) {
+          const auto id = static_cast<std::uint32_t>(printer->valuedouble);
+          lock.unlock();
+          std::string{}.swap(body); // Release the feed buffer before opening another TLS connection.
+          upload_thumbnail(id, key, generation);
+        }
       }
       // Receipt is carried by the next regular feed; only absolute light.set is accepted.
       return;

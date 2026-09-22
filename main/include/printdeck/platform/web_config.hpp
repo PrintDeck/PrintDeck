@@ -106,6 +106,8 @@ class WebConfig {
   bool octoprint_check_running() const { return octoprint_probe_.snapshot().running; }
   bool uniformation_check_running() const { return uniformation_probe_.snapshot().running; }
 
+  bool cloud_preview_requested() const { return cloud_.preview_enabled(); }
+  CloudPairingService::Thumbnail cloud_thumbnail() const;
   void tick_cloud(bool online) { cloud_.tick(online); }
   core::MqttSettings mqtt_settings() const;
   bool mqtt_settings_equal(const core::MqttSettings& config) const;
@@ -114,7 +116,8 @@ class WebConfig {
   std::string unified_info_json() const;
   core::UnifiedDevicePower unified_power() const;
   std::vector<core::UnifiedPrinterView> unified_printer_views(
-      std::uint32_t profile_id = 0, bool metadata_only = false, bool request_activity = true) const;
+      std::uint32_t profile_id = 0, bool metadata_only = false, bool request_activity = true,
+      std::string* preview_identity = nullptr) const;
   // Queues work without printer I/O. HTTP parsing and future transports
   // remain outside execution/selection/freshness checks.
   bool submit_printer_command(const core::PrinterCommand& command, bool nonblocking = false);
@@ -346,7 +349,8 @@ class WebConfig {
     std::shared_ptr<std::vector<std::uint8_t>> bytes;
     std::string version;
   };
-  std::string selected_preview_key_;
+  std::string selected_preview_key_, cloud_thumbnail_key_;
+  std::uint32_t cloud_thumbnail_revision_ = 0;
   std::string selected_volume_task_;
   PrinterPreviewImage selected_model_preview_, selected_layer_preview_;
   std::uint32_t preview_session_ = 0;

@@ -1,5 +1,7 @@
 #pragma once
 #include <mutex>
+#include <memory>
+#include <vector>
 #include <string>
 #include <cstdint>
 #include "freertos/FreeRTOS.h"
@@ -13,6 +15,14 @@ class CloudPairingService {
   void set_command_sink(CommandSink sink);
   using FeedSource = std::string (*)(void*);
   void set_feed_source(FeedSource source, void* context);
+  struct Thumbnail {
+    std::uint32_t printer_id = 0;
+    std::string key;
+    std::shared_ptr<std::vector<std::uint8_t>> image;
+  };
+  using ThumbnailSource = Thumbnail (*)(void*);
+  void set_thumbnail_source(ThumbnailSource source);
+  bool preview_enabled() const;
   void initialize();
   void tick(bool online);
   bool request(const std::string& action, const std::string& id,
@@ -23,6 +33,11 @@ class CloudPairingService {
   static void entry(void* context);
   void run();
   void step();
+  void upload_thumbnail(std::uint32_t printer, const std::string& key, std::uint32_t generation);
+  ThumbnailSource thumbnail_source_ = nullptr;
+  std::string thumbnail_key_;
+  unsigned thumbnail_attempts_ = 0;
+  std::int64_t thumbnail_due_ = 0;
   bool save(const std::string& token, const std::string& account, bool disconnect);
   mutable std::mutex mutex_;
   TaskHandle_t task_ = nullptr;

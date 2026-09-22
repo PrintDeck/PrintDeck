@@ -552,6 +552,9 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
     const std::lock_guard<std::mutex> lock(mutex_);
     settings_ = settings;
   }
+  cloud_.set_thumbnail_source([](void* context) {
+    return static_cast<WebConfig*>(context)->cloud_thumbnail();
+  });
   cloud_.set_feed_source([](void* context) {
     return static_cast<WebConfig*>(context)->cloud_state_json();
   }, this);
@@ -715,7 +718,21 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
       (snapshot.job.exposure_preview &&
        snapshot.job.exposure_preview_until_ms != layer_preview_until_ms_))
     printer_stream_urgent_revision_.fetch_add(1, std::memory_order_relaxed);
-  if (snapshot.profile_id != selected_status_profile_ || preview_key != selected_preview_key_) {
+  const auto active = [](core::JobPhase phase) {
+    return phase == core::JobPhase::preparing || phase == core::JobPhase::printing || phase == core::JobPhase::paused;
+  };
+  if (snapshot.profile_id != selected_status_profile_ || preview_key != selected_preview_key_ ||
+      (active(snapshot.job.phase) && !active(selected_phase_))) {
+    cloud_thumbnail_key_.clear();
+    if (!preview_key.empty()) {
+      // Boot/session salt prevents a reused filename from exposing an earlier job's cover.
+      const auto identity = std::to_string(preview_session_) + ":" + std::to_string(++cloud_thumbnail_revision_) + ":" + std::string(preview_key);
+      std::array<unsigned char, 32> digest{};
+      if (mbedtls_sha256(reinterpret_cast<const unsigned char*>(identity.data()), identity.size(), digest.data(), 0) == 0) {
+        constexpr char hex[] = "0123456789abcdef";
+        for (auto byte : digest) { cloud_thumbnail_key_ += hex[byte >> 4]; cloud_thumbnail_key_ += hex[byte & 15]; }
+      }
+    }
     selected_model_preview_ = {};
     selected_layer_preview_ = {};
     selected_preview_key_.assign(preview_key);
@@ -2269,11 +2286,18 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   body+="}";return body;
 }
 
+CloudPairingService::Thumbnail WebConfig::cloud_thumbnail() const {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  if (selected_link_ != core::LinkState::online || selected_status_profile_ == 0 || cloud_thumbnail_key_.empty()) return {};
+  return {selected_status_profile_, cloud_thumbnail_key_, selected_model_preview_.bytes};
+}
+
 std::string WebConfig::cloud_state_json() const {
   auto body=device_state_json(false,true);
   body.pop_back();
   body+=",\"printers\":[";
-  auto views=unified_printer_views(0,false,false);
+  std::string preview_identity;
+  auto views=unified_printer_views(0,false,false,&preview_identity);
   const auto now_ms=static_cast<std::uint64_t>(esp_timer_get_time()/1000);
   const auto now_unix=static_cast<std::int64_t>(std::time(nullptr));
   bool first=true;
@@ -2281,6 +2305,12 @@ std::string WebConfig::cloud_state_json() const {
     // Same printer contract, without LAN addresses or local media routes.
     view.endpoint.clear();
     auto row=core::printer_state_json(view,now_ms,now_unix);
+    row.pop_back(); row += ",\"thumbnail_key\":";
+    if (view.selected && !preview_identity.empty() &&
+        view.snapshot.job.phase != core::JobPhase::idle && view.snapshot.job.phase != core::JobPhase::unknown)
+      append_json_string(row, preview_identity);
+    else row += "null";
+    row += '}';
     if(body.size()+row.size()+3>65536)return {};
     if(!first)body+=',';
     first=false;
@@ -2627,7 +2657,8 @@ bool WebConfig::authorize_unified_api(httpd_req_t* request) const {
   return true;
 }
 
-std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint32_t profile_id, bool metadata_only, bool request_activity) const {
+std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint32_t profile_id, bool metadata_only, bool request_activity,
+                                                                     std::string* preview_identity) const {
   // UnifiedPrinterView contains a complete normalized snapshot and is large.
   // Keep every copy in the request-owned vector (PSRAM for allocations above
   // the configured threshold) instead of placing snapshots on the 4 KiB HTTP
@@ -2650,6 +2681,7 @@ std::vector<core::UnifiedPrinterView> WebConfig::unified_printer_views(std::uint
       selected_snapshot->job.chamber_light_pending = selected_light_.pending;
       selected_snapshot->job.chamber_light_target_on = selected_light_.target_on;
       selected_snapshot_available = true;
+      if (preview_identity) *preview_identity = cloud_thumbnail_key_;
     }
     activity_callback = unified_api_activity_callback_;
     activity_context = unified_api_activity_context_;
