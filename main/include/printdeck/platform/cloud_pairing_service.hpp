@@ -6,11 +6,13 @@
 #include <cstdint>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_http_client.h"
 
 namespace printdeck::platform {
 // Cloud credentials are deliberately separate from exportable device settings.
 class CloudPairingService {
  public:
+  ~CloudPairingService();
   using CommandSink = bool (*)(void*, const std::string&);
   void set_command_sink(CommandSink sink);
   using FeedSource = std::string (*)(void*);
@@ -33,6 +35,11 @@ class CloudPairingService {
   static void entry(void* context);
   void run();
   void step();
+  void close_http();
+  esp_http_client_handle_t http_client_ = nullptr; // Owned exclusively by the cloud worker.
+  std::int64_t feed_due_ = 0;
+  unsigned poll_interval_ms_ = 0;
+
   void upload_thumbnail(std::uint32_t printer, const std::string& key, std::uint32_t generation);
   ThumbnailSource thumbnail_source_ = nullptr;
   std::string thumbnail_key_;

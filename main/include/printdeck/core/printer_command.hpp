@@ -11,10 +11,11 @@ namespace printdeck::core {
 
 // Set an explicit state rather than toggle: retrying a delivered command is safe.
 // Queueing/delivery belongs to the transport; this bounded envelope and the
-// execution gate are shared by local callers and a future cloud worker.
+// execution gate are shared by local callers and the cloud worker.
 struct PrinterCommand {
   std::uint32_t printer_id = 0;
   bool light_on = false;
+  bool select = false;
 };
 
 inline bool parse_printer_command(std::string_view payload, PrinterCommand& command) {
@@ -41,14 +42,16 @@ inline bool parse_printer_command(std::string_view payload, PrinterCommand& comm
   const auto* action = cJSON_GetObjectItemCaseSensitive(root, "action");
   const auto* parameters = cJSON_GetObjectItemCaseSensitive(root, "parameters");
   const auto* on = cJSON_GetObjectItemCaseSensitive(parameters, "on");
+  const bool selection = cJSON_IsString(action) && std::string_view(action->valuestring) == "printer.select";
+  const bool light = cJSON_IsString(action) && std::string_view(action->valuestring) == "light.set";
   const bool valid = cJSON_IsObject(root) && cJSON_GetArraySize(root) == 4 &&
       cJSON_IsNumber(version) && version->valuedouble == 1 &&
       cJSON_IsNumber(id) && id->valuedouble >= 1 &&
       id->valuedouble <= std::numeric_limits<std::uint32_t>::max() &&
       std::floor(id->valuedouble) == id->valuedouble &&
-      cJSON_IsString(action) && std::string_view(action->valuestring) == "light.set" &&
-      cJSON_IsObject(parameters) && cJSON_GetArraySize(parameters) == 1 && cJSON_IsBool(on);
-  if (valid) command = {static_cast<std::uint32_t>(id->valuedouble), cJSON_IsTrue(on) != 0};
+      cJSON_IsObject(parameters) && ((selection && cJSON_GetArraySize(parameters) == 0) ||
+      (light && cJSON_GetArraySize(parameters) == 1 && cJSON_IsBool(on)));
+  if (valid) command = {static_cast<std::uint32_t>(id->valuedouble), cJSON_IsTrue(on) != 0, selection};
   cJSON_Delete(root);
   return valid;
 }

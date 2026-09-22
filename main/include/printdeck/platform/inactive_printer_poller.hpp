@@ -74,6 +74,7 @@ class InactivePrinterPoller {
   std::atomic<bool> recovery_allowed_{true};
   std::atomic<std::uint32_t> online_profile_{0};
   std::uint64_t next_discovery_ms_ = 0;
+  std::uint64_t next_name_query_ms_ = 0;
   struct RecoveryRun {
     core::PrinterProfile profile;
     NetworkStatus network;

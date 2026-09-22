@@ -60,8 +60,8 @@ void ensure_dns_backup() {
   esp_netif_set_dns_info(station,ESP_NETIF_DNS_BACKUP,&backup);
 }
 esp_err_t on_http(esp_http_client_event_t* event) {
-  auto& reply=*static_cast<Reply*>(event->user_data);
-  if(event->event_id==HTTP_EVENT_ON_DATA && event->data_len>0) {
+  if(event->event_id==HTTP_EVENT_ON_DATA && event->data_len>0 && event->user_data) {
+    auto& reply=*static_cast<Reply*>(event->user_data);
     if(reply.body.size()+static_cast<std::size_t>(event->data_len)>4096) {
       reply.overflow=true; return ESP_FAIL;
     }
@@ -69,7 +69,7 @@ esp_err_t on_http(esp_http_client_event_t* event) {
   }
   return ESP_OK;
 }
-Reply exchange(const char* path, const std::string& body, const std::string& token={}, bool remove=false) {
+Reply exchange(esp_http_client_handle_t& client, const char* path, const std::string& body, const std::string& token={}, bool remove=false) {
   ensure_dns_backup();
   Reply reply;
   const std::string url=std::string(kApi)+path;
@@ -78,7 +78,11 @@ Reply exchange(const char* path, const std::string& body, const std::string& tok
   config.crt_bundle_attach=esp_crt_bundle_attach;
   config.disable_auto_redirect=true; config.event_handler=on_http; config.user_data=&reply;
   config.buffer_size=1024; config.buffer_size_tx=1024;
-  const auto client=esp_http_client_init(&config);
+  if (!client) client=esp_http_client_init(&config);
+  else {
+    esp_http_client_set_url(client, url.c_str());
+    esp_http_client_set_user_data(client, &reply);
+  }
   if(!client)return reply;
   esp_http_client_set_method(client,remove?HTTP_METHOD_DELETE:HTTP_METHOD_POST);
   esp_http_client_set_header(client,"Content-Type","application/json");
@@ -91,9 +95,17 @@ Reply exchange(const char* path, const std::string& body, const std::string& tok
   // ESP-IDF returns NOT_SUPPORTED for a completed 401 header without a Basic/Digest
   // challenge. Bearer-token rejection is still authoritative, even without a body.
   if((result==ESP_OK && !reply.overflow) || (result==ESP_ERR_NOT_SUPPORTED && status==401))reply.status=status;
-  esp_http_client_cleanup(client);
+  // The request owns these pointers only until perform returns.
+  esp_http_client_set_user_data(client, nullptr);
+  esp_http_client_set_post_field(client, nullptr, 0);
+  if (reply.status != 200) { esp_http_client_cleanup(client); client=nullptr; }
   return reply;
 }
+}
+
+CloudPairingService::~CloudPairingService() { close_http(); }
+void CloudPairingService::close_http() {
+  if (http_client_) { esp_http_client_cleanup(http_client_); http_client_=nullptr; }
 }
 
 void CloudPairingService::set_command_sink(CommandSink sink) {
@@ -292,7 +304,7 @@ void CloudPairingService::run() {
 
 void CloudPairingService::step() {
     std::unique_lock lock(mutex_);
-    if(paused_)return;
+    if(paused_) { close_http(); return; }
     if(command_=="cancel") {
       command_.clear();secret_.clear();code_.clear();link_.clear();state_="disconnected";return;
     }
@@ -303,8 +315,8 @@ void CloudPairingService::step() {
     if(!secret_.empty() && millis()>=expires_) {
       secret_.clear();code_.clear();link_.clear();state_="expired";
     }
-    if(command_.empty() && token_.empty() && secret_.empty())return;
-    if(!online_) {state_=disconnect_?"disconnecting":"offline";return;}
+    if(command_.empty() && token_.empty() && secret_.empty()) { close_http(); return; }
+    if(!online_) { close_http(); state_=disconnect_?"disconnecting":"offline";return;}
     if(millis()<due_)return;
     const auto generation=generation_;
     const auto token=token_;
@@ -320,35 +332,39 @@ void CloudPairingService::step() {
     } else if(token.empty())cJSON_AddStringToObject(payload.get(),"device_code",secret_.c_str());
     auto body=encode(payload.get());
     const bool feeding=!starting && !removing && !token.empty() && confirmed_ && feed_source_;
+    const bool polling=feeding && poll_interval_ms_ && millis()<feed_due_;
     const auto source=feed_source_;
     auto* context=feed_context_;
-    const auto* path=feeding?"/feed":starting?"/pairings":token.empty()?"/pairings/poll":"/connection";
+    const auto* path=feeding?(polling?"/poll":"/feed"):starting?"/pairings":token.empty()?"/pairings/poll":"/connection";
     lock.unlock();
     // Reuse the pairing worker and cached state. No printer I/O, extra worker,
     // pending snapshot queue or NVS writes; fresh state replaces failed uploads.
-    if(feeding)body=source(context);
+    if(feeding && !polling)body=source(context);
     lock.lock();
     if(paused_ || generation!=generation_ || !online_)return;
     if(feeding && result_pending_ && !body.empty() && body.back()=='}') {
       body.pop_back();
-      body+=",\"command_results\":[{\"id\":\""+last_command_id_+"\",\"status\":\""+last_command_status_+"\"}]}";
+      if(body.size()>1)body+=',';
+      body+="\"command_results\":[{\"id\":\""+last_command_id_+"\",\"status\":\""+last_command_status_+"\"}]}";
     }
     if(feeding && (body.empty() || body.size()>65536)) {
+      close_http();
       due_=millis()+300000;
       return;
     }
     lock.unlock();
     const auto exchange_started=millis();
-    const auto reply=exchange(path,body,token,removing);
+    const auto reply=exchange(http_client_,path,body,token,removing);
     Json root(cJSON_ParseWithLength(reply.body.data(),reply.body.size()),cJSON_Delete);
     auto* data=cJSON_GetObjectItemCaseSensitive(root.get(),"data");
     lock.lock();
-    if(paused_ || generation!=generation_)return;
+    if(paused_ || generation!=generation_) { close_http(); return; }
     due_=millis()+(token.empty()?5000:60000);
     if(!token.empty() && (reply.status==401 || (removing && reply.status==200 && field(data,"state")=="disconnected"))) {
       if(save("","",false)) {
         token_.clear();account_.clear();disconnect_=false;confirmed_=false;feed_failures_=0;
         last_command_id_.clear();last_command_status_.clear();result_pending_=false;
+        poll_interval_ms_=0;feed_due_=0;close_http();
         state_=removing?"disconnected":"revoked";
       } else state_="error";
       return;
@@ -356,7 +372,16 @@ void CloudPairingService::step() {
     if(feeding) {
       if(reply.status==200 && cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(data,"accepted"))) {
         feed_failures_=0;
-        due_=millis()+30000;
+        const auto interval=[&](const char* name, unsigned fallback, unsigned minimum, unsigned maximum) {
+          const auto* value=cJSON_GetObjectItemCaseSensitive(data,name);
+          return cJSON_IsNumber(value) && std::isfinite(value->valuedouble) &&
+              std::floor(value->valuedouble)==value->valuedouble && value->valuedouble>=minimum && value->valuedouble<=maximum
+              ? static_cast<unsigned>(value->valuedouble)*1000U : fallback;
+        };
+        // Older servers omit next_poll_seconds: retain their feed-only behavior.
+        poll_interval_ms_=interval("next_poll_seconds",0,3,30);
+        if(!polling) feed_due_=millis()+interval("next_feed_seconds",30000,3,60);
+        due_=poll_interval_ms_?std::min(feed_due_,millis()+poll_interval_ms_):feed_due_;
         state_="connected";
         result_pending_=false;
         const auto* commands=cJSON_GetObjectItemCaseSensitive(data,"commands");
@@ -380,29 +405,38 @@ void CloudPairingService::step() {
               last_command_id_=id;last_command_status_=accepted?"accepted":"rejected";
             }
             result_pending_=true;
+            // Report the receipt and observed state promptly, without another
+            // printer read or a parallel Cloud request. Only new transport opts in.
+            if(poll_interval_ms_) { feed_due_=millis()+1000; due_=feed_due_; }
           }
         }
+        if(!poll_interval_ms_)close_http();
+      } else if(polling && (reply.status==404 || reply.status==405)) {
+        // A server rollback must not strand a paired device on the newer route.
+        poll_interval_ms_=0;feed_due_=0;due_=millis()+30000;close_http();
       } else {
         if(feed_failures_<5)++feed_failures_;
         const auto delay=std::min(300000U,30000U << (feed_failures_-1));
         due_=millis()+delay;
-        state_="offline";
+        state_="offline";close_http();
       }
-      if (reply.status == 200 && !result_pending_) {
+      if (!polling && reply.status == 200 && !result_pending_) {
         auto* thumbnail = cJSON_GetObjectItemCaseSensitive(data, "thumbnail");
         auto* printer = cJSON_GetObjectItemCaseSensitive(thumbnail, "printer_id");
         const auto key = field(thumbnail, "key");
         if (cJSON_IsNumber(printer) && printer->valuedouble >= 1 && printer->valuedouble <= UINT32_MAX &&
             std::floor(printer->valuedouble) == printer->valuedouble) {
           const auto id = static_cast<std::uint32_t>(printer->valuedouble);
+          close_http(); // Never retain a second TLS connection beside a thumbnail upload.
           lock.unlock();
           std::string{}.swap(body); // Release the feed buffer before opening another TLS connection.
           upload_thumbnail(id, key, generation);
         }
       }
-      // Receipt is carried by the next regular feed; only absolute light.set is accepted.
+      // Regular snapshots remain independent of the bounded command poll.
       return;
     }
+    close_http(); // Pairing/connection checks do not retain idle TLS state.
     if(reply.status!=200 || !cJSON_IsObject(data)) {
       due_=millis()+30000;state_=removing?"disconnecting":"offline";
       if(starting && reply.status>=400 && reply.status<500 && reply.status!=429) {

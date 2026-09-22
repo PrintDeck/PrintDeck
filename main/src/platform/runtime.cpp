@@ -79,7 +79,9 @@ bool same_printer_configuration(const core::DeviceSettings& current,
   // Learning the identity adds a guard without changing the live destination.
   previous_connection.network_identity = selected->network_identity;
   return core::same_printer_connection(previous_connection, *selected) &&
-      previous->display_name == selected->display_name && previous->manufacturer == selected->manufacturer &&
+      // A learned Bambu name changes display metadata, never its live session.
+      (selected->protocol == core::PrinterProtocol::bambu_lan || previous->display_name == selected->display_name) &&
+      previous->manufacturer == selected->manufacturer &&
       previous->model == selected->model && previous->brand == selected->brand;
 }
 

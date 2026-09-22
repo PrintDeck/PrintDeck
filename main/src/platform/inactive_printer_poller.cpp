@@ -6,6 +6,8 @@
 #include "printdeck/platform/elegoo_sdcp_service.hpp"
 #include "printdeck/platform/uniformation_sdcp_parser.hpp"
 #include "printdeck/platform/elegoo_cc2_service.hpp"
+#include "printdeck/core/bambu_printer_name.hpp"
+#include "printdeck/platform/device_discovery_policy.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -16,6 +18,10 @@
 #include <mutex>
 #include <string_view>
 #include <utility>
+#include <fcntl.h>
+#include "lwip/inet.h"
+#include "lwip/netdb.h"
+#include "lwip/sockets.h"
 
 #include "cJSON.h"
 #include "esp_crt_bundle.h"
@@ -42,6 +48,66 @@ constexpr char kBambuStartReports[] =
     "{\"pushing\":{\"sequence_id\":\"2\",\"command\":\"start\"}}";
 constexpr char kBambuRequestAll[] =
     "{\"pushing\":{\"sequence_id\":\"3\",\"command\":\"pushall\"}}";
+
+// A short identity read on the existing core-0 poller. Never open another MQTT
+// session or scan the subnet for a name; receive only the saved printer's SSDP.
+std::optional<core::PrinterProfile> learn_bambu_name(const core::PrinterProfile& profile,
+    const NetworkStatus& network, const PrinterRecoveryCancel& cancelled) {
+  const auto address = core::printer_address(profile);
+  if (!address || profile.serial.empty() || cancelled()) return {};
+  in_addr target{};
+  if (inet_pton(AF_INET, address->host.c_str(), &target) != 1) {
+    addrinfo hints{}; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_DGRAM;
+    addrinfo* resolved = nullptr;
+    if (getaddrinfo(address->host.c_str(), nullptr, &hints, &resolved) != 0) return {};
+    if (resolved) target = reinterpret_cast<sockaddr_in*>(resolved->ai_addr)->sin_addr;
+    freeaddrinfo(resolved);
+  }
+  if (cancelled() || !valid_device_peer_ipv4(ntohl(target.s_addr),
+      ntohl(inet_addr(network.ipv4.c_str())), ntohl(inet_addr(network.netmask.c_str())))) return {};
+  struct Sockets {
+    int fd[2]{-1, -1};
+    ~Sockets() { for (const int socket : fd) if (socket >= 0) close(socket); }
+  } sockets;
+  constexpr unsigned ports[]{1990, 2021};
+  constexpr char search[] = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\n"
+      "MAN: \"ssdp:discover\"\r\nMX: 2\r\nST: urn:bambulab-com:device:3dprinter:1\r\n\r\n";
+  for (unsigned i = 0; i < 2; ++i) {
+    const int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (fd < 0) continue;
+    int reuse = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    sockaddr_in local{}; local.sin_family = AF_INET; local.sin_port = htons(ports[i]);
+    ip_mreq group{}; group.imr_multiaddr.s_addr = inet_addr("239.255.255.250");
+    group.imr_interface.s_addr = inet_addr(network.ipv4.c_str());
+    if (bind(fd, reinterpret_cast<sockaddr*>(&local), sizeof(local)) != 0 ||
+        setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &group, sizeof(group)) != 0 ||
+        fcntl(fd, F_SETFL, O_NONBLOCK) < 0) { close(fd); continue; }
+    sockets.fd[i] = fd;
+    sockaddr_in destination{}; destination.sin_family = AF_INET;
+    destination.sin_port = htons(1900); destination.sin_addr = target;
+    sendto(fd, search, sizeof(search) - 1, 0, reinterpret_cast<sockaddr*>(&destination), sizeof(destination));
+  }
+  if (sockets.fd[0] < 0 && sockets.fd[1] < 0) return {};
+  const auto deadline = esp_timer_get_time() + 5'000'000;
+  while (!cancelled() && esp_timer_get_time() < deadline) {
+    for (const int fd : sockets.fd) {
+      if (fd < 0) continue;
+      for (unsigned count = 0; count < 4 && !cancelled(); ++count) {
+        char packet[1537]; sockaddr_in source{}; socklen_t length = sizeof(source);
+        const auto received = recvfrom(fd, packet, sizeof(packet), 0, reinterpret_cast<sockaddr*>(&source), &length);
+        if (received <= 0) break;
+        if (source.sin_addr.s_addr != target.s_addr) continue;
+        const auto name = core::bambu_advertised_name(std::string_view(packet, received), profile.serial);
+        if (!name) continue;
+        auto learned = profile; learned.display_name = *name;
+        return learned;
+      }
+    }
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100));
+  }
+  return {};
+}
 
 struct JsonDeleter {
   void operator()(cJSON* value) const { cJSON_Delete(value); }
@@ -475,7 +541,7 @@ void InactivePrinterPoller::recover_or_learn(const core::PrinterProfile& profile
         current.station_name != network.station_name || current.ipv4 != network.ipv4 ||
         current.netmask != network.netmask) return true;
     const std::lock_guard<std::mutex> lock(mutex_);
-    return generation != config_generation_ || (!active && active_profile_ == profile.id) ||
+    return (discovery_ && discovery_->running()) || generation != config_generation_ || (!active && active_profile_ == profile.id) ||
         (active && online_profile_.load() != profile.id);
   };
   const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
@@ -491,7 +557,12 @@ void InactivePrinterPoller::recover_or_learn(const core::PrinterProfile& profile
       attempt = std::prev(check_attempts_.end());
     }
     if (connected) { attempt->recovery.observe(true); attempt->recovery_offset = 0; }
-    if (connected && profile.protocol == core::PrinterProtocol::moonraker &&
+    if (connected && profile.protocol == core::PrinterProtocol::bambu_lan &&
+        now >= attempt->learn_after_ms && now >= next_name_query_ms_ && !discovery_->running()) {
+      learn = true;
+      attempt->learn_after_ms = now + 300000;
+      next_name_query_ms_ = now + 10000;
+    } else if (connected && profile.protocol == core::PrinterProtocol::moonraker &&
         (profile.network_identity.empty() || profile.network_identity.starts_with("mr:") ||
          core::valid_moonraker_uuid(profile.network_identity)) &&
         now >= attempt->learn_after_ms && !discovery_->running()) {
@@ -507,8 +578,11 @@ void InactivePrinterPoller::recover_or_learn(const core::PrinterProfile& profile
     }
   }
   if (learn) {
-    const auto learned = learn_moonraker_identity(profile, cancelled);
+    const auto learned = profile.protocol == core::PrinterProtocol::bambu_lan
+        ? learn_bambu_name(profile, network, cancelled) : learn_moonraker_identity(profile, cancelled);
     const bool interrupted = cancelled();
+    if (learned && learned->display_name == profile.display_name &&
+        profile.protocol == core::PrinterProtocol::bambu_lan) return;
     const bool queued = learned && !interrupted && recovery_callback_(recovery_context_, profile, *learned, network);
     if (!queued) {
       const std::lock_guard<std::mutex> lock(mutex_);

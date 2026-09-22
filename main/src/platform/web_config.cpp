@@ -2,6 +2,7 @@
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/web_config.hpp"
 #include "printdeck/core/printer_address.hpp"
+#include "printdeck/core/bambu_printer_name.hpp"
 
 #include "printdeck/core/firmware_image.hpp"
 #include "printdeck/platform/firmware_identity.hpp"
@@ -877,7 +878,8 @@ bool WebConfig::save_recovered_printer(const core::PrinterProfile& expected,
     candidate = settings_;
   }
   if (candidate.wifi_name != network.station_name ||
-      !core::merge_printer_address(candidate, expected, recovered) || !core::validate(candidate).empty()) return false;
+      !(core::merge_bambu_printer_name(candidate, expected, recovered) ||
+        core::merge_printer_address(candidate, expected, recovered)) || !core::validate(candidate).empty()) return false;
   if (store_->save(candidate) != ESP_OK) return false;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
@@ -885,7 +887,7 @@ bool WebConfig::save_recovered_printer(const core::PrinterProfile& expected,
   }
   // Background repair is not a user gesture: no wake, confirmation sound or navigation.
   notify_settings_changed(candidate, false);
-  ESP_LOGI(kLogTag, "Saved printer identity/address recovered");
+  ESP_LOGI(kLogTag, "Saved learned printer metadata");
   return true;
 }
 
@@ -5132,6 +5134,15 @@ bool WebConfig::submit_printer_command(const core::PrinterCommand& command, bool
     if (!write_lock.try_lock() || !lock.try_lock()) return false;
   } else {
     write_lock.lock();lock.lock();
+  }
+  if (command.select) {
+    const auto profile = std::find_if(settings_.profiles.begin(), settings_.profiles.end(),
+        [id](const auto& value) { return value.id == id; });
+    if (profile == settings_.profiles.end() || !core::printer_driver(profile->protocol).dashboard) return false;
+    // Reuse the same core-0 selection queue and offline gate as physical selection.
+    // Replaying an already applied selection must not restart its connection.
+    if (id == settings_.selected_profile && id == selected_status_profile_ && selected_link_ == core::LinkState::online) return true;
+    return printer_selection_callback_ && printer_selection_callback_(printer_selection_context_, id);
   }
   const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
   if (id != settings_.selected_profile || id != selected_status_profile_ || !selected_telemetry_ ||

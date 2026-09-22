@@ -518,6 +518,10 @@ std::string printer_state_json(const UnifiedPrinterView& p, std::uint64_t now_ms
   out += ",\"capabilities\":{\"light.set\":{\"supported\":";
   out += full && job.chamber_light_supported ? "true" : "false";
   out += ",\"available\":"; out += printer_light_available(p) ? "true" : "false";
+  out += "},\"printer.select\":{\"supported\":";
+  out += driver.dashboard ? "true" : "false";
+  out += ",\"available\":";
+  out += driver.dashboard && p.reachability != PrinterReachability::offline ? "true" : "false";
   out += "},\"print.pause\":{\"supported\":false,\"available\":false},"
          "\"print.resume\":{\"supported\":false,\"available\":false},"
          "\"print.stop\":{\"supported\":false,\"available\":false},"
