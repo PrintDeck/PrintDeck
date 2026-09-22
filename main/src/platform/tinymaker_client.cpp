@@ -224,6 +224,14 @@ PrusaLinkPollResult TinyMakerClient::poll(std::uint64_t deadline, const std::fun
   if (const auto value = number(root, "vatRemainingMl", 10000)) job.resin_telemetry.vat_remaining_ml = *value;
   if (field(root, "vatLow")) job.resin_telemetry.vat_low = flag(root, "vatLow");
   if (active) if (const auto value = number(root, "resinUsedMl", 10000)) job.resin_telemetry.used_ml = *value;
+  // Older firmware omits both counters. Bad optional preview metadata must
+  // not discard otherwise valid print telemetry or retain a previous stack.
+  job.resin_live_slices.reset();
+  const auto slots = integer(root, "liveN", 4096), captured = integer(root, "liveCaptured", 4096);
+  if (slots && captured && *captured <= *slots && uptime)
+    job.resin_live_slices = core::ResinLiveSlices{
+        static_cast<std::uint16_t>(*slots), static_cast<std::uint16_t>(*captured),
+        integer(root, "sdRev").value_or(0), *uptime};
   job.normalize();
   previous_ = std::make_unique<PrusaLinkSample>(sample);
   return {.sample = std::move(sample)};

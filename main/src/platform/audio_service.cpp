@@ -172,6 +172,21 @@ const std::array<std::array<AdpcmSample, kVoiceEventCount>, 6> kVoiceSamples{{
 }};
 #undef PRINTDECK_VOICE_SAMPLE_SET
 
+// 8 kHz IMA-ADPCM fragments share the phrase and unit across all milestones.
+// Columns: prefix, 25, 50, 75, percent. Only one fragment is resident at a time.
+#define PRINTDECK_PROGRESS_SET(language)                                      \
+  {{audio_assets::voice_##language##_progress_prefix,                         \
+    audio_assets::voice_##language##_progress_number_25,                      \
+    audio_assets::voice_##language##_progress_number_50,                      \
+    audio_assets::voice_##language##_progress_number_75,                      \
+    audio_assets::voice_##language##_progress_percent}}
+const std::array<std::array<AdpcmSample, 5>, 6> kProgressSamples{{
+    PRINTDECK_PROGRESS_SET(en), PRINTDECK_PROGRESS_SET(pl),
+    PRINTDECK_PROGRESS_SET(es), PRINTDECK_PROGRESS_SET(fr),
+    PRINTDECK_PROGRESS_SET(de), PRINTDECK_PROGRESS_SET(zh_cn),
+}};
+#undef PRINTDECK_PROGRESS_SET
+
 bool is_voice_event(AudioService::Event event) {
   switch (event) {
     case AudioService::Event::print_started:
@@ -394,7 +409,7 @@ void write_silence(esp_codec_dev_handle_t codec, std::size_t samples) {
 }
 
 bool write_adpcm_sample(esp_codec_dev_handle_t codec, AdpcmSample sample, int volume,
-                        const PlaybackControl& control) {
+                        const PlaybackControl& control, bool half_rate = false) {
   if (control.cancelled()) return true;
   const std::size_t size = static_cast<std::size_t>(sample.end - sample.begin);
   if (sample.decoded_size < 12 ||
@@ -416,12 +431,21 @@ bool write_adpcm_sample(esp_codec_dev_handle_t codec, AdpcmSample sample, int vo
   const int clamped_volume = std::clamp(volume, 0, 100);
   while (!reader.finished()) {
     if (control.cancelled()) return true;
-    const std::size_t count = reader.read(output.data(), output.size());
-    for (std::size_t index = 0; index < count; ++index) {
-      output[index] = static_cast<std::int16_t>(
+    const std::size_t count = reader.read(output.data(), output.size() / (half_rate ? 2 : 1));
+    // Repeat 8 kHz speech samples into the existing 16 kHz codec stream. Work
+    // backwards in the same bounded buffer; no second PCM buffer or resampler.
+    for (std::size_t index = count; index-- > 0;) {
+      const auto value = static_cast<std::int16_t>(
           static_cast<std::int32_t>(output[index]) * clamped_volume / 100);
+      if (half_rate) {
+        output[index * 2] = value;
+        output[index * 2 + 1] = value;
+      } else {
+        output[index] = value;
+      }
     }
-    if (esp_codec_dev_write(codec, output.data(), count * sizeof(output[0])) != ESP_OK) {
+    if (esp_codec_dev_write(codec, output.data(),
+                           count * (half_rate ? 2 : 1) * sizeof(output[0])) != ESP_OK) {
       return false;
     }
   }
@@ -731,6 +755,31 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   const Melody selected = melody_for(event);
   const SoundStyle style = style_for(preset);
   const int sample_volume = std::min(requested_volume, style.maximum_volume);
+  const bool generated_progress = event == Event::progress_25 ||
+                                  event == Event::progress_50 ||
+                                  event == Event::progress_75;
+  if (preset == Preset::clean && generated_progress) {
+    const std::size_t locale = language < kProgressSamples.size() ? language : 0;
+    const auto& fragments = kProgressSamples[locale];
+    const std::size_t number = event == Event::progress_25 ? 1 :
+                               event == Event::progress_50 ? 2 : 3;
+    // Chinese says "percent twenty-five"; other maintained languages put the
+    // unit after the number. Keep the language captured with this request.
+    const std::array<std::size_t, 3> order{0, locale == 5 ? 4 : number,
+                                            locale == 5 ? number : 4};
+    bool valid = true;
+    for (const auto index : order) {
+      if (!write_adpcm_sample(codec, fragments[index], sample_volume, control, true)) {
+        valid = false;
+        break;
+      }
+    }
+    if (valid) {
+      write_silence(codec, 1024);
+      return;
+    }
+    ESP_LOGE(kLogTag, "Progress voice ADPCM asset is invalid");
+  }
   if (preset == Preset::clean && is_voice_event(event)) {
     if (write_adpcm_sample(codec, voice_sample_for(language, event), sample_volume, control)) {
       write_silence(codec, 1024);
@@ -738,9 +787,6 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
     }
     ESP_LOGE(kLogTag, "Voice ADPCM asset is invalid");
   }
-  const bool generated_progress = event == Event::progress_25 ||
-                                  event == Event::progress_50 ||
-                                  event == Event::progress_75;
   if (preset == Preset::modern && !generated_progress) {
     if (write_adpcm_sample(codec, modern_sample_for(event), sample_volume, control)) {
       write_silence(codec, 1024);

@@ -8,7 +8,7 @@ namespace printdeck::platform {
 // Streaming HTTP framing shared by ESP transport and host boundary tests.
 class PrusaLinkHttpDecoder {
  public:
-  explicit PrusaLinkHttpDecoder(std::size_t maximum_body);
+  explicit PrusaLinkHttpDecoder(std::size_t maximum_body, bool require_range = false);
   bool feed(std::string_view bytes);
   bool finish();
   bool complete() const { return complete_; }
@@ -26,6 +26,7 @@ class PrusaLinkHttpDecoder {
   http_parser_settings callbacks_{};
   PrusaLinkHttpResponse response_;
   std::size_t maximum_body_;
+  bool require_range_;
   std::size_t header_bytes_ = 0;
   std::size_t challenge_bytes_ = 0;
   std::size_t chunks_ = 0;

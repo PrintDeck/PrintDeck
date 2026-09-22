@@ -10,6 +10,8 @@ namespace printdeck::platform {
 // probes. Acquire on a worker, never while holding settings/display locks.
 std::timed_mutex& prusalink_transaction_mutex();
 std::uint64_t prusalink_now_ms();
+std::string prusalink_resolved_ipv4(std::string host, std::uint64_t deadline,
+    const std::function<bool()>& cancelled);
 std::string prusalink_md5(std::string_view input);
 std::string prusalink_random_cnonce();
 

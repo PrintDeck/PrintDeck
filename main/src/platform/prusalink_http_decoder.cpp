@@ -4,8 +4,8 @@
 
 namespace printdeck::platform {
 
-PrusaLinkHttpDecoder::PrusaLinkHttpDecoder(std::size_t maximum_body)
-    : maximum_body_(maximum_body) {
+PrusaLinkHttpDecoder::PrusaLinkHttpDecoder(std::size_t maximum_body, bool require_range)
+    : maximum_body_(maximum_body), require_range_(require_range) {
   http_parser_init(&parser_, HTTP_RESPONSE);
   parser_.data = this;
   callbacks_.on_header_field = header_field;
@@ -28,6 +28,11 @@ bool PrusaLinkHttpDecoder::commit_header() {
   } else if (field_ == "content-type") {
     if (!response_.content_type.empty()) return false;
     response_.content_type = value_;
+  }
+  if (field_ == "content-range" || field_ == "etag" || field_ == "last-modified") {
+    auto& value = field_ == "content-range" ? response_.content_range : field_ == "etag" ? response_.etag : response_.last_modified;
+    if (!value.empty() || value_.size() > 256) return false;
+    value = value_;
   }
   field_.clear();
   value_.clear();
@@ -60,6 +65,7 @@ int PrusaLinkHttpDecoder::header_value(http_parser* parser, const char* data, st
 int PrusaLinkHttpDecoder::headers_complete(http_parser* parser) {
   auto& self = *static_cast<PrusaLinkHttpDecoder*>(parser->data);
   if (!self.commit_header() || parser->status_code < 200 || parser->upgrade ||
+      (self.require_range_ && parser->status_code >= 200 && parser->status_code < 300 && parser->status_code != 206) ||
       (parser->content_length != std::numeric_limits<std::uint64_t>::max() &&
        parser->content_length > self.maximum_body_)) return -1;
   self.headers_done_ = true;

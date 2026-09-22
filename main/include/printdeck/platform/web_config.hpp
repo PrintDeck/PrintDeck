@@ -1,4 +1,6 @@
 #pragma once
+#include "printdeck/platform/gcode_preview_service.hpp"
+#include "printdeck/platform/tinymaker_volume_service.hpp"
 
 #include "printdeck/core/printer_command.hpp"
 
@@ -336,6 +338,10 @@ class WebConfig {
   BambuCompatibilityProbe* compatibility_probe_ = nullptr;
   const InactivePrinterPoller* inactive_printer_poller_ = nullptr;
   DisplayShell* display_ = nullptr;
+  GcodePreviewService gcode_service_;
+  TinyMakerVolumeService tiny_volume_service_;
+  static esp_err_t gcode_preview_entry(httpd_req_t*);
+  esp_err_t serve_gcode_preview(httpd_req_t*);
   UniformationPreviewService* volume_service_ = nullptr;
   std::uint32_t selected_status_profile_ = 0;
   std::string selected_printer_model_;

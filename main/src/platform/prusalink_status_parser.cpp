@@ -189,8 +189,9 @@ void filename(const cJSON* file, core::JobState& job, const char* display_key) {
   if (!carries_job(job)) return;
   job.name = str(file, display_key, 256);
   if (job.name.empty()) job.name = str(file, "name", 256);
-  // Paths are metadata only. They never become credential-bearing requests.
+  // The source service validates download references against the configured origin.
   job.gcode_file = str(file, "path", 512);
+  job.gcode_download = str(member(file, "refs"), "download", 512);
   if (job.name.empty()) job.name = job.gcode_file;
   const auto slash = job.name.find_last_of('/');
   if (slash != std::string::npos) job.name.erase(0, slash + 1);

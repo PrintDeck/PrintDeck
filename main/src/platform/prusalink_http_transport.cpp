@@ -132,6 +132,9 @@ bool retryable(ssize_t result) {
 std::timed_mutex& prusalink_transaction_mutex() { return transaction_mutex; }
 std::uint64_t prusalink_now_ms() { return static_cast<std::uint64_t>(esp_timer_get_time()) / 1000; }
 
+std::string prusalink_resolved_ipv4(std::string host, std::uint64_t deadline,
+    const std::function<bool()>& cancelled) { return resolved_ipv4(std::move(host),deadline,cancelled); }
+
 std::string prusalink_md5(std::string_view input) {
   unsigned char digest[16]{};
   if (mbedtls_md5(reinterpret_cast<const unsigned char*>(input.data()), input.size(), digest) != 0) return {};
@@ -149,6 +152,9 @@ PrusaLinkHttpResponse PrusaLinkEspTransport::get(const PrusaLinkHttpRequest& req
   if (request.url.size() > 768 || request.maximum_body > 512 * 1024 ||
       request.header_value.size() > 2048 ||
       (!request.header_name.empty() && request.header_name != "Authorization" && request.header_name != "X-Api-Key"))
+    return {.error = PrusaLinkError::invalid_configuration};
+  if (request.range_offset && (!request.range_length || request.range_length > 32768 ||
+      *request.range_offset > 16ULL*1024*1024*1024-request.range_length))
     return {.error = PrusaLinkError::invalid_configuration};
   const bool secure = request.url.starts_with("https://");
   if (!secure && !request.url.starts_with("http://")) return {.error = PrusaLinkError::invalid_configuration};
@@ -223,6 +229,8 @@ PrusaLinkHttpResponse PrusaLinkEspTransport::get(const PrusaLinkHttpRequest& req
   std::string wire = "GET " + target + " HTTP/1.1\r\nHost: " + authority +
       "\r\nUser-Agent: PrintDeck-PrusaLink/1\r\nAccept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n";
   if (!request.header_name.empty()) wire += request.header_name + ": " + request.header_value + "\r\n";
+  if (request.range_offset) wire += "Range: bytes=" + std::to_string(*request.range_offset) + "-" +
+      std::to_string(*request.range_offset + request.range_length - 1) + "\r\n";
   wire += "\r\n";
   std::size_t sent = 0;
   while (sent < wire.size() && !stopped(request.deadline_ms, cancelled)) {
@@ -234,7 +242,7 @@ PrusaLinkHttpResponse PrusaLinkEspTransport::get(const PrusaLinkHttpRequest& req
   }
   if (sent != wire.size()) return {.error = stopped_error()};
   wire.clear();
-  PrusaLinkHttpDecoder decoder(request.maximum_body);
+  PrusaLinkHttpDecoder decoder(request.maximum_body, request.range_offset.has_value());
   std::array<char, 2048> bytes{};
   while (!decoder.complete() && !stopped(request.deadline_ms, cancelled)) {
     errno = 0;

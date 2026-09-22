@@ -154,7 +154,7 @@ bool PrusaLinkClient::configure(std::string_view endpoint, PrusaLinkCredentials 
 }
 
 PrusaLinkHttpResponse PrusaLinkClient::get(std::string_view path, std::size_t maximum_body,
-    std::uint64_t deadline_ms, const std::function<bool()>& cancelled) {
+    std::uint64_t deadline_ms, const std::function<bool()>& cancelled, std::optional<std::uint64_t> range_offset, std::uint32_t range_length) {
   bool refreshed = false;
   for (unsigned attempt = 0; attempt < 3; ++attempt) {
     if (cancelled && cancelled()) return {.error = PrusaLinkError::cancelled};
@@ -163,6 +163,7 @@ PrusaLinkHttpResponse PrusaLinkClient::get(std::string_view path, std::size_t ma
     request.url = origin_ + std::string(path);
     request.maximum_body = maximum_body;
     request.deadline_ms = deadline_ms;
+    request.range_offset = range_offset; request.range_length = range_length;
     bool authenticated = false;
     if (credentials_.mode == PrusaLinkAuthMode::api_key) {
       request.header_name = "X-Api-Key";
@@ -218,6 +219,14 @@ PrusaLinkHttpResponse PrusaLinkClient::get(std::string_view path, std::size_t ma
   return {.error = PrusaLinkError::authorization};
 }
 
+PrusaLinkHttpResponse PrusaLinkClient::read_range(std::string_view path, std::uint64_t offset,
+    std::uint32_t length, std::uint64_t deadline, const std::function<bool()>& cancel) {
+  if (!length || length > 32768 || offset > 16ULL*1024*1024*1024-length ||
+      path.empty() || path.front()!='/' || path.starts_with("//"))
+    return {.error=PrusaLinkError::invalid_configuration};
+  return get(path, std::max<std::size_t>(length,4096), deadline, cancel, offset, length);
+}
+
 PrusaLinkPollResult PrusaLinkClient::poll(std::uint64_t deadline_ms,
     const std::function<bool()>& cancelled, bool include_metadata,
     const std::function<bool()>& want_preview) {
@@ -245,6 +254,7 @@ PrusaLinkPollResult PrusaLinkClient::poll(std::uint64_t deadline_ms,
     if (previous_job && ((same_id && job.phase != core::JobPhase::idle) || (terminal && !current.job_id))) {
       if (job.name.empty()) job.name = before.name;
       if (job.gcode_file.empty()) job.gcode_file = before.gcode_file;
+      if (same_id && job.gcode_download.empty()) job.gcode_download = before.gcode_download;
       if (same_id) {
         if (!job.preview && (job.phase == core::JobPhase::printing ||
                              job.phase == core::JobPhase::paused ||

@@ -173,10 +173,18 @@ inline std::uint32_t resin_exposure_remaining_tenths(const ResinExposureTiming& 
       static_cast<std::uint32_t>((timing.duration_ms - elapsed + 99) / 100);
 }
 
+// Availability of a printer's RAM-backed resin silhouettes. This is source
+// metadata, independent of the print's current layer or completion percentage.
+struct ResinLiveSlices {
+  std::uint16_t slots = 0, captured = 0;
+  std::uint32_t revision = 0, uptime_seconds = 0;
+};
+
 struct JobState {
   JobPhase phase = JobPhase::unknown;
   ResinStage resin_stage = ResinStage::unknown;
   ResinPrintSettings resin_settings;
+  std::optional<ResinLiveSlices> resin_live_slices;
   ResinTelemetry resin_telemetry;
   std::optional<ResinExposureTiming> resin_exposure;
   JobKind kind = JobKind::print;
@@ -194,6 +202,8 @@ struct JobState {
   PrinterCondition condition = PrinterCondition::normal;
   std::string name;
   std::string gcode_file;
+  // Adapter-owned local download reference; never serialized to browser/cloud state.
+  std::string gcode_download;
   std::string preview_hint;
   std::string preview_plate_hint;
   std::string detail;

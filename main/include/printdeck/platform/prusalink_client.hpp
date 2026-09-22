@@ -27,6 +27,8 @@ struct PrusaLinkHttpRequest {
   std::string header_value;
   std::size_t maximum_body = 32 * 1024;
   std::uint64_t deadline_ms = 0;
+  std::optional<std::uint64_t> range_offset;
+  std::uint32_t range_length = 0;
 };
 
 struct PrusaLinkHttpResponse {
@@ -36,6 +38,7 @@ struct PrusaLinkHttpResponse {
   std::vector<std::string> challenges;
   std::string content_encoding;
   std::string content_type;
+  std::string content_range, etag, last_modified;
 };
 
 // Implementations perform GET only, with no redirects, cookies, proxy or native
@@ -71,6 +74,8 @@ class PrusaLinkClient {
                           const std::function<bool()>& cancelled,
                           bool include_metadata = true,
                           const std::function<bool()>& want_preview = {});
+  PrusaLinkHttpResponse read_range(std::string_view path, std::uint64_t offset,
+      std::uint32_t length, std::uint64_t deadline_ms, const std::function<bool()>& cancelled);
   const PrusaLinkIdentity& identity() const { return identity_; }
   PrusaLinkDialect dialect() const { return dialect_; }
   std::uint64_t session_revision() const { return session_revision_; }
@@ -81,7 +86,8 @@ class PrusaLinkClient {
                                bool include_metadata, const std::function<bool()>& want_preview);
   PrusaLinkHttpResponse get(std::string_view path, std::size_t maximum_body,
                             std::uint64_t deadline_ms,
-                            const std::function<bool()>& cancelled);
+                            const std::function<bool()>& cancelled,
+                            std::optional<std::uint64_t> range_offset = {}, std::uint32_t range_length = 0);
   PrusaLinkHttpTransport& transport_;
   PrusaLinkMd5 md5_;
   std::function<std::uint64_t()> now_ms_;

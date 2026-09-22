@@ -623,6 +623,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/wifi/scan", .method = HTTP_GET, .handler = wifi_scan_entry, .user_ctx = this},
       {.uri = "/api/wifi", .method = HTTP_POST, .handler = wifi_entry, .user_ctx = this},
       {.uri = "/api/printers", .method = HTTP_POST, .handler = printer_entry, .user_ctx = this},
+      {.uri = "/api/printers/gcode", .method = HTTP_GET, .handler = gcode_preview_entry, .user_ctx = this},
       {.uri = "/api/printers/volume", .method = HTTP_GET, .handler = printer_volume_entry, .user_ctx = this},
       {.uri = "/api/printers/preview", .method = HTTP_GET, .handler = printer_preview_entry, .user_ctx = this},
       {.uri = "/api/printers", .method = HTTP_GET, .handler = printers_get_entry, .user_ctx = this},
@@ -774,6 +775,12 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
   selected_telemetry_->job.preview.reset();
   selected_telemetry_->job.camera_frame.reset();
   selected_telemetry_->job.exposure_preview.reset();
+  const auto gcode_profile=std::find_if(settings_.profiles.begin(),settings_.profiles.end(),[&](const auto& p){return p.id==settings_.selected_profile;});
+  gcode_service_.update(gcode_profile==settings_.profiles.end()?nullptr:&*gcode_profile,snapshot,
+      snapshot.job.camera_refreshing || (firmware_update_ && firmware_update_->snapshot().busy));
+  tiny_volume_service_.update(gcode_profile==settings_.profiles.end()?nullptr:&*gcode_profile,snapshot,
+      snapshot.job.camera_refreshing || (firmware_update_ && firmware_update_->snapshot().busy));
+  selected_telemetry_->job.gcode_download.clear();
   selected_volume_task_ = snapshot.job.preview_hint;
   selected_telemetry_->job.preview_hint.clear();
   selected_telemetry_->job.preview_plate_hint.clear();
@@ -4201,35 +4208,101 @@ esp_err_t WebConfig::serve_wifi_scan(httpd_req_t* request) {
   return httpd_resp_send(request, body.data(), body.size());
 }
 
+esp_err_t WebConfig::gcode_preview_entry(httpd_req_t* request) {
+  return static_cast<WebConfig*>(request->user_ctx)->serve_gcode_preview(request);
+}
+esp_err_t WebConfig::serve_gcode_preview(httpd_req_t* request) {
+  std::string id_text,kind,generation_text,offset_text,length_text;
+  std::uint32_t id=0,generation=0,length=0;std::uint64_t offset=0;
+  if(httpd_req_get_url_query_len(request)>160||!query_value(request,"id",id_text)||!parse_id(id_text,id)||!id||
+     !query_value(request,"kind",kind)||(kind!="meta"&&kind!="chunk"))return send_json(request,"400 Bad Request","{}");
+  const bool metadata=kind=="meta";
+  if(!metadata&&(!query_value(request,"generation",generation_text)||!parse_id(generation_text,generation)||!generation||
+      !query_value(request,"offset",offset_text)||!core::gcode_uint(offset_text,offset)||
+      !query_value(request,"length",length_text)||!parse_id(length_text,length)||!length||length>core::kGcodeChunkLimit))
+    return send_json(request,"400 Bad Request","{}");
+  {const std::lock_guard lock(mutex_);if(settings_.selected_profile!=id||selected_status_profile_!=id||selected_link_!=core::LinkState::online)
+    return send_json(request,"404 Not Found","{\"reason\":\"no_job\"}");}
+  if(firmware_update_ && firmware_update_->snapshot().busy)return send_json(request,"429 Too Many Requests","{\"reason\":\"busy\"}");
+  const auto result=gcode_service_.request(id,metadata,generation,offset,length);
+  httpd_resp_set_hdr(request,"Cache-Control","no-store");httpd_resp_set_hdr(request,"X-Content-Type-Options","nosniff");
+  if(result.status!=200){
+    const auto* status=result.status==202?"202 Accepted":result.status==400?"400 Bad Request":result.status==404?"404 Not Found":
+      result.status==409?"409 Conflict":result.status==422?"422 Unprocessable Content":result.status==429?"429 Too Many Requests":"503 Service Unavailable";
+    httpd_resp_set_hdr(request,"Retry-After","1");
+    return send_json(request,status,("{\"reason\":\""+result.reason+"\"}").c_str());
+  }
+  if(metadata){const auto body="{\"key\":\""+result.key+"\",\"generation\":"+std::to_string(result.generation)+
+    ",\"size\":"+std::to_string(result.size)+",\"chunk\":32768,\"min_interval_ms\":300,\"format\":\"gcode\"}";
+    return send_json(request,"200 OK",body.c_str());}
+  if(!result.bytes)return send_json(request,"503 Service Unavailable","{}");
+  httpd_resp_set_type(request,"application/octet-stream");
+  const auto position=std::to_string(result.offset);httpd_resp_set_hdr(request,"X-Gcode-Offset",position.c_str());
+  const auto revision=std::to_string(result.generation);httpd_resp_set_hdr(request,"X-Gcode-Generation",revision.c_str());
+  return httpd_resp_send(request,result.bytes->data(),result.bytes->size());
+}
+
 esp_err_t WebConfig::printer_volume_entry(httpd_req_t* request) {
   return static_cast<WebConfig*>(request->user_ctx)->serve_printer_volume(request);
 }
 esp_err_t WebConfig::serve_printer_volume(httpd_req_t* request) {
-  std::string id_text, kind, generation_text, index_text, width_text, height_text;
+  std::string id_text, kind, generation_text, index_text, width_text, height_text, since_text;
   std::uint32_t id = 0, generation = 0, index = 0, width = 0, height = 0;
   if (httpd_req_get_url_query_len(request) > 160 ||
       !query_value(request, "id", id_text) || !parse_id(id_text, id) || !id ||
-      !query_value(request, "kind", kind) || (kind != "meta" && kind != "layer"))
+      !query_value(request, "kind", kind) || (kind != "meta" && kind != "layer" && kind != "stack"))
     return send_json(request, "400 Bad Request", "{}");
   const bool metadata = kind == "meta";
-  if (!metadata && (!query_value(request, "generation", generation_text) || !parse_id(generation_text, generation) ||
+  const bool stack = kind == "stack";
+  std::uint32_t since = 0;
+  if (stack && (!query_value(request, "generation", generation_text) || !parse_id(generation_text, generation) || !generation ||
+      !query_value(request, "since", since_text) || !parse_id(since_text, since) || since > 4096))
+    return send_json(request, "400 Bad Request", "{}");
+  if (!metadata && !stack && (!query_value(request, "generation", generation_text) || !parse_id(generation_text, generation) ||
       !query_value(request, "index", index_text) || !parse_id(index_text, index) ||
       !query_value(request, "width", width_text) || !parse_id(width_text, width) ||
       !query_value(request, "height", height_text) || !parse_id(height_text, height) ||
       !generation || index > 65534 || !width || width > 1536 || !height || height > 1536 || width * height > 1048576))
     return send_json(request, "400 Bad Request", "{}");
   std::string task;
+  bool tiny = false;
   {
     const std::lock_guard lock(mutex_);
     const auto found = std::find_if(settings_.profiles.begin(), settings_.profiles.end(),
         [&](const auto& p) { return p.id == settings_.selected_profile; });
     const auto* profile = found == settings_.profiles.end() ? nullptr : &*found;
-    if (!volume_service_ || !profile || profile->id != id || profile->protocol != core::PrinterProtocol::uniformation_sdcp ||
+    if (!profile || profile->id != id ||
+        (profile->protocol != core::PrinterProtocol::uniformation_sdcp && profile->protocol != core::PrinterProtocol::tinymaker) ||
         selected_status_profile_ != id || selected_link_ != core::LinkState::online || !selected_telemetry_)
       return send_json(request, "404 Not Found", "{}");
+    tiny = profile->protocol == core::PrinterProtocol::tinymaker;
+    if ((!tiny && (!volume_service_ || stack)) || (tiny && !metadata && !stack))
+      return send_json(request, "400 Bad Request", "{}");
     task = selected_volume_task_;
   }
   printer_preview_active_until_ms_.store(esp_timer_get_time() / 1000 + 6000, std::memory_order_release);
+  if (tiny) {
+    const auto result = tiny_volume_service_.request(id, metadata, generation, since);
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_hdr(request, "X-Content-Type-Options", "nosniff");
+    if (result.status != 200) {
+      httpd_resp_set_hdr(request, "Retry-After", "1");
+      const auto* status = result.status == 202 ? "202 Accepted" : result.status == 409 ? "409 Conflict" :
+          result.status == 429 ? "429 Too Many Requests" : result.status == 422 ? "422 Unprocessable Content" :
+          result.status == 400 ? "400 Bad Request" : result.status == 404 ? "404 Not Found" : "503 Service Unavailable";
+      return send_json(request, status, ("{\"reason\":\"" + result.reason + "\"}").c_str());
+    }
+    if (metadata) {
+      const auto body = "{\"source\":\"tinymaker\",\"cache_key\":\"" + result.key + "\",\"generation\":" +
+          std::to_string(result.generation) + ",\"layers\":" + std::to_string(result.layers) +
+          ",\"layer_mm\":" + std::to_string(result.layer_mm) + ",\"slots\":" + std::to_string(result.slots) +
+          ",\"captured\":" + std::to_string(result.captured) + ",\"size_mm\":[40.8,30.6,68],\"min_interval_ms\":1000}";
+      return send_json(request, "200 OK", body.c_str());
+    }
+    if (!result.bytes) return send_json(request, "503 Service Unavailable", "{}");
+    httpd_resp_set_type(request, "application/octet-stream");
+    return httpd_resp_send(request, result.bytes->data(), result.bytes->size());
+  }
   const auto result = volume_service_->volume(id, task, generation, metadata, index, width, height);
   httpd_resp_set_hdr(request, "Cache-Control", "no-store");
   httpd_resp_set_hdr(request, "X-Content-Type-Options", "nosniff");
