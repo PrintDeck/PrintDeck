@@ -2301,7 +2301,8 @@ esp_err_t WebConfig::serve_brand_logos(httpd_req_t* request) const {
 
 std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const {
   core::DeviceSettings current;
-  { const std::lock_guard<std::mutex> lock(mutex_); current=settings_; }
+  PowerSnapshot power;
+  { const std::lock_guard<std::mutex> lock(mutex_); current=settings_; power=power_status_; }
   std::string body=R"({"schema_version":1,"device":{"hardware":)";
   append_json_string(body,kBoardVariant);
   if (cloud) {
@@ -2310,6 +2311,16 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
     append_json_string(body, network.device_name);
     body += R"(,"configured_name":)";
     append_json_string(body, current.device_name);
+    body += R"(,"power":{"available":)";
+    body += power.available ? "true" : "false";
+    body += R"(,"battery_present":)";
+    body += power.battery_present ? "true" : "false";
+    body += R"(,"battery_percent":)" + std::to_string(std::min<unsigned>(power.battery_percent, 100));
+    body += R"(,"charging":)";
+    body += power.charging ? "true" : "false";
+    body += R"(,"external_power":)";
+    body += power.usb_present || power.charging ? "true" : "false";
+    body += "}";
     body += R"(,"system_info":)";
     const auto info = device_info_json();
     body += info.empty() ? "null" : info;
