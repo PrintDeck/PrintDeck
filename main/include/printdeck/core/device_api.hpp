@@ -171,11 +171,28 @@ struct DeviceCommand {
   std::string action;
   DeviceJson parameters{nullptr,cJSON_Delete};
 };
+// Shared by Cloud transport and its Web Config executor; neither adapter may
+// advertise delivery of a reaction control that the other silently rejects.
+inline bool cloud_reaction_control(std::string_view action) {
+  return action == "device.reactions.patch" || action == "reactions.event.set" ||
+      action == "reactions.event.reset" || action == "reactions.storage.set" ||
+      action == "reactions.set.install" || action == "reactions.set.cancel";
+}
 inline bool parse_device_command(std::string_view payload,DeviceCommand& command){
   auto root=device_json(payload);if(!device_unique_object(root.get())||cJSON_GetArraySize(root.get())!=3)return false;
   auto* version=cJSON_GetObjectItemCaseSensitive(root.get(),"schema_version");auto* action=cJSON_GetObjectItemCaseSensitive(root.get(),"action");auto* parameters=cJSON_GetObjectItemCaseSensitive(root.get(),"parameters");
   if(!device_integer(version,1,1)||!cJSON_IsString(action)||std::strlen(action->valuestring)>40||!device_unique_object(parameters))return false;
   command.action=action->valuestring;command.parameters.reset(cJSON_DetachItemFromObjectCaseSensitive(root.get(),"parameters"));return true;
+}
+inline bool printer_view_command(const DeviceCommand& command) {
+  const auto* view=cJSON_GetObjectItemCaseSensitive(command.parameters.get(),"view");
+  return command.action=="device.printer_view.set" && cJSON_GetArraySize(command.parameters.get())==1 &&
+      cJSON_IsString(view) && (std::string_view(view->valuestring)=="list" || std::string_view(view->valuestring)=="tiles");
+}
+inline bool printer_order_command(const DeviceCommand& command) {
+  return command.action=="printers.reorder" && cJSON_GetArraySize(command.parameters.get())==2 &&
+      cJSON_IsString(cJSON_GetObjectItemCaseSensitive(command.parameters.get(),"expected")) &&
+      cJSON_IsString(cJSON_GetObjectItemCaseSensitive(command.parameters.get(),"order"));
 }
 inline bool firmware_request_id(std::string_view id) {
   if (id.size()!=36) return false;

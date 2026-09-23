@@ -15,6 +15,8 @@ class CloudPairingService {
   ~CloudPairingService();
   using CommandSink = bool (*)(void*, const std::string&);
   void set_command_sink(CommandSink sink);
+  using ReactionUpload = bool (*)(void*, const std::string&, const std::uint8_t*, std::size_t, bool);
+  void set_reaction_upload(ReactionUpload callback) { reaction_upload_ = callback; }
   using FeedSource = std::string (*)(void*);
   void set_feed_source(FeedSource source, void* context);
   struct Thumbnail {
@@ -71,6 +73,9 @@ class CloudPairingService {
   FeedSource feed_source_ = nullptr;
   void* feed_context_ = nullptr;
   CommandSink command_sink_ = nullptr;
+  ReactionUpload reaction_upload_ = nullptr;
+  bool download_reaction(const std::string& base, const std::string& token, bool local, const std::string& asset,
+                         std::size_t size, const std::string& hash, const std::string& payload, std::uint32_t generation);
   std::string last_command_id_, last_command_status_;
   bool result_pending_ = false;
   bool confirmed_ = false;

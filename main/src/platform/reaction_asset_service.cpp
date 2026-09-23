@@ -522,12 +522,12 @@ void ReactionAssetService::refresh_storage_locked() {
   snapshot_.sd_can_enable = sd_active <= snapshot_.maximum_custom_bytes;
 }
 
-bool ReactionAssetService::request_set(std::string_view id) {
-  return begin_set_request(id, false);
+bool ReactionAssetService::request_set(std::string_view id, std::string_view request_id) {
+  return begin_set_request(id, false, request_id);
 }
 
 bool ReactionAssetService::begin_set_request(std::string_view id,
-                                             bool profile_migration) {
+                                             bool profile_migration, std::string_view request_id) {
   const auto requested = std::find_if(kSets.begin(), kSets.end(), [id](const auto& set) {
     return set.id == id;
   });
@@ -535,6 +535,11 @@ bool ReactionAssetService::begin_set_request(std::string_view id,
   const std::lock_guard<std::mutex> lock(mutex_);
   if (snapshot_.busy || snapshot_.sd_busy || task_ != nullptr || reaper_task_ == nullptr) return false;
   requested_set_.assign(id);
+  snapshot_.upload_event.clear();
+  snapshot_.upload_success = false;
+  snapshot_.request_id = request_id.empty()
+      ? std::to_string((static_cast<std::uint64_t>(esp_random()) << 32U) | esp_random() | (1ULL << 63U))
+      : std::string(request_id);
   requested_storage_.clear();
   snapshot_.installing_set_id.assign(requested->id);
   snapshot_.installing_set_name.assign(requested->name);
@@ -597,9 +602,10 @@ void ReactionAssetService::maybe_start_profile_migration() {
   if (!set_id.empty()) begin_set_request(set_id, true);
 }
 
-bool ReactionAssetService::cancel_set() {
+bool ReactionAssetService::cancel_set(std::string_view expected_set, std::string_view expected_request) {
   const std::lock_guard<std::mutex> lock(mutex_);
   if (!snapshot_.busy || !snapshot_.cancellable || task_ == nullptr) return false;
+  if (!expected_set.empty() && (snapshot_.installing_set_id != expected_set || snapshot_.request_id != expected_request)) return false;
   cancel_requested_.store(true, std::memory_order_release);
   snapshot_.cancellable = false;
   snapshot_.detail = "Cancelling reaction set installation…";
@@ -672,15 +678,49 @@ esp_err_t ReactionAssetService::set_event_enabled(std::string_view id, bool enab
   return result;
 }
 
+bool ReactionAssetService::begin_cloud_upload(std::string_view id, std::string_view request,
+    std::string_view set, std::string_view revision, std::uint32_t session) {
+  const auto* event = core::reaction_event(id);
+  if (!event || request.empty()) return false;
+  const auto index = static_cast<std::size_t>(event - core::reaction_events().data());
+  const std::lock_guard lock(mutex_);
+  if (!snapshot_.available || snapshot_.busy || snapshot_.sd_busy || snapshot_.sd_missing || task_ != nullptr ||
+      snapshot_.active_set_id != set || snapshot_.sd_session != session ||
+      (snapshot_.sd_selected && !snapshot_.sd_ready) ||
+      revision != std::to_string(snapshot_.preview_session) + "-" + std::to_string(snapshot_.preview_generations[index])) return false;
+  snapshot_.busy = true; snapshot_.cancellable = false; snapshot_.install_failed = false;
+  snapshot_.installing_set_id.clear(); snapshot_.installing_set_name.clear();
+  snapshot_.request_id = request; snapshot_.upload_event = id; snapshot_.upload_success = false;
+  snapshot_.progress_percent = 0; snapshot_.detail = "Uploading GIF to PrintDeck…";
+  return true;
+}
+
+bool ReactionAssetService::finish_cloud_upload(std::string_view request, std::span<const std::uint8_t> bytes) {
+  std::string event;
+  bool internal = false;
+  { const std::lock_guard lock(mutex_);
+    if (!snapshot_.busy || snapshot_.request_id != request || snapshot_.upload_event.empty()) return false;
+    event = snapshot_.upload_event;
+    internal = !snapshot_.sd_selected;
+  }
+  const bool saved = !bytes.empty() && install_custom(event, bytes, request) == ESP_OK;
+  { const std::lock_guard lock(mutex_);
+    snapshot_.busy = false; snapshot_.upload_success = saved; snapshot_.progress_percent = saved ? 100 : 0;
+    snapshot_.detail = saved ? "Custom GIF saved." : "PrintDeck could not save this GIF. Try again.";
+  }
+  if (saved && internal && storage_changed_) storage_changed_(storage_context_);
+  return saved;
+}
+
 esp_err_t ReactionAssetService::install_custom(
-    std::string_view id, std::span<const std::uint8_t> bytes) {
+    std::string_view id, std::span<const std::uint8_t> bytes, std::string_view upload_request) {
   const auto* event = core::reaction_event(id);
   if (event == nullptr) return ESP_ERR_INVALID_ARG;
   const std::size_t index = static_cast<std::size_t>(event - core::reaction_events().data());
   core::GifMetadata metadata;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
-    if (snapshot_.busy) return ESP_ERR_INVALID_STATE;
+    if (snapshot_.busy && (upload_request.empty() || snapshot_.request_id != upload_request || snapshot_.upload_event != id)) return ESP_ERR_INVALID_STATE;
     if (!snapshot_.available || bytes.empty() ||
         bytes.size() > snapshot_.maximum_file_bytes) return ESP_ERR_INVALID_SIZE;
   }
@@ -691,7 +731,7 @@ esp_err_t ReactionAssetService::install_custom(
   const std::lock_guard<std::mutex> mutation_lock(filesystem_mutation_mutex_);
   {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (snapshot_.busy || snapshot_.sd_busy || snapshot_.sd_missing || !sd_index_valid_)
+    if ((snapshot_.busy && (upload_request.empty() || snapshot_.request_id != upload_request || snapshot_.upload_event != id)) || snapshot_.sd_busy || snapshot_.sd_missing || !sd_index_valid_)
       return ESP_ERR_INVALID_STATE;
     if (snapshot_.sd_selected && !snapshot_.sd_ready) return ESP_ERR_INVALID_STATE;
     if (snapshot_.sd_selected) {
@@ -722,7 +762,7 @@ esp_err_t ReactionAssetService::install_custom(
   const std::string temporary = current + ".tmp";
   const std::string backup = current + ".bak";
   std::unique_lock<std::mutex> lock(mutex_);
-  if (snapshot_.busy) return ESP_ERR_INVALID_STATE;
+  if (snapshot_.busy && (upload_request.empty() || snapshot_.request_id != upload_request || snapshot_.upload_event != id)) return ESP_ERR_INVALID_STATE;
   const std::uint32_t previous_reset_mask = reset_mask_;
   reset_mask_ &= ~(1UL << index);
   if (reset_mask_ != previous_reset_mask && persist_reset_mask_locked() != ESP_OK) {
@@ -1452,6 +1492,8 @@ void ReactionAssetService::task_loop() {
 }
 
 void ReactionAssetService::install_requested_set(std::string id) {
+  bool user_requested;
+  { const std::lock_guard<std::mutex> lock(mutex_); user_requested = !profile_migration_attempt_active_; }
   if (cancellation_requested()) {
     finish_cancelled_install();
     return;
@@ -1655,6 +1697,7 @@ void ReactionAssetService::install_requested_set(std::string id) {
     snapshot_.installing_set_name.clear();
     refresh_storage_locked();
   }
+  if (user_requested && storage_changed_) storage_changed_(storage_context_);
 }
 
 void ReactionAssetService::fail(std::string detail) {

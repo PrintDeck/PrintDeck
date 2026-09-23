@@ -561,7 +561,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   }, this);
   cloud_.set_command_sink([](void* context, const std::string& payload) {
     core::DeviceCommand integration;
-    if ((core::parse_device_command(payload, integration) && (integration.action == "device.mqtt.patch" || integration.action == "device.appearance.patch" || integration.action == "audio.test" || integration.action == "firmware.check" || integration.action == "firmware.install" || integration.action == "device.reactions.patch" || integration.action == "reactions.event.set" || integration.action == "reactions.storage.set")) || core::is_device_unified_api_command(payload) || core::is_device_name_command(payload) || core::is_device_timezone_command(payload) || core::is_device_voice_command(payload))
+    if ((core::parse_device_command(payload, integration) && (core::printer_order_command(integration) || core::printer_view_command(integration) || integration.action == "device.mqtt.patch" || integration.action == "device.appearance.patch" || integration.action == "audio.test" || integration.action == "firmware.check" || integration.action == "firmware.install" || core::cloud_reaction_control(integration.action))) || core::is_device_unified_api_command(payload) || core::is_device_name_command(payload) || core::is_device_timezone_command(payload) || core::is_device_voice_command(payload))
       {
       const auto status = static_cast<WebConfig*>(context)->execute_device_command(payload, false).status;
       return status == 200 || status == 202;
@@ -569,6 +569,24 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
     core::PrinterCommand command;
     return core::parse_printer_command(payload, command) &&
         static_cast<WebConfig*>(context)->submit_printer_command(command, true);
+  });
+  cloud_.set_reaction_upload([](void* context, const std::string& payload, const std::uint8_t* bytes, std::size_t size, bool begin) {
+    auto* self = static_cast<WebConfig*>(context);
+    if (!self->reaction_assets_) return false;
+    cJSON* root = cJSON_Parse(payload.c_str());
+    if (!root) return false;
+    const auto* parameters = cJSON_GetObjectItemCaseSensitive(root,"parameters");
+    const auto text = [&](const char* key) { const auto* value=cJSON_GetObjectItemCaseSensitive(parameters,key); return std::string(cJSON_IsString(value)?value->valuestring:""); };
+    const auto request = text("request_id");
+    const auto* session = cJSON_GetObjectItemCaseSensitive(parameters,"session");
+    bool result = false;
+    if (begin) {
+      if (cJSON_GetArraySize(parameters)==8 && !request.empty() && request.size()<=20 &&
+          request.find_first_not_of("0123456789")==std::string::npos && cJSON_IsNumber(session) &&
+          session->valuedouble>=0 && session->valuedouble<=UINT32_MAX && std::floor(session->valuedouble)==session->valuedouble)
+        result=self->reaction_assets_->begin_cloud_upload(text("event"),request,text("set"),text("revision"),static_cast<std::uint32_t>(session->valuedouble));
+    } else result=self->reaction_assets_->finish_cloud_upload(request,std::span<const std::uint8_t>(bytes,size));
+    cJSON_Delete(root); return result;
   });
   cloud_.set_screen_source([](void* context, std::vector<std::uint8_t>& png) {
     auto& self = *static_cast<WebConfig*>(context);
@@ -2374,7 +2392,7 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   body+=R"(,"factory_required":)";body+=update.factory_required?"true":"false";
   body+=R"(,"installable":)";body+=update.remote_installable&&!update.busy?"true":"false";
   body+=R"(,"progress":)"+std::to_string(update.progress_percent)+"}";
-  body+=R"(,"capabilities":{"live_view":{"supported":true,"available":true},"device.unified_api.set":{"supported":true,"available":true},"device.mqtt.patch":{"supported":true,"available":true},"device.timezone.set":{"supported":true,"available":true},"device.name.set":{"supported":true,"available":true},"device.appearance.patch":{"supported":true,"available":true},"settings.patch":{"supported":true,"available":true},"audio.test":{"supported":)";
+  body+=R"(,"capabilities":{"printers.reorder":{"supported":true,"available":true},"device.printer_view.set":{"supported":true,"available":true},"live_view":{"supported":true,"available":true},"device.unified_api.set":{"supported":true,"available":true},"device.mqtt.patch":{"supported":true,"available":true},"device.timezone.set":{"supported":true,"available":true},"device.name.set":{"supported":true,"available":true},"device.appearance.patch":{"supported":true,"available":true},"settings.patch":{"supported":true,"available":true},"audio.test":{"supported":)";
   body+=kBoardHasAudio?"true":"false";body+=R"(,"available":)";body+=kBoardHasAudio?"true":"false";body+="}";
   body+=R"(,"device.voice.set":{"supported":)";body+=kBoardHasLocalVoice?"true":"false";
   body+=R"(,"available":)";body+=kBoardHasLocalVoice?"true":"false";body+="}";
@@ -2386,8 +2404,13 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   for(const auto action:{"reactions.set.install","reactions.set.cancel","reactions.event.set","reactions.event.reset"}){
     body+=",\""+std::string(action)+R"(":{"supported":true,"available":)";
     const bool available=reactions.available&&(std::string_view(action)=="reactions.set.cancel"?reactions.cancellable:!reactions.busy);
-    body+=available?"true":"false";body+="}";
+    body+=available?"true":"false";
+    if(std::string_view(action)=="reactions.set.install"||std::string_view(action)=="reactions.set.cancel")body+=R"(,"request_id_supported":true)";
+    body+="}";
   }
+  body+=R"(,"reactions.image.upload":{"supported":true,"available":)";
+  body+=reactions.available&&!reactions.busy&&!reactions.sd_busy&&!reactions.sd_missing&&(!reactions.sd_selected||reactions.sd_ready)?"true":"false";
+  body+="}";
   body+=R"(,"device.reactions.patch":{"supported":true,"available":true},"reactions.storage.set":{"supported":)";
   body+=kBoardHasSdCard?"true":"false";
   body+=R"(,"available":)";body+=kBoardHasSdCard&&reactions.sd_ready&&!reactions.busy&&!reactions.sd_busy?"true":"false";body+="}";
@@ -2412,10 +2435,13 @@ std::string WebConfig::cloud_state_json() const {
   const auto now_unix=static_cast<std::int64_t>(std::time(nullptr));
   bool first=true;
   for(auto& view:views) {
-    // Same printer contract, without LAN addresses or local media routes.
+    // Display only the validated host, never credentials or local media routes.
+    const auto address=core::printer_display_address(view);
     view.endpoint.clear();
     auto row=core::printer_state_json(view,now_ms,now_unix);
-    row.pop_back(); row += ",\"thumbnail_key\":";
+    row.pop_back(); row += ",\"address\":";
+    if(address.empty())row+="null";else append_json_string(row,address);
+    row += ",\"thumbnail_key\":";
     if (view.selected && !preview_identity.empty() &&
         view.snapshot.job.phase != core::JobPhase::idle && view.snapshot.job.phase != core::JobPhase::unknown)
       append_json_string(row, preview_identity);
@@ -2482,16 +2508,35 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
     notify_settings_changed(candidate,true);
     return {200,R"({"schema_version":1,"status":"applied","saved":true})"};
   }
+  if(command.action=="printers.reorder"){
+    if(!core::printer_order_command(command))return {};
+    const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+    core::DeviceSettings candidate;
+    {const std::lock_guard<std::mutex> lock(mutex_);candidate=settings_;}
+    const auto change=core::reorder_printers(candidate,text("expected"),text("order"));
+    if(change==core::PrinterOrderResult::invalid)return {};
+    if(change==core::PrinterOrderResult::conflict)return {409,R"({"status":"rejected"})"};
+    if(change==core::PrinterOrderResult::changed){
+      if(store_->save(candidate)!=ESP_OK)return {500,R"({"status":"rejected"})"};
+      {const std::lock_guard<std::mutex> lock(mutex_);settings_=candidate;}
+      notify_settings_changed(candidate,true);
+      printer_stream_urgent_revision_.fetch_add(1,std::memory_order_relaxed);
+    }
+    return {200,R"({"schema_version":1,"status":"applied","saved":true})"};
+  }
   if(command.action=="device.voice.set"){
     if(!core::is_device_voice_command(payload))return {};
     return set_voice_enabled(cJSON_IsTrue(get("enabled")));
   }
-  if(command.action=="device.reactions.patch"||command.action=="device.appearance.patch"||command.action=="settings.patch"||command.action=="local.settings.patch"||command.action=="device.name.set"||command.action=="device.timezone.set"){
+  if(command.action=="device.printer_view.set"||command.action=="device.reactions.patch"||command.action=="device.appearance.patch"||command.action=="settings.patch"||command.action=="local.settings.patch"||command.action=="device.name.set"||command.action=="device.timezone.set"){
     if(command.action=="local.settings.patch"&&!local)return {};
     const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
     core::DeviceSettings current;{const std::lock_guard<std::mutex> lock(mutex_);current=settings_;}
     auto candidate=current;
-    if(command.action=="device.name.set"){
+    if(command.action=="device.printer_view.set"){
+      if(!core::printer_view_command(command))return {};
+      candidate.printer_view=std::string(text("view"));
+    }else if(command.action=="device.name.set"){
       if(!core::is_device_name_command(payload))return {};
       candidate.device_name=std::string(text("name"));
     }else if(command.action=="device.timezone.set"){
@@ -2513,7 +2558,7 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
     if(changed){
       if(store_->save(candidate)!=ESP_OK)return {500,R"({"error":"PrintDeck could not save these changes. Please try again."})"};
       {const std::lock_guard<std::mutex> lock(mutex_);settings_=candidate;}
-      const bool view_only=count==1&&get("printer_view");
+      const bool view_only=command.action=="device.printer_view.set"||(count==1&&get("printer_view"));
       notify_settings_changed(candidate,!view_only);
     }
     return {200,std::string(R"({"schema_version":1,"status":"applied","saved":true,"restart_required":false,"settings":)")+core::device_settings_json(candidate,kBoardHasAudio,kBoardHasPowerButton)+"}"};
@@ -2542,19 +2587,25 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
   if(command.action!="reactions.set.install"&&command.action!="reactions.set.cancel"&&command.action!="reactions.event.set"&&command.action!="reactions.event.reset")return {};
   if(!reaction_assets_)return {503,R"({"error":"Reaction storage is unavailable."})"};
   if(command.action=="reactions.set.install"){
-    const auto id=text("id");if(count!=1||id.empty()||std::none_of(ReactionAssetService::sets().begin(),ReactionAssetService::sets().end(),[&](const auto& set){return set.id==id;}))return {};
-    if(!reaction_assets_->request_set(id))return {409,R"({"error":"Another reaction change is already in progress."})"};
+    const auto id=text("id"), request_id=text("request_id");
+    if(count!=(get("request_id")?2:1)||(!local&&!get("request_id"))||
+       (get("request_id")&&(request_id.empty()||request_id.size()>20||
+        !std::all_of(request_id.begin(),request_id.end(),[](char c){return c>='0'&&c<='9';})))||id.empty()||
+       std::none_of(ReactionAssetService::sets().begin(),ReactionAssetService::sets().end(),[&](const auto& set){return set.id==id;}))return {};
+    if(!reaction_assets_->request_set(id,request_id))return {409,R"({"error":"Another reaction change is already in progress."})"};
     return {202,R"({"schema_version":1,"status":"accepted","started":true})"};
   }
   if(command.action=="reactions.set.cancel"){
-    if(count)return {};
-    if(!reaction_assets_->cancel_set())return {409,R"({"error":"The reaction set can no longer be cancelled."})"};
+    const auto id=text("id"), request_id=text("request_id");
+    if((!local||count)&&(count!=2||id.empty()||!cJSON_IsString(get("request_id"))||request_id.size()>20||
+       !std::all_of(request_id.begin(),request_id.end(),[](char c){return c>='0'&&c<='9';})))return {};
+    if(!reaction_assets_->cancel_set(id,request_id))return {409,R"({"error":"The reaction set can no longer be cancelled."})"};
     return {202,R"({"schema_version":1,"status":"accepted","cancelling":true})"};
   }
   const auto event=text("event");const bool set=command.action=="reactions.event.set";
   if(count!=(set?2:1)||event.empty()||(set&&!cJSON_IsBool(get("enabled")))||std::none_of(core::reaction_events().begin(),core::reaction_events().end(),[&](const auto& item){return item.id==event;}))return {};
   if(reaction_assets_->snapshot().busy)return {409,R"({"error":"Another reaction change is already in progress."})"};
-  const bool changed=set&&reaction_assets_->event_enabled(event)!=cJSON_IsTrue(get("enabled"));
+  const bool changed=set?reaction_assets_->event_enabled(event)!=cJSON_IsTrue(get("enabled")):reaction_assets_->custom_override(event);
   const auto result=set?reaction_assets_->set_event_enabled(event,cJSON_IsTrue(get("enabled"))):reaction_assets_->reset_custom(event);
   if(result==ESP_ERR_INVALID_STATE)return {409,R"({"error":"Another reaction change is already in progress."})"};
   if(result!=ESP_OK)return {400,R"({"error":"The reaction change could not be saved."})"};
@@ -3283,6 +3334,8 @@ std::string WebConfig::reaction_state_json(bool include_catalog) const {
   body += ",\"progress\":" + std::to_string(state.progress_percent);
   body += ",\"detail\":";
   append_json_string(body, state.detail);
+  body += ",\"request_id\":";
+  append_json_string(body, state.request_id);
   body += ",\"active_set\":{\"id\":";
   append_json_string(body, state.active_set_id);
   body += ",\"name\":";
@@ -3392,7 +3445,9 @@ std::string WebConfig::reaction_state_json(bool include_catalog) const {
             std::to_string(maximum_upload_bytes);
     body += "}";
   }
-  body += "],\"generation\":" + std::to_string(state.generation) + "}";
+  body += "],\"upload_event\":"; append_json_string(body,state.upload_event);
+  body += ",\"upload_success\":"; body += state.upload_success ? "true" : "false";
+  body += ",\"generation\":" + std::to_string(state.generation) + "}";
   return body;
 }
 esp_err_t WebConfig::serve_reactions(httpd_req_t* request) const {

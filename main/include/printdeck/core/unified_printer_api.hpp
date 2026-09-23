@@ -51,6 +51,7 @@ std::string printer_state_json(const UnifiedPrinterView& printer, std::uint64_t 
                               std::int64_t now_unix, const PrinterStateMedia& media = {});
 std::string printer_states_json(std::span<const UnifiedPrinterView> printers,
                                std::uint64_t now_ms, std::int64_t now_unix);
+std::string printer_display_address(const UnifiedPrinterView& printer);
 bool printer_light_available(const UnifiedPrinterView& printer);
 
 std::string unified_api_print_event_json(const PrintEventHistory& history, const PrintEvent& event);

@@ -2091,3 +2091,5 @@ Object.assign(window.PRINTDECK_TRANSLATIONS.en, {
     "要从此 PrintDeck 移除 {printer} 吗？"
   ]
 ].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[["Preview mode","Tryb podglądu","Modo de vista previa","Mode d’aperçu","Vorschaumodus","预览模式"]].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));

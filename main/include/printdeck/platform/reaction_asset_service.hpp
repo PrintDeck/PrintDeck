@@ -54,6 +54,9 @@ struct ReactionAssetSnapshot {
   std::string active_set_id;
   std::string active_set_name;
   std::string active_set_version;
+  std::string request_id;
+  std::string upload_event;
+  bool upload_success = false;
   std::string installing_set_id;
   std::string installing_set_name;
   std::size_t storage_total = 0;
@@ -75,22 +78,24 @@ struct ReactionAssetSnapshot {
 class ReactionAssetService {
  public:
   esp_err_t start(const NetworkService& network);
-  // Set during startup, before start(); successful explicit SD changes only.
+  // Set during startup, before start(); successful explicit SD or set changes.
   void set_storage_changed_callback(void (*callback)(void*), void* context) {
     storage_changed_ = callback; storage_context_ = context;
   }
   ReactionAssetSnapshot snapshot() const;
   std::uint32_t generation() const;
   static std::span<const ReactionSetDefinition> sets();
-  bool request_set(std::string_view id);
+  bool request_set(std::string_view id, std::string_view request_id = {});
   bool request_storage(std::string_view action, std::uint32_t session = 0);
   core::ReactionGif cached_sd_gif(std::string_view id) const;
   bool read_custom_gif(std::string_view id, std::span<std::uint8_t> destination) const;
-  bool cancel_set();
+  bool cancel_set(std::string_view expected_set = {}, std::string_view expected_request = {});
   bool event_enabled(std::string_view id) const;
   bool custom_override(std::string_view id) const;
   esp_err_t set_event_enabled(std::string_view id, bool enabled);
-  esp_err_t install_custom(std::string_view id, std::span<const std::uint8_t> bytes);
+  esp_err_t install_custom(std::string_view id, std::span<const std::uint8_t> bytes, std::string_view upload_request = {});
+  bool begin_cloud_upload(std::string_view event, std::string_view request, std::string_view set, std::string_view revision, std::uint32_t session);
+  bool finish_cloud_upload(std::string_view request, std::span<const std::uint8_t> bytes);
   esp_err_t reset_custom(std::string_view id);
   esp_err_t prepare_factory_reset();
   std::string effective_lvgl_path(core::PrinterActivity activity) const;
@@ -111,7 +116,7 @@ class ReactionAssetService {
   void task_loop();
   void cleanup_reset_custom_files();
   void install_requested_set(std::string id);
-  bool begin_set_request(std::string_view id, bool profile_migration);
+  bool begin_set_request(std::string_view id, bool profile_migration, std::string_view request_id = {});
   void maybe_start_profile_migration();
   void schedule_profile_migration_retry_locked();
   bool cancellation_requested() const;

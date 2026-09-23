@@ -10,6 +10,7 @@
 #include <memory>
 #include "printdeck/platform/image_workspace.hpp"
 #include "esp_log.h"
+#include "mbedtls/sha256.h"
 #include "cJSON.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
@@ -433,6 +434,54 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
            static_cast<unsigned>(sent), status);
 }
 
+bool CloudPairingService::download_reaction(const std::string& base, const std::string& token, bool local,
+    const std::string& asset, std::size_t size, const std::string& hash, const std::string& payload, std::uint32_t generation) {
+  auto* raw = static_cast<std::uint8_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  std::unique_ptr<std::uint8_t, decltype(&heap_caps_free)> bytes(raw, heap_caps_free);
+  const auto deadline = millis() + 30000;
+  const auto current = [&] { const std::lock_guard lock(mutex_); return !paused_ && online_ && !disconnect_ && generation_ == generation && millis() < deadline; };
+  bool valid = false;
+  if (bytes && current()) {
+    const std::string url = base + "/reaction-uploads/" + asset;
+    esp_http_client_config_t config{}; config.url = url.c_str(); config.timeout_ms = 3000;
+    config.crt_bundle_attach = local ? nullptr : esp_crt_bundle_attach; config.disable_auto_redirect = true;
+    auto client = esp_http_client_init(&config);
+    if (client) {
+      const auto authorization = "Bearer " + token;
+      esp_http_client_set_header(client, "Authorization", authorization.c_str());
+      esp_http_client_set_header(client, "Accept", "image/gif");
+      if (esp_http_client_open(client,0) == ESP_OK && current()) {
+        const auto length = esp_http_client_fetch_headers(client);
+        if (length == static_cast<std::int64_t>(size) && esp_http_client_get_status_code(client) == 200) {
+          std::size_t read = 0;
+          while (read < size && current()) {
+            const auto n = esp_http_client_read(client,reinterpret_cast<char*>(raw+read),std::min<std::size_t>(4096,size-read));
+            if (n <= 0) break;
+            read += static_cast<std::size_t>(n);
+          }
+          std::array<unsigned char,32> digest{};
+          if (read == size && current() && mbedtls_sha256(raw,size,digest.data(),0) == 0) {
+            constexpr char hex[] = "0123456789abcdef"; std::string actual; actual.reserve(64);
+            for (auto byte : digest) { actual += hex[byte>>4]; actual += hex[byte&15]; }
+            valid = actual == hash;
+          }
+        }
+      }
+      esp_http_client_close(client); esp_http_client_cleanup(client);
+    }
+  }
+  {
+    const std::lock_guard lock(mutex_);
+    valid = valid && !paused_ && online_ && !disconnect_ && generation_ == generation;
+  }
+  // This check is the commit boundary. Once admitted, finish the local save
+  // without the pairing lock: replacing an open GIF waits for the display's
+  // runtime loop, and that loop calls tick() on this same service. Keeping the
+  // lock here prevents the decoder from closing until the replacement times out.
+  // A later pairing change does not cancel an already admitted local commit.
+  return reaction_upload_(feed_context_,payload,valid?raw:nullptr,valid?size:0,false);
+}
+
 void CloudPairingService::initialize() {
   std::lock_guard lock(mutex_);
   if(initialized_)return;
@@ -709,13 +758,28 @@ void CloudPairingService::step() {
           const bool valid=!id.empty() && id.size()<=20 && id.front()!='0' &&
               id.find_first_not_of("0123456789")==std::string::npos &&
               cJSON_IsNumber(ttl) && ttl->valuedouble>millis()-exchange_started && ttl->valuedouble<=120000 &&
-              std::floor(ttl->valuedouble)==ttl->valuedouble && (core::parse_printer_command(payload,parsed) || (core::parse_device_command(payload,device_command) && ((device_command.action=="device.name.set" || device_command.action=="device.voice.set") || (device_command.action=="device.timezone.set" || device_command.action=="device.unified_api.set" || device_command.action=="device.mqtt.patch" || device_command.action=="device.appearance.patch" || device_command.action=="audio.test" || device_command.action=="firmware.check" || device_command.action=="firmware.install" || device_command.action=="device.reactions.patch" || device_command.action=="reactions.event.set" || device_command.action=="reactions.storage.set"))));
+              std::floor(ttl->valuedouble)==ttl->valuedouble && (core::parse_printer_command(payload,parsed) || (core::parse_device_command(payload,device_command) && ((device_command.action=="printers.reorder" || device_command.action=="device.printer_view.set" || device_command.action=="device.name.set" || device_command.action=="device.voice.set") || (device_command.action=="device.timezone.set" || device_command.action=="device.unified_api.set" || device_command.action=="device.mqtt.patch" || device_command.action=="device.appearance.patch" || device_command.action=="audio.test" || device_command.action=="firmware.check" || device_command.action=="firmware.install" || core::cloud_reaction_control(device_command.action) || device_command.action=="reactions.image.upload"))));
           if(valid) {
             if(id!=last_command_id_) {
               // Shared execution gates validate capabilities and persist device
               // settings before acknowledging; no printer network I/O runs here.
               // Keep the pairing lock so disconnect/OTA cannot race dispatch.
-              const bool accepted=command_sink_(feed_context_,payload);
+              bool accepted = false;
+              if (device_command.action == "reactions.image.upload" && reaction_upload_) {
+                auto* params = cJSON_GetObjectItemCaseSensitive(envelope,"parameters");
+                const auto asset = field(params,"asset"), hash = field(params,"sha256");
+                const auto* size = cJSON_GetObjectItemCaseSensitive(params,"bytes");
+                if (asset.size()==32 && asset.find_first_not_of("0123456789abcdef")==std::string::npos &&
+                    hash.size()==64 && hash.find_first_not_of("0123456789abcdef")==std::string::npos &&
+                    cJSON_IsNumber(size) && size->valuedouble>0 && size->valuedouble<=1536*1024 &&
+                    std::floor(size->valuedouble)==size->valuedouble && reaction_upload_(feed_context_,payload,nullptr,0,true)) {
+                  const auto total = static_cast<std::size_t>(size->valuedouble);
+                  close_http(); lock.unlock();
+                  accepted = download_reaction(base,token,local,asset,total,hash,payload,generation);
+                  lock.lock();
+                  if (generation_ != generation) return;
+                }
+              } else accepted=command_sink_(feed_context_,payload);
               last_command_id_=id;last_command_status_=accepted?"accepted":"rejected";
             }
             result_pending_=true;

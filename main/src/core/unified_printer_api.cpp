@@ -487,6 +487,14 @@ std::string unified_api_materials_json(const UnifiedPrinterView& printer) {
   return output;
 }
 
+std::string printer_display_address(const UnifiedPrinterView& printer) {
+  if (!is_local_printer_endpoint(printer.endpoint, printer.protocol)) return {};
+  std::string_view address = printer.endpoint;
+  if (address.starts_with("https://")) address.remove_prefix(8);
+  else if (address.starts_with("http://")) address.remove_prefix(7);
+  return std::string(address.substr(0, address.find(':')));
+}
+
 bool printer_light_available(const UnifiedPrinterView& printer) {
   return printer.selected && !printer.stale &&
       printer.detail_level == UnifiedApiDetailLevel::full &&
