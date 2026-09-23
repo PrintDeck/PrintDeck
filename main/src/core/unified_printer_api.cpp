@@ -547,6 +547,10 @@ std::string printer_state_json(const UnifiedPrinterView& p, std::uint64_t now_ms
       case PrinterCondition::unknown: break;
     }
     append_json_string(out, condition);
+    out += ",\"activity\":";
+    if (full && p.selected && !p.stale && p.snapshot.link == LinkState::online)
+      append_json_string(out, activity_id(effective_printer_activity(job)));
+    else out += "null";
     out += ",\"progress\":";
     append_nullable_float(out, has_job && job.completion_known, std::clamp(job.completion, 0.0F, 100.0F));
     out += ",\"name\":";
