@@ -22,9 +22,8 @@
 #ifdef PRINTDECK_CLOUD_DEVELOPMENT_HEADER
 #include PRINTDECK_CLOUD_DEVELOPMENT_HEADER
 #else
-#define PRINTDECK_LOCAL_CLOUD_API ""
-#define PRINTDECK_LOCAL_CLOUD_PANEL ""
-#define PRINTDECK_LOCAL_CLOUD_CA ""
+#define PRINTDECK_LOCAL_CLOUD_API "http://:8000/api/v1/device"
+#define PRINTDECK_LOCAL_CLOUD_PANEL "http://:8000"
 #define PRINTDECK_LOCAL_CLOUD_STORAGE "pd_cloud_dev"
 #endif
 
@@ -35,10 +34,9 @@ constexpr char kPanelOrigin[] = "https://app.printdeck.xyz";
 constexpr char kApi[] = "https://api.printdeck.xyz/api/v1/device";
 constexpr char kLocalApi[] = PRINTDECK_LOCAL_CLOUD_API;
 constexpr char kLocalPanel[] = PRINTDECK_LOCAL_CLOUD_PANEL;
-constexpr char kLocalCa[] = PRINTDECK_LOCAL_CLOUD_CA;
 constexpr char kLocalStorage[] = PRINTDECK_LOCAL_CLOUD_STORAGE;
-constexpr bool kDeveloperAvailable = sizeof(kLocalApi) > 1 && sizeof(kLocalCa) > 1;
-static_assert(!kDeveloperAvailable || std::string_view(kLocalApi).starts_with("https://"));
+constexpr bool kDeveloperAvailable = true;
+static_assert(std::string_view(kLocalApi).starts_with("http://"));
 static_assert(sizeof(kLocalStorage) <= 16 && std::string_view(kLocalStorage) != "pd_cloud");
 std::string url_host(std::string_view url) {
   const auto start=url.find("://");
@@ -46,11 +44,25 @@ std::string url_host(std::string_view url) {
   const auto host=url.substr(start+3);
   return std::string(host.substr(0,host.find_first_of(":/")));
 }
-std::string with_host(std::string_view url, const std::string& host) {
+unsigned url_port(std::string_view url) {
+  const auto start=url.find("://");
+  if(start==std::string_view::npos)return 8000;
+  const auto authority=url.substr(start+3,url.find('/',start+3)-(start+3));
+  const auto colon=authority.find(':');
+  if(colon==std::string_view::npos)return url.starts_with("https:")?443:80;
+  const auto text=authority.substr(colon+1);
+  unsigned port=0;
+  const auto result=std::from_chars(text.data(),text.data()+text.size(),port);
+  return result.ec==std::errc{} && result.ptr==text.data()+text.size() && port>0 && port<=65535?port:8000;
+}
+std::string with_host(std::string_view url, const std::string& host, unsigned port = 0) {
   const auto start=url.find("://");
   if(start==std::string_view::npos)return {};
   const auto end=url.find_first_of(":/",start+3);
-  return std::string(url.substr(0,start+3))+host+std::string(url.substr(end));
+  const auto path=url.find('/',start+3);
+  return std::string(url.substr(0,start+3))+host+(port?":"+std::to_string(port)+
+      (path==std::string_view::npos?"":std::string(url.substr(path))):
+      (end==std::string_view::npos?"":std::string(url.substr(end))));
 }
 bool local_host_valid(std::string_view host) {
   std::array<unsigned,4> parts{};
@@ -66,8 +78,8 @@ bool local_host_valid(std::string_view host) {
 }
 const char* storage(bool local) { return local ? kLocalStorage : "pd_cloud"; }
 void configure_tls(esp_http_client_config_t& config, bool local) {
-  if(local) config.cert_pem=kLocalCa;
-  else config.crt_bundle_attach=esp_crt_bundle_attach;
+  // HTTP is explicit only for the user-selected local development environment.
+  if(!local)config.crt_bundle_attach=esp_crt_bundle_attach;
 }
 using Json = std::unique_ptr<cJSON, decltype(&cJSON_Delete)>;
 std::int64_t millis() { return esp_timer_get_time()/1000; }
@@ -260,17 +272,23 @@ void CloudPairingService::initialize() {
   std::lock_guard lock(mutex_);
   if(initialized_)return;
   initialized_=true;
-  local_host_=url_host(kLocalApi); local_api_=kLocalApi; local_panel_=kLocalPanel;
+  local_host_=url_host(kLocalApi); local_port_=url_port(kLocalApi); local_api_=kLocalApi; local_panel_=kLocalPanel;
   nvs_handle_t handle;
   if(kDeveloperAvailable && nvs_open("pd_cloud",NVS_READONLY,&handle)==ESP_OK) {
     std::array<char,256> value{}; std::size_t size=value.size();
     if(nvs_get_str(handle,"environment",value.data(),&size)==ESP_OK) {
-      developer_mode_=std::string_view(value.data())==kLocalStorage;
+      developer_mode_=!local_host_.empty() && std::string_view(value.data())==kLocalStorage;
       Json config(cJSON_Parse(value.data()),cJSON_Delete);
       if(field(config.get(),"scope")==kLocalStorage) {
         const auto host=field(config.get(),"host");
-        if(host==local_host_ || local_host_valid(host)) {
-          local_host_=host;local_api_=with_host(kLocalApi,host);local_panel_=with_host(kLocalPanel,host);
+        const auto* port=cJSON_GetObjectItemCaseSensitive(config.get(),"port");
+        const bool port_valid=!port || (cJSON_IsNumber(port) && std::isfinite(port->valuedouble) &&
+            std::floor(port->valuedouble)==port->valuedouble && port->valuedouble>=1 && port->valuedouble<=65535);
+        if(port_valid && !host.empty() && (host==local_host_ || local_host_valid(host))) {
+          local_host_=host;
+          if(port)local_port_=static_cast<unsigned>(port->valuedouble);
+          local_api_=with_host(kLocalApi,host,local_port_);
+          local_panel_=port?"http://"+host+":"+std::to_string(local_port_):with_host(kLocalPanel,host);
           developer_mode_=cJSON_IsTrue(cJSON_GetObjectItem(config.get(),"enabled"));
         }
       }
@@ -299,17 +317,22 @@ void CloudPairingService::load_credential() {
   state_=disconnect_?"disconnecting":"checking";
 }
 
-bool CloudPairingService::set_developer_mode(bool enabled, bool& changed, const std::string& host) {
+bool CloudPairingService::set_developer_mode(bool enabled, bool& changed, const std::string& host, unsigned port) {
   std::lock_guard lock(mutex_);
   changed=false;
-  if(paused_ || !kDeveloperAvailable)return false;
+  if(paused_ || !kDeveloperAvailable || port>65535)return false;
   const auto next_host=host.empty()?local_host_:host;
-  if(next_host!=url_host(kLocalApi) && !local_host_valid(next_host))return false;
-  if(enabled==developer_mode_ && next_host==local_host_)return true;
+  const auto next_port=port?port:local_port_;
+  if(next_host.empty() || (next_host!=url_host(kLocalApi) && !local_host_valid(next_host)))return false;
+  if(enabled==developer_mode_ && next_host==local_host_ && next_port==local_port_ &&
+     (!port || local_panel_=="http://"+next_host+":"+std::to_string(next_port)))return true;
   Json config(cJSON_CreateObject(),cJSON_Delete);
   if(!config)return false;
   cJSON_AddStringToObject(config.get(),"scope",kLocalStorage);
   cJSON_AddStringToObject(config.get(),"host",next_host.c_str());
+  // Missing port preserves legacy split-port configurations until explicitly updated.
+  const bool shared_port=port || local_panel_=="http://"+local_host_+":"+std::to_string(local_port_);
+  if(shared_port)cJSON_AddNumberToObject(config.get(),"port",next_port);
   cJSON_AddBoolToObject(config.get(),"enabled",enabled);
   const auto serialized=encode(config.get());
   nvs_handle_t handle;
@@ -321,7 +344,8 @@ bool CloudPairingService::set_developer_mode(bool enabled, bool& changed, const 
   // The worker owns HTTP handles. Its in-flight result is invalidated before
   // loading the other environment; credentials never cross environments.
   ++generation_; developer_mode_=enabled; reset_transport_=true;
-  local_host_=next_host;local_api_=with_host(kLocalApi,next_host);local_panel_=with_host(kLocalPanel,next_host);
+  local_host_=next_host;local_port_=next_port;local_api_=with_host(kLocalApi,next_host,next_port);
+  local_panel_=shared_port?"http://"+next_host+":"+std::to_string(next_port):with_host(kLocalPanel,next_host);
   command_.clear(); token_.clear(); account_.clear(); secret_.clear(); code_.clear(); link_.clear();
   last_command_id_.clear(); last_command_status_.clear(); thumbnail_key_.clear();
   result_pending_=false; confirmed_=false; disconnect_=false;
@@ -397,6 +421,7 @@ std::string CloudPairingService::status_json() const {
   cJSON_AddStringToObject(root.get(),"verification_uri",link_.c_str());
   cJSON_AddStringToObject(root.get(),"panel_uri",developer_mode_?local_panel_.c_str():kPanelOrigin);
   cJSON_AddStringToObject(root.get(),"local_host",local_host_.c_str());
+  cJSON_AddNumberToObject(root.get(),"local_port",local_port_);
   cJSON_AddStringToObject(root.get(),"local_default_host",url_host(kLocalApi).c_str());
   cJSON_AddBoolToObject(root.get(),"developer_available",kDeveloperAvailable);
   cJSON_AddBoolToObject(root.get(),"developer_mode",developer_mode_);
