@@ -108,12 +108,12 @@
     @media(min-width:681px){.topline{justify-content:flex-start}.badges{margin-left:auto}.footer{grid-template-columns:minmax(0,1fr) auto}.footer-copy{grid-column:1;justify-self:start;text-align:left}.footer-controls{grid-column:2}}
 
     [data-panel=reactions] .reaction-option{grid-template-columns:40px minmax(0,1fr) 78px}
-    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"]) .reaction-switch{display:block;flex-shrink:0;width:78px;height:36px;border:0;border-radius:20px;background:light-dark(#bac5bf,#606d65)}
-    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"]) .reaction-switch:after{content:attr(data-state-label);position:absolute;left:3px;top:3px;width:40px;height:30px;display:grid;place-items:center;border-radius:20px;background:light-dark(#fff,#11251f);color:light-dark(#19201e,#f0f3f1);font-size:11px;font-weight:700;line-height:1;box-shadow:none;transition:transform .16s ease}
-    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"]) .reaction-switch-input:checked+.reaction-switch{background:var(--accent)}
-    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"]) .reaction-switch-input:checked+.reaction-switch:after{transform:translateX(32px);background:var(--accent-ink);color:var(--accent)}
-    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"]) .reaction-switch-input:focus-visible+.reaction-switch{outline:2px solid var(--accent);outline-offset:4px}
-    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"]) .reaction-switch-input:disabled+.reaction-switch{opacity:.5}
+    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"],[data-settings-pane="cloud"]) .reaction-switch{display:block;flex-shrink:0;width:78px;height:36px;border:0;border-radius:20px;background:light-dark(#bac5bf,#606d65)}
+    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"],[data-settings-pane="cloud"]) .reaction-switch:after{content:attr(data-state-label);position:absolute;left:3px;top:3px;width:40px;height:30px;display:grid;place-items:center;border-radius:20px;background:light-dark(#fff,#11251f);color:light-dark(#19201e,#f0f3f1);font-size:11px;font-weight:700;line-height:1;box-shadow:none;transition:transform .16s ease}
+    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"],[data-settings-pane="cloud"]) .reaction-switch-input:checked+.reaction-switch{background:var(--accent)}
+    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"],[data-settings-pane="cloud"]) .reaction-switch-input:checked+.reaction-switch:after{transform:translateX(32px);background:var(--accent-ink);color:var(--accent)}
+    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"],[data-settings-pane="cloud"]) .reaction-switch-input:focus-visible+.reaction-switch{outline:2px solid var(--accent);outline-offset:4px}
+    :is([data-panel=reactions],[data-settings-pane="unified-api"],[data-settings-pane="printer-controls"],[data-settings-pane="cloud"]) .reaction-switch-input:disabled+.reaction-switch{opacity:.5}
     [data-panel=reactions] .reaction-toggle{position:relative;min-height:44px;cursor:pointer}
     @media(max-width:1000px){[data-panel=reactions] .reaction-option{grid-template-columns:minmax(0,1fr) 78px;min-height:112px;gap:14px}[data-panel=reactions] .reaction-option-icon{display:none}[data-panel=reactions] .reaction-option-copy{grid-column:1}[data-panel=reactions] .reaction-option>.reaction-switch{grid-column:2;grid-row:1;justify-self:end}}
 
@@ -1495,9 +1495,18 @@ setInterval(()=>{worker?.postMessage({type:'pause',paused:document.hidden||!sele
               <p class="micro hi-esp-sound-note">Keep sound enabled and the volume above zero to hear “Yes” and spoken answers.</p>
             </article>
             <article class="card settings-pane" data-settings-pane="cloud" style="align-self:start" hidden>
+              <form id="cloud-unlock-form" style="max-width:440px">
+                <h2>PrintDeck Cloud</h2>
+                <p class="micro">Enter the password to open Cloud settings.</p>
+                <p class="micro">Access expires 30 minutes after unlocking.</p>
+                <div class="field"><label for="cloud-password">Password</label><input id="cloud-password" type="password" maxlength="64" autocomplete="off" required></div>
+                <p id="cloud-unlock-status" class="status" role="status" aria-live="polite"></p>
+                <button id="cloud-unlock-button" type="submit" class="primary">Unlock</button>
+              </form>
+              <div id="cloud-content" hidden>
               <aside class="cloud-beta" id="cloud-beta"><strong>Beta feature — testing in progress</strong><p>PrintDeck Cloud is not ready for general use</p></aside>
               <div class="section-head"><div><h2>PrintDeck Cloud</h2><p class="micro">Connect this PrintDeck to your account. Sign in securely on the cloud website.</p></div></div>
-              <p class="micro">This version pairs your device only. Printer data and remote controls will be added later.</p>
+              <p class="micro">PrintDeck shares printer status and supports available remote controls with the connected account.</p>
               <p id="cloud-status" role="status" aria-live="polite"></p>
               <p id="cloud-account" style="overflow-wrap:anywhere" hidden></p>
               <div id="cloud-verification" hidden><p>Check that this code matches the code shown in the cloud:</p><p><strong id="cloud-code"></strong></p></div>
@@ -1506,6 +1515,15 @@ setInterval(()=>{worker?.postMessage({type:'pause',paused:document.hidden||!sele
                 <a class="primary" style="text-decoration:none;display:inline-flex;align-items:center" id="cloud-open" target="_blank" rel="noopener noreferrer" hidden>Open PrintDeck Cloud</a>
                 <button type="button" class="secondary" id="cloud-cancel" hidden>Cancel</button>
                 <button type="button" class="secondary" id="cloud-disconnect" hidden>Disconnect account</button>
+              </div>
+              <section id="cloud-developer" class="api-token-card" hidden>
+                <section class="api-hero">
+                  <div><h3 id="cloud-developer-title">DEVELOPER MODE</h3><p class="micro">ON sends printer reports and checks for commands on the local server below. OFF uses PrintDeck Cloud. Each environment has its own account pairing.</p></div>
+                  <div class="api-hero-controls"><label class="reaction-master"><input class="reaction-switch-input" id="cloud-developer-toggle" type="checkbox" role="switch" aria-labelledby="cloud-developer-title" aria-describedby="cloud-developer-address"><span class="reaction-switch" aria-hidden="true"></span></label></div>
+                </section>
+                <p id="cloud-developer-address" class="micro"><span>Local API address</span><br><code id="cloud-developer-url" style="overflow-wrap:anywhere"></code></p>
+                <p class="micro">Keep the local server running and connect PrintDeck to the same network.</p>
+              </section>
               </div>
             </article>
             <article class="card settings-pane" data-settings-pane="unified-api" hidden><div class="section-head"><div><h2>Unified API</h2><p class="micro">Use one read-only JSON format for every printer connected to this PrintDeck.</p></div></div><section class="api-hero"><div><h3 id="unified-api-title">REST API</h3><p class="micro">Share printer data with local applications over HTTP. Access requires an API token.</p></div><div class="api-hero-controls"><span class="badge api-state" id="unified-api-state" data-enabled="false">Disabled</span><label class="reaction-master"><input class="reaction-switch-input" id="unified-api-toggle" type="checkbox" role="switch" aria-labelledby="unified-api-title" aria-controls="unified-api-content"><span class="reaction-switch" aria-hidden="true"></span></label></div></section><p class="status" id="unified-api-status" role="status" aria-live="polite"></p><fieldset id="unified-api-content" hidden disabled><section class="api-token-card"><strong>API token</strong><p class="micro">Send this token as an Authorization: Bearer header. It is different from a printer LAN access code.</p><div class="api-token-row"><input id="unified-api-token" type="password" readonly aria-label="Unified API token" value=""><button class="secondary" id="unified-api-reveal" type="button">Show token</button><button class="secondary" id="unified-api-copy" type="button">Copy token</button></div><div class="actions"><button class="secondary" id="unified-api-regenerate" type="button">Generate new token</button></div></section><div class="field"><label>Base URL</label><code class="api-base" id="unified-api-base">—</code></div><p class="api-note">Keep PrintDeck on a trusted local network. The API is read-only, but anyone with this token can read printer names, addresses and status data.</p><div class="api-endpoint-grid"><section class="api-endpoint"><code>GET /v1/info</code><p class="micro">PrintDeck, firmware and network details without passwords.</p></section><section class="api-endpoint"><code>GET /v1/printers</code><p class="micro">Saved printers in one safe, normalized format.</p></section><section class="api-endpoint"><code>GET /v1/printers/status</code><p class="micro">Compact status for every saved printer.</p></section><section class="api-endpoint"><code>GET /v1/printers/{id}</code><p class="micro">Identity, address and supported data groups.</p></section><section class="api-endpoint"><code>GET /v1/printers/{id}/status</code><p class="micro">Job state, progress, time and available temperatures.</p></section><section class="api-endpoint"><code>GET /v1/printers/{id}/nozzles</code><p class="micro">Tools, materials and current or target temperatures.</p></section><section class="api-endpoint"><code>GET /v1/printers/{id}/materials</code><p class="micro">AMS, AMS Lite and external spool data when available.</p></section></div><p class="api-note"><strong>Request throttling enabled: 1 request per second.</strong> Faster requests return HTTP 429 Too Many Requests.</p><p class="micro">No controls, webhooks or cloud account. <a class="api-doc-link" id="unified-api-docs" href="https://printdeck.xyz/printdeck-unified-printer-api.pdf" target="_blank" rel="noopener">Open the complete API guide (PDF)</a>.</p></fieldset><form id="mqtt-form"><section id="mqtt-section" class="api-token-card">
@@ -2765,11 +2783,36 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     $('#companion-forget-confirm').addEventListener('click',async()=>{if(await changeCompanion('forget',companionForget))$('#companion-forget-dialog').close()});
     window.addEventListener('pagehide',()=>{if(companionDialog.open)closeCompanionSearch()});
 
-    let cloudState=null,cloudBusy=false,cloudLoading=false,cloudRevision=0;
+    let cloudState=null,cloudBusy=false,cloudLoading=false,cloudRevision=0,cloudSessionTimer;
+    const cloudAccessKey='printdeck-cloud-unlocked-until';
+    let cloudUnlockedUntil=0;
+    try{cloudUnlockedUntil=Number(localStorage.getItem(cloudAccessKey))||0}catch(_){}
+    function cloudUnlocked(){return Date.now()<cloudUnlockedUntil}
+    function paintCloudAccess(){
+      clearTimeout(cloudSessionTimer);
+      const unlocked=cloudUnlocked();
+      $('#cloud-content').hidden=!unlocked;$('#cloud-unlock-form').hidden=unlocked;
+      if(unlocked)cloudSessionTimer=setTimeout(paintCloudAccess,Math.min(1800000,Math.max(0,cloudUnlockedUntil-Date.now())));
+      else{$('#cloud-password').value='';++cloudRevision}
+      return unlocked;
+    }
+    $('#cloud-unlock-form').addEventListener('submit',event=>{
+      event.preventDefault();const input=$('#cloud-password'),valid=input.value==='test';input.value='';
+      $('#cloud-unlock-status').textContent=valid?'':translated('Incorrect password.');
+      if(!valid){input.focus();return}
+      cloudUnlockedUntil=Date.now()+1800000;
+      try{localStorage.setItem(cloudAccessKey,String(cloudUnlockedUntil))}catch(_){}
+      paintCloudAccess();loadCloud();
+    });
+    window.addEventListener('storage',event=>{if(event.key===cloudAccessKey){cloudUnlockedUntil=Number(event.newValue)||0;paintCloudAccess();if(cloudUnlocked()&&settingsSectionVisible('cloud'))loadCloud()}});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)paintCloudAccess()});
+    window.addEventListener('pageshow',paintCloudAccess);
+    paintCloudAccess();
     const cloudMessages={disconnected:'No cloud account connected.',starting:'Starting pairing…',pending:'Approve the connection in PrintDeck Cloud.',checking:'Checking cloud connection…',connected:'Connected to PrintDeck Cloud.',offline:'Cloud is unavailable. PrintDeck will retry automatically.',revoked:'Cloud access was revoked. Connect your account again.',expired:'Pairing expired. Start again.',denied:'Pairing was declined.',disconnecting:'Disconnecting… Waiting for cloud confirmation.',error:'Cloud request failed. Try again.'};
     function setCloudStatus(message,busy=false){const status=$('#cloud-status');status.textContent=translated(message);status.classList.toggle('busy',busy)}
     function paintCloud(){
       if(!cloudState)return;
+      paintCloudAccess();
       const state=cloudState.state,paired=cloudState.paired===true,waiting=cloudState.pairing===true||['starting','pending'].includes(state)||Boolean(cloudState.user_code);
       setCloudStatus(cloudMessages[state]||cloudMessages.error,cloudBusy||['starting','pending','checking','disconnecting'].includes(state));
       $('#cloud-account').textContent=cloudState.account||'';$('#cloud-account').hidden=!cloudState.account;
@@ -2777,12 +2820,18 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       $('#cloud-connect').hidden=paired||waiting;$('#cloud-cancel').hidden=paired||!waiting;
       $('#cloud-disconnect').hidden=!paired||state==='disconnecting';
       let link='';
-      try{const url=new URL(cloudState.verification_uri|| (paired?'https://app.printdeck.xyz':''));if(url.origin==='https://app.printdeck.xyz'&&(url.pathname==='/'||/^\/cloud\/pair\/[A-F0-9]{16}$/.test(url.pathname)))link=url.href}catch(_){}
+      const local=cloudState.developer_available===true&&cloudState.developer_mode===true;
+      const origin=local?cloudState.local_panel_uri:'https://app.printdeck.xyz';
+      try{const base=new URL(origin),url=new URL(cloudState.verification_uri||(paired?origin:''));if(['https:','http:'].includes(base.protocol)&&!base.username&&!base.password&&base.origin===origin&&url.origin===origin&&!url.username&&!url.password&&!url.search&&!url.hash&&(url.pathname==='/'||/^\/cloud\/pair\/[A-F0-9]{16}$/.test(url.pathname)))link=url.href}catch(_){}
       $('#cloud-open').hidden=!link;if(link)$('#cloud-open').href=link;else $('#cloud-open').removeAttribute('href');
+      $('#cloud-developer').hidden=cloudState.developer_available!==true;
+      $('#cloud-developer-toggle').checked=local;$('#cloud-developer-toggle').disabled=cloudBusy;
+      $('#cloud-developer-toggle').nextElementSibling.dataset.stateLabel=translated(local?'ON':'OFF');
+      $('#cloud-developer-url').textContent=cloudState.local_api_uri||'';
       ['connect','cancel','disconnect'].forEach(id=>$('#cloud-'+id).disabled=cloudBusy);
     }
     async function loadCloud(){
-      if(cloudBusy||cloudLoading)return;
+      if(!paintCloudAccess()||cloudBusy||cloudLoading)return;
       cloudLoading=true;const revision=cloudRevision;
       try{const result=await jsonFetch('/api/cloud',{signal:AbortSignal.timeout(5000)});if(revision===cloudRevision){cloudState=result;paintCloud()}}
       catch(_){if(revision===cloudRevision)setCloudStatus(cloudMessages.error)}
@@ -2790,6 +2839,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     }
     async function cloudAction(action){
       if(cloudBusy)return;
+      if(!paintCloudAccess())return;
       cloudBusy=true;++cloudRevision;paintCloud();$('#cloud-status').classList.add('busy');
       let failed=false;
       try{cloudState=await jsonFetch('/api/cloud',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-PrintDeck-Cloud':'pairing'},body:new URLSearchParams({action}),signal:AbortSignal.timeout(5000)})}
@@ -2799,7 +2849,8 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     $('#cloud-connect').addEventListener('click',()=>cloudAction('start'));
     $('#cloud-cancel').addEventListener('click',()=>cloudAction('cancel'));
     $('#cloud-disconnect').addEventListener('click',()=>cloudAction('disconnect'));
-    setInterval(()=>{if(settingsSectionVisible('cloud'))loadCloud()},2000);
+    $('#cloud-developer-toggle').addEventListener('change',event=>cloudAction(event.target.checked?'developer_on':'developer_off'));
+    setInterval(()=>{if(settingsSectionVisible('cloud')&&cloudUnlocked())loadCloud()},2000);
 
     const settingsSections=['device','printer-controls','wifi','live-view','hi-esp','camera','unified-api','cloud','time','backup','firmware'];
     function currentPageHash(){const tab=$('.tab[aria-selected=true]')?.dataset.tab||'printers';return '#'+(tab==='device'?$('.side-tab[aria-selected=true]')?.dataset.section||'device':tab)}

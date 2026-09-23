@@ -26,6 +26,7 @@ class CloudPairingService {
   void set_thumbnail_source(ThumbnailSource source);
   bool preview_enabled() const;
   void initialize();
+  bool set_developer_mode(bool enabled, bool& changed);
   void tick(bool online);
   bool request(const std::string& action, const std::string& id,
                const std::string& name, const std::string& locale);
@@ -36,6 +37,9 @@ class CloudPairingService {
   void run();
   void step();
   void close_http();
+  void load_credential();
+  bool developer_mode_ = false;
+  bool reset_transport_ = false;
   esp_http_client_handle_t http_client_ = nullptr; // Owned exclusively by the cloud worker.
   std::int64_t feed_due_ = 0;
   unsigned poll_interval_ms_ = 0;

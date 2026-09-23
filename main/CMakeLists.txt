@@ -237,6 +237,14 @@ idf_component_register(
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE PRINTDECK_VERSION="${PROJECT_VER}")
+set(PRINTDECK_CLOUD_DEVELOPMENT_HEADER "" CACHE FILEPATH "Private local Cloud configuration")
+if(PRINTDECK_CLOUD_DEVELOPMENT_HEADER)
+    if(NOT EXISTS "${PRINTDECK_CLOUD_DEVELOPMENT_HEADER}")
+        message(FATAL_ERROR "Local Cloud configuration is missing")
+    endif()
+    set_source_files_properties(src/platform/cloud_pairing_service.cpp PROPERTIES
+        COMPILE_DEFINITIONS "PRINTDECK_CLOUD_DEVELOPMENT_HEADER=\"${PRINTDECK_CLOUD_DEVELOPMENT_HEADER}\"")
+endif()
 idf_build_get_property(build_dir BUILD_DIR)
 set(layout_header "${CMAKE_CURRENT_BINARY_DIR}/printdeck_layout.hpp")
 add_custom_command(OUTPUT "${layout_header}"

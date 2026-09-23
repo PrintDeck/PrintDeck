@@ -2874,8 +2874,18 @@ esp_err_t WebConfig::cloud_request(httpd_req_t* request) {
        std::string_view(intent.data())!="pairing" || !receive_form(request,body) || !form_value(body,"action",action))
       return send_json(request,"400 Bad Request","{\"error\":\"Cloud request failed. Try again.\"}");
     const auto network=network_->status();
-    if(!cloud_.request(action,network.device_id,network.device_name,export_language()))
-      return send_json(request,"409 Conflict","{\"error\":\"Cloud request failed. Try again.\"}");
+    if(action=="developer_on" || action=="developer_off") {
+      const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+      bool changed=false;
+      if(!cloud_.set_developer_mode(action=="developer_on",changed))
+        return send_json(request,"409 Conflict","{\"error\":\"Cloud request failed. Try again.\"}");
+      if(changed) {
+        core::DeviceSettings current;
+        { const std::lock_guard<std::mutex> lock(mutex_); current=settings_; }
+        notify_settings_changed(current,true);
+      }
+    } else if(!cloud_.request(action,network.device_id,network.device_name,export_language()))
+        return send_json(request,"409 Conflict","{\"error\":\"Cloud request failed. Try again.\"}");
     cloud_.tick(network.station_connected);
   }
   const auto body=cloud_.status_json();
