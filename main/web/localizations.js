@@ -10,6 +10,10 @@ window.PRINTDECK_TRANSLATIONS={
 // Shared rows keep every added Web Config string aligned across all maintained languages.
 const PRINTDECK_TRANSLATION_COLUMNS=["pl","es","fr","de","zh-CN"];
 const PRINTDECK_EXTRA_TRANSLATIONS={
+  "Enter a valid local IPv4 address.":["Wpisz prawidłowy lokalny adres IPv4.", "Introduce una dirección IPv4 local válida.", "Saisissez une adresse IPv4 locale valide.", "Gib eine gültige lokale IPv4-Adresse ein.", "请输入有效的本地 IPv4 地址。"],
+  "Update":["Aktualizuj", "Actualizar", "Mettre à jour", "Aktualisieren", "更新"],
+  "Enter your computer’s local IP address. Turn ON to save it, or use Update while Developer Mode is on. A different server requires account pairing again.":["Wpisz lokalny adres IP komputera. Włącz ON, aby go zapisać, lub użyj Aktualizuj, gdy tryb deweloperski jest włączony. Inny serwer wymaga ponownego parowania konta.", "Introduce la IP local de tu ordenador. Activa ON para guardarla o usa Actualizar con el modo desarrollador activado. Otro servidor requiere vincular la cuenta de nuevo.", "Saisissez l’IP locale de votre ordinateur. Activez ON pour l’enregistrer ou utilisez Mettre à jour en mode développeur. Un autre serveur nécessite une nouvelle association du compte.", "Gib die lokale IP-Adresse deines Computers ein. Mit ON wird sie gespeichert; bei aktivem Entwicklermodus nutze Aktualisieren. Ein anderer Server erfordert eine erneute Kontoverknüpfung.", "输入电脑的本地 IP 地址。开启 ON 以保存，或在开发者模式开启时点击更新。更换服务器后需要重新关联账户。"],
+  "Local server IP address":["Adres IP lokalnego serwera", "Dirección IP del servidor local", "Adresse IP du serveur local", "IP-Adresse des lokalen Servers", "本地服务器 IP 地址"],
   "Incorrect password.":["Nieprawidłowe hasło.", "Contraseña incorrecta.", "Mot de passe incorrect.", "Falsches Passwort.", "密码错误。"],
   "Unlock":["Odblokuj", "Desbloquear", "Déverrouiller", "Entsperren", "解锁"],
   "Password":["Hasło", "Contraseña", "Mot de passe", "Passwort", "密码"],

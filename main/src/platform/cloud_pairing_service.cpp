@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstring>
 #include <cmath>
+#include <charconv>
 #include "printdeck/core/printer_command.hpp"
 #include <memory>
 #include "printdeck/platform/image_workspace.hpp"
@@ -29,7 +30,7 @@
 
 namespace printdeck::platform {
 namespace {
-// Deliberately fixed: the local browser cannot redirect credentials to another server.
+// Production origins remain fixed; development addresses are configured separately.
 constexpr char kPanelOrigin[] = "https://app.printdeck.xyz";
 constexpr char kApi[] = "https://api.printdeck.xyz/api/v1/device";
 constexpr char kLocalApi[] = PRINTDECK_LOCAL_CLOUD_API;
@@ -39,8 +40,30 @@ constexpr char kLocalStorage[] = PRINTDECK_LOCAL_CLOUD_STORAGE;
 constexpr bool kDeveloperAvailable = sizeof(kLocalApi) > 1 && sizeof(kLocalCa) > 1;
 static_assert(!kDeveloperAvailable || std::string_view(kLocalApi).starts_with("https://"));
 static_assert(sizeof(kLocalStorage) <= 16 && std::string_view(kLocalStorage) != "pd_cloud");
-const char* api(bool local) { return local ? kLocalApi : kApi; }
-const char* panel(bool local) { return local ? kLocalPanel : kPanelOrigin; }
+std::string url_host(std::string_view url) {
+  const auto start=url.find("://");
+  if(start==std::string_view::npos)return {};
+  const auto host=url.substr(start+3);
+  return std::string(host.substr(0,host.find_first_of(":/")));
+}
+std::string with_host(std::string_view url, const std::string& host) {
+  const auto start=url.find("://");
+  if(start==std::string_view::npos)return {};
+  const auto end=url.find_first_of(":/",start+3);
+  return std::string(url.substr(0,start+3))+host+std::string(url.substr(end));
+}
+bool local_host_valid(std::string_view host) {
+  std::array<unsigned,4> parts{};
+  for(unsigned i=0;i<4;++i) {
+    const auto end=host.find('.'); const auto part=host.substr(0,end);
+    if(part.empty() || part.size()>3 || (part.size()>1 && part.front()=='0'))return false;
+    const auto result=std::from_chars(part.data(),part.data()+part.size(),parts[i]);
+    if(result.ec!=std::errc{} || result.ptr!=part.data()+part.size() || parts[i]>255)return false;
+    if(i==3) { if(end!=std::string_view::npos)return false; }
+    else { if(end==std::string_view::npos)return false; host.remove_prefix(end+1); }
+  }
+  return parts[0]==10 || (parts[0]==172 && parts[1]>=16 && parts[1]<=31) || (parts[0]==192 && parts[1]==168);
+}
 const char* storage(bool local) { return local ? kLocalStorage : "pd_cloud"; }
 void configure_tls(esp_http_client_config_t& config, bool local) {
   if(local) config.cert_pem=kLocalCa;
@@ -92,10 +115,10 @@ esp_err_t on_http(esp_http_client_event_t* event) {
   }
   return ESP_OK;
 }
-Reply exchange(esp_http_client_handle_t& client, bool local, const char* path, const std::string& body, const std::string& token={}, bool remove=false) {
+Reply exchange(esp_http_client_handle_t& client, bool local, const std::string& base, const char* path, const std::string& body, const std::string& token={}, bool remove=false) {
   if(!local)ensure_dns_backup();
   Reply reply;
-  const std::string url=std::string(api(local))+path;
+  const std::string url=base+path;
   esp_http_client_config_t config{};
   config.url=url.c_str(); config.timeout_ms=8000;
   configure_tls(config,local);
@@ -157,7 +180,7 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
   if (!printer || key.size() != 64 || key.find_first_not_of("0123456789abcdef") != std::string::npos) return;
   ThumbnailSource source;
   void* context;
-  std::string token;
+  std::string token, base;
   bool local;
   {
     std::lock_guard lock(mutex_);
@@ -165,7 +188,7 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
     if (thumbnail_key_ != key) { thumbnail_key_ = key; thumbnail_attempts_ = 0; }
     if (thumbnail_attempts_ >= 3 || millis() < thumbnail_due_) return;
     source = thumbnail_source_; context = feed_context_; token = token_;
-    local = developer_mode_;
+    local = developer_mode_; base=local?local_api_:kApi;
   }
   auto thumbnail = source(context);
   if (thumbnail.printer_id != printer || thumbnail.key != key || !thumbnail.image ||
@@ -197,7 +220,7 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
     const auto latest = source(context);
     return latest.printer_id == printer && latest.key == key;
   };
-  const auto url = std::string(api(local)) + "/thumbnail/" + std::to_string(printer) + "/" + key;
+  const auto url = base + "/thumbnail/" + std::to_string(printer) + "/" + key;
   esp_http_client_config_t config{};
   config.url = url.c_str(); config.timeout_ms = 1500;
   configure_tls(config,local);
@@ -237,11 +260,21 @@ void CloudPairingService::initialize() {
   std::lock_guard lock(mutex_);
   if(initialized_)return;
   initialized_=true;
+  local_host_=url_host(kLocalApi); local_api_=kLocalApi; local_panel_=kLocalPanel;
   nvs_handle_t handle;
   if(kDeveloperAvailable && nvs_open("pd_cloud",NVS_READONLY,&handle)==ESP_OK) {
-    std::array<char,32> value{}; std::size_t size=value.size();
-    if(nvs_get_str(handle,"environment",value.data(),&size)==ESP_OK)
+    std::array<char,256> value{}; std::size_t size=value.size();
+    if(nvs_get_str(handle,"environment",value.data(),&size)==ESP_OK) {
       developer_mode_=std::string_view(value.data())==kLocalStorage;
+      Json config(cJSON_Parse(value.data()),cJSON_Delete);
+      if(field(config.get(),"scope")==kLocalStorage) {
+        const auto host=field(config.get(),"host");
+        if(host==local_host_ || local_host_valid(host)) {
+          local_host_=host;local_api_=with_host(kLocalApi,host);local_panel_=with_host(kLocalPanel,host);
+          developer_mode_=cJSON_IsTrue(cJSON_GetObjectItem(config.get(),"enabled"));
+        }
+      }
+    }
     nvs_close(handle);
   }
   load_credential();
@@ -255,6 +288,10 @@ void CloudPairingService::load_credential() {
   nvs_close(handle);
   if(result!=ESP_OK)return;
   Json root(cJSON_Parse(blob.data()),cJSON_Delete);
+  if(developer_mode_) {
+    const auto endpoint=field(root.get(),"endpoint");
+    if(endpoint.empty()?local_api_!=kLocalApi:endpoint!=local_api_)return;
+  }
   const auto token=field(root.get(),"token");
   if(!token_valid(token)) { state_="error"; return; }
   token_=token; account_=field(root.get(),"account");
@@ -262,20 +299,29 @@ void CloudPairingService::load_credential() {
   state_=disconnect_?"disconnecting":"checking";
 }
 
-bool CloudPairingService::set_developer_mode(bool enabled, bool& changed) {
+bool CloudPairingService::set_developer_mode(bool enabled, bool& changed, const std::string& host) {
   std::lock_guard lock(mutex_);
   changed=false;
   if(paused_ || !kDeveloperAvailable)return false;
-  if(enabled==developer_mode_)return true;
+  const auto next_host=host.empty()?local_host_:host;
+  if(next_host!=url_host(kLocalApi) && !local_host_valid(next_host))return false;
+  if(enabled==developer_mode_ && next_host==local_host_)return true;
+  Json config(cJSON_CreateObject(),cJSON_Delete);
+  if(!config)return false;
+  cJSON_AddStringToObject(config.get(),"scope",kLocalStorage);
+  cJSON_AddStringToObject(config.get(),"host",next_host.c_str());
+  cJSON_AddBoolToObject(config.get(),"enabled",enabled);
+  const auto serialized=encode(config.get());
   nvs_handle_t handle;
   if(nvs_open("pd_cloud",NVS_READWRITE,&handle)!=ESP_OK)return false;
-  auto result=nvs_set_str(handle,"environment",enabled?kLocalStorage:"production");
+  auto result=nvs_set_str(handle,"environment",serialized.c_str());
   if(result==ESP_OK)result=nvs_commit(handle);
   nvs_close(handle);
   if(result!=ESP_OK)return false;
   // The worker owns HTTP handles. Its in-flight result is invalidated before
   // loading the other environment; credentials never cross environments.
   ++generation_; developer_mode_=enabled; reset_transport_=true;
+  local_host_=next_host;local_api_=with_host(kLocalApi,next_host);local_panel_=with_host(kLocalPanel,next_host);
   command_.clear(); token_.clear(); account_.clear(); secret_.clear(); code_.clear(); link_.clear();
   last_command_id_.clear(); last_command_status_.clear(); thumbnail_key_.clear();
   result_pending_=false; confirmed_=false; disconnect_=false;
@@ -295,6 +341,7 @@ bool CloudPairingService::save(const std::string& token, const std::string& acco
   } else {
     Json root(cJSON_CreateObject(),cJSON_Delete);
     if(!root){nvs_close(handle);return false;}
+    if(developer_mode_)cJSON_AddStringToObject(root.get(),"endpoint",local_api_.c_str());
     cJSON_AddStringToObject(root.get(),"token",token.c_str());
     cJSON_AddStringToObject(root.get(),"account",account.c_str());
     cJSON_AddBoolToObject(root.get(),"disconnect",disconnect);
@@ -348,11 +395,13 @@ std::string CloudPairingService::status_json() const {
   cJSON_AddStringToObject(root.get(),"account",account_.c_str());
   cJSON_AddStringToObject(root.get(),"user_code",code_.c_str());
   cJSON_AddStringToObject(root.get(),"verification_uri",link_.c_str());
-  cJSON_AddStringToObject(root.get(),"panel_uri",panel(developer_mode_));
+  cJSON_AddStringToObject(root.get(),"panel_uri",developer_mode_?local_panel_.c_str():kPanelOrigin);
+  cJSON_AddStringToObject(root.get(),"local_host",local_host_.c_str());
+  cJSON_AddStringToObject(root.get(),"local_default_host",url_host(kLocalApi).c_str());
   cJSON_AddBoolToObject(root.get(),"developer_available",kDeveloperAvailable);
   cJSON_AddBoolToObject(root.get(),"developer_mode",developer_mode_);
-  cJSON_AddStringToObject(root.get(),"local_api_uri",kLocalApi);
-  cJSON_AddStringToObject(root.get(),"local_panel_uri",kLocalPanel);
+  cJSON_AddStringToObject(root.get(),"local_api_uri",local_api_.c_str());
+  cJSON_AddStringToObject(root.get(),"local_panel_uri",local_panel_.c_str());
   return encode(root.get());
 }
 
@@ -385,6 +434,7 @@ void CloudPairingService::step() {
     const auto generation=generation_;
     const auto token=token_;
     const auto local=developer_mode_;
+    const std::string base=local?local_api_:kApi, panel_origin=local?local_panel_:kPanelOrigin;
     const bool starting=command_=="start", removing=disconnect_;
     Json payload(cJSON_CreateObject(),cJSON_Delete);
     if(!payload){state_="error";due_=millis()+30000;return;}
@@ -419,7 +469,7 @@ void CloudPairingService::step() {
     }
     lock.unlock();
     const auto exchange_started=millis();
-    const auto reply=exchange(http_client_,local,path,body,token,removing);
+    const auto reply=exchange(http_client_,local,base,path,body,token,removing);
     Json root(cJSON_ParseWithLength(reply.body.data(),reply.body.size()),cJSON_Delete);
     auto* data=cJSON_GetObjectItemCaseSensitive(root.get(),"data");
     lock.lock();
@@ -511,7 +561,7 @@ void CloudPairingService::step() {
     }
     if(starting) {
       const auto secret=field(data,"device_code"),code=field(data,"user_code"),link=field(data,"verification_uri");
-      const auto expected=std::string(panel(local))+"/cloud/pair/"+code;
+      const auto expected=panel_origin+"/cloud/pair/"+code;
       command_.clear();
       if(!pairing_code_valid(secret) || code.size()!=16 || code.find_first_not_of("0123456789ABCDEF")!=std::string::npos || link!=expected) {
         state_="error";return;

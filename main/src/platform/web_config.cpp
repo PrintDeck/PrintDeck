@@ -2877,7 +2877,10 @@ esp_err_t WebConfig::cloud_request(httpd_req_t* request) {
     if(action=="developer_on" || action=="developer_off") {
       const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
       bool changed=false;
-      if(!cloud_.set_developer_mode(action=="developer_on",changed))
+      std::string host;
+      if(action=="developer_on" && (!form_value(body,"host",host) || host.empty()))
+        return send_json(request,"400 Bad Request","{\"error\":\"Enter a valid local IPv4 address.\"}");
+      if(!cloud_.set_developer_mode(action=="developer_on",changed,host))
         return send_json(request,"409 Conflict","{\"error\":\"Cloud request failed. Try again.\"}");
       if(changed) {
         core::DeviceSettings current;

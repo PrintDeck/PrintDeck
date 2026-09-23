@@ -1521,6 +1521,9 @@ setInterval(()=>{worker?.postMessage({type:'pause',paused:document.hidden||!sele
                   <div><h3 id="cloud-developer-title">DEVELOPER MODE</h3><p class="micro">ON sends printer reports and checks for commands on the local server below. OFF uses PrintDeck Cloud. Each environment has its own account pairing.</p></div>
                   <div class="api-hero-controls"><label class="reaction-master"><input class="reaction-switch-input" id="cloud-developer-toggle" type="checkbox" role="switch" aria-labelledby="cloud-developer-title" aria-describedby="cloud-developer-address"><span class="reaction-switch" aria-hidden="true"></span></label></div>
                 </section>
+                <div class="field"><label for="cloud-developer-host">Local server IP address</label><input id="cloud-developer-host" type="text" inputmode="decimal" maxlength="15" autocomplete="off" spellcheck="false" aria-describedby="cloud-developer-host-help"></div>
+                <p id="cloud-developer-host-help" class="micro">Enter your computer’s local IP address. Turn ON to save it, or use Update while Developer Mode is on. A different server requires account pairing again.</p>
+                <button type="button" class="secondary" id="cloud-developer-update">Update</button>
                 <p id="cloud-developer-address" class="micro"><span>Local API address</span><br><code id="cloud-developer-url" style="overflow-wrap:anywhere"></code></p>
                 <p class="micro">Keep the local server running and connect PrintDeck to the same network.</p>
               </section>
@@ -2783,7 +2786,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     $('#companion-forget-confirm').addEventListener('click',async()=>{if(await changeCompanion('forget',companionForget))$('#companion-forget-dialog').close()});
     window.addEventListener('pagehide',()=>{if(companionDialog.open)closeCompanionSearch()});
 
-    let cloudState=null,cloudBusy=false,cloudLoading=false,cloudRevision=0,cloudSessionTimer;
+    let cloudState=null,cloudBusy=false,cloudLoading=false,cloudRevision=0,cloudSessionTimer,cloudHostDirty=false;
     const cloudAccessKey='printdeck-cloud-unlocked-until';
     let cloudUnlockedUntil=0;
     try{cloudUnlockedUntil=Number(localStorage.getItem(cloudAccessKey))||0}catch(_){}
@@ -2828,6 +2831,9 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       $('#cloud-developer-toggle').checked=local;$('#cloud-developer-toggle').disabled=cloudBusy;
       $('#cloud-developer-toggle').nextElementSibling.dataset.stateLabel=translated(local?'ON':'OFF');
       $('#cloud-developer-url').textContent=cloudState.local_api_uri||'';
+      if(!cloudHostDirty)$('#cloud-developer-host').value=cloudState.local_host||cloudState.local_default_host||'';
+      $('#cloud-developer-host').disabled=cloudBusy;
+      $('#cloud-developer-update').disabled=cloudBusy||!local;
       ['connect','cancel','disconnect'].forEach(id=>$('#cloud-'+id).disabled=cloudBusy);
     }
     async function loadCloud(){
@@ -2840,15 +2846,19 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     async function cloudAction(action){
       if(cloudBusy)return;
       if(!paintCloudAccess())return;
+      const values={action};
+      if(action==='developer_on')values.host=$('#cloud-developer-host').value.trim();
       cloudBusy=true;++cloudRevision;paintCloud();$('#cloud-status').classList.add('busy');
       let failed=false;
-      try{cloudState=await jsonFetch('/api/cloud',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-PrintDeck-Cloud':'pairing'},body:new URLSearchParams({action}),signal:AbortSignal.timeout(5000)})}
+      try{cloudState=await jsonFetch('/api/cloud',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-PrintDeck-Cloud':'pairing'},body:new URLSearchParams(values),signal:AbortSignal.timeout(5000)});if(action.startsWith('developer_'))cloudHostDirty=false}
       catch(_){failed=true}
       finally{cloudBusy=false;paintCloud();if(failed)setCloudStatus(cloudMessages.error);['connect','cancel','disconnect'].forEach(id=>$('#cloud-'+id).disabled=false)}
     }
     $('#cloud-connect').addEventListener('click',()=>cloudAction('start'));
     $('#cloud-cancel').addEventListener('click',()=>cloudAction('cancel'));
     $('#cloud-disconnect').addEventListener('click',()=>cloudAction('disconnect'));
+    $('#cloud-developer-host').addEventListener('input',()=>{cloudHostDirty=true});
+    $('#cloud-developer-update').addEventListener('click',()=>cloudAction('developer_on'));
     $('#cloud-developer-toggle').addEventListener('change',event=>cloudAction(event.target.checked?'developer_on':'developer_off'));
     setInterval(()=>{if(settingsSectionVisible('cloud')&&cloudUnlocked())loadCloud()},2000);
 
