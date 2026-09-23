@@ -2273,6 +2273,19 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   { const std::lock_guard<std::mutex> lock(mutex_); current=settings_; }
   std::string body=R"({"schema_version":1,"device":{"hardware":)";
   append_json_string(body,kBoardVariant);
+  if (cloud) {
+    const auto network = network_ ? network_->status() : NetworkStatus{};
+    body += R"(,"ipv4":)";
+    if (network.station_connected && !network.ipv4.empty()) append_json_string(body, network.ipv4);
+    else body += "null";
+    body += R"(,"hostname":)";
+    const auto& hostname = network.friendly_hostname.empty() ? network.local_hostname : network.friendly_hostname;
+    if (!hostname.empty()) append_json_string(body, hostname);
+    else body += "null";
+    body += R"(,"mac_address":)";
+    if (!network.mac_address.empty()) append_json_string(body, network.mac_address);
+    else body += "null";
+  }
   body+=R"(,"version":")" PRINTDECK_VERSION R"(","audio_available":)";
   body+=kBoardHasAudio?"true":"false";
   body+=R"(,"power_button_available":)";body+=kBoardHasPowerButton?"true":"false";
