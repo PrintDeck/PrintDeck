@@ -249,7 +249,10 @@ void FirmwareUpdateService::poll() {
 bool FirmwareUpdateService::request_check() {
   return request_check(true);
 }
-bool FirmwareUpdateService::request_check(bool manual_request) {
+bool FirmwareUpdateService::request_remote_check(std::string request_id) {
+  return request_check(true, std::move(request_id));
+}
+bool FirmwareUpdateService::request_check(bool manual_request, std::string request_id) {
   if (scheduler_task_ == nullptr) return false;
   const std::uint64_t now = monotonic_ms();
   const std::uint64_t last = last_check_started_ms_.load(std::memory_order_acquire);
@@ -273,6 +276,8 @@ bool FirmwareUpdateService::request_check(bool manual_request) {
       automatic_check_requested_.store(false, std::memory_order_release);
       return false;
     }
+    snapshot_.request_id = std::move(request_id);
+    snapshot_.remote_installable = false;
     snapshot_.update_available = false;
     snapshot_.factory_required = false;
     firmware_url_.clear();
@@ -288,6 +293,8 @@ bool FirmwareUpdateService::request_check(bool manual_request) {
 bool FirmwareUpdateService::begin_manual_install() {
   const std::lock_guard<std::mutex> lock(mutex_);
   if (snapshot_.busy) return false;
+  snapshot_.request_id.clear();
+  snapshot_.remote_installable = false;
   snapshot_.factory_required = false;
   snapshot_.state = FirmwareUpdateState::downloading;
   snapshot_.busy = true;
@@ -321,10 +328,14 @@ void FirmwareUpdateService::finish_manual_install() {
   snapshot_.progress_percent = 100;
   snapshot_.detail = "Firmware installed. Restarting PrintDeck...";
 }
-bool FirmwareUpdateService::request_install() {
+bool FirmwareUpdateService::request_install(std::string_view expected_version, std::string_view check_id, std::string request_id) {
   if (scheduler_task_ == nullptr) return false;
   const std::lock_guard<std::mutex> lock(mutex_);
   if (!snapshot_.update_available || snapshot_.factory_required || firmware_url_.empty() || snapshot_.busy) return false;
+  if (!expected_version.empty() && (!snapshot_.remote_installable || !firmware_sha256_ ||
+      snapshot_.latest_version != expected_version || snapshot_.request_id != check_id || check_id.empty())) return false;
+  snapshot_.request_id = std::move(request_id);
+  snapshot_.remote_installable = false;
   snapshot_.state = FirmwareUpdateState::downloading; snapshot_.busy = true;
   snapshot_.progress_percent = 0; snapshot_.detail = "Preparing the firmware update...";
   install_requested_ = true;
@@ -361,8 +372,12 @@ bool FirmwareUpdateService::request_url_install(std::string url) {
   }
   const std::lock_guard<std::mutex> lock(mutex_);
   if (snapshot_.busy) return false;
+  snapshot_.request_id.clear();
+  snapshot_.remote_installable = false;
   firmware_url_ = std::move(url);
   firmware_sha256_.reset();
+  snapshot_.request_id.clear();
+  snapshot_.remote_installable = false;
   snapshot_.factory_required = false;
   snapshot_.state = FirmwareUpdateState::downloading;
   snapshot_.busy = true;
@@ -480,6 +495,7 @@ void FirmwareUpdateService::check_release() {
   const std::lock_guard<std::mutex> lock(mutex_);
   firmware_url_ = channel->url;
   firmware_sha256_ = channel->sha256;
+  snapshot_.remote_installable = newer && !offer->factory_required && firmware_sha256_.has_value() && !snapshot_.request_id.empty();
   snapshot_.factory_required = offer->factory_required;
   snapshot_.latest_version = channel->version;
   snapshot_.update_available = true; snapshot_.busy = false; snapshot_.progress_percent = 0;

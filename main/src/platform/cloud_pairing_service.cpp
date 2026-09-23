@@ -6,6 +6,7 @@
 #include <cmath>
 #include <charconv>
 #include "printdeck/core/printer_command.hpp"
+#include "printdeck/core/device_api.hpp"
 #include <memory>
 #include "printdeck/platform/image_workspace.hpp"
 #include "esp_log.h"
@@ -120,7 +121,7 @@ void ensure_dns_backup() {
 esp_err_t on_http(esp_http_client_event_t* event) {
   if(event->event_id==HTTP_EVENT_ON_DATA && event->data_len>0 && event->user_data) {
     auto& reply=*static_cast<Reply*>(event->user_data);
-    if(reply.body.size()+static_cast<std::size_t>(event->data_len)>4096) {
+    if(reply.body.size()+static_cast<std::size_t>(event->data_len)>8192) {
       reply.overflow=true; return ESP_FAIL;
     }
     reply.body.append(static_cast<const char*>(event->data),event->data_len);
@@ -175,6 +176,170 @@ void CloudPairingService::set_feed_source(FeedSource source, void* context) {
   std::lock_guard lock(mutex_);
   feed_source_ = source;
   feed_context_ = context;
+}
+
+void CloudPairingService::set_screen_source(ScreenSource source, ScreenInput input, ScreenBusy busy) {
+  std::lock_guard lock(mutex_);
+  screen_source_ = source; screen_input_ = input; screen_busy_ = busy;
+}
+
+// Called under mutex_. A closed session cannot be revived by a delayed response.
+void CloudPairingService::stop_screen() {
+  if (!screen_session_.empty()) screen_closed_ = screen_session_;
+  screen_session_.clear(); screen_input_id_.clear(); screen_result_.clear();
+  screen_expires_ = 0; screen_waiting_ = false;
+}
+
+void CloudPairingService::screen_directive(const std::string& payload, std::int64_t started, std::uint32_t input_frame) {
+  Json root(cJSON_Parse(payload.c_str()), cJSON_Delete);
+  const auto integer = [](cJSON* object, const char* name, double min, double max) -> std::int64_t {
+    const auto* value = cJSON_GetObjectItemCaseSensitive(object, name);
+    return cJSON_IsNumber(value) && std::isfinite(value->valuedouble) &&
+        std::floor(value->valuedouble) == value->valuedouble && value->valuedouble >= min && value->valuedouble <= max
+        ? static_cast<std::int64_t>(value->valuedouble) : -1;
+  };
+  const auto hex_id = [](const std::string& value) {
+    return value.size() == 32 && value.find_first_not_of("0123456789abcdef") == std::string::npos;
+  };
+  const auto session = field(root.get(), "session");
+  const auto ttl = integer(root.get(), "valid_for_ms", 1, 20000);
+  if (!cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root.get(), "active")) || !hex_id(session) ||
+      ttl < 0 || started + ttl <= millis() || !screen_source_ || paused_ || !online_ || disconnect_) {
+    stop_screen(); return;
+  }
+  if (!screen_session_.empty() && millis() >= screen_expires_) stop_screen();
+  if (session == screen_closed_) return;
+  if (session != screen_session_) {
+    stop_screen(); screen_session_ = session; screen_seq_ = 0; screen_due_ = millis();
+  }
+  screen_expires_ = started + ttl;
+  auto* input = cJSON_GetObjectItemCaseSensitive(root.get(), "input");
+  const auto id = field(input, "id");
+  const auto input_ttl = integer(input, "valid_for_ms", 1, 8000);
+  if (!hex_id(id) || id == screen_input_id_ || screen_waiting_ || input_ttl < 0 || started + input_ttl <= millis()) return;
+  screen_input_id_ = id; screen_result_ = "rejected";
+  const auto action = field(input, "action");
+  const auto frame = integer(input, "frame_seq", 1, UINT32_MAX);
+  const auto x = integer(input, "x", 0, 465), y = integer(input, "y", 0, 465);
+  const auto end_x = integer(input, "end_x", 0, 465), end_y = integer(input, "end_y", 0, 465);
+  if (frame == (input_frame == UINT32_MAX ? screen_seq_ : input_frame) && x >= 0 && y >= 0 && end_x >= 0 && end_y >= 0 &&
+      (action == "tap" || action == "long_press" || action == "swipe") && screen_input_ && screen_busy_ &&
+      screen_input_(feed_context_, action, x, y, end_x, end_y)) {
+    screen_waiting_ = true; screen_result_.clear();
+    // Wait for the release to reach LVGL before reporting an applied gesture.
+    screen_settle_ = millis() + (action == "long_press" ? 1400 : 600);
+  }
+}
+
+void CloudPairingService::upload_screen() {
+  ScreenSource source;
+  void* context;
+  std::string session, token, base, result_id, result;
+  std::uint32_t generation, seq;
+  bool local;
+  {
+    std::lock_guard lock(mutex_);
+    if (screen_session_.empty() || millis() >= screen_expires_ || paused_ || !online_ || disconnect_) {
+      stop_screen(); return;
+    }
+    if (screen_waiting_) {
+      if (millis() < screen_settle_ || screen_busy_(feed_context_)) return;
+      screen_waiting_ = false; screen_result_ = "applied";
+    }
+    source = screen_source_; context = feed_context_; session = screen_session_; token = token_;
+    generation = generation_; seq = screen_seq_ + 1; local = developer_mode_; base = local ? local_api_ : kApi;
+    result_id = screen_input_id_; result = screen_result_;
+    screen_due_ = millis() + 750; // Retry a busy shared workspace without queueing captures.
+  }
+#ifdef ESP_PLATFORM
+#if !CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC || CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL != 0
+  return; // PNG, HTTP and TLS buffers must use PSRAM, preserving internal memory for Wi-Fi.
+#endif
+#endif
+  ImageWorkspaceLock workspace(0);
+  if (!workspace) return;
+  const auto internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  const auto internal_block = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  if (internal_free < 8 * 1024 || internal_block < 3 * 1024 ||
+      heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 2 * 1024 * 1024 ||
+      heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 1024 * 1024) {
+    ESP_LOGW("cloud_screen", "Capture deferred: internal free=%u, block=%u", unsigned(internal_free), unsigned(internal_block));
+    return;
+  }
+  { std::lock_guard lock(mutex_); screen_due_ = millis() + 5000; }
+  const auto started = millis(), deadline = started + 8000;
+  const auto current = [&]() {
+    std::lock_guard lock(mutex_);
+    return !paused_ && online_ && !disconnect_ && generation_ == generation && screen_session_ == session &&
+        millis() < screen_expires_ && millis() < deadline;
+  };
+  std::vector<std::uint8_t> bytes;
+  if (!source || !current()) return;
+  if (!source(context, bytes)) {
+    // Local Web Config may own the shared capture cooldown. Retry between its
+    // refreshes instead of repeatedly colliding at exact five-second multiples.
+    std::lock_guard lock(mutex_);
+    if (generation_ == generation && screen_session_ == session) screen_due_ = millis() + 750;
+    return;
+  }
+  if (bytes.empty() || bytes.size() > 1024 * 1024 || !current()) return;
+  const auto url = base + "/live-view/" + session + "/" + std::to_string(seq);
+  esp_http_client_config_t config{};
+  config.url = url.c_str(); config.timeout_ms = 1500;
+  configure_tls(config, local); config.disable_auto_redirect = true;
+  config.buffer_size = 1024; config.buffer_size_tx = 1024;
+  auto* client = esp_http_client_init(&config);
+  if (!client) return;
+  esp_http_client_set_method(client, HTTP_METHOD_POST);
+  esp_http_client_set_header(client, "Content-Type", "image/png");
+  esp_http_client_set_header(client, "Accept", "application/json");
+  const auto bearer = std::string("Bearer ") + token;
+  esp_http_client_set_header(client, "Authorization", bearer.c_str());
+  if (!result.empty()) {
+    esp_http_client_set_header(client, "X-Live-Input-Id", result_id.c_str());
+    esp_http_client_set_header(client, "X-Live-Input-Result", result.c_str());
+  }
+  std::size_t sent = 0;
+  if (current() && esp_http_client_open(client, static_cast<int>(bytes.size())) == ESP_OK) {
+    while (sent < bytes.size() && current()) {
+      const auto count = esp_http_client_write(client, reinterpret_cast<const char*>(bytes.data() + sent),
+          static_cast<int>(std::min<std::size_t>(512, bytes.size() - sent)));
+      if (count <= 0) break;
+      sent += static_cast<std::size_t>(count);
+      // Leave Wi-Fi time to reclaim its small internal packet buffers between
+      // PSRAM-backed writes instead of bursting an entire image into TCP.
+      vTaskDelay(pdMS_TO_TICKS(5));
+    }
+  }
+  int status = 0;
+  std::string response;
+  if (sent == bytes.size() && current() && esp_http_client_fetch_headers(client) >= 0) {
+    status = esp_http_client_get_status_code(client);
+    std::array<char, 1024> buffer{};
+    // fetch_headers may already have parsed the whole response into its raw buffer.
+    // Drain that buffer even when is_complete_data_received is already true.
+    while (status == 200 && current()) {
+      const auto count = esp_http_client_read(client, buffer.data(), buffer.size());
+      if (count == 0 && esp_http_client_is_complete_data_received(client)) break;
+      if (count <= 0 || response.size() + count > 8192) { status = 0; break; }
+      response.append(buffer.data(), count);
+    }
+  }
+  esp_http_client_cleanup(client);
+  std::lock_guard lock(mutex_);
+  if (session != screen_session_) return;
+  if (seq == 1 || status != 200) ESP_LOGI("cloud_screen", "Screen upload: HTTP %d, bytes=%u, elapsed=%u ms", status, unsigned(sent), unsigned(millis() - started));
+  if (generation_ != generation || status != 200 || paused_ || !online_ || millis() >= screen_expires_ || millis() >= deadline) {
+    stop_screen(); return;
+  }
+  // A gesture queued while this upload was in flight refers to the frame the
+  // viewer saw before it. Validate that exact predecessor, then acknowledge
+  // execution only in a later image. Poll replies use the current frame instead.
+  const auto input_frame = screen_seq_;
+  screen_seq_ = seq;
+  Json root(cJSON_Parse(response.c_str()), cJSON_Delete);
+  auto* data = cJSON_GetObjectItemCaseSensitive(root.get(), "data");
+  screen_directive(encode(cJSON_GetObjectItemCaseSensitive(data, "live_view")), started, input_frame);
 }
 
 void CloudPairingService::set_thumbnail_source(ThumbnailSource source) {
@@ -441,7 +606,8 @@ void CloudPairingService::run() {
 
 void CloudPairingService::step() {
     std::unique_lock lock(mutex_);
-    if(reset_transport_) { close_http(); reset_transport_=false; }
+    if(reset_transport_) { close_http(); stop_screen(); reset_transport_=false; }
+    if (paused_ || !online_ || disconnect_ || !command_.empty() || token_.empty() || millis() >= screen_expires_) stop_screen();
     if(paused_) { close_http(); return; }
     if(command_=="cancel") {
       command_.clear();secret_.clear();code_.clear();link_.clear();state_="disconnected";return;
@@ -455,7 +621,12 @@ void CloudPairingService::step() {
     }
     if(command_.empty() && token_.empty() && secret_.empty()) { close_http(); return; }
     if(!online_) { close_http(); state_=disconnect_?"disconnecting":"offline";return;}
-    if(millis()<due_)return;
+    if(millis()<due_) {
+      if (!screen_session_.empty() && millis() >= screen_due_) {
+        close_http(); lock.unlock(); upload_screen();
+      }
+      return;
+    }
     const auto generation=generation_;
     const auto token=token_;
     const auto local=developer_mode_;
@@ -502,6 +673,7 @@ void CloudPairingService::step() {
     due_=millis()+(token.empty()?5000:60000);
     if(!token.empty() && (reply.status==401 || (removing && reply.status==200 && field(data,"state")=="disconnected"))) {
       if(save("","",false)) {
+        stop_screen();
         token_.clear();account_.clear();disconnect_=false;confirmed_=false;feed_failures_=0;
         last_command_id_.clear();last_command_status_.clear();result_pending_=false;
         poll_interval_ms_=0;feed_due_=0;close_http();
@@ -512,6 +684,7 @@ void CloudPairingService::step() {
     if(feeding) {
       if(reply.status==200 && cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(data,"accepted"))) {
         feed_failures_=0;
+        screen_directive(encode(cJSON_GetObjectItemCaseSensitive(data,"live_view")), exchange_started);
         const auto interval=[&](const char* name, unsigned fallback, unsigned minimum, unsigned maximum) {
           const auto* value=cJSON_GetObjectItemCaseSensitive(data,name);
           return cJSON_IsNumber(value) && std::isfinite(value->valuedouble) &&
@@ -532,14 +705,15 @@ void CloudPairingService::step() {
           auto* envelope=cJSON_GetObjectItemCaseSensitive(item,"command");
           const auto payload=encode(envelope);
           core::PrinterCommand parsed;
+          core::DeviceCommand device_command;
           const bool valid=!id.empty() && id.size()<=20 && id.front()!='0' &&
               id.find_first_not_of("0123456789")==std::string::npos &&
               cJSON_IsNumber(ttl) && ttl->valuedouble>millis()-exchange_started && ttl->valuedouble<=120000 &&
-              std::floor(ttl->valuedouble)==ttl->valuedouble && core::parse_printer_command(payload,parsed);
+              std::floor(ttl->valuedouble)==ttl->valuedouble && (core::parse_printer_command(payload,parsed) || (core::parse_device_command(payload,device_command) && ((device_command.action=="device.name.set" || device_command.action=="device.voice.set") || (device_command.action=="device.timezone.set" || device_command.action=="device.unified_api.set" || device_command.action=="device.mqtt.patch" || device_command.action=="device.appearance.patch" || device_command.action=="audio.test" || device_command.action=="firmware.check" || device_command.action=="firmware.install" || device_command.action=="device.reactions.patch" || device_command.action=="reactions.event.set" || device_command.action=="reactions.storage.set"))));
           if(valid) {
             if(id!=last_command_id_) {
-              // The existing light gate is bounded, performs no network I/O and
-              // rechecks the selected printer, freshness and light capability.
+              // Shared execution gates validate capabilities and persist device
+              // settings before acknowledging; no printer network I/O runs here.
               // Keep the pairing lock so disconnect/OTA cannot race dispatch.
               const bool accepted=command_sink_(feed_context_,payload);
               last_command_id_=id;last_command_status_=accepted?"accepted":"rejected";
@@ -560,7 +734,7 @@ void CloudPairingService::step() {
         due_=millis()+delay;
         state_="offline";close_http();
       }
-      if (!polling && reply.status == 200 && !result_pending_) {
+      if (!polling && reply.status == 200 && !result_pending_ && screen_session_.empty()) {
         auto* thumbnail = cJSON_GetObjectItemCaseSensitive(data, "thumbnail");
         auto* printer = cJSON_GetObjectItemCaseSensitive(thumbnail, "printer_id");
         const auto key = field(thumbnail, "key");

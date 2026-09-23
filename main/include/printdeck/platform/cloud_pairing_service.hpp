@@ -24,6 +24,10 @@ class CloudPairingService {
   };
   using ThumbnailSource = Thumbnail (*)(void*);
   void set_thumbnail_source(ThumbnailSource source);
+  using ScreenSource = bool (*)(void*, std::vector<std::uint8_t>&);
+  using ScreenInput = bool (*)(void*, const std::string&, int, int, int, int);
+  using ScreenBusy = bool (*)(void*);
+  void set_screen_source(ScreenSource source, ScreenInput input, ScreenBusy busy);
   bool preview_enabled() const;
   void initialize();
   bool set_developer_mode(bool enabled, bool& changed, const std::string& host = {}, unsigned port = 0);
@@ -46,6 +50,16 @@ class CloudPairingService {
   std::int64_t feed_due_ = 0;
   unsigned poll_interval_ms_ = 0;
 
+  void stop_screen();
+  void screen_directive(const std::string& payload, std::int64_t started, std::uint32_t input_frame = UINT32_MAX);
+  void upload_screen();
+  ScreenSource screen_source_ = nullptr;
+  ScreenInput screen_input_ = nullptr;
+  ScreenBusy screen_busy_ = nullptr;
+  std::string screen_session_, screen_closed_, screen_input_id_, screen_result_;
+  std::int64_t screen_expires_ = 0, screen_due_ = 0, screen_settle_ = 0;
+  std::uint32_t screen_seq_ = 0;
+  bool screen_waiting_ = false;
   void upload_thumbnail(std::uint32_t printer, const std::string& key, std::uint32_t generation);
   ThumbnailSource thumbnail_source_ = nullptr;
   std::string thumbnail_key_;

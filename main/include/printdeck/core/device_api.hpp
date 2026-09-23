@@ -11,7 +11,7 @@
 #include "printdeck/core/theme.hpp"
 
 namespace printdeck::core {
-constexpr std::size_t kDeviceCommandMaximumBytes = 4096;
+constexpr std::size_t kDeviceCommandMaximumBytes = 8192;
 using DeviceJson = std::unique_ptr<cJSON, decltype(&cJSON_Delete)>;
 inline DeviceJson device_json(std::string_view text) {
   if (text.empty() || text.size()>kDeviceCommandMaximumBytes || text.find('\0')!=text.npos || text.find("\\u0000")!=text.npos) return {nullptr,cJSON_Delete};
@@ -69,7 +69,7 @@ inline std::string device_settings_json(const DeviceSettings& s, bool audio_avai
   cJSON_AddBoolToObject(root.get(),"wake_on_touch",!power_button || s.display_power.wake_on_touch);
   if(!cloud)cJSON_AddStringToObject(root.get(),"device_name",s.device_name.c_str());
   cJSON_AddStringToObject(root.get(),"theme",s.theme.c_str());
-  if(!cloud)cJSON_AddStringToObject(root.get(),"timezone",s.timezone.c_str());
+  cJSON_AddStringToObject(root.get(),"timezone",s.timezone.c_str());
   cJSON_AddStringToObject(root.get(),"language",s.language.c_str());
   cJSON_AddStringToObject(root.get(),"rotation",s.rotation.c_str());
   cJSON_AddStringToObject(root.get(),"audio_preset",s.audio_preset.c_str());
@@ -143,6 +143,30 @@ inline bool apply_device_settings_patch(const cJSON* patch,DeviceSettings& desti
   if(!power_button&&cJSON_GetObjectItemCaseSensitive(patch,"wake_on_touch")&&!candidate.display_power.wake_on_touch)return false;
   destination=std::move(candidate);return true;
 }
+// Cloud appearance commands intentionally expose only these three settings pages.
+inline bool appearance_settings_patch(const cJSON* patch) {
+  if (!device_unique_object(patch) || !patch->child) return false;
+  constexpr std::string_view allowed[] = {"brightness", "rotation", "theme", "custom_theme",
+      "audio_enabled", "audio_volume", "audio_muted_events", "audio_preset", "start_idle", "start_active",
+      "dim_for_idle", "dim_for_active", "saver_for_idle", "saver_for_active", "dim_brightness",
+      "saver_animation", "shutdown_s", "dim_audio", "off_audio", "usb_power_save",
+      "wake_on_orientation_change", "wake_on_touch"};
+  for (auto* item = patch->child; item; item = item->next) {
+    bool found = false;
+    for (const auto key : allowed) if (key == item->string) found = true;
+    if (!found) return false;
+  }
+  return true;
+}
+inline bool reaction_settings_patch(const cJSON* patch) {
+  if (!device_unique_object(patch) || !patch->child) return false;
+  for (auto* item = patch->child; item; item = item->next) {
+    const std::string_view key(item->string);
+    if ((key != "printer_animations_enabled" && key != "reaction_progress_bar_enabled" &&
+         key != "reaction_progress_percent_enabled") || !cJSON_IsBool(item)) return false;
+  }
+  return true;
+}
 struct DeviceCommand {
   std::string action;
   DeviceJson parameters{nullptr,cJSON_Delete};
@@ -152,6 +176,82 @@ inline bool parse_device_command(std::string_view payload,DeviceCommand& command
   auto* version=cJSON_GetObjectItemCaseSensitive(root.get(),"schema_version");auto* action=cJSON_GetObjectItemCaseSensitive(root.get(),"action");auto* parameters=cJSON_GetObjectItemCaseSensitive(root.get(),"parameters");
   if(!device_integer(version,1,1)||!cJSON_IsString(action)||std::strlen(action->valuestring)>40||!device_unique_object(parameters))return false;
   command.action=action->valuestring;command.parameters.reset(cJSON_DetachItemFromObjectCaseSensitive(root.get(),"parameters"));return true;
+}
+inline bool firmware_request_id(std::string_view id) {
+  if (id.size()!=36) return false;
+  for (std::size_t i=0;i<id.size();++i) {
+    if (i==8||i==13||i==18||i==23) { if(id[i]!='-') return false; }
+    else if(!((id[i]>='0'&&id[i]<='9')||(id[i]>='a'&&id[i]<='f'))) return false;
+  }
+  return true;
+}
+inline bool firmware_command(const DeviceCommand& command) {
+  const auto* p=command.parameters.get();
+  const auto text=[&](const char* key)->std::string_view {
+    const auto* item=cJSON_GetObjectItemCaseSensitive(p,key);
+    return cJSON_IsString(item)?std::string_view(item->valuestring):std::string_view{};
+  };
+  if(!firmware_request_id(text("request_id")))return false;
+  if(command.action=="firmware.check")return cJSON_GetArraySize(p)==1;
+  if(command.action!="firmware.install"||cJSON_GetArraySize(p)!=3||!firmware_request_id(text("check_id")))return false;
+  const auto version=text("version");
+  return !version.empty()&&version.size()<=32&&version.find_first_not_of("0123456789.")==version.npos;
+}
+// Cloud device commands expose individually validated settings operations.
+inline bool is_device_name_command(std::string_view payload) {
+  DeviceCommand command;
+  if (!parse_device_command(payload, command) || command.action != "device.name.set" ||
+      cJSON_GetArraySize(command.parameters.get()) != 1) return false;
+  const auto* name = cJSON_GetObjectItemCaseSensitive(command.parameters.get(), "name");
+  return cJSON_IsString(name) && name->valuestring[0] != '\0' && valid_device_name(name->valuestring);
+}
+inline bool is_device_timezone_command(std::string_view payload) {
+  DeviceCommand command;
+  if (!parse_device_command(payload, command) || command.action != "device.timezone.set" ||
+      cJSON_GetArraySize(command.parameters.get()) != 1) return false;
+  const auto* zone = cJSON_GetObjectItemCaseSensitive(command.parameters.get(), "timezone");
+  return cJSON_IsString(zone) && std::strlen(zone->valuestring) <= 64 && supported_timezone(zone->valuestring);
+}
+inline bool is_device_voice_command(std::string_view payload) {
+  DeviceCommand command;
+  return parse_device_command(payload, command) && command.action == "device.voice.set" &&
+      cJSON_GetArraySize(command.parameters.get()) == 1 &&
+      cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(command.parameters.get(), "enabled"));
+}
+inline bool is_device_unified_api_command(std::string_view payload) {
+  DeviceCommand command;
+  return parse_device_command(payload, command) && command.action == "device.unified_api.set" &&
+      cJSON_GetArraySize(command.parameters.get()) == 1 &&
+      cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(command.parameters.get(), "enabled"));
+}
+// Partial MQTT updates preserve fields changed locally since the last report.
+inline bool apply_device_mqtt_patch(const cJSON* patch, MqttSettings& destination) {
+  if (!device_unique_object(patch) || !patch->child) return false;
+  auto candidate = destination;
+  for (auto* item = patch->child; item; item = item->next) {
+    const std::string_view key(item->string);
+    if (key == "enabled" || key == "tls" || key == "discovery" || key == "clear_password" || key == "clear_ca") {
+      if (!cJSON_IsBool(item)) return false;
+      const bool value = cJSON_IsTrue(item);
+      if (key == "enabled") candidate.enabled = value;
+      else if (key == "tls") candidate.tls = value;
+      else if (key == "discovery") candidate.discovery = value;
+      else if (key == "clear_password" && value) candidate.password.clear();
+      else if (key == "clear_ca" && value) candidate.ca_certificate.clear();
+    } else if (key == "port") {
+      if (!device_integer(item, 1, 65535)) return false;
+      candidate.port = item->valueint;
+    } else if (key == "host" || key == "username" || key == "password" || key == "ca_certificate") {
+      if (!cJSON_IsString(item)) return false;
+      if (key == "host") candidate.host = item->valuestring;
+      else if (key == "username") candidate.username = item->valuestring;
+      else if (key == "password") candidate.password = item->valuestring;
+      else candidate.ca_certificate = item->valuestring;
+    } else return false;
+  }
+  if (!valid_mqtt_settings(candidate)) return false;
+  destination = std::move(candidate);
+  return true;
 }
 struct DeviceCommandResult {
   int status=400;

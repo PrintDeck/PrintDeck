@@ -6,6 +6,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -29,6 +30,8 @@ struct FirmwareUpdateSnapshot {
   FirmwareUpdateState state = FirmwareUpdateState::idle;
   std::string current_version = PRINTDECK_VERSION;
   std::string latest_version;
+  std::string request_id;
+  bool remote_installable = false;
   std::string detail = "Ready to check for updates.";
   int progress_percent = 0;
   bool factory_required = false;
@@ -45,7 +48,8 @@ class FirmwareUpdateService {
   void set_background_activity_probe(BackgroundActivityProbe probe, void* context);
   void set_restart_requested_callback(RestartRequestedCallback callback, void* context);
   bool request_check();
-  bool request_install();
+  bool request_remote_check(std::string request_id);
+  bool request_install(std::string_view expected_version = {}, std::string_view check_id = {}, std::string request_id = {});
   bool request_url_install(std::string url);
   bool begin_manual_install();
   void update_manual_progress(int percent);
@@ -59,7 +63,7 @@ class FirmwareUpdateService {
 
   static void scheduler_entry(void* context);
   static void task_entry(void* context);
-  bool request_check(bool manual_request);
+  bool request_check(bool manual_request, std::string request_id = {});
   void scheduler_loop();
   void poll();
   void task_loop();

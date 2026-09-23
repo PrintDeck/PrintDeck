@@ -354,18 +354,24 @@ esp_err_t NetworkService::set_device_name(std::string_view name) {
       address.addr.u_addr.ip4.addr = ip_info.ip.addr;
       address_list = &address;
     }
-    if (next_hostname != mdns_hostname_) {
+    const bool reuse_previous = next_hostname == previous_mdns_hostname_;
+    if (next_hostname != mdns_hostname_ && !reuse_previous) {
       const esp_err_t add_result = mdns_delegate_hostname_add(next_hostname.c_str(), address_list);
       if (add_result != ESP_OK) return add_result;
     }
-    if (previous_hostname != mdns_hostname_) {
-      const esp_err_t remove_result = mdns_delegate_hostname_remove(previous_hostname.c_str());
+    // Keep only the immediately previous friendly name. An open tab can still
+    // read authoritative health and move to the new alias; older aliases are
+    // removed on the next rename, and none are persisted across restart.
+    if (!previous_mdns_hostname_.empty() && !reuse_previous) {
+      const esp_err_t remove_result = mdns_delegate_hostname_remove(previous_mdns_hostname_.c_str());
       if (remove_result != ESP_OK && remove_result != ESP_ERR_NOT_FOUND) {
-        ESP_LOGW(kLogTag, "Could not remove previous mDNS alias: %s",
-                 esp_err_to_name(remove_result));
+        if (next_hostname != mdns_hostname_) mdns_delegate_hostname_remove(next_hostname.c_str());
+        return remove_result;
       }
     }
+    previous_mdns_hostname_ = previous_hostname != mdns_hostname_ ? previous_hostname : std::string{};
   }
+
   friendly_mdns_hostname_ = next_hostname;
   device_name_ = next_name;
   {
@@ -842,6 +848,9 @@ void NetworkService::handle_event(esp_event_base_t base, std::int32_t id, void* 
       if (result == ESP_OK && friendly_mdns_hostname_ != mdns_hostname_) {
         result = mdns_delegate_hostname_set_address(friendly_mdns_hostname_.c_str(), nullptr);
       }
+      if (result == ESP_OK && !previous_mdns_hostname_.empty()) {
+        result = mdns_delegate_hostname_set_address(previous_mdns_hostname_.c_str(), nullptr);
+      }
       if (result != ESP_OK) ESP_LOGW(kLogTag, "Could not clear mDNS station address: %s", esp_err_to_name(result));
     }
     const auto* event = static_cast<const wifi_event_sta_disconnected_t*>(event_data);
@@ -885,6 +894,9 @@ void NetworkService::handle_event(esp_event_base_t base, std::int32_t id, void* 
       esp_err_t result = mdns_delegate_hostname_set_address(mdns_hostname_.c_str(), &address);
       if (result == ESP_OK && friendly_mdns_hostname_ != mdns_hostname_) {
         result = mdns_delegate_hostname_set_address(friendly_mdns_hostname_.c_str(), &address);
+      }
+      if (result == ESP_OK && !previous_mdns_hostname_.empty()) {
+        result = mdns_delegate_hostname_set_address(previous_mdns_hostname_.c_str(), &address);
       }
       // Reconsider the shared name only on a connection event, including
       // returning to a network where another device now owns printdeck.local.

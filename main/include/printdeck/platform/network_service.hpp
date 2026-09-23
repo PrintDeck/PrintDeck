@@ -94,6 +94,7 @@ class NetworkService {
   std::string device_name_;
   std::string mdns_hostname_;
   std::string friendly_mdns_hostname_;
+  std::string previous_mdns_hostname_; // One retained alias lets open Web Config tabs follow a rename.
   std::mutex mdns_mutex_;
   bool home_assistant_mqtt_ = false;
   mutable std::mutex device_discovery_mutex_;

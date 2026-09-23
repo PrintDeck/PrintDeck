@@ -987,6 +987,7 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   const bool brightness_changed =
       settings_.brightness_percent != settings.brightness_percent;
   const bool device_name_changed = settings_.device_name != settings.device_name;
+  const bool timezone_changed = settings_.timezone != settings.timezone;
   AudioService::Preset requested_preset = AudioService::Preset::modern;
   AudioService::preset_from_id(settings.audio_preset, requested_preset);
   const bool audio_changed = audio_.enabled() != settings.audio_enabled ||
@@ -1004,6 +1005,10 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
     web_config_.update_selected_printer_status({});
     pending_web_printer_light_.store(0, std::memory_order_release);
     web_printer_light_profile_ = 0;
+  }
+  if (timezone_changed) {
+    setenv("TZ", core::posix_timezone(settings.timezone), 1);
+    tzset();
   }
   settings_ = settings;
   const esp_err_t discovery_result = network_.set_home_assistant_mqtt(

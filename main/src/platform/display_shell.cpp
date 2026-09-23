@@ -674,6 +674,7 @@ void DisplayShell::screen_event(lv_event_t* event) {
     shell->gesture_started_in_printer_list_ = false;
     shell->printer_list_vertical_gesture_ = false;
     shell->printer_list_scroll_started_ = false;
+    shell->printer_list_gesture_moved_ = false;
     shell->pressed_printer_card_ = nullptr;
     shell->suppress_update_click_ = false;
     shell->gesture_start_x_ = point.x;
@@ -705,6 +706,10 @@ void DisplayShell::screen_event(lv_event_t* event) {
       shell->gesture_started_in_printer_list_ =
           point_in_list &&
           shell->printer_list_count_ > shell->printer_list_visible_count_;
+      shell->printer_list_gesture_start_y_ =
+          static_cast<int>(lv_obj_get_scroll_y(shell->printer_list_scroll_));
+      shell->printer_list_gesture_start_bottom_ =
+          static_cast<int>(lv_obj_get_scroll_bottom(shell->printer_list_scroll_));
       if (point_in_list) {
         const std::uint32_t child_count =
             lv_obj_get_child_count(shell->printer_list_scroll_);
@@ -769,7 +774,8 @@ void DisplayShell::screen_event(lv_event_t* event) {
     }
     // The printer list and the screen carousel both use the vertical axis.
     // Resolve ownership once, near the start of the drag, and never hand the
-    // same gesture from the list to the carousel on release. LVGL's selected
+    // same gesture from the list to the carousel after scrolling. A new drag
+    // outward from an existing boundary can navigate on release. LVGL's selected
     // scroll object is authoritative; the displacement check covers the few
     // samples before LVGL crosses its own scroll threshold.
     const bool lvgl_list_scroll =
@@ -858,10 +864,20 @@ void DisplayShell::screen_event(lv_event_t* event) {
       shell->printer_list_scroll_started_ ||
       (shell->gesture_started_in_printer_list_ &&
        lv_indev_get_scroll_obj(input) == shell->printer_list_scroll_);
+  const int vertical_dy =
+      kDisplayUsesLargeLayout ? dy : shell->square_gesture_peak_dy_;
+  // Decide from the position at press, not release: reaching an edge must
+  // never scroll the list and change pages in the same gesture. LVGL may
+  // report SCROLL_BEGIN even when a non-elastic list cannot move at its edge.
+  const bool leaving_list_boundary =
+      shell->gesture_started_in_printer_list_ &&
+      !shell->printer_list_gesture_moved_ &&
+      ((vertical_dy < 0 && shell->printer_list_gesture_start_y_ <= 1) ||
+       (vertical_dy > 0 && shell->printer_list_gesture_start_bottom_ <= 1));
   const bool list_owned_vertical =
-      actual_list_scroll ||
+      !leaving_list_boundary && (actual_list_scroll ||
       (shell->printer_list_vertical_gesture_ &&
-       release_abs_dy > tap_movement_limit);
+       release_abs_dy > tap_movement_limit));
   const bool released_as_printer_tap =
       code == LV_EVENT_RELEASED && pressed_printer_card != nullptr &&
       !actual_list_scroll &&
@@ -882,8 +898,6 @@ void DisplayShell::screen_event(lv_event_t* event) {
       lv_obj_is_valid(shell->companion_results_) &&
       lv_indev_get_scroll_obj(input)==shell->companion_results_;
   if (list_owned_vertical || camera_list_scroll) return;
-  const int vertical_dy =
-      kDisplayUsesLargeLayout ? dy : shell->square_gesture_peak_dy_;
   const int vertical_abs_dy = std::abs(vertical_dy);
   const bool released_as_vertical =
       vertical_abs_dy >= kVerticalSwipeThresholdPx &&
@@ -1260,6 +1274,12 @@ void DisplayShell::printer_list_scroll_event(lv_event_t* event) {
     shell->printer_list_scroll_started_ = true;
     shell->suppress_update_click_ = true;
   } else if (code == LV_EVENT_SCROLL) {
+    if (shell->gesture_active_ && shell->gesture_started_in_printer_list_ &&
+        std::abs(static_cast<int>(lv_obj_get_scroll_y(
+            lv_event_get_current_target_obj(event))) -
+            shell->printer_list_gesture_start_y_) > 1) {
+      shell->printer_list_gesture_moved_ = true;
+    }
     shell->update_printer_list_scroll_position();
   } else if (code == LV_EVENT_SCROLL_END) {
     lv_obj_t* list = lv_event_get_current_target_obj(event);

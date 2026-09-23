@@ -560,9 +560,38 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
     return static_cast<WebConfig*>(context)->cloud_state_json();
   }, this);
   cloud_.set_command_sink([](void* context, const std::string& payload) {
+    core::DeviceCommand integration;
+    if ((core::parse_device_command(payload, integration) && (integration.action == "device.mqtt.patch" || integration.action == "device.appearance.patch" || integration.action == "audio.test" || integration.action == "firmware.check" || integration.action == "firmware.install" || integration.action == "device.reactions.patch" || integration.action == "reactions.event.set" || integration.action == "reactions.storage.set")) || core::is_device_unified_api_command(payload) || core::is_device_name_command(payload) || core::is_device_timezone_command(payload) || core::is_device_voice_command(payload))
+      {
+      const auto status = static_cast<WebConfig*>(context)->execute_device_command(payload, false).status;
+      return status == 200 || status == 202;
+    }
     core::PrinterCommand command;
     return core::parse_printer_command(payload, command) &&
         static_cast<WebConfig*>(context)->submit_printer_command(command, true);
+  });
+  cloud_.set_screen_source([](void* context, std::vector<std::uint8_t>& png) {
+    auto& self = *static_cast<WebConfig*>(context);
+    std::unique_lock lock(self.live_view_capture_mutex_, std::try_to_lock);
+    const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    if (!lock.owns_lock() || !self.display_ || now < self.live_view_next_capture_ms_.load()) return false;
+    std::string screen;
+    const auto result = self.display_->capture_png(png, screen);
+    self.live_view_next_capture_ms_.store(static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + kLiveViewMinimumCaptureIntervalMs);
+    return result == ESP_OK;
+  }, [](void* context, const std::string& action, int x, int y, int end_x, int end_y) {
+    auto& self = *static_cast<WebConfig*>(context);
+    if (!self.display_) return false;
+    const auto duration = action == "long_press" ? kLiveViewLongPressDurationMs :
+        action == "swipe" ? kLiveViewSwipeDurationMs : kLiveViewTapDurationMs;
+    const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    auto available = self.live_view_next_input_ms_.load();
+    if (now < available || !self.live_view_next_input_ms_.compare_exchange_strong(available, now + duration + kLiveViewInputCooldownMs)) return false;
+    return self.display_->queue_remote_input(x, y, action == "swipe" ? end_x : x,
+        action == "swipe" ? end_y : y, duration) == ESP_OK;
+  }, [](void* context) {
+    const auto* display = static_cast<WebConfig*>(context)->display_;
+    return display && display->remote_input_busy();
   });
   cloud_.initialize();
   store_ = &store;
@@ -2203,7 +2232,7 @@ esp_err_t WebConfig::send_live_view_input(httpd_req_t* request) {
   return send_json(request, "202 Accepted", "{\"accepted\":true}");
 }
 
-esp_err_t WebConfig::serve_device_info(httpd_req_t* request) const {
+std::string WebConfig::device_info_json() const {
   esp_chip_info_t chip_info{};
   esp_chip_info(&chip_info);
   const std::size_t internal_total =
@@ -2229,8 +2258,7 @@ esp_err_t WebConfig::serve_device_info(httpd_req_t* request) const {
   char* raw = static_cast<char*>(
       heap_caps_malloc(kResponseBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
   if (raw == nullptr) {
-    return send_json(request, "503 Service Unavailable",
-                     "{\"error\":\"Device information is temporarily unavailable.\"}");
+    return {};
   }
   std::unique_ptr<char, decltype(&heap_caps_free)> body(raw, heap_caps_free);
   const int length = std::snprintf(
@@ -2255,13 +2283,16 @@ esp_err_t WebConfig::serve_device_info(httpd_req_t* request) const {
       wifi_details_available ? static_cast<int>(access_point.rssi) : 0,
       wifi_details_available ? static_cast<unsigned>(access_point.primary) : 0U);
   if (length < 0 || static_cast<std::size_t>(length) >= kResponseBytes) {
-    return send_json(request, "500 Internal Server Error",
-                     "{\"error\":\"Device information is unavailable.\"}");
+    return {};
   }
-  httpd_resp_set_status(request, "200 OK");
-  httpd_resp_set_type(request, "application/json; charset=utf-8");
-  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-  return httpd_resp_send(request, body.get(), static_cast<ssize_t>(length));
+  return std::string(body.get(), static_cast<std::size_t>(length));
+}
+
+esp_err_t WebConfig::serve_device_info(httpd_req_t* request) const {
+  const auto body = device_info_json();
+  if (body.empty()) return send_json(request, "503 Service Unavailable",
+      "{\"error\":\"Device information is temporarily unavailable.\"}");
+  return send_json(request, "200 OK", body.c_str());
 }
 
 esp_err_t WebConfig::serve_brand_logos(httpd_req_t* request) const {
@@ -2275,6 +2306,13 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   append_json_string(body,kBoardVariant);
   if (cloud) {
     const auto network = network_ ? network_->status() : NetworkStatus{};
+    body += R"(,"name":)";
+    append_json_string(body, network.device_name);
+    body += R"(,"configured_name":)";
+    append_json_string(body, current.device_name);
+    body += R"(,"system_info":)";
+    const auto info = device_info_json();
+    body += info.empty() ? "null" : info;
     body += R"(,"ipv4":)";
     if (network.station_connected && !network.ipv4.empty()) append_json_string(body, network.ipv4);
     else body += "null";
@@ -2288,21 +2326,60 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   }
   body+=R"(,"version":")" PRINTDECK_VERSION R"(","audio_available":)";
   body+=kBoardHasAudio?"true":"false";
+  const auto voice_state = voice_state_.load();
+  body+=R"(,"voice_available":)";body+=kBoardHasLocalVoice?"true":"false";
+  body+=R"(,"voice_enabled":)";body+=kBoardHasLocalVoice&&current.voice_enabled?"true":"false";
+  body+=R"(,"voice_ready":)";body+=kBoardHasLocalVoice&&current.voice_enabled&&voice_state==1?"true":"false";
+  body+=R"(,"voice_paused_for_camera":)";body+=kBoardHasLocalVoice&&current.voice_enabled&&voice_state==2?"true":"false";
   body+=R"(,"power_button_available":)";body+=kBoardHasPowerButton?"true":"false";
   body+=R"(,"selected_printer_id":)"+std::to_string(current.selected_profile);
   body+=R"(,"printer_control_enabled":)";body+=current.printer_control_enabled?"true":"false";
   body+=R"(,"appearance":)"+core::device_appearance_json(current);
   body+=R"(,"command_schema_version":1,"uptime_ms":)"+std::to_string(esp_timer_get_time()/1000)+"}";
   body+=R"(,"settings":)"+core::device_settings_json(current,kBoardHasAudio,kBoardHasPowerButton,cloud);
+  body.pop_back();
+  body+=R"(,"unified_api":{"enabled":)";body+=current.unified_api_enabled?"true":"false";
+  body+=R"(,"token_set":)";body+=current.unified_api_token.empty()?"false":"true";
+  body+="},\"mqtt\":"+mqtt_state_json()+"}";
   body+=R"(,"reactions":)"+reaction_state_json(include_catalog);
-  body+=R"(,"capabilities":{"settings.patch":{"supported":true,"available":true},"audio.test":{"supported":)";
+  const auto update=firmware_update_?firmware_update_->snapshot():FirmwareUpdateSnapshot{};
+  const char* update_state="idle";
+  switch(update.state) {
+    case FirmwareUpdateState::checking:update_state="checking";break;
+    case FirmwareUpdateState::current:update_state="current";break;
+    case FirmwareUpdateState::unavailable:update_state="unavailable";break;
+    case FirmwareUpdateState::available:update_state="available";break;
+    case FirmwareUpdateState::failed:update_state="failed";break;
+    case FirmwareUpdateState::downloading:update_state="downloading";break;
+    case FirmwareUpdateState::rebooting:update_state="rebooting";break;
+    default:break;
+  }
+  body+=R"(,"firmware":{"state":)";append_json_string(body,update_state);
+  body+=R"(,"request_id":)";append_json_string(body,update.request_id);
+  body+=R"(,"current":)";append_json_string(body,update.current_version);
+  body+=R"(,"latest":)";append_json_string(body,update.latest_version);
+  body+=R"(,"busy":)";body+=update.busy?"true":"false";
+  body+=R"(,"available":)";body+=update.update_available?"true":"false";
+  body+=R"(,"factory_required":)";body+=update.factory_required?"true":"false";
+  body+=R"(,"installable":)";body+=update.remote_installable&&!update.busy?"true":"false";
+  body+=R"(,"progress":)"+std::to_string(update.progress_percent)+"}";
+  body+=R"(,"capabilities":{"live_view":{"supported":true,"available":true},"device.unified_api.set":{"supported":true,"available":true},"device.mqtt.patch":{"supported":true,"available":true},"device.timezone.set":{"supported":true,"available":true},"device.name.set":{"supported":true,"available":true},"device.appearance.patch":{"supported":true,"available":true},"settings.patch":{"supported":true,"available":true},"audio.test":{"supported":)";
   body+=kBoardHasAudio?"true":"false";body+=R"(,"available":)";body+=kBoardHasAudio?"true":"false";body+="}";
+  body+=R"(,"device.voice.set":{"supported":)";body+=kBoardHasLocalVoice?"true":"false";
+  body+=R"(,"available":)";body+=kBoardHasLocalVoice?"true":"false";body+="}";
+  for(const auto action:{"firmware.check","firmware.install"}) {
+    body+=",\""+std::string(action)+R"(":{"supported":true,"available":)";
+    body+=firmware_update_&&!update.busy?"true":"false";body+="}";
+  }
   const auto reactions=reaction_assets_?reaction_assets_->snapshot():ReactionAssetSnapshot{};
   for(const auto action:{"reactions.set.install","reactions.set.cancel","reactions.event.set","reactions.event.reset"}){
     body+=",\""+std::string(action)+R"(":{"supported":true,"available":)";
     const bool available=reactions.available&&(std::string_view(action)=="reactions.set.cancel"?reactions.cancellable:!reactions.busy);
     body+=available?"true":"false";body+="}";
   }
+  body+=R"(,"device.reactions.patch":{"supported":true,"available":true},"reactions.storage.set":{"supported":)";
+  body+=kBoardHasSdCard?"true":"false";
+  body+=R"(,"available":)";body+=kBoardHasSdCard&&reactions.sd_ready&&!reactions.busy&&!reactions.sd_busy?"true":"false";body+="}";
   body+="}";
   if(include_catalog){body+=R"(,"catalog":{"themes":)";append_theme_catalog(body,current.custom_theme);body+="}";}
   body+="}";return body;
@@ -2366,12 +2443,52 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
   const auto get=[&](const char* key){return cJSON_GetObjectItemCaseSensitive(parameters,key);};
   const auto text=[&](const char* key)->std::string_view{auto* value=get(key);return cJSON_IsString(value)?std::string_view(value->valuestring):std::string_view{};};
   const int count=cJSON_GetArraySize(parameters);
-  if(command.action=="settings.patch"||command.action=="local.settings.patch"){
+  if(command.action=="firmware.check"||command.action=="firmware.install") {
+    if(!firmware_update_||!core::firmware_command(command)||!network_||!network_->status().station_connected)return {};
+    const bool accepted=command.action=="firmware.check"
+        ?firmware_update_->request_remote_check(std::string(text("request_id")))
+        :firmware_update_->request_install(text("version"),text("check_id"),std::string(text("request_id")));
+    return {accepted?202:409,accepted?R"({"status":"accepted"})":R"({"status":"rejected"})"};
+  }
+  if(command.action=="device.unified_api.set" || command.action=="device.mqtt.patch") {
+    const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+    core::DeviceSettings candidate;
+    {const std::lock_guard<std::mutex> lock(mutex_);candidate=settings_;}
+    const auto previous_mqtt=candidate.mqtt;
+    if(command.action=="device.unified_api.set") {
+      if(!core::is_device_unified_api_command(payload))return {};
+      candidate.unified_api_enabled=cJSON_IsTrue(get("enabled"));
+      if(candidate.unified_api_enabled && candidate.unified_api_token.empty())
+        candidate.unified_api_token=generate_unified_api_token();
+    } else if(!core::apply_device_mqtt_patch(parameters,candidate.mqtt))return {};
+    auto mqtt_guard=mqtt_export_?mqtt_export_->configuration_lock():std::unique_lock<std::mutex>{};
+    if(mqtt_export_ && mqtt_export_->has_registrations() &&
+        (candidate.mqtt.host!=previous_mqtt.host || candidate.mqtt.port!=previous_mqtt.port || candidate.mqtt.tls!=previous_mqtt.tls))
+      return {409,R"({"error":"Disable MQTT Discovery and wait for cleanup before changing the broker."})"};
+    if(!core::validate(candidate).empty() || store_->save(candidate)!=ESP_OK)
+      return {500,R"({"error":"PrintDeck could not save these changes. Please try again."})"};
+    {const std::lock_guard<std::mutex> lock(mutex_);settings_=candidate;}
+    notify_settings_changed(candidate,true);
+    return {200,R"({"schema_version":1,"status":"applied","saved":true})"};
+  }
+  if(command.action=="device.voice.set"){
+    if(!core::is_device_voice_command(payload))return {};
+    return set_voice_enabled(cJSON_IsTrue(get("enabled")));
+  }
+  if(command.action=="device.reactions.patch"||command.action=="device.appearance.patch"||command.action=="settings.patch"||command.action=="local.settings.patch"||command.action=="device.name.set"||command.action=="device.timezone.set"){
     if(command.action=="local.settings.patch"&&!local)return {};
     const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
     core::DeviceSettings current;{const std::lock_guard<std::mutex> lock(mutex_);current=settings_;}
     auto candidate=current;
-    if(command.action=="settings.patch"){
+    if(command.action=="device.name.set"){
+      if(!core::is_device_name_command(payload))return {};
+      candidate.device_name=std::string(text("name"));
+    }else if(command.action=="device.timezone.set"){
+      if(!core::is_device_timezone_command(payload))return {};
+      candidate.timezone=std::string(text("timezone"));
+    }else if(command.action=="settings.patch"||command.action=="device.appearance.patch"||command.action=="device.reactions.patch"){
+      if(command.action=="device.reactions.patch"&&!core::reaction_settings_patch(parameters))return {};
+      if(command.action=="device.appearance.patch"&&!core::appearance_settings_patch(parameters))return {};
       if(!core::apply_device_settings_patch(parameters,candidate,kBoardHasAudio,kBoardHasPowerButton))return {};
     }else{
       if(!count)return {};
@@ -2381,16 +2498,14 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
         else return {};
       }
     }
-    const bool restart=current.timezone!=candidate.timezone;
     const bool changed=core::device_settings_json(current,kBoardHasAudio,kBoardHasPowerButton)!=core::device_settings_json(candidate,kBoardHasAudio,kBoardHasPowerButton)||current.camera_mode!=candidate.camera_mode||current.camera_snapshot_fps!=candidate.camera_snapshot_fps;
     if(changed){
       if(store_->save(candidate)!=ESP_OK)return {500,R"({"error":"PrintDeck could not save these changes. Please try again."})"};
       {const std::lock_guard<std::mutex> lock(mutex_);settings_=candidate;}
       const bool view_only=count==1&&get("printer_view");
-      notify_settings_changed(candidate,!restart&&!view_only);
-      if(restart)request_restart();
+      notify_settings_changed(candidate,!view_only);
     }
-    return {200,std::string(R"({"schema_version":1,"status":"applied","saved":true,"restart_required":)")+(restart?"true":"false")+R"(,"settings":)"+core::device_settings_json(candidate,kBoardHasAudio,kBoardHasPowerButton)+"}"};
+    return {200,std::string(R"({"schema_version":1,"status":"applied","saved":true,"restart_required":false,"settings":)")+core::device_settings_json(candidate,kBoardHasAudio,kBoardHasPowerButton)+"}"};
   }
   if(command.action=="audio.test"){
     const auto preset=text("preset"),event=text("event");auto* volume=get("volume");
@@ -2400,6 +2515,18 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
     if(!kBoardHasAudio||!callback)return {503,R"({"error":"Sound testing is unavailable."})"};
     if(!callback(context,preset,event,volume->valueint))return {409,R"({"error":"Wait for the current sound to finish and try again."})"};
     return {202,R"({"schema_version":1,"status":"accepted","played":true})"};
+  }
+  if(command.action=="reactions.storage.set") {
+    if(count!=2||!cJSON_IsBool(get("enabled"))||!core::device_integer(get("session"),0,UINT32_MAX))return {};
+    if(!kBoardHasSdCard||!reaction_assets_)return {503,"{}"};
+    const auto state=reaction_assets_->snapshot();
+    const bool enabled=cJSON_IsTrue(get("enabled"));
+    const auto session=static_cast<std::uint32_t>(get("session")->valuedouble);
+    if(state.busy||state.sd_busy||session!=state.sd_session||!state.sd_ready||
+       (enabled&&(!state.sd_can_enable||state.sd_conflicts)))return {409,"{}"};
+    if(state.sd_selected==enabled)return {200,R"({"status":"applied","saved":true})"};
+    if(!reaction_assets_->request_storage(enabled?"use_sd":"use_internal",session))return {409,"{}"};
+    return {202,R"({"status":"accepted"})"};
   }
   if(command.action!="reactions.set.install"&&command.action!="reactions.set.cancel"&&command.action!="reactions.event.set"&&command.action!="reactions.event.reset")return {};
   if(!reaction_assets_)return {503,R"({"error":"Reaction storage is unavailable."})"};
@@ -2416,9 +2543,15 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
   const auto event=text("event");const bool set=command.action=="reactions.event.set";
   if(count!=(set?2:1)||event.empty()||(set&&!cJSON_IsBool(get("enabled")))||std::none_of(core::reaction_events().begin(),core::reaction_events().end(),[&](const auto& item){return item.id==event;}))return {};
   if(reaction_assets_->snapshot().busy)return {409,R"({"error":"Another reaction change is already in progress."})"};
+  const bool changed=set&&reaction_assets_->event_enabled(event)!=cJSON_IsTrue(get("enabled"));
   const auto result=set?reaction_assets_->set_event_enabled(event,cJSON_IsTrue(get("enabled"))):reaction_assets_->reset_custom(event);
   if(result==ESP_ERR_INVALID_STATE)return {409,R"({"error":"Another reaction change is already in progress."})"};
   if(result!=ESP_OK)return {400,R"({"error":"The reaction change could not be saved."})"};
+  if(changed) {
+    const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+    core::DeviceSettings current;{const std::lock_guard<std::mutex> lock(mutex_);current=settings_;}
+    notify_settings_changed(current,true);
+  }
   return {200,R"({"schema_version":1,"status":"applied","saved":true})"};
 }
 
@@ -2524,13 +2657,23 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   return send_json(request, "200 OK", body.c_str());
 }
 
-esp_err_t WebConfig::voice_settings(httpd_req_t* request) {
+core::DeviceCommandResult WebConfig::set_voice_enabled(bool enabled) {
+  if (!kBoardHasLocalVoice)
+    return {409, R"({"error":"Hi ESP! is not available on this device."})"};
   const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
   core::DeviceSettings candidate;
-  {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    candidate = settings_;
+  { const std::lock_guard<std::mutex> lock(mutex_); candidate = settings_; }
+  if (candidate.voice_enabled != enabled) {
+    candidate.voice_enabled = enabled;
+    if (store_->save(candidate) != ESP_OK)
+      return {500, R"({"error":"PrintDeck could not save the Hi ESP! setting. Please try again."})"};
+    { const std::lock_guard<std::mutex> lock(mutex_); settings_ = candidate; }
+    notify_settings_changed(candidate, true);
   }
+  return {200, R"({"schema_version":1,"status":"applied","saved":true})"};
+}
+
+esp_err_t WebConfig::voice_settings(httpd_req_t* request) {
   if (request->method == HTTP_POST) {
     std::string body;
     std::string action;
@@ -2539,21 +2682,12 @@ esp_err_t WebConfig::voice_settings(httpd_req_t* request) {
       return send_json(request, "400 Bad Request",
                        "{\"error\":\"Choose a valid Hi ESP! action.\"}");
     }
-    if (action == "enable" && !kBoardHasLocalVoice) {
-      return send_json(request, "409 Conflict",
-                       "{\"error\":\"Hi ESP! is not available on this device.\"}");
-    }
-    candidate.voice_enabled = action == "enable";
-    if (store_->save(candidate) != ESP_OK) {
-      return send_json(request, "500 Internal Server Error",
-                       "{\"error\":\"PrintDeck could not save the Hi ESP! setting. Please try again.\"}");
-    }
-    {
-      const std::lock_guard<std::mutex> lock(mutex_);
-      settings_ = candidate;
-    }
-    notify_settings_changed(candidate, true);
+    const auto result = set_voice_enabled(action == "enable");
+    if (result.status != 200)
+      return send_json(request, result.status == 409 ? "409 Conflict" : "500 Internal Server Error", result.body.c_str());
   }
+  core::DeviceSettings candidate;
+  { const std::lock_guard<std::mutex> lock(mutex_); candidate = settings_; }
   const bool enabled = kBoardHasLocalVoice && candidate.voice_enabled;
   const auto voice_state = voice_state_.load();
   std::string body = "{\"available\":";
@@ -2980,6 +3114,10 @@ esp_err_t WebConfig::mqtt_request(httpd_req_t* request) {
     { const std::lock_guard<std::mutex> lock(mutex_); settings_=candidate; }
     notify_settings_changed(candidate,true);
   }
+  return send_json(request,"200 OK",mqtt_state_json().c_str());
+}
+
+std::string WebConfig::mqtt_state_json() const {
   const auto config=mqtt_settings();
   std::string body="{\"enabled\":"+std::string(config.enabled?"true":"false")+",\"host\":";
   append_json_string(body,config.host);
@@ -2994,7 +3132,7 @@ esp_err_t WebConfig::mqtt_request(httpd_req_t* request) {
   body+=",\"topic_prefix\":";
   append_json_string(body,"printdeck/"+network_->status().device_id+"/v1");
   body+='}';
-  return send_json(request,"200 OK",body.c_str());
+  return body;
 }
 
 esp_err_t WebConfig::unified_api_state_entry(httpd_req_t* request) {
@@ -3181,6 +3319,13 @@ std::string WebConfig::reaction_state_json(bool include_catalog) const {
   body += "]";
   body += ",\"detail\":"; append_json_string(body, state.sd_detail);
   body += "}";
+  body += ",\"supported_sets\":[";
+  bool first_supported=true;
+  for(const auto& set:ReactionAssetService::sets()) {
+    if(!first_supported)body+=",";
+    first_supported=false;append_json_string(body,set.id);
+  }
+  body += "]";
   body += ",\"sets\":[";
   bool first = true;
   if (include_catalog) for (const auto& set : ReactionAssetService::sets()) {

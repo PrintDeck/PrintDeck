@@ -172,7 +172,7 @@ const std::array<std::array<AdpcmSample, kVoiceEventCount>, 6> kVoiceSamples{{
 }};
 #undef PRINTDECK_VOICE_SAMPLE_SET
 
-// 8 kHz IMA-ADPCM fragments share the phrase and unit across all milestones.
+// 16 kHz IMA-ADPCM fragments share the phrase and unit across all milestones.
 // Columns: prefix, 25, 50, 75, percent. Only one fragment is resident at a time.
 #define PRINTDECK_PROGRESS_SET(language)                                      \
   {{audio_assets::voice_##language##_progress_prefix,                         \
@@ -409,7 +409,7 @@ void write_silence(esp_codec_dev_handle_t codec, std::size_t samples) {
 }
 
 bool write_adpcm_sample(esp_codec_dev_handle_t codec, AdpcmSample sample, int volume,
-                        const PlaybackControl& control, bool half_rate = false) {
+                        const PlaybackControl& control) {
   if (control.cancelled()) return true;
   const std::size_t size = static_cast<std::size_t>(sample.end - sample.begin);
   if (sample.decoded_size < 12 ||
@@ -431,21 +431,14 @@ bool write_adpcm_sample(esp_codec_dev_handle_t codec, AdpcmSample sample, int vo
   const int clamped_volume = std::clamp(volume, 0, 100);
   while (!reader.finished()) {
     if (control.cancelled()) return true;
-    const std::size_t count = reader.read(output.data(), output.size() / (half_rate ? 2 : 1));
-    // Repeat 8 kHz speech samples into the existing 16 kHz codec stream. Work
-    // backwards in the same bounded buffer; no second PCM buffer or resampler.
+    const std::size_t count = reader.read(output.data(), output.size());
     for (std::size_t index = count; index-- > 0;) {
       const auto value = static_cast<std::int16_t>(
           static_cast<std::int32_t>(output[index]) * clamped_volume / 100);
-      if (half_rate) {
-        output[index * 2] = value;
-        output[index * 2 + 1] = value;
-      } else {
-        output[index] = value;
-      }
+      output[index] = value;
     }
     if (esp_codec_dev_write(codec, output.data(),
-                           count * (half_rate ? 2 : 1) * sizeof(output[0])) != ESP_OK) {
+                           count * sizeof(output[0])) != ESP_OK) {
       return false;
     }
   }
@@ -769,7 +762,7 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
                                             locale == 5 ? number : 4};
     bool valid = true;
     for (const auto index : order) {
-      if (!write_adpcm_sample(codec, fragments[index], sample_volume, control, true)) {
+      if (!write_adpcm_sample(codec, fragments[index], sample_volume, control)) {
         valid = false;
         break;
       }

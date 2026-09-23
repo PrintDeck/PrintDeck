@@ -134,6 +134,7 @@ class DisplayShell {
   esp_err_t capture_png(std::vector<std::uint8_t>& png, std::string& screen_name) const;
   // Queue one bounded pointer gesture for the normal LVGL input path. Coordinates
   // use the current framebuffer space; only one remote gesture may run at once.
+  bool remote_input_busy() const { return remote_input_state_.load(std::memory_order_acquire) != 0; }
   esp_err_t queue_remote_input(int start_x, int start_y, int end_x, int end_y,
                                std::uint32_t duration_ms);
   // Select a stable documentable view without synthesizing touch input. This
@@ -628,6 +629,9 @@ class DisplayShell {
   bool gesture_started_in_printer_list_ = false;
   bool printer_list_vertical_gesture_ = false;
   bool printer_list_scroll_started_ = false;
+  int printer_list_gesture_start_y_ = 0;
+  int printer_list_gesture_start_bottom_ = 0;
+  bool printer_list_gesture_moved_ = false;
   lv_obj_t* pressed_printer_card_ = nullptr;
   bool suppress_update_click_ = false;
   lv_coord_t gesture_start_x_ = 0;
