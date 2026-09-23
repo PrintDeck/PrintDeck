@@ -1516,7 +1516,7 @@ setInterval(()=>{worker?.postMessage({type:'pause',paused:document.hidden||!sele
                 <button type="button" class="secondary" id="cloud-cancel" hidden>Cancel</button>
                 <button type="button" class="secondary" id="cloud-disconnect" hidden>Disconnect account</button>
               </div>
-              <section id="cloud-developer" class="api-token-card" hidden>
+              <section id="cloud-developer" class="api-token-card">
                 <section class="api-hero">
                   <div><h3 id="cloud-developer-title">DEVELOPER MODE</h3><p class="micro">ON sends printer reports and checks for commands on the local server below. OFF uses PrintDeck Cloud. Each environment has its own account pairing.</p></div>
                   <div class="api-hero-controls"><label class="reaction-master"><input class="reaction-switch-input" id="cloud-developer-toggle" type="checkbox" role="switch" aria-labelledby="cloud-developer-title" aria-describedby="cloud-developer-address"><span class="reaction-switch" aria-hidden="true"></span></label></div>
@@ -2827,7 +2827,6 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       const origin=local?cloudState.local_panel_uri:'https://app.printdeck.xyz';
       try{const base=new URL(origin),url=new URL(cloudState.verification_uri||(paired?origin:''));if(['https:','http:'].includes(base.protocol)&&!base.username&&!base.password&&base.origin===origin&&url.origin===origin&&!url.username&&!url.password&&!url.search&&!url.hash&&(url.pathname==='/'||/^\/cloud\/pair\/[A-F0-9]{16}$/.test(url.pathname)))link=url.href}catch(_){}
       $('#cloud-open').hidden=!link;if(link)$('#cloud-open').href=link;else $('#cloud-open').removeAttribute('href');
-      $('#cloud-developer').hidden=cloudState.developer_available!==true;
       $('#cloud-developer-toggle').checked=local;$('#cloud-developer-toggle').disabled=cloudBusy;
       $('#cloud-developer-toggle').nextElementSibling.dataset.stateLabel=translated(local?'ON':'OFF');
       $('#cloud-developer-url').textContent=cloudState.local_api_uri||'';
