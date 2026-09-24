@@ -34,6 +34,9 @@ namespace {
 // Production origins remain fixed; development addresses are configured separately.
 constexpr char kPanelOrigin[] = "https://app.printdeck.xyz";
 constexpr char kApi[] = "https://api.printdeck.xyz/api/v1/device";
+// Leave room for other internal-RAM services on configured devices. The
+// worker must retain an internal stack because it commits credentials to NVS.
+constexpr unsigned kWorkerStackBytes = 7U * 1024U;
 constexpr char kLocalApi[] = PRINTDECK_LOCAL_CLOUD_API;
 constexpr char kLocalPanel[] = PRINTDECK_LOCAL_CLOUD_PANEL;
 constexpr char kLocalStorage[] = PRINTDECK_LOCAL_CLOUD_STORAGE;
@@ -593,12 +596,19 @@ bool CloudPairingService::save(const std::string& token, const std::string& acco
 void CloudPairingService::tick(bool online) {
   std::lock_guard lock(mutex_);
   online_=online;
-  if(!paused_ && !task_ && (!token_.empty() || !command_.empty())) {
+  if(!paused_ && !task_ && millis()>=worker_retry_at_ && (!token_.empty() || !command_.empty())) {
     // TLS/JSON and persistence stay on core 0; no display callbacks or NVS reads in tick.
     // NVS writes disable the flash cache, so this worker's stack must stay in internal RAM.
-    if(xTaskCreatePinnedToCoreWithCaps(entry,"cloud_pair",8192,this,1,&task_,kServiceCore,
+    if(xTaskCreatePinnedToCoreWithCaps(entry,"cloud_pair",kWorkerStackBytes,this,1,&task_,kServiceCore,
                                      MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)!=pdPASS) {
       task_=nullptr;state_="error";
+      worker_retry_at_=millis()+30000;
+      // A failed launch must not leave a start command claiming to be pairing.
+      // Saved credentials/disconnect requests remain available for a later retry.
+      if(command_=="start")command_.clear();
+      ESP_LOGW("cloud_pair", "Worker unavailable: internal free=%u, largest=%u",
+               unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)),
+               unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)));
     }
   }
 }
@@ -606,12 +616,19 @@ void CloudPairingService::tick(bool online) {
 bool CloudPairingService::request(const std::string& action,const std::string& id,
                                  const std::string& name,const std::string& locale) {
   std::lock_guard lock(mutex_);
-  if(paused_ || !command_.empty())return false;
+  if(paused_)return false;
+  if(action=="cancel") {
+    if(!token_.empty())return false;
+    // Cancellation must work without a worker and while its start request is
+    // in flight. Invalidating the generation prevents a late reply reviving it.
+    ++generation_;command_.clear();secret_.clear();code_.clear();link_.clear();
+    expires_=0;due_=0;worker_retry_at_=0;state_="disconnected";
+    return true;
+  }
+  if(!command_.empty())return false;
   if(action=="start") {
     if(!token_.empty() || !secret_.empty() || state_=="starting")return false;
-    id_=id;name_=name;locale_=locale;state_="starting";
-  } else if(action=="cancel") {
-    if(!token_.empty())return false;
+    id_=id;name_=name;locale_=locale;state_="starting";worker_retry_at_=0;
   } else if(action=="disconnect") {
     if(token_.empty())return false;
   } else return false;
@@ -658,9 +675,6 @@ void CloudPairingService::step() {
     if(reset_transport_) { close_http(); stop_screen(); reset_transport_=false; }
     if (paused_ || !online_ || disconnect_ || !command_.empty() || token_.empty() || millis() >= screen_expires_) stop_screen();
     if(paused_) { close_http(); return; }
-    if(command_=="cancel") {
-      command_.clear();secret_.clear();code_.clear();link_.clear();state_="disconnected";return;
-    }
     if(command_=="disconnect") {
       if(!save(token_,account_,true)){state_="error";command_.clear();return;}
       disconnect_=true;command_.clear();state_="disconnecting";
@@ -715,6 +729,8 @@ void CloudPairingService::step() {
     lock.unlock();
     const auto exchange_started=millis();
     const auto reply=exchange(http_client_,local,base,path,body,token,removing);
+    if(starting)ESP_LOGI("cloud_pair", "Pairing response: HTTP %d, stack free=%u", reply.status,
+                        unsigned(uxTaskGetStackHighWaterMark(nullptr)));
     Json root(cJSON_ParseWithLength(reply.body.data(),reply.body.size()),cJSON_Delete);
     auto* data=cJSON_GetObjectItemCaseSensitive(root.get(),"data");
     lock.lock();

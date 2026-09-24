@@ -70,6 +70,7 @@ class CloudPairingService {
   bool save(const std::string& token, const std::string& account, bool disconnect);
   mutable std::mutex mutex_;
   TaskHandle_t task_ = nullptr;
+  std::int64_t worker_retry_at_ = 0;
   FeedSource feed_source_ = nullptr;
   void* feed_context_ = nullptr;
   CommandSink command_sink_ = nullptr;
