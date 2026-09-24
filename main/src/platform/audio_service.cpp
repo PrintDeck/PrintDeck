@@ -531,7 +531,7 @@ void write_voice_duration(esp_codec_dev_handle_t codec, std::uint32_t seconds, i
 #endif
 
 
-void write_note(esp_codec_dev_handle_t codec, Note note, int volume,
+void write_note(esp_codec_dev_handle_t codec, Note note, float volume,
                 const SoundStyle& style, const PlaybackControl& control) {
   const int milliseconds = std::max(
       1, static_cast<int>(note.milliseconds) * style.duration_percent / 100);
@@ -541,7 +541,7 @@ void write_note(esp_codec_dev_handle_t codec, Note note, int volume,
   }
   const int total = std::max(1, kSampleRate * milliseconds / 1000);
   const float amplitude = style.amplitude *
-                          static_cast<float>(std::clamp(volume, 0, 100)) / 100.0F;
+                          std::clamp(volume, 0.0F, 100.0F) / 100.0F;
   const float frequency = static_cast<float>(note.frequency) *
                           static_cast<float>(style.pitch_percent) / 100.0F;
   const float step = 2.0F * kPi * frequency /
@@ -743,8 +743,20 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
     write_silence(codec, 1024);
     return;
   }
-  // The startup jingle keeps the Retro sound across every notification preset.
-  if (event == Event::startup) preset = Preset::oldschool;
+  // Keep the Retro startup jingle with a perceptual -50..0 dB volume curve.
+  // Attenuate samples before queueing: changing codec gain after playback can
+  // amplify the last notes still buffered in I2S DMA.
+  if (event == Event::startup) {
+    const float startup_volume = 100.0F * std::pow(10.0F,
+        (std::clamp(requested_volume, 1, 100) - 100) / 40.0F);
+    const SoundStyle startup_style = style_for(Preset::oldschool);
+    for (const auto& note : kStartup) {
+      if (control.cancelled()) break;
+      write_note(codec, note, startup_volume, startup_style, control);
+    }
+    write_silence(codec, 1024);
+    return;
+  }
   const Melody selected = melody_for(event);
   const SoundStyle style = style_for(preset);
   const int sample_volume = std::min(requested_volume, style.maximum_volume);

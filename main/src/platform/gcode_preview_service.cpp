@@ -73,7 +73,7 @@ void GcodePreviewService::run(){
    const std::lock_guard lock(mutex_);if(generation==generation_){work_.pending=false;next_=prusalink_now_ms()+1500;}continue;
   }
   // Share the HTTP transaction gate with selected telemetry. No network in the web server or LVGL task.
-  std::unique_lock transaction(prusalink_transaction_mutex(),std::defer_lock);
+  PrinterTransactionLock transaction(profile.endpoint);
   if(!transaction.try_lock_for(std::chrono::milliseconds(20)))continue;
   PrusaLinkEspTransport transport;
   PrusaLinkClient client(transport,prusalink_md5,prusalink_now_ms,prusalink_random_cnonce);

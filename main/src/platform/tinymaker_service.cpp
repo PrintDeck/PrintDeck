@@ -6,7 +6,7 @@
 
 namespace printdeck::platform {
 namespace {
-bool acquire(std::unique_lock<std::timed_mutex>& lock, std::uint64_t deadline,
+bool acquire(PrinterTransactionLock& lock, std::uint64_t deadline,
              const std::function<bool()>& cancelled) {
   while (prusalink_now_ms() < deadline && !cancelled()) {
     if (lock.try_lock_for(std::chrono::milliseconds(20))) return !cancelled();
@@ -17,7 +17,7 @@ bool acquire(std::unique_lock<std::timed_mutex>& lock, std::uint64_t deadline,
 
 PrusaLinkPollResult tinymaker_probe(const core::PrinterProfile& profile,
     std::uint64_t deadline, const std::function<bool()>& cancelled, PrusaLinkIdentity* identity) {
-  std::unique_lock<std::timed_mutex> lock(prusalink_transaction_mutex(), std::defer_lock);
+  PrinterTransactionLock lock(profile.endpoint);
   if (!acquire(lock, deadline, cancelled))
     return {.error = cancelled() ? PrusaLinkError::cancelled : PrusaLinkError::timeout};
   PrusaLinkEspTransport transport;
@@ -92,7 +92,7 @@ void TinyMakerAdapter::run() {
       return stopping_.load() || revision != generation_ || !network_->status().station_connected;
     };
     const auto deadline = prusalink_now_ms() + 7000;
-    std::unique_lock<std::timed_mutex> transaction(prusalink_transaction_mutex(), std::defer_lock);
+    PrinterTransactionLock transaction(profile.endpoint);
     PrusaLinkPollResult result{.error = PrusaLinkError::invalid_configuration};
     if (configured && acquire(transaction, deadline, cancelled)) result = client.poll(deadline, cancelled);
     if (transaction.owns_lock()) transaction.unlock();

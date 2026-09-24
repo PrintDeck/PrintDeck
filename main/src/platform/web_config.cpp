@@ -558,7 +558,11 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   });
   cloud_.set_feed_source([](void* context) {
     return static_cast<WebConfig*>(context)->cloud_state_json();
-  }, this);
+  }, this, [](void* context) {
+    const auto* self = static_cast<WebConfig*>(context);
+    return core::CloudFeedRevision{self->cloud_state_revision_.load(),
+        self->inactive_printer_poller_ ? self->inactive_printer_poller_->state_revision() : 0};
+  });
   cloud_.set_command_sink([](void* context, const std::string& payload) {
     core::DeviceCommand integration;
     if ((core::parse_device_command(payload, integration) && (core::printer_order_command(integration) || core::printer_view_command(integration) || integration.action == "device.mqtt.patch" || integration.action == "device.appearance.patch" || integration.action == "audio.test" || integration.action == "firmware.check" || integration.action == "firmware.install" || core::cloud_reaction_control(integration.action))) || core::is_device_unified_api_command(payload) || core::is_device_name_command(payload) || core::is_device_timezone_command(payload) || core::is_device_voice_command(payload))
@@ -758,6 +762,8 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
                                                 std::string_view detected_model,
                                                 std::string_view preview_key) {
   const std::lock_guard<std::mutex> lock(mutex_);
+  if (!selected_telemetry_ || core::cloud_printer_state_changed(*selected_telemetry_, snapshot))
+    cloud_state_revision_.fetch_add(1);
   if (snapshot.profile_id != selected_status_profile_ || snapshot.link != selected_link_ ||
       snapshot.job.phase != selected_phase_ || snapshot.job.condition != selected_job_.condition ||
       snapshot.job.resin_stage != selected_job_.resin_stage ||

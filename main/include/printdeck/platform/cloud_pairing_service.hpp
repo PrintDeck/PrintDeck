@@ -7,6 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_http_client.h"
+#include "printdeck/core/cloud_feed_changes.hpp"
 
 namespace printdeck::platform {
 // Cloud credentials are deliberately separate from exportable device settings.
@@ -18,7 +19,8 @@ class CloudPairingService {
   using ReactionUpload = bool (*)(void*, const std::string&, const std::uint8_t*, std::size_t, bool);
   void set_reaction_upload(ReactionUpload callback) { reaction_upload_ = callback; }
   using FeedSource = std::string (*)(void*);
-  void set_feed_source(FeedSource source, void* context);
+  using FeedRevisionSource = core::CloudFeedRevision (*)(void*);
+  void set_feed_source(FeedSource source, void* context, FeedRevisionSource revision_source = nullptr);
   struct Thumbnail {
     std::uint32_t printer_id = 0;
     std::string key;
@@ -72,6 +74,8 @@ class CloudPairingService {
   TaskHandle_t task_ = nullptr;
   std::int64_t worker_retry_at_ = 0;
   FeedSource feed_source_ = nullptr;
+  FeedRevisionSource feed_revision_source_ = nullptr;
+  core::CloudFeedChanges feed_changes_;
   void* feed_context_ = nullptr;
   CommandSink command_sink_ = nullptr;
   ReactionUpload reaction_upload_ = nullptr;

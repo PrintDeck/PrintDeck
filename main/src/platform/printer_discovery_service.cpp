@@ -779,7 +779,7 @@ void PrinterDiscoveryService::run() {
   };
   const auto prusa_identity = [&](const std::string& host, std::uint16_t port, bool advertised = false) {
     const auto cancelled = [&] { return cancel_requested_.load() || now_ms() >= deadline; };
-    std::unique_lock<std::timed_mutex> transaction(prusalink_transaction_mutex(), std::defer_lock);
+    PrinterTransactionLock transaction("http://" + host + (port == 80 ? "" : ":" + std::to_string(port)));
     // A short bounded wait avoids dropping an advertised printer merely
     // because an authenticated status poll currently owns the transport.
     const auto lock_deadline = std::min(deadline, now_ms() + 1200);

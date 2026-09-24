@@ -411,6 +411,9 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
                     : initial_rotation_degrees == 270 ? 270 : 0;
   esp_lv_adapter_config_t adapter_config = ESP_LV_ADAPTER_DEFAULT_CONFIG();
   adapter_config.task_core_id = kLvglCore;
+  // LVGL's GIF filesystem callbacks read LittleFS with the flash cache disabled.
+  // That path requires an internal stack even though settings writes are deferred.
+  adapter_config.stack_in_psram = false;
   esp_err_t display_result = esp_lv_adapter_init(&adapter_config);
   if (display_result != ESP_OK) {
     ESP_LOGE(kLogTag, "LVGL adapter initialization failed: %s",

@@ -38,7 +38,7 @@ struct ResolverSlot {
   ip_addr_t address{};
   bool used = false, waiting = false, complete = false, found = false;
 };
-std::array<ResolverSlot, 2> resolver_slots;
+std::array<ResolverSlot, 7> resolver_slots;
 std::mutex resolver_mutex;
 void dns_result(const char*, const ip_addr_t* value, void* argument) {
   const std::lock_guard<std::mutex> lock(resolver_mutex);
@@ -104,10 +104,10 @@ std::string resolve(const std::string& host, std::uint64_t deadline,
   return formatted.data();
 }
 
-// Two bounded clients at most (selected plus one short probe). A second client
+// Selected telemetry plus five bounded background clients. A second client
 // for the same numeric printer is refused, including discovery/manual checks.
 std::mutex ownership_mutex;
-std::array<std::string, 2> owned_hosts;
+std::array<std::string, 6> owned_hosts;
 class HostLease {
  public:
   explicit HostLease(const std::string& host) {

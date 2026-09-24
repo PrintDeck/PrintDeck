@@ -420,10 +420,10 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
     issues.push_back({"printer_view", "Unsupported printer view"});
   }
   const std::uint32_t poll_interval = settings.inactive_printer_poll_interval_s;
-  if (poll_interval != 0 && poll_interval != 30 && poll_interval != 60 &&
+  if (poll_interval != 0 && poll_interval != 10 && poll_interval != 30 && poll_interval != 60 &&
       poll_interval != 180 && poll_interval != 300) {
     issues.push_back({"inactive_printer_poll_interval_s",
-                      "Inactive printer refresh must be off or 30, 60, 180 or 300 seconds"});
+                      "Choose a supported printer refresh interval."});
   }
   const DisplayPowerPolicy& power = settings.display_power;
   if (power.screen_saver_animation > kScreenSaverAquarium) {

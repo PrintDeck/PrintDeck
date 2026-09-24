@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <atomic>
+#include <array>
+#include "printdeck/core/printer_connection_pool.hpp"
 #include "printdeck/core/printer_address.hpp"
 #include "printdeck/platform/printer_discovery_service.hpp"
 #include <mutex>
@@ -21,10 +23,12 @@ namespace printdeck::platform {
 // Performs one bounded local status probe for each profile that does not
 // currently own a full live connection.
 // Moonraker uses HTTP; Bambu uses a short authenticated LAN MQTT/TLS session
-// that is closed before the next profile is checked.
+// that is closed when its bounded report is complete. Different printers can
+// be checked concurrently, with one connection owner per profile/endpoint.
 class InactivePrinterPoller {
  public:
   static constexpr std::uint64_t kMinimumCheckSpacingMs = 10000;
+  static constexpr std::size_t kParallelChecks = 5;
 
   using RecoveryCallback = bool (*)(void*, const core::PrinterProfile&,
                                      const core::PrinterProfile&, const NetworkStatus&);
@@ -42,12 +46,14 @@ class InactivePrinterPoller {
   void set_active_profile(std::uint32_t profile_id);
   void mark_offline(std::uint32_t profile_id);
   InactivePrinterSnapshot snapshot() const;
+  std::uint32_t state_revision() const { return state_revision_.load(); }
   bool check_in_progress(std::uint32_t profile_id) const;
 
  private:
   struct CheckAttempt {
     std::uint32_t profile_id = 0;
     std::uint64_t started_at_ms = 0;
+    std::uint64_t retry_at_ms = 0;
     std::uint8_t consecutive_failures = 0;
     bool in_progress = false;
     core::PrinterRecoverySchedule recovery;
@@ -58,12 +64,15 @@ class InactivePrinterPoller {
 
   static void task_entry(void* context);
   void task_loop();
-  InactivePrinterStatus probe(const core::PrinterProfile& profile) const;
+  static void probe_task_entry(void* context);
+  void probe_loop();
+  void ensure_probe_workers();
+  InactivePrinterStatus probe(const core::PrinterProfile& profile, std::uint32_t generation) const;
   bool begin_automatic_check(std::uint32_t profile_id,
                              std::uint32_t generation,
                              std::uint64_t now_ms);
   void finish_automatic_check(std::uint32_t profile_id,
-                              std::uint64_t started_at_ms);
+                              std::uint64_t started_at_ms, bool available);
   void publish_automatic_result(std::uint32_t generation,
                                 InactivePrinterStatus result);
 
@@ -88,7 +97,10 @@ class InactivePrinterPoller {
                                std::uint32_t generation, const NetworkStatus& network);
   std::uint32_t manual_scan_id_ = 0;
   std::vector<std::uint32_t> reconciled_profiles_;
-  mutable std::atomic<std::uint32_t> probing_profile_{0};
+  mutable core::PrinterConnectionPool connections_{kParallelChecks};
+  std::array<TaskHandle_t, kParallelChecks> probe_tasks_{};
+  std::uint64_t worker_retry_ms_ = 0;
+  std::size_t next_profile_ = 0;
   mutable std::mutex mutex_;
   std::vector<core::PrinterProfile> profiles_;
   std::uint32_t active_profile_ = 0;
@@ -96,6 +108,7 @@ class InactivePrinterPoller {
   std::uint32_t config_generation_ = 0;
   std::vector<CheckAttempt> check_attempts_;
   InactivePrinterSnapshot snapshot_;
+  std::atomic<std::uint32_t> state_revision_{0};
   const NetworkService* network_ = nullptr;
   TaskHandle_t task_ = nullptr;
 };

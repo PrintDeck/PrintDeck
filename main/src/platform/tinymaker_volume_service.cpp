@@ -122,7 +122,7 @@ void TinyMakerVolumeService::run() {
       }
       continue;
     }
-    std::unique_lock transaction(prusalink_transaction_mutex(), std::defer_lock);
+    PrinterTransactionLock transaction(origin);
     if (!transaction.try_lock_for(std::chrono::milliseconds(20))) continue;
     PrusaLinkEspTransport transport;
     auto response = transport.get({.url = origin + "/api/live/slices?since=" + std::to_string(since),

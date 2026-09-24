@@ -176,10 +176,11 @@ void CloudPairingService::set_command_sink(CommandSink sink) {
   command_sink_ = sink;
 }
 
-void CloudPairingService::set_feed_source(FeedSource source, void* context) {
+void CloudPairingService::set_feed_source(FeedSource source, void* context, FeedRevisionSource revision_source) {
   std::lock_guard lock(mutex_);
   feed_source_ = source;
   feed_context_ = context;
+  feed_revision_source_ = revision_source;
 }
 
 void CloudPairingService::set_screen_source(ScreenSource source, ScreenInput input, ScreenBusy busy) {
@@ -684,6 +685,15 @@ void CloudPairingService::step() {
     }
     if(command_.empty() && token_.empty() && secret_.empty()) { close_http(); return; }
     if(!online_) { close_http(); state_=disconnect_?"disconnecting":"offline";return;}
+    // Revision callbacks only read atomics; never serialize state or acquire
+    // another service's mutex while holding the cloud mutex.
+    const auto feed_revision = feed_revision_source_ ? feed_revision_source_(feed_context_) : core::CloudFeedRevision{};
+    const auto now = millis();
+    if (confirmed_ && !disconnect_ && command_.empty() && !token_.empty() &&
+        feed_changes_.due(now, feed_revision, feed_failures_)) {
+      feed_due_ = std::min(feed_due_, now);
+      due_ = std::min(due_, now);
+    }
     if(millis()<due_) {
       if (!screen_session_.empty() && millis() >= screen_due_) {
         close_http(); lock.unlock(); upload_screen();
@@ -724,10 +734,12 @@ void CloudPairingService::step() {
     if(feeding && (body.empty() || body.size()>65536)) {
       close_http();
       due_=millis()+300000;
+      feed_changes_.defer_until(due_);
       return;
     }
     lock.unlock();
     const auto exchange_started=millis();
+    if (feeding && !polling) feed_changes_.attempted(exchange_started);
     const auto reply=exchange(http_client_,local,base,path,body,token,removing);
     if(starting)ESP_LOGI("cloud_pair", "Pairing response: HTTP %d, stack free=%u", reply.status,
                         unsigned(uxTaskGetStackHighWaterMark(nullptr)));
@@ -748,6 +760,9 @@ void CloudPairingService::step() {
     }
     if(feeding) {
       if(reply.status==200 && cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(data,"accepted"))) {
+        if (!polling) {
+          feed_changes_.acknowledge(feed_revision);
+        }
         feed_failures_=0;
         screen_directive(encode(cJSON_GetObjectItemCaseSensitive(data,"live_view")), exchange_started);
         const auto interval=[&](const char* name, unsigned fallback, unsigned minimum, unsigned maximum) {
@@ -759,6 +774,13 @@ void CloudPairingService::step() {
         // Older servers omit next_poll_seconds: retain their feed-only behavior.
         poll_interval_ms_=interval("next_poll_seconds",0,3,30);
         if(!polling) feed_due_=millis()+interval("next_feed_seconds",30000,3,60);
+        if (!polling)
+          ESP_LOGI("cloud_feed", "accepted revision=%u/%u request_ms=%u bytes=%u next_feed_ms=%u next_poll_ms=%u internal_free=%u largest=%u",
+                   unsigned(feed_revision.selected), unsigned(feed_revision.inactive),
+                   unsigned(millis()-exchange_started), unsigned(body.size()),
+                   interval("next_feed_seconds",30000,3,60), poll_interval_ms_,
+                   unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+                   unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
         due_=poll_interval_ms_?std::min(feed_due_,millis()+poll_interval_ms_):feed_due_;
         state_="connected";
         result_pending_=false;
@@ -811,6 +833,7 @@ void CloudPairingService::step() {
       } else {
         if(feed_failures_<5)++feed_failures_;
         const auto delay=std::min(300000U,30000U << (feed_failures_-1));
+        ESP_LOGW("cloud_feed", "%s failed status=%d retry_ms=%u", polling?"poll":"feed", reply.status, delay);
         due_=millis()+delay;
         state_="offline";close_http();
       }

@@ -40,7 +40,7 @@ struct DnsQuery {
   bool busy = false, waiting = false, finished = false, found = false;
 };
 std::mutex dns_mutex;
-std::array<DnsQuery, 2> dns_queries;
+std::array<DnsQuery, 7> dns_queries;
 void dns_reply(const char*, const ip_addr_t* address, void* context) {
   const std::lock_guard<std::mutex> lock(dns_mutex);
   auto& query = *static_cast<DnsQuery*>(context);
@@ -166,7 +166,7 @@ std::string base64(const unsigned char* input, std::size_t size) {
 }
 
 std::mutex leases_mutex;
-std::array<std::string, 4> leased_hosts;
+std::array<std::string, 6> leased_hosts;
 class HostLease {
  public:
   explicit HostLease(const std::string& address) {

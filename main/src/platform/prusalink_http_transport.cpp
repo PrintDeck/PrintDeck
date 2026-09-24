@@ -27,7 +27,7 @@
 namespace printdeck::platform {
 namespace {
 
-std::timed_mutex transaction_mutex;
+core::PrinterConnectionPool transactions{6};
 std::mutex dns_mutex;
 struct DnsSlot {
   std::array<char, 129> name{};
@@ -39,7 +39,7 @@ struct DnsSlot {
 };
 // Late DNS callbacks retain a bounded static slot, never a worker-stack pointer.
 // A timed-out caller leaves release to its callback; no slot is prematurely reused.
-std::array<DnsSlot, 4> dns_slots;
+std::array<DnsSlot, 7> dns_slots;
 
 void dns_complete(const char*, const ip_addr_t* address, void* context) {
   const std::lock_guard<std::mutex> lock(dns_mutex);
@@ -129,7 +129,19 @@ bool retryable(ssize_t result) {
 
 }  // namespace
 
-std::timed_mutex& prusalink_transaction_mutex() { return transaction_mutex; }
+PrinterTransactionLock::PrinterTransactionLock(std::string endpoint)
+    : endpoint_(prusalink_origin(endpoint).value_or(std::move(endpoint))) {}
+
+bool PrinterTransactionLock::try_lock_for(std::chrono::milliseconds wait) {
+  if (lease_) return true;
+  const auto deadline = prusalink_now_ms() + std::max<std::int64_t>(0, wait.count());
+  do {
+    auto acquired = transactions.acquire(0, endpoint_);
+    if (acquired) { lease_.emplace(std::move(*acquired)); return true; }
+    if (prusalink_now_ms() >= deadline) return false;
+    vTaskDelay(pdMS_TO_TICKS(1));
+  } while (true);
+}
 std::uint64_t prusalink_now_ms() { return static_cast<std::uint64_t>(esp_timer_get_time()) / 1000; }
 
 std::string prusalink_resolved_ipv4(std::string host, std::uint64_t deadline,

@@ -134,6 +134,7 @@ class WebConfig {
   static esp_err_t device_command_entry(httpd_req_t* request);
   std::string reaction_state_json(bool include_catalog = true) const;
   CloudPairingService cloud_;
+  std::atomic<std::uint32_t> cloud_state_revision_{0};
   static esp_err_t cloud_entry(httpd_req_t* request);
   esp_err_t cloud_request(httpd_req_t* request);
   MqttExportService* mqtt_export_ = nullptr;
