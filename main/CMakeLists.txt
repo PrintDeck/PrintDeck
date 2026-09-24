@@ -336,6 +336,7 @@ set_source_files_properties(
     "src/core/settings.cpp"
     "src/core/unified_printer_api.cpp"
     "src/platform/web_config.cpp"
+    "src/platform/cloud_pairing_service.cpp"
     "src/platform/bambu_report_parser.cpp"
     "src/platform/elegoo_sdcp_parser.cpp"
     "src/platform/moonraker_status_parser.cpp"
