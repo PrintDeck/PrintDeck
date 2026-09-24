@@ -384,7 +384,11 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
 #endif
 #endif
   ImageWorkspaceLock workspace(0);
-  if (!workspace || heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 24 * 1024 ||
+  // Stream the existing PSRAM image with external TLS buffers, after closing
+  // the feed connection. Retain internal headroom without requiring 24 KiB,
+  // which excludes normal selected-printer operation with an internal LVGL stack.
+  const auto internal_before = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  if (!workspace || internal_before < 16 * 1024 ||
       heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 8 * 1024 ||
       heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 384 * 1024 ||
       heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 64 * 1024) return;
@@ -434,8 +438,9 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
     std::lock_guard lock(mutex_);
     if (generation_ == generation && thumbnail_key_ == key) thumbnail_attempts_ = 3;
   }
-  ESP_LOGI("cloud_thumbnail", "Upload %s (%u bytes, HTTP %d)", status == 204 ? "complete" : "deferred",
-           static_cast<unsigned>(sent), status);
+  ESP_LOGI("cloud_thumbnail", "Upload %s (%u bytes, HTTP %d, internal before=%u after=%u)",
+           status == 204 ? "complete" : "deferred", static_cast<unsigned>(sent), status,
+           unsigned(internal_before), unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
 }
 
 bool CloudPairingService::download_reaction(const std::string& base, const std::string& token, bool local,
