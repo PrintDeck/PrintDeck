@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -134,11 +135,6 @@ esp_err_t rotation_panel_draw(esp_lcd_panel_t* panel, int x_start, int y_start,
   if (state == nullptr || state->target == nullptr || colors == nullptr) {
     return ESP_ERR_INVALID_STATE;
   }
-  if (state->software_rotation == 0) {
-    return report_draw_result(esp_lcd_panel_draw_bitmap(
-        state->target, x_start, y_start, x_end, y_end, colors));
-  }
-
   const int source_width = x_end - x_start;
   const int source_height = y_end - y_start;
   if (source_width <= 0 || source_height <= 0) return ESP_ERR_INVALID_ARG;
@@ -164,7 +160,16 @@ esp_err_t rotation_panel_draw(esp_lcd_panel_t* panel, int x_start, int y_start,
   int destination_y_start = 0;
   int destination_x_end = 0;
   int destination_y_end = 0;
-  if (state->software_rotation == 90) {
+  if (state->software_rotation == 0) {
+    // LVGL's PSRAM pixels need an internal DMA buffer for this SPI transport.
+    // Reuse the startup reservation instead of allocating a temporary buffer
+    // for every strip, which can fail and leave fragments of the previous view.
+    std::memcpy(rotated, source, pixels * sizeof(std::uint16_t));
+    destination_x_start = x_start;
+    destination_x_end = x_end;
+    destination_y_start = y_start;
+    destination_y_end = y_end;
+  } else if (state->software_rotation == 90) {
     rotate_region_90(source, rotated, source_width, source_height);
     destination_x_start = kDisplayWidth - y_end;
     destination_x_end = kDisplayWidth - y_start;
