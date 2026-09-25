@@ -649,6 +649,15 @@ body.has-live-dock dialog:modal{margin-bottom:var(--live-dock-clearance)}
 }
 :is(#power-controls .pd-switch,.live-dock-switch)[aria-busy="true"]:checked::before { left: 46px; border-color: var(--accent); border-right-color: transparent; }
 @media(prefers-reduced-motion:reduce){:is(#power-controls .pd-switch,.live-dock-switch)[aria-busy="true"]::before{animation:none}}
+/* Empty printer collection: one clear starting action in either view. */
+.printer-manager.is-empty h2{margin-bottom:0}
+.printer-manager.is-empty .printers-layout{grid-template-columns:minmax(0,1fr);margin-top:var(--printer-panel-spacing)}
+.printer-manager.is-empty #printer-grid,.printer-manager.is-empty #printer-header-actions,.printer-manager.is-empty .printer-manager-bottom{display:none}
+.printer-manager.is-empty #printer-detail{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;min-height:280px;padding:36px 20px;border:0;background:transparent;box-shadow:none;text-align:center}
+.printer-manager.is-empty .printer-empty{padding:0;margin:0;font-size:18px;line-height:1.5}
+.printer-manager.is-empty .printer-add{width:auto;min-width:220px;max-width:100%;min-height:56px;padding:16px 28px;margin:0;border:0;border-radius:999px;background:var(--device-theme-accent);color:var(--device-theme-on-accent);box-shadow:none;font-size:16px;font-weight:750}
+.printer-manager.is-empty .printer-add:hover{filter:brightness(.96);box-shadow:none}
+@media(max-width:680px){.printer-manager.is-empty #printer-detail{min-height:270px;padding:28px 0}.printer-manager.is-empty .printer-empty{font-size:16px}.printer-manager.is-empty .printer-add{min-width:210px}}
 </style>
 
 
@@ -3346,8 +3355,9 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     function paintPrinterView(){
       const manager=$('.printer-manager'),opened=printerView==='tiles'&&printers.some(p=>String(p.id)===printerDetailId);
       manager.dataset.printerView=printerView;
+      manager.classList.toggle('is-empty',!printers.length);
       manager.classList.toggle('show-printer-detail',opened);
-      $('#printer-detail').hidden=printerView==='tiles'&&!opened;
+      $('#printer-detail').hidden=!!printers.length&&printerView==='tiles'&&!opened;
       $('#printer-tiles-back').hidden=!opened;
       $$('[data-printer-view]').filter(el=>el.tagName==='BUTTON').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.printerView===printerView)));
     }
@@ -3843,7 +3853,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
           const rowTools=document.createElement('span');rowTools.className='printer-row-tools';if(isResin(p.protocol))rowTools.append(resinBadge());rowTools.append(manage);row.append(rowTools);refinePrinterRow(row,p);grid.append(row);
         });
         const add=document.createElement('button');add.type='button';add.className='secondary printer-add';
-        add.textContent='+ '+translated('Add printer');add.addEventListener('click',openAdd);$('#printer-header-actions').prepend(add);
+        add.textContent='+ '+translated('Add printer');add.addEventListener('click',openAdd);if(printers.length)$('#printer-header-actions').prepend(add);
         if(waiting){
           const loading=document.createElement('div');loading.className='printer-data-loading';loading.setAttribute('role','status');
           const spinner=document.createElement('span');spinner.className='printer-data-spinner';spinner.setAttribute('aria-hidden','true');
@@ -3864,7 +3874,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
           refinePrinterDetail(detail,selected);window.PrintDeckVolume.mount(detail,selected,currentLanguage);window.PrintDeckGcode.mount(detail,selected,currentLanguage);
         }else{
           const empty=document.createElement('p');empty.className='printer-empty';
-          empty.textContent=translated(!printers.length?'Add your first printer to get started.':!printerStatusFresh?'Status unavailable':printers.some(printerDetailsAvailable)?'Choose a printer to view its controls.':printers.some(p=>p.reachability!=='offline')?'Connecting…':'No printers are online.');detail.append(empty);
+          empty.textContent=translated(!printers.length?'Add your first printer to get started.':!printerStatusFresh?'Status unavailable':printers.some(printerDetailsAvailable)?'Choose a printer to view its controls.':printers.some(p=>p.reachability!=='offline')?'Connecting…':'No printers are online.');detail.append(empty);if(!printers.length)detail.append(add);
         }
       }
       $$('.printer-row').forEach(row=>{const p=printers.find(p=>String(p.id)===row.dataset.printerId);if(p){const status=$('.printer-reachability',row);status.textContent=printerStatus(p);status.classList.toggle('online',p.reachability==='online'&&p.connection?.stale!==true);paintPrinterJob($('.printer-job',row),p);paintDesignRow(row,p)}});
