@@ -2,7 +2,7 @@
   "schema": 1,
   "channel": "stable",
   "target": "knomipanda",
-  "version": "1.0.0",
-  "url": "https://github.com/PrintDeck/PrintDeck/releases/download/knomipanda-v1.0.0/printdeck_knomipanda_layout_620eeab9a77e_ota-1.0.0.bin",
-  "sha256": "01b6fb3ce5a361694b2a61ac41b5080f1cde373409b3956ddb023d98e7aa65c4"
+  "version": "1.0.1",
+  "url": "https://github.com/PrintDeck/PrintDeck/releases/download/knomipanda-v1.0.1/printdeck_knomipanda_layout_620eeab9a77e_ota-1.0.1.bin",
+  "sha256": "11159017377175d866cdadc45ccc47e5d9b3be0b92d6b7f8f2f8fc67efda3f8c"
 }
