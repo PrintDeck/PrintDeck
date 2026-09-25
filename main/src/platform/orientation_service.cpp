@@ -86,6 +86,7 @@ esp_err_t OrientationService::configure(const std::string& mode) {
 }
 
 esp_err_t OrientationService::start_auto_tracking() {
+  if constexpr (!kBoardHasMotionSensor) return ESP_OK;
   if (task_ != nullptr) return ESP_OK;
   if (sensor_ != nullptr) return ESP_ERR_INVALID_STATE;
   auto* sensor = new qmi8658_dev_t{};

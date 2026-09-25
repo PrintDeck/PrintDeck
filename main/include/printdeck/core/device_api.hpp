@@ -63,6 +63,7 @@ inline std::string device_settings_json(const DeviceSettings& s, bool audio_avai
   cJSON_AddBoolToObject(root.get(),"printer_animations_enabled",s.printer_animations_enabled);
   cJSON_AddBoolToObject(root.get(),"reaction_progress_bar_enabled",s.reaction_progress_bar_enabled);
   cJSON_AddBoolToObject(root.get(),"reaction_progress_percent_enabled",s.reaction_progress_percent_enabled);
+  cJSON_AddBoolToObject(root.get(),"screen_bar_enabled",s.screen_bar_enabled);
   cJSON_AddBoolToObject(root.get(),"audio_enabled",audio_available && s.audio_enabled);
   cJSON_AddBoolToObject(root.get(),"usb_power_save",s.display_power.usb_power_save_enabled);
   cJSON_AddBoolToObject(root.get(),"wake_on_orientation_change",s.display_power.wake_on_orientation_change);
@@ -111,6 +112,7 @@ inline bool apply_device_settings_patch(const cJSON* patch,DeviceSettings& desti
     if(key=="printer_animations_enabled"){if(!cJSON_IsBool(value))return false;candidate.printer_animations_enabled=cJSON_IsTrue(value);continue;}
     if(key=="reaction_progress_bar_enabled"){if(!cJSON_IsBool(value))return false;candidate.reaction_progress_bar_enabled=cJSON_IsTrue(value);continue;}
     if(key=="reaction_progress_percent_enabled"){if(!cJSON_IsBool(value))return false;candidate.reaction_progress_percent_enabled=cJSON_IsTrue(value);continue;}
+    if(key=="screen_bar_enabled"){if(!cJSON_IsBool(value))return false;candidate.screen_bar_enabled=cJSON_IsTrue(value);continue;}
     if(key=="audio_enabled"){if(!cJSON_IsBool(value))return false;candidate.audio_enabled=cJSON_IsTrue(value);continue;}
     if(key=="usb_power_save"){if(!cJSON_IsBool(value))return false;candidate.display_power.usb_power_save_enabled=cJSON_IsTrue(value);continue;}
     if(key=="wake_on_orientation_change"){if(!cJSON_IsBool(value))return false;candidate.display_power.wake_on_orientation_change=cJSON_IsTrue(value);continue;}
@@ -143,14 +145,14 @@ inline bool apply_device_settings_patch(const cJSON* patch,DeviceSettings& desti
   if(!power_button&&cJSON_GetObjectItemCaseSensitive(patch,"wake_on_touch")&&!candidate.display_power.wake_on_touch)return false;
   destination=std::move(candidate);return true;
 }
-// Cloud appearance commands intentionally expose only these three settings pages.
+// Cloud appearance commands expose display, sound and screen-bar preferences.
 inline bool appearance_settings_patch(const cJSON* patch) {
   if (!device_unique_object(patch) || !patch->child) return false;
   constexpr std::string_view allowed[] = {"brightness", "rotation", "theme", "custom_theme",
       "audio_enabled", "audio_volume", "audio_muted_events", "audio_preset", "start_idle", "start_active",
       "dim_for_idle", "dim_for_active", "saver_for_idle", "saver_for_active", "dim_brightness",
       "saver_animation", "shutdown_s", "dim_audio", "off_audio", "usb_power_save",
-      "wake_on_orientation_change", "wake_on_touch"};
+      "wake_on_orientation_change", "wake_on_touch", "screen_bar_enabled"};
   for (auto* item = patch->child; item; item = item->next) {
     bool found = false;
     for (const auto key : allowed) if (key == item->string) found = true;

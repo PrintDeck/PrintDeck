@@ -1982,6 +1982,8 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
       "\",\"display_width\":" + std::to_string(kDisplayWidth) +
       ",\"display_height\":" + std::to_string(kDisplayHeight) +
       ",\"display_round\":" + (kDisplayIsRound ? std::string("true") : std::string("false")) +
+      ",\"display_sleep_available\":" +
+          (kBoardSupportsDisplaySleep ? std::string("true") : std::string("false")) +
       ",\"live_view_available\":true" +
       ",\"audio_available\":" +
           (kBoardHasAudio ? std::string("true") : std::string("false")) +
@@ -2150,7 +2152,7 @@ esp_err_t WebConfig::serve_live_view_frame(httpd_req_t* request) {
                      "{\"error\":\"Wait a moment before refreshing Live View again.\"}");
   }
 
-  ImageWorkspaceLock workspace(5000);
+  ImageWorkspaceLock workspace(250);
   if (!workspace) {
     return send_json(request, "503 Service Unavailable",
                      "{\"error\":\"The PrintDeck screen could not be captured.\"}");
@@ -2287,7 +2289,7 @@ std::string WebConfig::device_info_json() const {
   std::unique_ptr<char, decltype(&heap_caps_free)> body(raw, heap_caps_free);
   const int length = std::snprintf(
       body.get(), kResponseBytes,
-      "{\"cpu_model\":\"ESP32-S3\",\"cpu_cores\":%u,\"cpu_frequency_mhz\":%u,"
+      "{\"cpu_model\":\"%s\",\"cpu_cores\":%u,\"cpu_frequency_mhz\":%u,"
       "\"internal_ram_total_bytes\":%u,\"internal_ram_free_bytes\":%u,"
       "\"internal_ram_minimum_free_bytes\":%u,\"psram_total_bytes\":%u,"
       "\"psram_free_bytes\":%u,\"flash_total_bytes\":%u,"
@@ -2295,6 +2297,7 @@ std::string WebConfig::device_info_json() const {
       "\"storage_usage_available\":false,\"uptime_seconds\":%llu,"
       "\"reset_reason\":\"%.*s\",\"idf_version\":\"%s\","
       "\"wifi_rssi_dbm\":%d,\"wifi_channel\":%u}",
+      chip_info.model == CHIP_ESP32 ? "ESP32" : "ESP32-S3",
       static_cast<unsigned>(chip_info.cores),
       static_cast<unsigned>(CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ),
       static_cast<unsigned>(internal_total), static_cast<unsigned>(internal_free),
@@ -2361,6 +2364,7 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   }
   body+=R"(,"version":")" PRINTDECK_VERSION R"(","audio_available":)";
   body+=kBoardHasAudio?"true":"false";
+  body+=R"(,"display_sleep_available":)";body+=kBoardSupportsDisplaySleep?"true":"false";
   const auto voice_state = voice_state_.load();
   body+=R"(,"voice_available":)";body+=kBoardHasLocalVoice?"true":"false";
   body+=R"(,"voice_enabled":)";body+=kBoardHasLocalVoice&&current.voice_enabled?"true":"false";
@@ -2564,7 +2568,7 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
     if(changed){
       if(store_->save(candidate)!=ESP_OK)return {500,R"({"error":"PrintDeck could not save these changes. Please try again."})"};
       {const std::lock_guard<std::mutex> lock(mutex_);settings_=candidate;}
-      const bool view_only=command.action=="device.printer_view.set"||(count==1&&get("printer_view"));
+      const bool view_only=command.action=="device.printer_view.set"||(count==1&&(get("printer_view")||get("screen_bar_enabled")));
       notify_settings_changed(candidate,!view_only);
     }
     return {200,std::string(R"({"schema_version":1,"status":"applied","saved":true,"restart_required":false,"settings":)")+core::device_settings_json(candidate,kBoardHasAudio,kBoardHasPowerButton)+"}"};
@@ -2641,6 +2645,8 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   std::string body = "{\"hardware\":\"" + std::string(kBoardVariant) +
       "\",\"audio_available\":" +
       (kBoardHasAudio ? std::string("true") : std::string("false"));
+  body += ",\"display_sleep_available\":";
+  body += kBoardSupportsDisplaySleep ? "true" : "false";
   body += ",\"device_name\":";
   append_json_string(body, current.device_name);
   body += ",\"brightness\":" + std::to_string(current.brightness_percent) +

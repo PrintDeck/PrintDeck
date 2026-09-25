@@ -12,6 +12,7 @@ sdmmc_card_t* card = nullptr;
 esp_err_t board_sd_mount(std::uint64_t* identity) {
   if (!kBoardHasSdCard) return ESP_ERR_NOT_SUPPORTED;
   if (!identity || card) return ESP_ERR_INVALID_STATE;
+#if !defined(PRINTDECK_BOARD_KNOMIPANDA)
   sdmmc_host_t host = SDMMC_HOST_DEFAULT();
   host.flags = SDMMC_HOST_FLAG_1BIT;
   host.max_freq_khz = 10000;
@@ -47,6 +48,9 @@ esp_err_t board_sd_mount(std::uint64_t* identity) {
               static_cast<std::uint64_t>(card->cid.date & 0xffff);
   if (!*identity) *identity = 1;
   return ESP_OK;
+#else
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
 }
 
 esp_err_t board_sd_status() {

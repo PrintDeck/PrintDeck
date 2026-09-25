@@ -382,6 +382,7 @@ bool add_settings(cJSON* root, const DeviceSettings& settings) {
          add_string(object, "printer_view", settings.printer_view) &&
          add_string(object, "camera_mode", settings.camera_mode) &&
          add_number(object, "camera_snapshot_fps", settings.camera_snapshot_fps) &&
+         add_bool(object, "screen_bar_enabled", settings.screen_bar_enabled) &&
          add_bool(object, "printer_control_enabled", settings.printer_control_enabled) &&
          add_bool(object, "voice_enabled", settings.voice_enabled) &&
          add_bool(object, "unified_api_enabled", settings.unified_api_enabled) &&
@@ -436,6 +437,7 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
          read_string(object, "camera_mode", settings.camera_mode, 16, required) &&
          read_unsigned(object, "camera_snapshot_fps", settings.camera_snapshot_fps, 5,
                        required) &&
+         read_bool(object, "screen_bar_enabled", settings.screen_bar_enabled, source_schema >= 21) &&
          read_bool(object, "printer_control_enabled", settings.printer_control_enabled, source_schema >= 20) &&
          read_bool(object, "voice_enabled", settings.voice_enabled, source_schema >= 15) &&
          read_bool(object, "unified_api_enabled", settings.unified_api_enabled,

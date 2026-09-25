@@ -22,8 +22,10 @@ inline constexpr char kFirmwareIdentityMagic[] = "PrintDeck OTA 1";
 inline bool compatible_firmware_header(std::span<const std::uint8_t> image,
                                       std::string_view target,
                                       std::string_view layout) {
+  // The hardware identity and chip family must both match before OTA writes.
+  const std::uint8_t expected_chip = target == "knomipanda" ? 0 : 9;
   if (image.size() < kFirmwareIdentityHeaderBytes || image[0] != 0xe9 ||
-      image[1] == 0 || image[1] > 16 || image[12] != 9 || image[13] != 0 ||
+      image[1] == 0 || image[1] > 16 || image[12] != expected_chip || image[13] != 0 ||
       image[32] != 0x32 || image[33] != 0x54 || image[34] != 0xcd || image[35] != 0xab)
     return false;
   std::uint32_t segment_size = 0;

@@ -41,6 +41,7 @@ set(PRINTDECK_SRCS
     "src/platform/gcode_ftps.cpp"
         "src/platform/persistence_worker.cpp"
         "src/platform/display_snapshot.cpp"
+        "src/platform/live_view_png.cpp"
         "src/platform/moonraker_status_parser.cpp"
         "src/platform/prusalink_status_parser.cpp"
         "src/platform/prusalink_auth.cpp"
@@ -85,10 +86,26 @@ set(PRINTDECK_SRCS
 )
 
 set(PRINTDECK_BOARD_REQUIRES)
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+    list(APPEND PRINTDECK_BOARD_REQUIRES esp_driver_usb_serial_jtag espressif__esp_h264 espressif__esp_io_expander)
+endif()
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     list(APPEND PRINTDECK_SRCS
         "src/platform/audio_service_knomi2.cpp"
         "src/platform/board_knomi2.cpp"
+        "src/platform/display_shell_lcd_1_54.cpp"
+        "src/platform/power_service_knomi2.cpp"
+        "src/platform/usb_developer_service_knomi2.cpp"
+    )
+    list(APPEND PRINTDECK_BOARD_REQUIRES
+        espressif__esp_lcd_gc9a01
+        espressif__esp_lcd_touch_cst816s
+        esp_driver_spi
+    )
+elseif(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+    list(APPEND PRINTDECK_SRCS
+        "src/platform/audio_service_knomi2.cpp"
+        "src/platform/board_knomipanda.cpp"
         "src/platform/display_shell_lcd_1_54.cpp"
         "src/platform/power_service_knomi2.cpp"
         "src/platform/usb_developer_service_knomi2.cpp"
@@ -130,7 +147,8 @@ else()
 endif()
 
 # Share one speech implementation, model binding and compressed audio bank.
-if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
     list(APPEND PRINTDECK_SRCS
         "src/platform/voice_service.cpp"
         "src/platform/voice_model_store.cpp")
@@ -140,7 +158,8 @@ endif()
 
 # KNOMI2 has no speaker; keep audio settings but omit playback and its assets.
 set(PRINTDECK_COMPRESSED_AUDIO_FILES)
-if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
     set(PRINTDECK_COMPRESSED_AUDIO_ROOT "${CMAKE_CURRENT_LIST_DIR}/audio/compressed")
     include("${PRINTDECK_COMPRESSED_AUDIO_ROOT}/manifest.cmake")
     foreach(asset_name IN LISTS PRINTDECK_AUDIO_RESOURCE_NAMES)
@@ -209,7 +228,6 @@ idf_component_register(
         esp_netif
         esp_wifi
         esp_timer
-        esp_driver_usb_serial_jtag
         esp-tls
         espressif__esp_new_jpeg
         espressif__libpng
@@ -217,12 +235,10 @@ idf_component_register(
         espressif__esp_codec_dev
         espressif__mdns
         XPowersLib
-        espressif__esp_io_expander
         mbedtls
         mqtt
         espressif__esp_websocket_client
         espressif__esp_peer
-        espressif__esp_h264
         printdeck_h264_snapshot
         nvs_flash
         spi_flash
@@ -261,7 +277,11 @@ target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,-u,printdeck_firmware_iden
 target_link_libraries(${COMPONENT_LIB} INTERFACE
     "-Wl,-u,__wrap_lv_thread_init" "-Wl,--wrap=lv_thread_init")
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=lwip_recvfrom")
-option(PRINTDECK_K2_UDP_PREFETCH "Enable bounded K2 UDP receive buffering" ON)
+set(prefetch_default ON)
+if(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+    set(prefetch_default OFF)
+endif()
+option(PRINTDECK_K2_UDP_PREFETCH "Enable bounded K2 UDP receive buffering" ${prefetch_default})
 if(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS)
     idf_component_get_property(srtp_component_dir espressif__esp_libsrtp COMPONENT_DIR)
     set_property(SOURCE "src/platform/camera_receive_slice.cpp" APPEND PROPERTY
@@ -311,12 +331,15 @@ if(PRINTDECK_K2_UDP_PREFETCH)
 endif()
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_KNOMI2=1)
+elseif(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_KNOMIPANDA=1)
 elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_LCD_1_54=1)
 else()
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_AMOLED_1_75=1)
 endif()
-if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_LOCAL_VOICE=1)
     target_link_libraries(${COMPONENT_LIB} INTERFACE
         "-Wl,--wrap=esp_mn_handle_from_name"

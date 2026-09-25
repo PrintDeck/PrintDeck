@@ -53,8 +53,7 @@ constexpr std::uint64_t kProfileMigrationRetryDelayMs = 5 * 60 * 1000;
 constexpr char kSetBaseUrl[] =
     "https://raw.githubusercontent.com/PrintDeck/PrintDeck/main/reaction-sets/";
 constexpr std::string_view kSetAssetFamily =
-    kDisplayWidth == 466 ? "466x466"
-                         : kDisplayIsRound ? "240x240-round" : "240x240";
+    kBoardReactionAssetFamily;
 constexpr std::string_view kSetAssetProfile = kBoardVariant;
 constexpr bool kNeedsRound240ProfileMigration =
     kDisplayIsRound && kDisplayWidth == 240 && kDisplayHeight == 240;

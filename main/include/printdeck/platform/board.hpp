@@ -22,9 +22,26 @@ inline constexpr bool kBoardHasAudio = false;
 inline constexpr bool kBoardHasPowerSourceDetection = false;
 inline constexpr bool kBoardHasPowerButton = false;
 inline constexpr char kBoardVariant[] = "knomi2";
+inline constexpr char kBoardReactionAssetFamily[] = "240x240-round";
 inline constexpr char kFirmwareStableChannel[] = "knomi2";
 inline constexpr char kFirmwareOtaAssetPrefix[] = "printdeck_knomi2_ota-";
 inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_knomi2_full-";
+inline constexpr char kLegacyFirmwareOtaAssetPrefix[] = "";
+inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
+#elif defined(PRINTDECK_BOARD_KNOMIPANDA)
+inline constexpr int kDisplayWidth = 240;
+inline constexpr int kDisplayHeight = 240;
+inline constexpr bool kDisplayIsRound = true;
+inline constexpr bool kDisplayUsesCompactLayout = true;
+inline constexpr bool kDisplayRequiresEvenInvalidation = false;
+inline constexpr bool kBoardHasAudio = false;
+inline constexpr bool kBoardHasPowerSourceDetection = false;
+inline constexpr bool kBoardHasPowerButton = false;
+inline constexpr char kBoardVariant[] = "knomipanda";
+inline constexpr char kBoardReactionAssetFamily[] = "240x240-knomipanda";
+inline constexpr char kFirmwareStableChannel[] = "knomipanda";
+inline constexpr char kFirmwareOtaAssetPrefix[] = "printdeck_knomipanda_ota-";
+inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_knomipanda_full-";
 inline constexpr char kLegacyFirmwareOtaAssetPrefix[] = "";
 inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
 #elif defined(PRINTDECK_BOARD_LCD_1_54)
@@ -37,6 +54,7 @@ inline constexpr bool kBoardHasAudio = true;
 inline constexpr bool kBoardHasPowerSourceDetection = true;
 inline constexpr bool kBoardHasPowerButton = true;
 inline constexpr char kBoardVariant[] = "lcd_1_54";
+inline constexpr char kBoardReactionAssetFamily[] = "240x240";
 // Keep this flash layout on its own update channel and release asset family so
 // an application-only image is never offered to an incompatible partition map.
 inline constexpr char kFirmwareStableChannel[] = "lcd_1_54_voice";
@@ -55,6 +73,7 @@ inline constexpr bool kBoardHasAudio = true;
 inline constexpr bool kBoardHasPowerSourceDetection = true;
 inline constexpr bool kBoardHasPowerButton = true;
 inline constexpr char kBoardVariant[] = "amoled_1_75";
+inline constexpr char kBoardReactionAssetFamily[] = "466x466";
 // Keep this flash layout on its own update channel and release asset family so
 // an application-only image is never offered to an incompatible partition map.
 inline constexpr char kFirmwareStableChannel[] = "amoled_1_75_voice";
@@ -65,8 +84,14 @@ inline constexpr char kLegacyFirmwareOtaAssetPrefix[] = "";
 inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
 #endif
 
+inline constexpr bool kBoardHasTouch = std::string_view(kBoardVariant) != "knomipanda";
+inline constexpr bool kBoardHasMotionSensor = std::string_view(kBoardVariant) != "knomipanda";
+// Automatic display sleep requires a physical way to wake the panel.
+inline constexpr bool kBoardSupportsDisplaySleep = kBoardHasTouch || kBoardHasPowerButton;
 inline constexpr bool kDisplayUsesLargeLayout = !kDisplayUsesCompactLayout;
-inline constexpr bool kBoardHasSdCard = std::string_view(kBoardVariant) != "knomi2";
+inline constexpr bool kBoardHasSdCard =
+    std::string_view(kBoardVariant) != "knomi2" &&
+    std::string_view(kBoardVariant) != "knomipanda";
 inline constexpr bool kDisplayUsesCompactRoundLayout =
     kDisplayUsesCompactLayout && kDisplayIsRound;
 

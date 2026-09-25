@@ -6,7 +6,11 @@ dependencies:
   espressif/mqtt: "^1.0.0"
   espressif/esp_websocket_client: "^1.4.0"
   espressif/esp_peer: "^1.5.4"
-  espressif/esp_h264: "^1.3.8"
+  espressif/esp_codec_dev: "~1.5"
+  espressif/esp_h264:
+    version: "^1.3.8"
+    rules:
+      - if: "target != esp32"
   espressif/esp-sr:
     version: "==2.5.1"
     require: "no"

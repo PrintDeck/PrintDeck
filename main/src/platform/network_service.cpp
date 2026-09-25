@@ -457,7 +457,7 @@ void NetworkService::run_device_discovery() {
       const std::string_view value(txt.value, peer->txt_value_len[index]);
       if (std::strcmp(txt.key, "id") == 0 && valid_printdeck_id(value)) device.id = value;
       if (std::strcmp(txt.key, "hardware") == 0 &&
-          (value == "amoled_1_75" || value == "lcd_1_54" || value == "knomi2")) device.hardware = value;
+          (value == "amoled_1_75" || value == "lcd_1_54" || value == "knomi2" || value == "knomipanda")) device.hardware = value;
       if (std::strcmp(txt.key, "name") == 0 && !value.empty() &&
           core::valid_device_name(value)) device.name = value;
       if (std::strcmp(txt.key, "alias") == 0 && valid_printdeck_hostname(value)) {

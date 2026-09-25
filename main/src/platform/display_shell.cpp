@@ -4,6 +4,7 @@
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/display_shell.hpp"
 #include "printdeck/platform/display_snapshot.hpp"
+#include "printdeck/platform/live_view_png.hpp"
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -462,20 +463,41 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
     lv_display_add_event_cb(display, round_display_invalidation,
                             LV_EVENT_INVALIDATE_AREA, nullptr);
   }
-  esp_lcd_touch_handle_t touch_handle = nullptr;
-  display_result = board_touch_new(&touch_handle);
-  if (display_result != ESP_OK || touch_handle == nullptr) {
-    ESP_LOGE(kLogTag, "Touch controller initialization failed: %s",
-             esp_err_to_name(display_result));
-    return display_result == ESP_OK ? ESP_FAIL : display_result;
-  }
-  const esp_lv_adapter_touch_config_t touch_config =
-      ESP_LV_ADAPTER_TOUCH_DEFAULT_CONFIG(display, touch_handle);
-  touch_uses_interrupt_ = touch_handle->config.int_gpio_num != GPIO_NUM_NC;
-  lv_indev_t* touch_input = esp_lv_adapter_register_touch(&touch_config);
-  if (touch_input == nullptr) {
-    ESP_LOGE(kLogTag, "Touch input registration failed");
-    return ESP_FAIL;
+  lv_indev_t* touch_input = nullptr;
+  if constexpr (kBoardHasTouch) {
+    esp_lcd_touch_handle_t touch_handle = nullptr;
+    display_result = board_touch_new(&touch_handle);
+    if (display_result != ESP_OK || touch_handle == nullptr) {
+      ESP_LOGE(kLogTag, "Touch controller initialization failed: %s",
+               esp_err_to_name(display_result));
+      return display_result == ESP_OK ? ESP_FAIL : display_result;
+    }
+    const esp_lv_adapter_touch_config_t touch_config =
+        ESP_LV_ADAPTER_TOUCH_DEFAULT_CONFIG(display, touch_handle);
+    touch_uses_interrupt_ = touch_handle->config.int_gpio_num != GPIO_NUM_NC;
+    touch_input = esp_lv_adapter_register_touch(&touch_config);
+    if (touch_input == nullptr) {
+      ESP_LOGE(kLogTag, "Touch input registration failed");
+      return ESP_FAIL;
+    }
+  } else {
+    // Keep Live View gestures on the same LVGL input path without a touch IC.
+    touch_uses_interrupt_ = false;
+    touch_input = lv_indev_create();
+    if (touch_input == nullptr) return ESP_ERR_NO_MEM;
+    lv_indev_set_type(touch_input, LV_INDEV_TYPE_POINTER);
+    lv_indev_set_display(touch_input, display);
+    lv_indev_set_user_data(touch_input, this);
+    lv_indev_set_read_cb(touch_input, [](lv_indev_t* input, lv_indev_data_t* data) {
+      esp_lcd_touch_point_data_t point{};
+      uint8_t count = 0;
+      touch_read(nullptr, &point, &count, 1, lv_indev_get_user_data(input));
+      data->state = count ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+      if (count) {
+        data->point.x = point.x;
+        data->point.y = point.y;
+      }
+    });
   }
   display_result = board_display_brightness_init();
   if (display_result != ESP_OK) return display_result;
@@ -489,7 +511,8 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
       .custom_touch_read = touch_read,
       .user_ctx = this,
   };
-  if (esp_lv_adapter_set_touch_callbacks(touch_input, &touch_callbacks) != ESP_OK) {
+  if (kBoardHasTouch &&
+      esp_lv_adapter_set_touch_callbacks(touch_input, &touch_callbacks) != ESP_OK) {
     ESP_LOGE(kLogTag, "Touch orientation callback could not be installed");
     return ESP_FAIL;
   }
@@ -7013,7 +7036,7 @@ esp_err_t DisplayShell::touch_read(esp_lcd_touch_handle_t touch,
                                    esp_lcd_touch_point_data_t* points, uint8_t* count,
                                    uint8_t maximum_count, void* context) {
   auto* shell = static_cast<DisplayShell*>(context);
-  if (touch == nullptr || points == nullptr || count == nullptr || shell == nullptr) {
+  if (points == nullptr || count == nullptr || shell == nullptr) {
     return ESP_ERR_INVALID_ARG;
   }
   if (maximum_count > 0 &&
@@ -7038,13 +7061,15 @@ esp_err_t DisplayShell::touch_read(esp_lcd_touch_handle_t touch,
       shell->defer_background_render(kTouchBackgroundRenderQuietMs);
       // IRQ-mode touch readers consume one notification per sample. Keep the
       // normal LVGL input path awake until it observes the synthetic release.
-      esp_lv_adapter_touch_notify_interrupt(shell->touch_input_);
+      if (shell->touch_uses_interrupt_)
+        esp_lv_adapter_touch_notify_interrupt(shell->touch_input_);
     } else {
       *count = 0;
       shell->remote_input_state_.store(kRemoteInputIdle, std::memory_order_release);
     }
     return ESP_OK;
   }
+  if (touch == nullptr) { *count = 0; return ESP_OK; }
   const int rotation = shell->current_rotation_.load();
   if (shell->touch_rotation_applied_.load() != rotation) {
     bool swap_xy = false;
@@ -7072,7 +7097,8 @@ esp_err_t DisplayShell::touch_read(esp_lcd_touch_handle_t touch,
       if (wake) shell->note_activity(true);
       // Continue reading until the physical release even though this waking
       // gesture is intentionally never delivered to the covered controls.
-      esp_lv_adapter_touch_notify_interrupt(shell->touch_input_);
+      if (shell->touch_uses_interrupt_)
+        esp_lv_adapter_touch_notify_interrupt(shell->touch_input_);
       return data_result;
     }
     shell->defer_background_render(kTouchBackgroundRenderQuietMs);
@@ -8231,7 +8257,7 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
     last_activity_ms_ = now;
     request_wake();
   }
-  if (keep_awake || !policy.timers_allowed(on_battery,
+  if (!kBoardSupportsDisplaySleep || keep_awake || !policy.timers_allowed(on_battery,
                                           kBoardHasPowerSourceDetection, print_active)) {
     last_activity_ms_ = now;
     request_wake();
@@ -8392,10 +8418,10 @@ esp_err_t DisplayShell::capture_png(std::vector<std::uint8_t>& png,
                                     std::string& screen_name) const {
   png.clear();
   screen_name.clear();
-  ImageWorkspaceLock workspace(3000);
+  ImageWorkspaceLock workspace(250);
   if (!workspace) return ESP_ERR_TIMEOUT;
   live_render_until_us_ = esp_timer_get_time() + 6'000'000;
-  if (board_display_lock(2000) != ESP_OK) return ESP_ERR_TIMEOUT;
+  if (board_display_lock(250) != ESP_OK) return ESP_ERR_TIMEOUT;
 
   screen_name = screen_power_mode_ == 3 ? "screen-saver" :
       capture_overlay_name_.empty() ? capture_screen_name_ : capture_overlay_name_;
@@ -8417,44 +8443,17 @@ esp_err_t DisplayShell::capture_png(std::vector<std::uint8_t>& png,
     return ESP_FAIL;
   }
 
-  png_image image{};
-  image.version = PNG_IMAGE_VERSION;
-  image.width = static_cast<png_uint_32>(width);
-  image.height = static_cast<png_uint_32>(height);
-  image.format = PNG_FORMAT_BGRA;
-  constexpr png_alloc_size_t kInitialPngCapacity = 256U * 1024U;
-  const png_alloc_size_t maximum_size = PNG_IMAGE_PNG_SIZE_MAX(image);
-  png_alloc_size_t encoded_size = std::min(kInitialPngCapacity, maximum_size);
-  const png_int_32 stride = static_cast<png_int_32>(screen->header.stride);
-  png.resize(encoded_size);
-  if (!png_image_write_to_memory(&image, png.data(), &encoded_size, 0,
-                                 screen->data, stride, nullptr)) {
-    const png_alloc_size_t required_size = encoded_size;
-    png_image_free(&image);
-    if (required_size == 0 || required_size <= png.size() ||
-        required_size > maximum_size) {
-      png.clear();
-      lv_draw_buf_destroy(screen);
-      return ESP_FAIL;
-    }
-    png.resize(required_size);
-    image = {};
-    image.version = PNG_IMAGE_VERSION;
-    image.width = static_cast<png_uint_32>(width);
-    image.height = static_cast<png_uint_32>(height);
-    image.format = PNG_FORMAT_BGRA;
-    encoded_size = required_size;
-    if (!png_image_write_to_memory(&image, png.data(), &encoded_size, 0,
-                                   screen->data, stride, nullptr)) {
-      png.clear();
-      png_image_free(&image);
-      lv_draw_buf_destroy(screen);
-      return ESP_FAIL;
-    }
-  }
-  png.resize(encoded_size);
-  png_image_free(&image);
+  std::int64_t deadline = esp_timer_get_time() + 2'000'000;
+  const bool encoded = encode_live_view_png(
+      screen->data, screen->data_size, width, height, screen->header.stride, png,
+      [](void* context) {
+        // A capture must not starve core-0 networking, persistence or its idle
+        // watchdog, even for a detailed animated reaction in external RAM.
+        vTaskDelay(1);
+        return esp_timer_get_time() < *static_cast<const std::int64_t*>(context);
+      }, &deadline);
   lv_draw_buf_destroy(screen);
+  if (!encoded) return ESP_FAIL;
   return ESP_OK;
 }
 

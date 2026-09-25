@@ -19,9 +19,11 @@
 #include "esp_crt_bundle.h"
 #include "cJSON.h"
 #include "codec_api.h"
+#if !defined(PRINTDECK_BOARD_KNOMIPANDA)
 #include "esp_h264_dec.h"
 #include "esp_h264_dec_param.h"
 #include "esp_h264_dec_sw.h"
+#endif
 #include "esp_heap_caps.h"
 #include "esp_freertos_hooks.h"
 #include "esp_http_client.h"
@@ -1320,6 +1322,7 @@ int MoonrakerCameraClient::peer_video_callback(esp_peer_video_frame_t* frame,
 
 bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& profile) {
   stop_creality_peer();
+  if constexpr (std::string_view(kBoardVariant) == "knomipanda") return false;
   // A 1080p keyframe arrives as a short RTP burst. Avoid modem sleep and
   // synchronous library diagnostics while that burst is being received.
   esp_wifi_set_ps(WIFI_PS_NONE);
@@ -1352,6 +1355,9 @@ bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& prof
   last_creality_idr_queued_us_.store(0);
   last_creality_video_us_.store(0);
   if (!idr_snapshot_decoder_.load()) {
+#if defined(PRINTDECK_BOARD_KNOMIPANDA)
+    return false;
+#else
     esp_h264_dec_cfg_sw_t decoder_config{};
     decoder_config.pic_type = ESP_H264_RAW_FMT_I420;
     esp_h264_dec_handle_t decoder = nullptr;
@@ -1362,6 +1368,7 @@ bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& prof
       return false;
     }
     h264_decoder_ = decoder;
+#endif
   }
 
   esp_peer_default_cfg_t peer_defaults{};
@@ -1448,9 +1455,11 @@ void MoonrakerCameraClient::stop_creality_peer() {
     peer_ = nullptr;
   }
   if (h264_decoder_ != nullptr) {
+#if !defined(PRINTDECK_BOARD_KNOMIPANDA)
     auto decoder = static_cast<esp_h264_dec_handle_t>(h264_decoder_);
     esp_h264_dec_close(decoder);
     esp_h264_dec_del(decoder);
+#endif
     h264_decoder_ = nullptr;
   }
   if (peer_was_active) esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
@@ -1637,6 +1646,10 @@ bool MoonrakerCameraClient::decode_creality_frame(const std::uint8_t* data,
     }
     return true;
   }
+#if defined(PRINTDECK_BOARD_KNOMIPANDA)
+  (void)pts;
+  return false;
+#else
   if (h264_decoder_ == nullptr) return false;
   auto decoder = static_cast<esp_h264_dec_handle_t>(h264_decoder_);
   // K2 starts a new receiver in the middle of its GOP and does not repeat the
@@ -1704,6 +1717,7 @@ bool MoonrakerCameraClient::decode_creality_frame(const std::uint8_t* data,
     }
   }
   return decoded_image;
+#endif
 }
 
 void MoonrakerCameraClient::task_entry(void* context) {

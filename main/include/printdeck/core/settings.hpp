@@ -12,7 +12,7 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 20;
+constexpr std::uint8_t kSettingsSchemaVersion = 21;
 constexpr std::uint32_t kDisplayDurationUntilWake = 86401;
 constexpr std::uint8_t kScreenSaverCircles = 0;
 constexpr std::uint8_t kScreenSaverGoingToSleep = 1;
@@ -89,6 +89,13 @@ struct MqttSettings {
 
 bool valid_mqtt_settings(const MqttSettings& settings);
 
+// Touchless Panda needs remote navigation immediately after setup or migration.
+#if defined(PRINTDECK_BOARD_KNOMIPANDA)
+inline constexpr bool kDefaultScreenBarEnabled = true;
+#else
+inline constexpr bool kDefaultScreenBarEnabled = false;
+#endif
+
 struct DeviceSettings {
   std::string device_name;
   std::string wifi_name;
@@ -115,6 +122,7 @@ struct DeviceSettings {
   std::string camera_mode = "snapshots";
   std::uint8_t camera_snapshot_fps = 1;
   bool printer_control_enabled = false;
+  bool screen_bar_enabled = kDefaultScreenBarEnabled;
   bool voice_enabled = false;
   bool unified_api_enabled = false;
   std::string unified_api_token;
