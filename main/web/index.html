@@ -624,7 +624,10 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .live-dock-root{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent;color:var(--ink,var(--text));overflow:visible;pointer-events:none;z-index:2147483000;font:inherit}
 .live-dock-root::backdrop{background:transparent;pointer-events:none}
 .live-dock-root:not(:popover-open){display:none}
-body.has-live-dock{padding-bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+body.has-live-dock{--live-dock-clearance:calc(86px + env(safe-area-inset-bottom,0px));padding-bottom:var(--live-dock-clearance)}
+body.has-live-dock .modal{padding-bottom:var(--live-dock-clearance)}
+body.has-live-dock :is(.modal .dialog,dialog:modal){max-height:calc(100dvh - var(--live-dock-clearance) - 40px)}
+body.has-live-dock dialog:modal{margin-bottom:var(--live-dock-clearance)}
 .live-dock-root .live-dock-trigger{position:fixed;pointer-events:auto;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:12px;width:min(360px,calc(100vw - 24px));min-height:52px;padding:12px 20px;border:1px solid #ffffff40;border-radius:18px;background:var(--accent);color:#062c29;box-shadow:0 8px 32px #0003;font:inherit;font-size:14px;font-weight:750;cursor:pointer}
 .live-dock-trigger[hidden]{display:none}.live-dock-trigger svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}.live-dock-chevron{font-size:22px;line-height:1;transform:rotate(-90deg);transition:transform .2s}.live-dock-trigger[aria-expanded=true] .live-dock-chevron{transform:rotate(90deg)}
 .live-dock-trigger:focus-visible,.live-dock-panel button:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
@@ -1489,6 +1492,11 @@ setInterval(()=>{worker?.postMessage({type:'pause',paused:document.hidden||!sele
               <input type="checkbox" role="switch" class="live-dock-switch" id="live-dock-enabled" aria-label="Show Live View bar">
             </section>
             <p id="live-dock-save-status" hidden class="status" role="status"></p>
+            <dialog class="companion-dialog" id="live-dock-disable-dialog" aria-labelledby="live-dock-disable-title" aria-describedby="live-dock-disable-description">
+              <h2 id="live-dock-disable-title">Hide the Live View bar?</h2>
+              <p id="live-dock-disable-description">Panda Knomi has no touchscreen. Live View is the only way to change its screens. If you hide the bar, you can still open Live View in Settings.</p>
+              <form method="dialog" class="actions"><button class="secondary" value="cancel" autofocus>Cancel</button><button class="primary" value="hide">Hide bar</button></form>
+            </dialog>
             <article class="card settings-pane live-view-card" data-settings-pane="live-view" hidden>
               <div class="section-head live-view-head"><div><h2>Live View</h2><p class="micro">See and control the PrintDeck screen from this browser.</p></div><label class="live-view-rate" for="live-view-refresh">Refresh rate<select id="live-view-refresh"><option value="1">Every 1 second</option><option value="2" selected>Every 2 seconds</option><option value="3">Every 3 seconds</option><option value="4">Every 4 seconds</option><option value="5">Every 5 seconds</option></select></label></div>
               <div class="live-view-layout">
@@ -2821,10 +2829,18 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     new MutationObserver(records=>{if(records.some(record=>record.target instanceof HTMLDialogElement))placeLiveDock()}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 
     let liveDockSaving=false;
+    let liveDockConfirming=false;
     function liveDockEnabled(){return settings.screen_bar_enabled===true}
     $('#live-dock-enabled').addEventListener('change',async event=>{
-      if(liveDockSaving)return;
+      if(liveDockSaving||liveDockConfirming)return;
       const enabled=event.target.checked,status=$('#live-dock-save-status');
+      if(!enabled&&(health.hardware||settings.hardware)==='knomipanda'){
+        liveDockConfirming=true;syncLiveDock();
+        const dialog=$('#live-dock-disable-dialog');dialog.returnValue='';
+        const confirmed=await new Promise(resolve=>{dialog.addEventListener('close',()=>resolve(dialog.returnValue==='hide'),{once:true});dialog.showModal()});
+        liveDockConfirming=false;syncLiveDock();
+        if(!confirmed)return;
+      }
       liveDockSaving=true;settingsWrites++;deviceSettingsRevision++;syncLiveDock();
       status.classList.remove('error');status.textContent=translated('Saving your changes…');
       const save=async()=>{
@@ -2838,7 +2854,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       };
       const task=deviceSaveQueue.then(save,save);deviceSaveQueue=task.catch(()=>{});await task;
     });
-    function syncLiveDock(){const fullPage=panelVisible('device')&&$('.side-tab[aria-selected=true]')?.dataset.section==='live-view',enabled=liveDockEnabled();$('#live-dock-preference').hidden=!fullPage;$('#live-dock-save-status').hidden=!fullPage;const input=$('#live-dock-enabled');input.checked=enabled;input.disabled=liveDockSaving||typeof settings.screen_bar_enabled!=='boolean';input.setAttribute('aria-busy',String(liveDockSaving));input.dataset.stateLabel=translated(enabled?'ON':'OFF');const eligible=enabled&&!$('#app-shell').hidden;if(!eligible&&liveDockOpen)closeLiveDock(false);liveDockTrigger.hidden=!eligible;document.body.classList.toggle('has-live-dock',eligible);placeLiveDock()}
+    function syncLiveDock(){const fullPage=panelVisible('device')&&$('.side-tab[aria-selected=true]')?.dataset.section==='live-view',enabled=liveDockEnabled();$('#live-dock-preference').hidden=!fullPage;$('#live-dock-save-status').hidden=!fullPage;const input=$('#live-dock-enabled');input.checked=enabled;input.disabled=liveDockSaving||liveDockConfirming||typeof settings.screen_bar_enabled!=='boolean';input.setAttribute('aria-busy',String(liveDockSaving));input.dataset.stateLabel=translated(enabled?'ON':'OFF');const eligible=enabled&&!$('#app-shell').hidden;if(!eligible&&liveDockOpen)closeLiveDock(false);liveDockTrigger.hidden=!eligible;document.body.classList.toggle('has-live-dock',eligible);placeLiveDock()}
     function closeLiveDock(restoreFocus=true){if(!liveDockOpen)return;liveDockOpen=false;stopLiveView(true);liveDockPanel.hidden=true;liveDockCard.hidden=!(panelVisible('device')&&$('.side-tab[aria-selected=true]')?.dataset.section==='live-view');liveDockHome.insertBefore(liveDockCard,liveDockNext);unlockLiveDockScroll();liveDockTrigger.setAttribute('aria-expanded','false');if(restoreFocus)liveDockTrigger.focus({preventScroll:true})}
     function openLiveDock(keyboard=false){if(liveDockTrigger.hidden||liveDockOpen)return;stopLiveView(true);liveDockOpen=true;lockLiveDockScroll();$('#live-dock-content').append(liveDockCard);liveDockCard.hidden=false;liveDockTrigger.setAttribute('aria-expanded','true');liveDockPanel.hidden=false;paintLiveViewDevice();refreshLiveView(true);if(keyboard)$('#live-dock-close').focus({preventScroll:true})}
     liveDockTrigger.addEventListener('click',event=>liveDockOpen?closeLiveDock():openLiveDock(event.detail===0));

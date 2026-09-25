@@ -73,7 +73,7 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   std::uint8_t screen_off_enabled = 1;
   std::uint8_t usb_power_save_enabled = 0;
   std::uint8_t wake_on_orientation_change = 0;
-  std::uint8_t printer_animations_enabled = 0;
+  std::uint8_t printer_animations_enabled = loaded.printer_animations_enabled ? 1 : 0;
   std::uint8_t reaction_progress_bar_enabled = 1;
   std::uint8_t reaction_progress_percent_enabled = 1;
   std::uint8_t unified_api_enabled = 0;

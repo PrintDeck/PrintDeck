@@ -274,7 +274,7 @@ bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema < 3) settings.custom_theme.background = ThemeColors{}.background;
   if (source_schema < 4 || settings.audio_preset.empty()) settings.audio_preset = "oldschool";
   if (source_schema < 5) settings.audio_muted_events = 0;
-  if (source_schema < 6) settings.printer_animations_enabled = false;
+  if (source_schema < 6) settings.printer_animations_enabled = true;
   if (source_schema < 7 &&
       (settings.audio_preset == "tactile" || settings.audio_preset == "impact" ||
        settings.audio_preset == "lucky")) {

@@ -104,7 +104,7 @@ struct DeviceSettings {
   std::vector<CompanionCamera> companion_cameras;
   std::uint32_t selected_profile = 0;
   std::uint8_t brightness_percent = 75;
-  bool printer_animations_enabled = false;
+  bool printer_animations_enabled = true;
   bool reaction_progress_bar_enabled = true;
   bool reaction_progress_percent_enabled = true;
   std::string theme = "green";
