@@ -43,6 +43,7 @@
 extern "C" bool printdeck_h264_yield();
 #endif
 
+#include "printdeck_snapshot_rows.h"
 #include "deblocking.h"
 
 #include "decode_slice.h"
@@ -219,9 +220,9 @@ int32_t WelsMbInterConstruction (PWelsDecoderContext pCtx, PDqLayer pCurDqLayer)
   int32_t iLumaStride   = pCtx->pDec->iLinesize[0];
   int32_t iChromaStride = pCtx->pDec->iLinesize[1];
 
-  pDstY  = pCurDqLayer->pDec->pData[0] + ((iMbY * iLumaStride + iMbX) << 4);
-  pDstCb = pCurDqLayer->pDec->pData[1] + ((iMbY * iChromaStride + iMbX) << 3);
-  pDstCr = pCurDqLayer->pDec->pData[2] + ((iMbY * iChromaStride + iMbX) << 3);
+  pDstY  = pCurDqLayer->pDec->pData[0] + ((PrintDeckPictureRow(iMbY) * iLumaStride + iMbX) << 4);
+  pDstCb = pCurDqLayer->pDec->pData[1] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
+  pDstCr = pCurDqLayer->pDec->pData[2] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
 
   if (pCtx->eSliceType == P_SLICE) {
     WELS_B_MB_REC_VERIFY (GetInterPred (pDstY, pDstCb, pDstCr, pCtx));
@@ -230,9 +231,9 @@ int32_t WelsMbInterConstruction (PWelsDecoderContext pCtx, PDqLayer pCurDqLayer)
       pCtx->pTempDec = AllocPicture (pCtx, pCtx->pSps->iMbWidth << 4, pCtx->pSps->iMbHeight << 4);
     uint8_t*   pTempDstYCbCr[3];
     uint8_t*   pDstYCbCr[3];
-    pTempDstYCbCr[0] = pCtx->pTempDec->pData[0] + ((iMbY * iLumaStride + iMbX) << 4);
-    pTempDstYCbCr[1] = pCtx->pTempDec->pData[1] + ((iMbY * iChromaStride + iMbX) << 3);
-    pTempDstYCbCr[2] = pCtx->pTempDec->pData[2] + ((iMbY * iChromaStride + iMbX) << 3);
+    pTempDstYCbCr[0] = pCtx->pTempDec->pData[0] + ((PrintDeckPictureRow(iMbY) * iLumaStride + iMbX) << 4);
+    pTempDstYCbCr[1] = pCtx->pTempDec->pData[1] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
+    pTempDstYCbCr[2] = pCtx->pTempDec->pData[2] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
     pDstYCbCr[0] = pDstY;
     pDstYCbCr[1] = pDstCb;
     pDstYCbCr[2] = pDstCr;
@@ -313,9 +314,9 @@ int32_t WelsMbInterPrediction (PWelsDecoderContext pCtx, PDqLayer pCurDqLayer) {
   int32_t iLumaStride   = pCtx->pDec->iLinesize[0];
   int32_t iChromaStride = pCtx->pDec->iLinesize[1];
 
-  pDstY  = pCurDqLayer->pDec->pData[0] + ((iMbY * iLumaStride + iMbX) << 4);
-  pDstCb = pCurDqLayer->pDec->pData[1] + ((iMbY * iChromaStride + iMbX) << 3);
-  pDstCr = pCurDqLayer->pDec->pData[2] + ((iMbY * iChromaStride + iMbX) << 3);
+  pDstY  = pCurDqLayer->pDec->pData[0] + ((PrintDeckPictureRow(iMbY) * iLumaStride + iMbX) << 4);
+  pDstCb = pCurDqLayer->pDec->pData[1] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
+  pDstCr = pCurDqLayer->pDec->pData[2] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
 
   if (pCtx->eSliceType == P_SLICE) {
     WELS_B_MB_REC_VERIFY (GetInterPred (pDstY, pDstCb, pDstCr, pCtx));
@@ -324,9 +325,9 @@ int32_t WelsMbInterPrediction (PWelsDecoderContext pCtx, PDqLayer pCurDqLayer) {
       pCtx->pTempDec = AllocPicture (pCtx, pCtx->pSps->iMbWidth << 4, pCtx->pSps->iMbHeight << 4);
     uint8_t*   pTempDstYCbCr[3];
     uint8_t*   pDstYCbCr[3];
-    pTempDstYCbCr[0] = pCtx->pTempDec->pData[0] + ((iMbY * iLumaStride + iMbX) << 4);
-    pTempDstYCbCr[1] = pCtx->pTempDec->pData[1] + ((iMbY * iChromaStride + iMbX) << 3);
-    pTempDstYCbCr[2] = pCtx->pTempDec->pData[2] + ((iMbY * iChromaStride + iMbX) << 3);
+    pTempDstYCbCr[0] = pCtx->pTempDec->pData[0] + ((PrintDeckPictureRow(iMbY) * iLumaStride + iMbX) << 4);
+    pTempDstYCbCr[1] = pCtx->pTempDec->pData[1] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
+    pTempDstYCbCr[2] = pCtx->pTempDec->pData[2] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
     pDstYCbCr[0] = pDstY;
     pDstYCbCr[1] = pDstCb;
     pDstYCbCr[2] = pDstCr;
@@ -1632,6 +1633,17 @@ int32_t WelsDecodeAndConstructSlice (PWelsDecoderContext pCtx) {
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
   int32_t iMbX, iMbY;
+#ifdef WELS_IDR_ROWS
+  // Stock K2 cameras send one progressive IDR slice. Refuse other layouts;
+  // inter prediction and arbitrary slice order require a full reference image.
+  if (pSliceHeader->eSliceType != I_SLICE || !pSliceHeader->bIdrFlag ||
+      pSliceHeader->iFirstMbInSlice != 0 || pCtx->iTotalNumMbRec != 0 ||
+      pSliceHeader->pPps->uiNumSliceGroups != 1 || GetThreadCount(pCtx) != 0)
+    return ERR_INFO_INVALID_ACCESS;
+  const PSps rowSps = pSliceHeader->pSps;
+  const int rowWidth = (rowSps->iMbWidth << 4) - 2 * rowSps->sFrameCrop.iRightOffset;
+  const int rowHeight = (rowSps->iMbHeight << 4) - 2 * rowSps->sFrameCrop.iBottomOffset;
+#endif
   const int32_t kiCountNumMb = pSliceHeader->pSps->uiTotalMbCount; //need to be correct when fmo or multi slice
   int32_t iTotalMbTargetLayer = kiCountNumMb;
   uint32_t uiEosFlag = 0;
@@ -1709,6 +1721,17 @@ int32_t WelsDecodeAndConstructSlice (PWelsDecoderContext pCtx) {
       break;
     }
 
+#ifdef WELS_IDR_ROWS
+    if (pCurDqLayer->iMbX == 0) {
+      for (int plane = 0; plane < 3; ++plane) {
+        const int h = plane == 0 ? 16 : 8;
+        const int stride = pCtx->pDec->iLinesize[plane];
+        unsigned char* data = pCtx->pDec->pData[plane];
+        if (pCurDqLayer->iMbY > 0) memmove(data, data + h * stride, h * stride);
+        memset(data + h * stride, 128, h * stride);
+      }
+    }
+#endif
     pCurDqLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
 #ifdef WELS_IDR_ONLY
@@ -1741,6 +1764,19 @@ int32_t WelsDecodeAndConstructSlice (PWelsDecoderContext pCtx) {
         pCtx->pDec->pNzc[pCurDqLayer->iMbXyIndex]); // set all none-zero nzc to 1; dbk can be opti!
     }
     WelsDeblockingFilterMB (pCurDqLayer, pFilter, iFilterIdc, pDeblockMb);
+#ifdef WELS_IDR_ROWS
+    if (pCurDqLayer->iMbX == pCurDqLayer->iMbWidth - 1) {
+      const PPicture pic = pCtx->pDec;
+      const int row = pCurDqLayer->iMbY;
+      if (row > 0 && !printdeck_h264_row(row - 1, rowWidth, rowHeight,
+          pic->pData[0], pic->pData[1], pic->pData[2],
+          pic->iLinesize[0], pic->iLinesize[1])) return ERR_INFO_INVALID_ACCESS;
+      if (row == pCurDqLayer->iMbHeight - 1 && !printdeck_h264_row(row, rowWidth, rowHeight,
+          pic->pData[0] + 16 * pic->iLinesize[0],
+          pic->pData[1] + 8 * pic->iLinesize[1], pic->pData[2] + 8 * pic->iLinesize[2],
+          pic->iLinesize[0], pic->iLinesize[1])) return ERR_INFO_INVALID_ACCESS;
+    }
+#else
     if (pCtx->uiNalRefIdc > 0) {
       if (pCurDqLayer->iMbX == 0 || pCurDqLayer->iMbX == pCurDqLayer->iMbWidth - 1 || pCurDqLayer->iMbY == 0
           || pCurDqLayer->iMbY == pCurDqLayer->iMbHeight - 1) {
@@ -1754,6 +1790,7 @@ int32_t WelsDecodeAndConstructSlice (PWelsDecoderContext pCtx) {
                        pCurDqLayer->iMbHeight);
       }
     }
+#endif
     if (!pCurDqLayer->pMbCorrectlyDecodedFlag[iNextMbXyIndex]) { //already con-ed, overwrite
       pCurDqLayer->pMbCorrectlyDecodedFlag[iNextMbXyIndex] = true;
       pCtx->pDec->iMbEcedPropNum += (pCurDqLayer->pMbRefConcealedFlag[iNextMbXyIndex] ? 1 : 0);
@@ -1842,8 +1879,8 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
     int32_t iDecStrideL = pCurDqLayer->pDec->iLinesize[0];
     int32_t iDecStrideC = pCurDqLayer->pDec->iLinesize[1];
 
-    int32_t iOffsetL = (iMbX + iMbY * iDecStrideL) << 4;
-    int32_t iOffsetC = (iMbX + iMbY * iDecStrideC) << 3;
+    int32_t iOffsetL = (iMbX + PrintDeckPictureRow(iMbY) * iDecStrideL) << 4;
+    int32_t iOffsetC = (iMbX + PrintDeckPictureRow(iMbY) * iDecStrideC) << 3;
 
     uint8_t* pDecY = pCurDqLayer->pDec->pData[0] + iOffsetL;
     uint8_t* pDecU = pCurDqLayer->pDec->pData[1] + iOffsetC;
@@ -2191,8 +2228,8 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
       int32_t iDecStrideL = pCurDqLayer->pDec->iLinesize[0];
       int32_t iDecStrideC = pCurDqLayer->pDec->iLinesize[1];
 
-      int32_t iOffsetL = (iMbX + iMbY * iDecStrideL) << 4;
-      int32_t iOffsetC = (iMbX + iMbY * iDecStrideC) << 3;
+      int32_t iOffsetL = (iMbX + PrintDeckPictureRow(iMbY) * iDecStrideL) << 4;
+      int32_t iOffsetC = (iMbX + PrintDeckPictureRow(iMbY) * iDecStrideC) << 3;
 
       uint8_t* pDecY = pCurDqLayer->pDec->pData[0] + iOffsetL;
       uint8_t* pDecU = pCurDqLayer->pDec->pData[1] + iOffsetC;
@@ -2745,8 +2782,8 @@ int32_t WelsActualDecodeMbCavlcBSlice (PWelsDecoderContext pCtx) {
       int32_t iDecStrideL = pCurDqLayer->pDec->iLinesize[0];
       int32_t iDecStrideC = pCurDqLayer->pDec->iLinesize[1];
 
-      int32_t iOffsetL = (iMbX + iMbY * iDecStrideL) << 4;
-      int32_t iOffsetC = (iMbX + iMbY * iDecStrideC) << 3;
+      int32_t iOffsetL = (iMbX + PrintDeckPictureRow(iMbY) * iDecStrideL) << 4;
+      int32_t iOffsetC = (iMbX + PrintDeckPictureRow(iMbY) * iDecStrideC) << 3;
 
       uint8_t* pDecY = pCurDqLayer->pDec->pData[0] + iOffsetL;
       uint8_t* pDecU = pCurDqLayer->pDec->pData[1] + iOffsetC;

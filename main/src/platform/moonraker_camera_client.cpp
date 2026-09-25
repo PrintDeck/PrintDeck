@@ -1,9 +1,14 @@
 #include "printdeck/platform/image_workspace.hpp"
+#include "printdeck/platform/h264_snapshot_rows.hpp"
 #include "printdeck/platform/moonraker_camera_client.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/mjpeg_stream_parser.hpp"
 #include "printdeck/platform/camera_snapshot_timing.hpp"
 #include "printdeck/platform/camera_receive_slice.hpp"
+#if defined(PRINTDECK_BOARD_KNOMIPANDA)
+#include "printdeck/platform/camera_jpeg_tiles.hpp"
+#include "esp32/rom/tjpgd.h"
+#endif
 #ifdef PRINTDECK_K2_UDP_PREFETCH
 #include "printdeck/platform/camera_udp_prefetch.h"
 #endif
@@ -66,6 +71,11 @@ void yield_camera_services(const std::atomic<bool>* stop = nullptr
       esp_register_freertos_idle_hook_for_cpu(observe_decoder_idle, kServiceCore) == ESP_OK;
   const TickType_t observed = decoder_idle_tick.load(std::memory_order_relaxed);
   const TickType_t started = xTaskGetTickCount();
+  // Panda can spend hundreds of milliseconds inside a peer/decoder batch.
+  // A 50 ms rendezvous expires before the other worker reaches it, letting
+  // both resume without IDLE0 ever running. Cancellation is still per tick.
+  constexpr TickType_t idle_wait_ticks = pdMS_TO_TICKS(
+      std::string_view(kBoardVariant) == "knomipanda" ? 1000 : 50);
 #if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
   CameraIdleWaitTrace trace(trace_site,
       static_cast<TickType_t>(started - observed) * portTICK_PERIOD_MS, registered);
@@ -92,9 +102,9 @@ void yield_camera_services(const std::atomic<bool>* stop = nullptr
   } while (registered && decoder_idle_tick.load(std::memory_order_relaxed) == observed &&
 #if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
            (trace_within_deadline =
-               static_cast<TickType_t>(xTaskGetTickCount() - started) < pdMS_TO_TICKS(50)));
+               static_cast<TickType_t>(xTaskGetTickCount() - started) < idle_wait_ticks));
 #else
-           static_cast<TickType_t>(xTaskGetTickCount() - started) < pdMS_TO_TICKS(50));
+           static_cast<TickType_t>(xTaskGetTickCount() - started) < idle_wait_ticks);
 #endif
 #if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
   const bool trace_cancelled = stop != nullptr && stop->load(std::memory_order_acquire);
@@ -102,6 +112,7 @@ void yield_camera_services(const std::atomic<bool>* stop = nullptr
 #endif
 }
 constexpr std::size_t kMaximumJpegBytes = 1024U * 1024U;
+constexpr std::size_t kMaximumIdrBytes = 512U * 1024U;
 constexpr std::uint16_t kOutputWidth = 400;
 constexpr std::uint16_t kOutputHeight = 224;
 constexpr std::uint16_t kH264OutputWidth = kDisplayUsesCompactLayout ? 220 : 360;
@@ -111,6 +122,10 @@ constexpr std::int64_t kLivePublishIntervalUs = 125000;
 // Bound snapshot work even when a camera bursts several complete IDRs. The
 // decoder also yields between macroblock groups to keep core-0 services alive.
 constexpr std::int64_t kCrealityMinimumDecodeIntervalUs = 2000000;
+// Classic ESP32 with 40 MHz PSRAM needs substantially longer for a 1080p IDR.
+// This only extends an already queued decode; user cancellation stays immediate.
+constexpr std::int64_t kCrealityDecodeBudgetUs =
+    std::string_view(kBoardVariant) == "knomipanda" ? 60'000'000 : 8'000'000;
 constexpr EventBits_t kWebsocketConnected = BIT0;
 constexpr EventBits_t kWebsocketFailed = BIT1;
 
@@ -239,6 +254,85 @@ bool complete_jpeg(const std::vector<std::uint8_t>& bytes) {
          bytes[bytes.size() - 2] == 0xff && bytes.back() == 0xd9;
 }
 
+#if defined(PRINTDECK_BOARD_KNOMIPANDA)
+struct PandaJpegDecode {
+  std::span<const std::uint8_t> input;
+  std::size_t offset = 0;
+  std::span<std::uint8_t> output;
+  CameraJpegScale scale;
+  const std::atomic<bool>& stop;
+  const std::atomic<std::uint32_t>& generation;
+  std::uint32_t expected_generation;
+  std::int64_t deadline;
+  std::int64_t next_yield = 0;
+
+  bool checkpoint() {
+    auto now = esp_timer_get_time();
+    if (stop.load() || generation.load() != expected_generation || now >= deadline) return false;
+    if (now >= next_yield) {
+      yield_camera_services(&stop);
+      vTaskDelay(1);
+      now = esp_timer_get_time();
+      next_yield = now + 8000;
+    }
+    return !stop.load() && generation.load() == expected_generation && now < deadline;
+  }
+};
+
+UINT panda_jpeg_read(JDEC* decoder, BYTE* destination, UINT requested) {
+  auto& context = *static_cast<PandaJpegDecode*>(decoder->device);
+  if (!context.checkpoint()) return 0;
+  const auto count = std::min<std::size_t>(requested, context.input.size() - context.offset);
+  if (destination != nullptr) std::memcpy(destination, context.input.data() + context.offset, count);
+  context.offset += count;
+  return static_cast<UINT>(count);
+}
+
+UINT panda_jpeg_write(JDEC* decoder, void* rgb, JRECT* rectangle) {
+  auto& context = *static_cast<PandaJpegDecode*>(decoder->device);
+  if (!context.checkpoint() || rgb == nullptr || rectangle == nullptr ||
+      rectangle->left > rectangle->right || rectangle->top > rectangle->bottom) return 0;
+  const auto bytes = static_cast<std::size_t>(rectangle->right - rectangle->left + 1) *
+      (rectangle->bottom - rectangle->top + 1) * 3;
+  return write_camera_jpeg_tile(context.output, context.scale.width, context.scale.height,
+      rectangle->left, rectangle->top, rectangle->right, rectangle->bottom,
+      {static_cast<const std::uint8_t*>(rgb), bytes}) ? 1 : 0;
+}
+
+bool decode_panda_jpeg(const std::vector<std::uint8_t>& jpeg,
+                       const std::atomic<bool>& stop,
+                       const std::atomic<std::uint32_t>& generation,
+                       std::uint32_t expected_generation,
+                       core::CameraFrame* frame, std::uint16_t* width, std::uint16_t* height) {
+  if (!complete_jpeg(jpeg) || jpeg.size() > kMaximumJpegBytes) return false;
+  constexpr std::size_t workspace_bytes = 4096;
+  using Allocation = std::unique_ptr<void, decltype(&heap_caps_free)>;
+  Allocation workspace(heap_caps_malloc(workspace_bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                       heap_caps_free);
+  if (!workspace) return false;
+  PandaJpegDecode context{jpeg, 0, {}, {}, stop, generation, expected_generation,
+                         esp_timer_get_time() + 8000000};
+  JDEC decoder{};
+  const auto prepared = jd_prepare(&decoder, panda_jpeg_read, workspace.get(), workspace_bytes, &context);
+  if (prepared != JDR_OK) return false;
+  context.scale = camera_jpeg_scale(decoder.width, decoder.height);
+  if (context.scale.width == 0) return false;
+  const auto bytes = static_cast<std::size_t>(context.scale.width) * context.scale.height * 2;
+  Allocation pixels(heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT), heap_caps_free);
+  if (!pixels) return false;
+  context.output = {static_cast<std::uint8_t*>(pixels.get()), bytes};
+  if (jd_decomp(&decoder, panda_jpeg_write, context.scale.shift) != JDR_OK ||
+      !context.checkpoint()) return false;
+  auto result = core::CameraFrame::adopt(static_cast<std::uint8_t*>(pixels.release()), bytes, heap_caps_free);
+  if (!result) return false;
+  *frame = std::move(result);
+  *width = context.scale.width;
+  *height = context.scale.height;
+  return true;
+}
+#endif
+
+#if !defined(PRINTDECK_BOARD_KNOMIPANDA)
 bool decode_rgb565(const std::vector<std::uint8_t>& jpeg,
                    core::CameraFrame* frame,
                    std::uint16_t* width, std::uint16_t* height) {
@@ -282,7 +376,7 @@ bool decode_stream_jpeg(const std::vector<std::uint8_t>& jpeg,
                         const std::atomic<bool>& stop,
                         const std::atomic<std::uint32_t>& generation,
                         std::uint32_t expected_generation,
-                        std::shared_ptr<std::vector<std::uint8_t>>* pixels,
+                        core::CameraFrame* pixels,
                         std::uint16_t* width, std::uint16_t* height) {
   // Decode one MCU-height strip at a time. This bounds working memory and
   // gives networking and cancellation a scheduling point within each frame.
@@ -356,6 +450,7 @@ bool decode_stream_jpeg(const std::vector<std::uint8_t>& jpeg,
   jpeg_dec_close(decoder);
   return success;
 }
+#endif
 
 std::string camera_host(std::string endpoint) {
   if (endpoint.rfind("http://", 0) == 0) endpoint.erase(0, 7);
@@ -648,17 +743,21 @@ void append_annex_b(std::vector<std::uint8_t>* output,
   output->insert(output->end(), data, data + size);
 }
 
-std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
+using SnapshotRows = H264SnapshotRows<kH264OutputWidth, kH264OutputHeight>;
+// The shared image workspace serializes the callback and its stack-owned sink.
+SnapshotRows* active_snapshot_rows = nullptr;
+
+core::CameraFrame decode_idr_snapshot(
     const std::uint8_t* data, std::size_t size, std::uint16_t* output_width,
     std::uint16_t* output_height, const std::atomic<bool>& stop,
     const std::atomic<std::uint32_t>& session, std::uint32_t generation) {
   struct DecodeScope {
-    ~DecodeScope() { decoder_stop_requested = nullptr; decoder_session = nullptr; }
+    ~DecodeScope() { active_snapshot_rows = nullptr; decoder_stop_requested = nullptr; decoder_session = nullptr; }
   } scope;
   decoder_stop_requested = &stop;
   decoder_session = &session;
   decoder_session_started = generation;
-  if (decoder_cancelled()) return {};
+  if (decoder_cancelled() || data == nullptr || size == 0 || size > kMaximumIdrBytes) return {};
   if (!contains_h264_nal(data, size, 5)) return {};
   // K2's SDP avcC parameters describe a dummy 128x96 stream.  Its in-band
   // keyframes use these real 1920x1080 Main/CABAC parameters.
@@ -668,6 +767,7 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
       0x5d, 0xc0, 0x00, 0x15, 0xf9, 0x00, 0x40,
       0x00, 0x00, 0x00, 0x01, 0x68, 0xee, 0x38, 0x80,
   };
+  if (heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) < size + sizeof(kK2ParameterSets) + 16384U) return {};
   std::vector<std::uint8_t> access_unit;
   access_unit.reserve(sizeof(kK2ParameterSets) + size + 4U);
   access_unit.insert(access_unit.end(), std::begin(kK2ParameterSets),
@@ -678,13 +778,17 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
   // workspace. A late std::vector allocation can abort a no-exceptions build.
   constexpr std::size_t reserved_bytes = kH264OutputWidth * kH264OutputHeight * 2U;
   if (heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) < reserved_bytes + 16384U) return {};
-  auto reserved_pixels = std::make_shared<std::vector<std::uint8_t>>(reserved_bytes);
+  auto* raw_pixels = static_cast<std::uint8_t*>(heap_caps_malloc(reserved_bytes, MALLOC_CAP_SPIRAM));
+  if (!raw_pixels) return {};
+  std::unique_ptr<std::uint8_t, decltype(&heap_caps_free)> reserved_pixels(raw_pixels, heap_caps_free);
+  SnapshotRows rows(raw_pixels);
+  active_snapshot_rows = &rows;
   decoder_yield_count = 0;
   decoder_yield_us = 0;
   const std::int64_t prepare_started = esp_timer_get_time();
   ISVCDecoder* decoder = nullptr;
   if (WelsCreateDecoder(&decoder) != 0 || decoder == nullptr) return {};
-  std::shared_ptr<std::vector<std::uint8_t>> pixels;
+  core::CameraFrame pixels;
   SDecodingParam parameters{};
   parameters.uiTargetDqLayer = 0xff;
   parameters.eEcActiveIdc = ERROR_CON_DISABLE;
@@ -702,12 +806,12 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
     // call and can overwrite an already-ready IDR's iBufferStatus with zero.
     // K2 gives us a complete RTP access unit, so retain the first result and
     // flush only when that call genuinely has no picture yet.
-    if (!decoder_cancelled() && info.iBufferStatus == 0) {
+    if (!decoder_cancelled() && state == dsErrorFree && info.iBufferStatus == 0) {
       state = static_cast<DECODING_STATE>(
           static_cast<int>(state) |
           static_cast<int>(decoder->DecodeFrame2(nullptr, 0, planes, &info)));
     }
-    if (!decoder_cancelled() && info.iBufferStatus == 0) {
+    if (!decoder_cancelled() && state == dsErrorFree && info.iBufferStatus == 0) {
       int buffered_frames = 0;
       if (decoder->GetOption(DECODER_OPTION_NUM_OF_FRAMES_REMAINING_IN_BUFFER,
                              &buffered_frames) == 0 &&
@@ -727,19 +831,12 @@ std::shared_ptr<std::vector<std::uint8_t>> decode_idr_snapshot(
              static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)),
              static_cast<unsigned>(
                  heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM)));
-    // OpenH264 can flag recoverable bitstream damage when a receiver joins an
-    // already-running WebRTC stream.  A complete output buffer is nevertheless
-    // a valid snapshot; do not discard it solely because state is non-zero.
-    if (!decoder_cancelled() && info.iBufferStatus == 1 && planes[0] != nullptr &&
-        planes[1] != nullptr && planes[2] != nullptr &&
-        info.UsrData.sSystemBuffer.iWidth > 0 &&
-        info.UsrData.sSystemBuffer.iHeight > 0) {
-      const auto width = static_cast<std::uint16_t>(info.UsrData.sSystemBuffer.iWidth);
-      const auto height = static_cast<std::uint16_t>(info.UsrData.sSystemBuffer.iHeight);
-      const auto y_stride = static_cast<std::uint16_t>(info.UsrData.sSystemBuffer.iStride[0]);
-      const auto chroma_stride = static_cast<std::uint16_t>(info.UsrData.sSystemBuffer.iStride[1]);
-      pixels = i420_to_rgb565(planes[0], planes[1], planes[2], width, height,
-                              y_stride, chroma_stride, output_width, output_height, reserved_pixels);
+    // Completion requires every row and a clean access unit. The two-row
+    // workspace is intentionally not exposed as a full I420 output buffer.
+    if (!decoder_cancelled() && state == dsErrorFree && info.iBufferStatus == 1 && rows.complete()) {
+      *output_width = rows.width();
+      *output_height = rows.height();
+      pixels = core::CameraFrame::adopt(reserved_pixels.release(), rows.size(), heap_caps_free);
     }
     const std::int64_t scale_done = esp_timer_get_time();
     decoder->Uninitialize();
@@ -769,6 +866,13 @@ void websocket_event(void* argument, esp_event_base_t, std::int32_t event_id, vo
 
 // Called by the IDR-only port between macroblock groups. Both decoding and
 // receive callbacks allow actual IDLE0 time, with bounded cancellation latency.
+extern "C" bool printdeck_h264_row(int row, int width, int height,
+                                   const unsigned char* y, const unsigned char* u,
+                                   const unsigned char* v, int y_stride, int c_stride) {
+  return !decoder_cancelled() && active_snapshot_rows &&
+      active_snapshot_rows->append(row, width, height, y, u, v, y_stride, c_stride);
+}
+
 extern "C" bool printdeck_h264_yield() {
   if (decoder_cancelled()) return false;
   const std::int64_t yield_started = esp_timer_get_time();
@@ -981,7 +1085,12 @@ bool MoonrakerCameraClient::fetch_frame(const core::PrinterProfile& profile,
   core::CameraFrame frame;
   std::uint16_t width = 0;
   std::uint16_t height = 0;
+#if defined(PRINTDECK_BOARD_KNOMIPANDA)
+  if (!decode_panda_jpeg(response.bytes, stop_requested_, camera_session_generation_,
+                         generation, &frame, &width, &height)) return false;
+#else
   if (!decode_rgb565(response.bytes, &frame, &width, &height)) return false;
+#endif
   if (!enabled_.load() || generation != camera_session_generation_.load()) return false;
   if (stock_snapshot) {
     stock_jpeg_digest_ = digest;
@@ -1005,7 +1114,12 @@ bool MoonrakerCameraClient::detect_backend(const core::PrinterProfile& profile) 
       if (page.find("github.com/paxx12/v4l2-mpp") != std::string::npos &&
           page.find("stream.mjpg") != std::string::npos) {
         snapshot_path_ = origin + "snapshot.jpg";
-        mjpeg_url_ = origin + "stream.mjpg?fps=5";
+        mjpeg_url_ = origin +
+#if defined(PRINTDECK_BOARD_KNOMIPANDA)
+            "stream.mjpg?fps=2";
+#else
+            "stream.mjpg?fps=5";
+#endif
         backend_.store(Backend::paxx_mjpeg);
         const std::lock_guard<std::mutex> lock(snapshot_mutex_);
         snapshot_.supported = true;
@@ -1322,7 +1436,9 @@ int MoonrakerCameraClient::peer_video_callback(esp_peer_video_frame_t* frame,
 
 bool MoonrakerCameraClient::start_creality_peer(const core::PrinterProfile& profile) {
   stop_creality_peer();
-  if constexpr (std::string_view(kBoardVariant) == "knomipanda") return false;
+  if constexpr (std::string_view(kBoardVariant) == "knomipanda") {
+    if (!supports_creality_k2(profile)) return false;
+  }
   // A 1080p keyframe arrives as a short RTP burst. Avoid modem sleep and
   // synchronous library diagnostics while that burst is being received.
   esp_wifi_set_ps(WIFI_PS_NONE);
@@ -1622,7 +1738,7 @@ bool MoonrakerCameraClient::decode_creality_frame(const std::uint8_t* data,
   if (data == nullptr || size == 0 ||
       stop_requested_.load(std::memory_order_acquire)) return false;
   if (idr_snapshot_decoder_.load()) {
-    if (!contains_h264_nal(data, size, 5)) return false;
+    if (size > kMaximumIdrBytes || !contains_h264_nal(data, size, 5)) return false;
     // Keep only a complete fresh IDR and leave the transport running while
     // decoding. Closing a live K2 socket makes its late RTP trigger ICMP replies.
     if (creality_decoder_busy_.load()) return false;
@@ -1633,7 +1749,8 @@ bool MoonrakerCameraClient::decode_creality_frame(const std::uint8_t* data,
     }
     {
       const std::lock_guard<std::mutex> lock(pending_idr_mutex_);
-      if (pending_idr_ || creality_decoder_busy_.load()) return false;
+      if (pending_idr_ || creality_decoder_busy_.load() ||
+          heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) < size + 16384U) return false;
       pending_idr_ = std::make_shared<std::vector<std::uint8_t>>(data, data + size);
       pending_idr_generation_ = camera_session_generation_.load();
       last_creality_idr_queued_us_.store(now);
@@ -1761,11 +1878,16 @@ void MoonrakerCameraClient::decoder_loop() {
         if (jpeg_generation != camera_session_generation_.load() ||
             !enabled_.load() || !live_mode_.load()) continue;
         const std::int64_t started = esp_timer_get_time();
-        std::shared_ptr<std::vector<std::uint8_t>> pixels;
+        core::CameraFrame pixels;
         std::uint16_t width = 0;
         std::uint16_t height = 0;
+#if defined(PRINTDECK_BOARD_KNOMIPANDA)
+        const bool decoded = decode_panda_jpeg(*jpeg, stop_requested_, camera_session_generation_,
+                                               jpeg_generation, &pixels, &width, &height);
+#else
         const bool decoded = decode_stream_jpeg(*jpeg, stop_requested_, camera_session_generation_,
                                                 jpeg_generation, &pixels, &width, &height);
+#endif
         if (decoded && jpeg_generation == camera_session_generation_.load() &&
             enabled_.load() && network_ready_.load() && live_mode_.load() &&
             backend_.load() == Backend::paxx_mjpeg) {
@@ -1960,7 +2082,12 @@ void MoonrakerCameraClient::task_loop() {
           // short receive budget applies only after the stream is connected.
           // K2 IDR bursts reached the 64-packet cap in target measurements.
           // Keep other Creality modes at their existing allowance.
-          const std::size_t packet_limit = idr_snapshot_decoder_.load() ? 128 : 64;
+          // The classic ESP32's peer jitter-buffer work can hold core 0 for
+          // several seconds across 128 packets. Return to the shared idle
+          // check sooner; the prefetch queue retains pending datagrams.
+          constexpr std::size_t idr_packet_limit =
+              std::string_view(kBoardVariant) == "knomipanda" ? 32 : 128;
+          const std::size_t packet_limit = idr_snapshot_decoder_.load() ? idr_packet_limit : 64;
           CameraReceiveSlice slice(stop_requested_, peer_connected_.load() ? packet_limit : 0);
           for (unsigned received = 0; received < 8 && !stop_requested_.load(); ++received) {
 #if defined(CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS) && CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
@@ -2098,14 +2225,15 @@ void MoonrakerCameraClient::task_loop() {
           const int fps = snapshot_fps_.load();
           next_peer_start_us = esp_timer_get_time() + 1000000 / std::max(1, fps);
         } else if (idr_snapshot_decoder_.load() && frame_received_.load() &&
-                   last_creality_video_us_.load() != 0 &&
-                   esp_timer_get_time() - last_creality_video_us_.load() > 12000000) {
+                   camera_idr_refresh_timed_out(esp_timer_get_time(),
+                       last_creality_video_us_.load(), last_published_frame_us_.load(),
+                       last_creality_idr_queued_us_.load(), kCrealityDecodeBudgetUs)) {
           ESP_LOGW(kTag, "Creality WebRTC stream stalled; reconnecting");
           stop_creality_peer();
           next_peer_start_us = esp_timer_get_time() + 1000000;
         } else if (!frame_received_.load() && camera_first_frame_timed_out(
                        esp_timer_get_time(), peer_started_us,
-                       last_creality_idr_queued_us_.load())) {
+                       last_creality_idr_queued_us_.load(), kCrealityDecodeBudgetUs)) {
           const bool video_arrived = video_callback_count_.load() != 0;
           ESP_LOGW(kTag, "First camera frame timed out; retrying %s negotiation",
                    video_arrived ? "established" : "next");
@@ -2139,6 +2267,7 @@ void MoonrakerCameraClient::task_loop() {
         backend_.store(Backend::paxx_snapshot);
         const std::lock_guard<std::mutex> lock(snapshot_mutex_);
         snapshot_.live_supported = false;
+        ESP_LOGW(kTag, "MJPEG unavailable after three sessions; using snapshots");
       }
       if (enabled_.load() && !stop_requested_.load()) {
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(received ? 250 : 2000));

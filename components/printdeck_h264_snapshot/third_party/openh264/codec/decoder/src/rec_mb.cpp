@@ -39,6 +39,7 @@
  */
 
 
+#include "printdeck_snapshot_rows.h"
 #include "rec_mb.h"
 #include "decode_slice.h"
 
@@ -55,9 +56,9 @@ void WelsFillRecNeededMbInfo (PWelsDecoderContext pCtx, bool bOutput, PDqLayer p
   pCurDqLayer->iChromaStride = iChromaStride;
 
   if (bOutput) {
-    pCurDqLayer->pPred[0] = pCurPic->pData[0] + ((iMbY * iLumaStride + iMbX) << 4);
-    pCurDqLayer->pPred[1] = pCurPic->pData[1] + ((iMbY * iChromaStride + iMbX) << 3);
-    pCurDqLayer->pPred[2] = pCurPic->pData[2] + ((iMbY * iChromaStride + iMbX) << 3);
+    pCurDqLayer->pPred[0] = pCurPic->pData[0] + ((PrintDeckPictureRow(iMbY) * iLumaStride + iMbX) << 4);
+    pCurDqLayer->pPred[1] = pCurPic->pData[1] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
+    pCurDqLayer->pPred[2] = pCurPic->pData[2] + ((PrintDeckPictureRow(iMbY) * iChromaStride + iMbX) << 3);
   }
 }
 

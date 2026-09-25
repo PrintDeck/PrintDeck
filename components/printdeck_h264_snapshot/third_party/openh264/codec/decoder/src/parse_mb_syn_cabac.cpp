@@ -30,6 +30,7 @@
  *
  *      parse_mb_syn_cabac.cpp: cabac parse for syntax elements
  */
+#include "printdeck_snapshot_rows.h"
 #include "parse_mb_syn_cabac.h"
 #include "decode_slice.h"
 #include "mv_pred.h"
@@ -1511,8 +1512,8 @@ int32_t ParseIPCMInfoCabac (PWelsDecoderContext pCtx) {
   int32_t iMbY = pCurDqLayer->iMbY;
   int32_t iMbXy = pCurDqLayer->iMbXyIndex;
 
-  int32_t iMbOffsetLuma = (iMbX + iMbY * iDstStrideLuma) << 4;
-  int32_t iMbOffsetChroma = (iMbX + iMbY * iDstStrideChroma) << 3;
+  int32_t iMbOffsetLuma = (iMbX + PrintDeckPictureRow(iMbY) * iDstStrideLuma) << 4;
+  int32_t iMbOffsetChroma = (iMbX + PrintDeckPictureRow(iMbY) * iDstStrideChroma) << 3;
 
   uint8_t* pMbDstY = pCtx->pDec->pData[0] + iMbOffsetLuma;
   uint8_t* pMbDstU = pCtx->pDec->pData[1] + iMbOffsetChroma;

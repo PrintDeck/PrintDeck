@@ -11,11 +11,31 @@ namespace printdeck::platform {
 // the connection timeout. Failed streams still reconnect within a fixed bound.
 constexpr bool camera_first_frame_timed_out(std::int64_t now_us,
                                             std::int64_t started_us,
-                                            std::int64_t candidate_us) {
+                                            std::int64_t candidate_us,
+                                            std::int64_t decode_budget_us = 8'000'000) {
   if (started_us <= 0) return false;
   const auto normal_deadline = started_us + 30'000'000;
   const auto decode_deadline = candidate_us > 0
-      ? std::min(candidate_us + 8'000'000, normal_deadline + 8'000'000)
+      ? std::min(candidate_us + decode_budget_us, normal_deadline + decode_budget_us)
+      : normal_deadline;
+  return now_us >= std::max(normal_deadline, decode_deadline);
+}
+
+// P/B frames prove transport activity, but cannot refresh an IDR-only display.
+// Retry a stale image even when those frames keep arriving. Give a late IDR
+// its target's decode budget, without letting broken candidates extend forever.
+constexpr bool camera_idr_refresh_timed_out(std::int64_t now_us,
+                                             std::int64_t last_video_us,
+                                             std::int64_t published_us,
+                                             std::int64_t candidate_us,
+                                             std::int64_t decode_budget_us = 8'000'000) {
+  const bool decoding = candidate_us > published_us &&
+                        now_us < candidate_us + decode_budget_us;
+  if (last_video_us > 0 && now_us - last_video_us > 12'000'000 && !decoding) return true;
+  if (published_us <= 0) return false;
+  const auto normal_deadline = published_us + 20'000'000;
+  const auto decode_deadline = candidate_us > published_us
+      ? std::min(candidate_us + decode_budget_us, normal_deadline + decode_budget_us)
       : normal_deadline;
   return now_us >= std::max(normal_deadline, decode_deadline);
 }

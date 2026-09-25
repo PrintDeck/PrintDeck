@@ -18,8 +18,9 @@ idf_component_register(
 # This is intentionally not a general video decoder.  PrintDeck connects to a
 # camera, consumes one self-contained IDR access unit, scales it to the display
 # and tears the decoder down.  These changes remove DPB/inter-frame storage and
-# keep the stock K2's 1080p Main/CABAC keyframe inside the board's 8 MB PSRAM.
-target_compile_definitions(${COMPONENT_LIB} PRIVATE WELS_IDR_ONLY ESP_PLATFORM)
+# retain two deblocked rows, sampling directly into a small RGB565 thumbnail.
+# This also fits classic ESP32's 4 MB mapped PSRAM.
+target_compile_definitions(${COMPONENT_LIB} PRIVATE WELS_IDR_ONLY WELS_IDR_ROWS ESP_PLATFORM)
 target_compile_options(${COMPONENT_LIB} PRIVATE
     -O2
     -Wno-unused-function

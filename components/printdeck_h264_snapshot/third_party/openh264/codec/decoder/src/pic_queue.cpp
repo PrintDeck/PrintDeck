@@ -76,7 +76,12 @@ PPicture AllocPicture (PWelsDecoderContext pCtx, const int32_t kiPicWidth, const
   memset (pPic, 0, sizeof (SPicture));
 
   iPicWidth = WELS_ALIGN (kiPicWidth + (PADDING_LENGTH << 1), PICTURE_RESOLUTION_ALIGNMENT);
+#ifdef WELS_IDR_ROWS
+  // The previous row is retained until the next row deblocks its bottom edge.
+  iPicHeight = WELS_ALIGN (32 + (PADDING_LENGTH << 1), PICTURE_RESOLUTION_ALIGNMENT);
+#else
   iPicHeight = WELS_ALIGN (kiPicHeight + (PADDING_LENGTH << 1), PICTURE_RESOLUTION_ALIGNMENT);
+#endif
   iPicChromaWidth   = iPicWidth >> 1;
   iPicChromaHeight  = iPicHeight >> 1;
 

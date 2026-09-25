@@ -38,6 +38,7 @@
  *************************************************************************************
  */
 
+#include "printdeck_snapshot_rows.h"
 #include "deblocking.h"
 #include "deblocking_common.h"
 #include "cpu_core.h"
@@ -895,9 +896,9 @@ static void DeblockingInterMb (PDqLayer pCurDqLayer, PDeblockingFilter  pFilter,
   int32_t iLineSizeUV = pFilter->iCsStride[1];
 
   uint8_t* pDestY, * pDestCb, * pDestCr;
-  pDestY  = pFilter->pCsData[0] + ((iMbY * iLineSize + iMbX) << 4);
-  pDestCb = pFilter->pCsData[1] + ((iMbY * iLineSizeUV + iMbX) << 3);
-  pDestCr = pFilter->pCsData[2] + ((iMbY * iLineSizeUV + iMbX) << 3);
+  pDestY  = pFilter->pCsData[0] + ((PrintDeckPictureRow(iMbY) * iLineSize + iMbX) << 4);
+  pDestCb = pFilter->pCsData[1] + ((PrintDeckPictureRow(iMbY) * iLineSizeUV + iMbX) << 3);
+  pDestCr = pFilter->pCsData[2] + ((PrintDeckPictureRow(iMbY) * iLineSizeUV + iMbX) << 3);
 
   //Vertical margin
   if (iBoundryFlag & LEFT_FLAG_MASK) {
@@ -985,7 +986,7 @@ void FilteringEdgeLumaHV (PDqLayer pCurDqLayer, PDeblockingFilter  pFilter, int3
   ENFORCE_STACK_ALIGN_1D (int8_t,  iTc,   4, 16);
   ENFORCE_STACK_ALIGN_1D (uint8_t, uiBSx4, 4, 4);
 
-  pDestY  = pFilter->pCsData[0] + ((iMbY * iLineSize + iMbX) << 4);
+  pDestY  = pFilter->pCsData[0] + ((PrintDeckPictureRow(iMbY) * iLineSize + iMbX) << 4);
   iCurQp  = pCurDqLayer->pLumaQp[iMbXyIndex];
 
   * (uint32_t*)uiBSx4 = 0x03030303;
@@ -1048,8 +1049,8 @@ void FilteringEdgeChromaHV (PDqLayer pCurDqLayer, PDeblockingFilter  pFilter, in
   ENFORCE_STACK_ALIGN_1D (int8_t,  iTc,   4, 16);
   ENFORCE_STACK_ALIGN_1D (uint8_t, uiBSx4, 4, 4);
 
-  pDestCb = pFilter->pCsData[1] + ((iMbY * iLineSize + iMbX) << 3);
-  pDestCr = pFilter->pCsData[2] + ((iMbY * iLineSize + iMbX) << 3);
+  pDestCb = pFilter->pCsData[1] + ((PrintDeckPictureRow(iMbY) * iLineSize + iMbX) << 3);
+  pDestCr = pFilter->pCsData[2] + ((PrintDeckPictureRow(iMbY) * iLineSize + iMbX) << 3);
   pCurQp  = pCurDqLayer->pChromaQp[iMbXyIndex];
 
   * (uint32_t*)uiBSx4 = 0x03030303;

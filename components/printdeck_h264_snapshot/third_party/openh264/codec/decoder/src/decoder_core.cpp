@@ -220,6 +220,9 @@ static inline int32_t DecodeFrameConstruction (PWelsDecoderContext pCtx, uint8_t
   ppDst[0] = ppDst[0] + pCtx->sFrameCrop.iTopOffset * 2 * pPic->iLinesize[0] + pCtx->sFrameCrop.iLeftOffset * 2;
   ppDst[1] = ppDst[1] + pCtx->sFrameCrop.iTopOffset  * pPic->iLinesize[1] + pCtx->sFrameCrop.iLeftOffset;
   ppDst[2] = ppDst[2] + pCtx->sFrameCrop.iTopOffset  * pPic->iLinesize[1] + pCtx->sFrameCrop.iLeftOffset;
+#ifdef WELS_IDR_ROWS
+  ppDst[0] = ppDst[1] = ppDst[2] = NULL;
+#endif
   for (int i = 0; i < 3; ++i) {
     pDstInfo->pDst[i] = ppDst[i];
   }
@@ -1497,6 +1500,9 @@ int32_t UpdateAccessUnit (PWelsDecoderContext pCtx) {
 int32_t InitialDqLayersContext (PWelsDecoderContext pCtx, const int32_t kiMaxWidth, const int32_t kiMaxHeight) {
   int32_t i = 0;
   WELS_VERIFY_RETURN_IF (ERR_INFO_INVALID_PARAM, (NULL == pCtx || kiMaxWidth <= 0 || kiMaxHeight <= 0))
+#ifdef WELS_IDR_ROWS
+  if (kiMaxWidth > 1920 || kiMaxHeight > 1088) return ERR_INFO_INVALID_PARAM;
+#endif
   pCtx->sMb.iMbWidth  = (kiMaxWidth + 15) >> 4;
   pCtx->sMb.iMbHeight = (kiMaxHeight + 15) >> 4;
 
@@ -2322,6 +2328,18 @@ int32_t AllocPicBuffOnNewSeqBegin (PWelsDecoderContext pCtx) {
   if (GetThreadCount (pCtx) <= 1) {
     WelsResetRefPic (pCtx); //clear ref pPic when IDR NAL
   }
+#ifdef WELS_IDR_ROWS
+  const PSps sps = pCtx->pSps;
+  const SPosOffset& crop = sps->sFrameCrop;
+  if (!sps->bFrameMbsOnlyFlag || sps->bMbaffFlag || sps->bSeparateColorPlaneFlag ||
+      sps->uiChromaFormatIdc != 1 || crop.iLeftOffset != 0 || crop.iTopOffset != 0 ||
+      crop.iRightOffset < 0 || crop.iBottomOffset < 0 || crop.iBottomOffset > 7 ||
+      sps->iMbWidth == 0 || sps->iMbWidth > 120 || sps->iMbHeight == 0 || sps->iMbHeight > 68 ||
+      crop.iRightOffset * 2 >= static_cast<int>(sps->iMbWidth * 16) ||
+      crop.iBottomOffset * 2 >= static_cast<int>(sps->iMbHeight * 16) ||
+      GetThreadCount(pCtx) != 0 || pCtx->pParam->eEcActiveIdc != ERROR_CON_DISABLE)
+    return ERR_INFO_INVALID_PARAM;
+#endif
   int32_t iErr = SyncPictureResolutionExt (pCtx, pCtx->pSps->iMbWidth, pCtx->pSps->iMbHeight);
 
   if (ERR_NONE != iErr) {

@@ -463,6 +463,10 @@ static inline int32_t GetTargetRefListSize (PWelsDecoderContext pCtx) {
  */
 int32_t WelsRequestMem (PWelsDecoderContext pCtx, const int32_t kiMbWidth, const int32_t kiMbHeight,
                         bool& bReallocFlag) {
+#ifdef WELS_IDR_ROWS
+  if (kiMbWidth <= 0 || kiMbWidth > 120 || kiMbHeight <= 0 || kiMbHeight > 68)
+    return ERR_INFO_INVALID_PARAM;
+#endif
   const int32_t kiPicWidth      = kiMbWidth << 4;
   const int32_t kiPicHeight     = kiMbHeight << 4;
   int32_t iErr = ERR_NONE;
