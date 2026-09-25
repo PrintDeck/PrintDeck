@@ -191,8 +191,15 @@ local decoder code in the tagged source and public Web Config/installer:
 | Unscii (PrintDeck ASCII subset) | Retro Terminal device typography | Public Domain (`main/fonts/LICENSE-Unscii.txt`) |
 | Poppins Regular and SemiBold | Public website typography and embedded logo font | SIL Open Font License 1.1 (`docs/assets/fonts/OFL-Poppins.txt`) |
 | Plyr 3.8.4 | Accessible public-website video player | MIT (`docs/assets/vendor/plyr/LICENSE.md`) |
-| Cisco OpenH264 2.6.0 (local IDR-only decoder subset) | Creality 1080p keyframe snapshots | BSD-2-Clause (`components/printdeck_h264_snapshot/third_party/openh264/LICENSE`) |
+| Cisco OpenH264 2.6.0 (local IDR-only decoder subset) | Creality K2 family keyframe snapshots | BSD-2-Clause (`components/printdeck_h264_snapshot/third_party/openh264/LICENSE`) |
 | Kenney Interface Sounds, Digital Audio, Sci-Fi Sounds and UI Audio (selected converted effects) | Modern, Arcade, Sci-Fi and Clean device sound presets | CC0 1.0 (`main/audio/kenney/LICENSE.txt`) |
+
+The local OpenH264 subset decodes progressive, single-slice 8-bit 4:2:0 IDR
+pictures up to 1920 × 1088 coded pixels. Its two-row picture workspace retains
+intra-prediction and deblocking neighbours, then emits completed rows directly
+into a display-sized thumbnail. It is not an inter-frame video decoder; other
+slice layouts, formats and larger pictures are rejected. Upstream copyright
+and BSD-2-Clause notices remain in the component.
 
 The device and Web Config contain simplified marks for supported printer
 manufacturers, and the public installer contains Google Chrome and Microsoft
@@ -272,12 +279,12 @@ They are unmodified except for filenames. Per-image original source links and
 SHA-256 digests are in `docs/assets/printers/v1/NOTICE.md`; the license text is in
 `docs/assets/printers/v1/LICENSE.txt`. Product names and marks belong to their
 respective owners.
+
 Additional TinyMaker and UniFormation GK3 Ultra product photographs are supplied
 from the per-image sources listed in the thumbnail notice. Their backgrounds
 are removed and the photographs are scaled for display; rights remain with
 the respective owners. The OrcaSlicer license statement above applies only
 to the OrcaSlicer artwork.
-
 </pre>
       </div>
     </main>

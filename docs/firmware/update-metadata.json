@@ -1,7 +1,7 @@
 {
   "target": "amoled_1_75",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "layout": "912618a15488a6e06bf5f29d59479ec7d1a7aa3e6ff96dbb035f4d64bb44e153",
-  "sha256": "c123bd0243ebc97ff8ab698aacf83999dfee5e9337e90e7ba34398d305d48f46",
+  "sha256": "ea1bf00605e3451f86c1f2d5a5e40a1723a48d8d8fffad9013fea3bae2c1124a",
   "family": "amoled_1_75_layout_912618a15488"
 }

@@ -1,6 +1,6 @@
 {
   "name": "PrintDeck \u00b7 LCD 1.54",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "new_install_prompt_erase": true,
   "builds": [
     {

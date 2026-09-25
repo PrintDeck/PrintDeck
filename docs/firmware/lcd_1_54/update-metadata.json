@@ -1,7 +1,7 @@
 {
   "target": "lcd_1_54",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "layout": "912618a15488a6e06bf5f29d59479ec7d1a7aa3e6ff96dbb035f4d64bb44e153",
-  "sha256": "86be18a5b29fd322b52ddacc3b292d242b8c8313c19b673c51f1ccbcdbc2bdaf",
+  "sha256": "05ef5ddc40a1e89bf4a380884fc70f877fe0da802f23618c76d0931149170944",
   "family": "lcd_1_54_layout_912618a15488"
 }

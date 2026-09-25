@@ -810,8 +810,9 @@
               <label class="firmware-version" for="firmware-version">
                 <span class="firmware-version-label">固件版本</span>
                 <select id="firmware-version" aria-label="固件版本">
-                  <option value="1.0.24" hidden="" disabled="">1.0.24</option>
-                  <option value="1.0.23" selected="">1.0.23 （最新）</option>
+                  <option value="1.0.25" hidden="" disabled="">1.0.25</option>
+                  <option value="1.0.24" selected="">1.0.24 （最新）</option>
+                  <option value="1.0.23">1.0.23</option>
                   <option value="1.0.22">1.0.22</option>
                   <option value="1.0.21">1.0.21</option>
                   <option value="1.0.20">1.0.20</option>
@@ -936,7 +937,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>启动下方的安装程序。</strong> 选择 WCH USB Serial (cu.wchusbserial…)、USB-SERIAL CH340 (COM…) 或 /dev/ttyUSB…。按提示确认完全擦除，然后等待安装达到 100%。</li>
             </ol>
             <esp-web-install-button id="install-button" manifest="../manifest-install.json">
-              <button slot="activate" id="install-button-label">安装 1.0.23 或恢复出厂设置</button>
+              <button slot="activate" id="install-button-label">安装 1.0.24 或恢复出厂设置</button>
               <span slot="not-allowed">USB 访问要求通过 HTTPS 打开此页面。</span>
             </esp-web-install-button>
             <div class="tip" data-hardware-instruction="waveshare"><strong>如果未显示设备：</strong> 拔下数据线。按住屏幕的 <strong>BOOT</strong> 按钮，重新连接 USB-C，两秒后松开 BOOT，然后重试。</div>
@@ -964,7 +965,7 @@
               <li data-hardware-instruction="knomi2" hidden=""><strong>启动下方的 USB 更新。</strong> 出现提示时，选择 WCH USB Serial (cu.wchusbserial…)、USB-SERIAL CH340 (COM…) 或 /dev/ttyUSB…。</li>
               <li><strong>等待屏幕重启。</strong> 显示更新进度时请勿断开 USB。</li>
             </ol>
-            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">通过 USB 更新到 1.0.23</button>
+            <button class="usb-update-button" id="usb-update-button" type="button" disabled="">通过 USB 更新到 1.0.24</button>
             <div class="tip" data-hardware-instruction="knomi2" hidden=""><strong>如果未显示 KNOMI：</strong> 按照上方红色区域中的 USB 驱动程序说明操作，重新连接设备，然后再次开始更新。</div>
             <p class="warning" id="full-install-required" role="status"></p>
             <div class="update-progress" id="update-progress" role="status" aria-live="polite" hidden="">
@@ -1239,7 +1240,7 @@
 
       if (supported) {
         let activeInstallMode = 'install';
-        let activeVersion = '1.0.23';
+        let activeVersion = '1.0.24';
         let activeHardware = 'amoled_1_75';
         let selectedKnomiModel = null;
         let activeInstallHardware = 'amoled_1_75';
@@ -1275,19 +1276,31 @@
         let setupNetworkName = '';
         const releaseBase = 'https://raw.githubusercontent.com/PrintDeck/PrintDeck';
         const versions = {
+          '1.0.25': {
+            knomi2: {
+            releaseTag: 'knomi2-v1.0.25',
+            installManifest: '../manifest-install-knomi2.json',
+            application: '../firmware/knomi2/printdeck.bin',
+            otaData: '../firmware/knomi2/ota_data_initial.bin'
+            }
+          },
           '1.0.24': {
+            releaseTag: 'amoled_1_75-v1.0.24',
+            installManifest: '../manifest-install.json',
+            application: '../firmware/printdeck.bin',
+            otaData: '../firmware/ota_data_initial.bin',
             knomi2: {
               releaseTag: 'knomi2-v1.0.24',
-              installManifest: '../manifest-install-knomi2.json',
-              application: '../firmware/knomi2/printdeck.bin',
-              otaData: '../firmware/knomi2/ota_data_initial.bin'
+              installManifest: '../manifests/manifest-install-knomi2-1.0.24.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.24/docs/firmware/knomi2/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomi2-v1.0.24/docs/firmware/knomi2/ota_data_initial.bin'
             }
           },
           '1.0.23': {
             releaseTag: 'amoled_1_75-v1.0.23',
-            installManifest: '../manifest-install.json',
-            application: '../firmware/printdeck.bin',
-            otaData: '../firmware/ota_data_initial.bin',
+            installManifest: '../manifests/manifest-install-amoled_1_75-1.0.23.json',
+            application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.23/docs/firmware/printdeck.bin',
+            otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.23/docs/firmware/ota_data_initial.bin',
             knomi2: {
               releaseTag: 'knomi2-v1.0.23',
               installManifest: '../manifests/manifest-install-knomi2-1.0.23.json',
@@ -1405,6 +1418,12 @@
             }
           },
           '1.0.13': {
+            lcd_1_54: {
+            releaseTag: 'lcd_1_54-v1.0.13',
+            installManifest: '../manifest-install-lcd-1-54.json',
+            application: '../firmware/lcd_1_54/printdeck.bin',
+            otaData: '../firmware/lcd_1_54/ota_data_initial.bin'
+            },
             releaseTag: 'amoled_1_75-v1.0.13',
             installManifest: '../manifests/manifest-install-amoled_1_75-1.0.13.json',
             application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.13/docs/firmware/printdeck.bin',
@@ -1420,9 +1439,9 @@
           '1.0.12': {
             lcd_1_54: {
               releaseTag: 'lcd_1_54-v1.0.12',
-              installManifest: '../manifest-install-lcd-1-54.json',
-              application: '../firmware/lcd_1_54/printdeck.bin',
-              otaData: '../firmware/lcd_1_54/ota_data_initial.bin'
+              installManifest: '../manifests/manifest-install-lcd_1_54-1.0.12.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_54-v1.0.12/docs/firmware/lcd_1_54/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_54-v1.0.12/docs/firmware/lcd_1_54/ota_data_initial.bin'
             },
             releaseTag: 'amoled_1_75-v1.0.12',
             installManifest: '../manifests/manifest-install-amoled_1_75-1.0.12.json',
@@ -1617,6 +1636,12 @@
             }
           },
           '1.0.1': {
+            knomipanda: {
+            releaseTag: 'knomipanda-v1.0.1',
+            installManifest: '../manifest-install-knomipanda.json',
+            application: '../firmware/knomipanda/printdeck.bin',
+            otaData: '../firmware/knomipanda/ota_data_initial.bin'
+            },
             releaseTag: 'amoled_1_75-v1.0.1',
             installManifest: '../manifests/manifest-install-amoled_1_75-1.0.1.json',
             application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/amoled_1_75-v1.0.1/docs/firmware/printdeck.bin',
@@ -1638,9 +1663,9 @@
             knomipanda: {
               releaseTag: 'knomipanda-v1.0.0',
               fullOnly: true,
-              installManifest: '../manifest-install-knomipanda.json',
-              application: '../firmware/knomipanda/printdeck.bin',
-              otaData: '../firmware/knomipanda/ota_data_initial.bin'
+              installManifest: '../manifests/manifest-install-knomipanda-1.0.0.json',
+              application: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomipanda-v1.0.0/docs/firmware/knomipanda/printdeck.bin',
+              otaData: 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/knomipanda-v1.0.0/docs/firmware/knomipanda/ota_data_initial.bin'
             },
             releaseTag: 'amoled_1_75-v1.0.0',
             installManifest: '../manifests/manifest-install-amoled_1_75-1.0.0.json',
