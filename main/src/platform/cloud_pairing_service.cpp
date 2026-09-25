@@ -257,8 +257,8 @@ void CloudPairingService::upload_screen() {
     screen_due_ = millis() + 750; // Retry a busy shared workspace without queueing captures.
   }
 #ifdef ESP_PLATFORM
-#if !CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC || CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL != 0
-  return; // PNG, HTTP and TLS buffers must use PSRAM, preserving internal memory for Wi-Fi.
+#if !CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC || CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL > 1024
+  return; // Keep large image/TLS allocations in PSRAM; small control allocations may remain internal.
 #endif
 #endif
   ImageWorkspaceLock workspace(0);
@@ -377,9 +377,9 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
       thumbnail.image->empty() || thumbnail.image->size() > 512 * 1024) return;
   // No copy, encoder, second connection worker or per-printer pending image queue.
 #ifdef ESP_PLATFORM
-  // The shipping configuration puts TLS allocations and ordinary HTTP buffers
-  // in PSRAM. Do not enable this optional transfer under an internal-only build.
-#if !CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC || CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL != 0
+  // Support both shipping allocation thresholds (0 and 1024 bytes), while
+  // retaining external TLS buffers and the runtime internal-memory checks.
+#if !CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC || CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL > 1024
   return;
 #endif
 #endif
