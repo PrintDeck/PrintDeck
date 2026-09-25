@@ -35,11 +35,14 @@
   }
   const text=(data,start,length)=>new TextDecoder().decode(data.subarray(start,start+length)).split('\0')[0];
   function identity(data) {
-    if(data.length<288 || data[0]!==0xe9 || data[12]!==9 || data[13]!==0 || new DataView(data.buffer,data.byteOffset).getUint32(32,true)!==0xabcd5432 || text(data,80,32)!=='printdeck')throw Error('identity');
+    if(data.length<288 || data[0]!==0xe9 || ![0,9].includes(data[12]) || data[13]!==0 || new DataView(data.buffer,data.byteOffset).getUint32(32,true)!==0xabcd5432 || text(data,80,32)!=='printdeck')throw Error('identity');
     const current=text(data,48,32);version(current);
-    if(data.length<388 || text(data,288,16)!=='PrintDeck OTA 1')return {version:current,legacy:true};
+    if(data.length<388 || text(data,288,16)!=='PrintDeck OTA 1') {
+      if(data[12]!==9)throw Error('identity');
+      return {version:current,legacy:true};
+    }
     const target=text(data,304,16),layout=text(data,320,65);
-    if(!digest(layout)||!['amoled_1_75','lcd_1_54','knomi2'].includes(target))throw Error('identity');
+    if(!digest(layout)||!['amoled_1_75','lcd_1_54','knomi2','knomipanda'].includes(target) || data[12] !== (target === 'knomipanda' ? 0 : 9))throw Error('identity');
     return {version:current,target,layout,legacy:false};
   }
   function partitions(data) {

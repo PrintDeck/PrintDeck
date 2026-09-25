@@ -1,0 +1,36 @@
+{
+  "name": "PrintDeck Panda KNOMI",
+  "version": "1.0.0",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "firmware/knomipanda/bootloader.bin",
+          "offset": 4096
+        },
+        {
+          "path": "firmware/knomipanda/partition-table.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/knomipanda/nvs-reset.bin",
+          "offset": 36864
+        },
+        {
+          "path": "firmware/knomipanda/ota_data_initial.bin",
+          "offset": 61440
+        },
+        {
+          "path": "firmware/knomipanda/printdeck.bin",
+          "offset": 131072
+        },
+        {
+          "path": "firmware/knomipanda/assets.bin",
+          "offset": 10616832
+        }
+      ]
+    }
+  ]
+}

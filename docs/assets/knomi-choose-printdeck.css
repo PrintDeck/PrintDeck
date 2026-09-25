@@ -1,0 +1,43 @@
+/* The hero and signal strip are shared with the KNOMI page. */
+.knomi-page .choose-reasons {
+  width: min(1000px, calc(100% - 96px));
+  margin-inline: auto;
+  padding-block: 64px 76px;
+  scroll-margin-top: 24px;
+}
+.knomi-page .choose-reasons h2 {
+  margin: 0 0 32px;
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -.02em;
+  text-transform: uppercase;
+}
+.choose-reasons ol {
+  margin: 0;
+  padding-left: 1.65em;
+  color: var(--body-copy);
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+.choose-reasons li { padding-left: .45em; margin-bottom: 20px; }
+.choose-reasons li::marker { color: var(--strong); font-weight: 650; }
+.choose-reasons .choose-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--footer-link);
+  font-weight: 600;
+  text-decoration: none;
+}
+.choose-reasons .choose-back > span:not([aria-hidden]) {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.choose-reasons .choose-back:focus-visible { outline: 2px solid currentColor; outline-offset: 5px; }
+@media (max-width: 700px) {
+  .knomi-page .choose-reasons { width: calc(100% - 40px); padding-block: 42px 52px; }
+  .choose-reasons ol { font-size: .98rem; }
+  .choose-reasons li { padding-left: .2em; }
+}
