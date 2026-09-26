@@ -90,6 +90,7 @@ class DisplayShell {
   bool background_content_needed() const;
   bool automatic_shutdown_due(bool on_battery, bool keep_awake, bool print_active) const;
   bool screen_fully_off() const { return screen_power_mode_.load() == 2; }
+  bool manual_display_sleep_active() const { return manual_display_sleep_.load() != 0; }
   bool set_rotation(int degrees);
   void set_brightness(int percent);
   void set_printer_animations_enabled(bool enabled);
@@ -124,8 +125,11 @@ class DisplayShell {
   void finish_horizontal_transition(int rendered_page, bool rendered_printer_list,
                                     std::uint32_t rendered_profile_id);
   void update_power_save(bool on_battery, bool keep_awake, bool print_active);
-  void request_wake();
-  void reset_inactivity_and_wake();
+  void request_wake(const char* reason = __builtin_FUNCTION());
+  void reset_inactivity_and_wake(const char* reason = __builtin_FUNCTION());
+  bool power_button_pressed();
+  void power_button_single_click();
+  void power_button_double_click();
   void show_shutdown_countdown(int seconds);
   void cancel_shutdown_countdown();
   void show_shutdown_screen();
@@ -174,7 +178,7 @@ class DisplayShell {
                               esp_lcd_touch_point_data_t* points, uint8_t* count,
                               uint8_t maximum_count, void* context);
   void defer_background_render(std::uint32_t milliseconds);
-  void note_activity(bool wake);
+  void note_activity(bool wake, const char* reason = __builtin_FUNCTION());
   void create_wifi_setup_navigation(lv_obj_t* screen);
   void show_wifi_setup_language_picker();
   void start_horizontal_transition(int target_page, bool show_printer_list,
@@ -641,7 +645,8 @@ class DisplayShell {
   std::atomic<std::int64_t> background_render_quiet_until_us_{0};
   std::atomic<std::uint64_t> last_activity_ms_{0};
   std::atomic<std::uint64_t> display_off_since_ms_{0};
-  bool last_print_active_ = false;
+  std::atomic<bool> last_print_active_{false};
+  std::atomic<std::uint64_t> manual_display_sleep_{0};
   mutable std::atomic<std::int64_t> live_render_until_us_{0};
   bool consume_wake_touch_ = false;
   lv_obj_t* screen_saver_root_ = nullptr;
@@ -653,6 +658,7 @@ class DisplayShell {
   core::ScreenSaverScene screen_saver_scene_;
   std::uint8_t active_screen_saver_animation_ = core::kScreenSaverCircles;
   void set_screen_saver_visible(bool visible);
+  void wake_display_locked(const char* reason);
   void suspend_visual_updates(bool suspended);
   static void screen_saver_tick(lv_timer_t* timer);
   std::atomic<int> screen_power_mode_{0};

@@ -10,6 +10,7 @@
 #include "printdeck/platform/bambu_local_connection.hpp"
 #include "printdeck/platform/reset_diagnostics.hpp"
 #include "printdeck/core/printer_driver.hpp"
+#include "printdeck/core/power_button.hpp"
 #include "printdeck/core/timezone.hpp"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/task_affinity.hpp"
@@ -472,11 +473,23 @@ bool Runtime::ensure_bambu_camera_started() {
 }
 
 void Runtime::power_loop() {
+  core::PowerButtonClicks clicks;
   while (true) {
+    const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+    if (clicks.poll(now) == core::PowerButtonClick::single) display_.power_button_single_click();
     switch (power_.poll_button()) {
       case PowerButtonAction::wake: display_.reset_inactivity_and_wake(); break;
+      case PowerButtonAction::pressed:
+        clicks.press(now, display_.power_button_pressed());
+        break;
+      case PowerButtonAction::released:
+        if (clicks.release(now) == core::PowerButtonClick::double_click)
+          display_.power_button_double_click();
+        break;
       case PowerButtonAction::home: display_.return_to_printer_list(); break;
       case PowerButtonAction::show_3:
+        clicks.cancel();
+        display_.reset_inactivity_and_wake();
         display_.show_shutdown_countdown(3);
         audio_.play(AudioService::Event::shutdown_countdown);
         break;
@@ -488,11 +501,14 @@ void Runtime::power_loop() {
         display_.show_shutdown_countdown(1);
         audio_.play(AudioService::Event::shutdown_countdown);
         break;
-      case PowerButtonAction::cancel: display_.cancel_shutdown_countdown(); break;
+      case PowerButtonAction::cancel:
+        clicks.cancel();
+        display_.cancel_shutdown_countdown();
+        break;
       case PowerButtonAction::shutdown: perform_shutdown();
       case PowerButtonAction::none: break;
     }
-    vTaskDelay(pdMS_TO_TICKS(50));
+    vTaskDelay(pdMS_TO_TICKS(std::string_view(kBoardVariant) == "amoled_1_75" ? 20 : 50));
   }
 }
 
@@ -1791,6 +1807,7 @@ void Runtime::monitor_loop() {
         connection_failure_since_ms_ = now_ms;
       }
       bool wake_after_snapshot = false;
+      const char* snapshot_wake_reason = "print started, completed or reached 100%";
       if (selected != nullptr && selected_snapshot_ready && full_connection_active) {
         const core::JobPhase phase = selected_snapshot.job.phase;
         const core::PrinterActivity activity =
@@ -1812,7 +1829,9 @@ void Runtime::monitor_loop() {
           last_display_activity_ = activity;
         } else {
           const bool animation_changed = settings_.printer_animations_enabled &&
-              core::animation_wake_transition(last_display_activity_, activity);
+              core::animation_wake_transition(last_display_activity_, activity,
+                                              display_.manual_display_sleep_active());
+          if (animation_changed && !wake_after_snapshot) snapshot_wake_reason = "printer reaction changed";
           if (animation_changed) mark_reset_checkpoint(ResetCheckpoint::kPrintWake);
           // Refresh and wake the current page without changing the user's
           // navigation. Animations belong to the reactions page only.
@@ -1900,7 +1919,7 @@ void Runtime::monitor_loop() {
         // before rebuilding the active-print view can overlap AMOLED resume
         // traffic with a heavy LVGL redraw.
         mark_reset_checkpoint(ResetCheckpoint::kPrintWakeResume);
-        display_.reset_inactivity_and_wake();
+        display_.reset_inactivity_and_wake(snapshot_wake_reason);
         mark_reset_checkpoint(ResetCheckpoint::kRunning);
       }
     } else if (network.station_connection_failed) {

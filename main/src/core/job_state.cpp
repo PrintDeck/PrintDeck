@@ -292,7 +292,7 @@ bool display_wake_transition(JobPhase previous_phase, float previous_completion,
 }
 
 bool animation_wake_transition(PrinterActivity previous_activity,
-                               PrinterActivity activity) {
+                               PrinterActivity activity, bool manual_sleep) {
   // The first valid report only establishes the current state. Standby and
   // unavailable reports are deliberately quiet, avoiding a second wake after
   // a completed/failed animation and avoiding wakeups on network recovery.
@@ -301,6 +301,11 @@ bool animation_wake_transition(PrinterActivity previous_activity,
       activity == PrinterActivity::standby) {
     return false;
   }
+  // Explicit POWER sleep survives routine heating/tool-change/printing
+  // animation updates. Significant job events may still request attention.
+  if (manual_sleep && activity != PrinterActivity::completed &&
+      activity != PrinterActivity::failed && activity != PrinterActivity::cancelled &&
+      activity != PrinterActivity::paused) return false;
   return activity != previous_activity;
 }
 

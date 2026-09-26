@@ -18,6 +18,8 @@ struct PowerSnapshot {
 enum class PowerButtonAction : std::uint8_t {
   none,
   wake,
+  pressed,
+  released,
   home,
   show_3,
   show_2,

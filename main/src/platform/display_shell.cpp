@@ -1,6 +1,7 @@
 #include "printdeck/core/preview_policy.hpp"
 #include "printdeck/core/resin_view_policy.hpp"
 #include "printdeck/core/print_time.hpp"
+#include "printdeck/core/power_button.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/display_shell.hpp"
 #include "printdeck/platform/display_snapshot.hpp"
@@ -8197,13 +8198,13 @@ void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
   board_display_unlock();
 }
 
-void DisplayShell::note_activity(bool wake) {
+void DisplayShell::note_activity(bool wake, const char* reason) {
   if (esp_timer_get_time() <=
       remote_activity_suppressed_until_us_.load(std::memory_order_acquire)) {
     return;
   }
   last_activity_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-  if (wake) request_wake();
+  if (wake) request_wake(reason);
 }
 
 void DisplayShell::defer_background_render(std::uint32_t milliseconds) {
@@ -8218,23 +8219,68 @@ void DisplayShell::defer_background_render(std::uint32_t milliseconds) {
   }
 }
 
-void DisplayShell::request_wake() {
-  if (screen_power_mode_ == 0) return;
+void DisplayShell::request_wake(const char* reason) {
   if (board_display_lock(500) != ESP_OK) {
     ESP_LOGW(kLogTag, "Display wake deferred because the LVGL lock is busy");
     return;
   }
+  wake_display_locked(reason);
+  board_display_unlock();
+}
+
+void DisplayShell::wake_display_locked(const char* reason) {
+  if (screen_power_mode_ != 0 || manual_display_sleep_.load() != 0) {
+    ESP_LOGI(kLogTag, "Display wake: reason=%s, mode=%d, manual=%d", reason,
+             screen_power_mode_.load(), manual_display_sleep_.load() != 0);
+  }
+  manual_display_sleep_ = 0;
+  if (screen_power_mode_ == 0) return;
   screen_power_mode_ = 0;
   display_off_since_ms_ = 0;
   set_screen_saver_visible(false);
   suspend_visual_updates(false);
   board_display_brightness_set(applied_brightness_);
-  board_display_unlock();
 }
 
-void DisplayShell::reset_inactivity_and_wake() {
+void DisplayShell::reset_inactivity_and_wake(const char* reason) {
   last_activity_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-  request_wake();
+  request_wake(reason);
+}
+
+bool DisplayShell::power_button_pressed() {
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  const core::ManualDisplaySleep manual(manual_display_sleep_.load());
+  // Keep the saver visible while distinguishing the second pair from one click.
+  if (screen_fully_off() || (manual.state() & 3U) == 2 ||
+      (content_hidden() && !manual.followup_allowed(now))) {
+    reset_inactivity_and_wake();
+    return true;
+  }
+  if (!manual.followup_allowed(now)) reset_inactivity_and_wake();
+  return false;
+}
+
+void DisplayShell::power_button_single_click() {
+  if (content_hidden() || manual_display_sleep_.load() != 0) reset_inactivity_and_wake();
+  else return_to_printer_list();
+}
+
+void DisplayShell::power_button_double_click() {
+  core::DisplayPowerPolicy policy;
+  {
+    const std::lock_guard<std::mutex> lock(power_policy_mutex_);
+    policy = power_policy_;
+  }
+  if (board_display_lock(500) != ESP_OK) return;
+  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+  const auto duration = last_print_active_.load() ? policy.saver_duration_active_s
+                                                  : policy.saver_duration_idle_s;
+  const core::ManualDisplaySleep manual(manual_display_sleep_.load());
+  manual_display_sleep_ = manual.double_click(now, duration != 0).state();
+  last_activity_ms_ = now;
+  // The display worker applies the stage through the normal rendering, camera
+  // and audio lifecycle; no network or power-rail operation runs here.
+  board_display_unlock();
 }
 
 void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool print_active) {
@@ -8249,28 +8295,44 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
     last_on_battery_ = on_battery;
   } else if (on_battery && !last_on_battery_) {
     last_activity_ms_ = now;
-    request_wake();
+    request_wake("power source changed to battery");
   }
   last_on_battery_ = on_battery;
   if (print_active != last_print_active_) {
     last_print_active_ = print_active;
     last_activity_ms_ = now;
-    request_wake();
+    request_wake("print activity changed");
   }
-  if (!kBoardSupportsDisplaySleep || keep_awake || !policy.timers_allowed(on_battery,
-                                          kBoardHasPowerSourceDetection, print_active)) {
+  if (!kBoardSupportsDisplaySleep || keep_awake) {
     last_activity_ms_ = now;
-    request_wake();
+    request_wake("setup, update or backup keep-awake");
+    return;
+  }
+  const core::ManualDisplaySleep manual(manual_display_sleep_.load());
+  if (!manual.active() && !policy.timers_allowed(on_battery,
+                                          kBoardHasPowerSourceDetection, print_active)) {
+    if (board_display_lock(500) == ESP_OK) {
+      // A manual click can arrive after the policy snapshot above.
+      if (manual_display_sleep_.load() == 0) {
+        last_activity_ms_ = now;
+        wake_display_locked("automatic timers disabled");
+      }
+      board_display_unlock();
+    }
     return;
   }
   const std::uint64_t last_activity = last_activity_ms_.load();
   const std::uint64_t idle = now >= last_activity ? now - last_activity : 0;
-  const int target = policy.mode_after_inactivity(idle, print_active);
+  const int target = manual.active()
+      ? manual.mode_after(now, print_active ? policy.saver_duration_active_s
+                                           : policy.saver_duration_idle_s,
+                          core::kDisplayDurationUntilWake)
+      : policy.mode_after_inactivity(idle, print_active);
   if (target == screen_power_mode_) return;
   if (esp_lv_adapter_pause(1000) != ESP_OK) return;
   if (board_display_lock(1000) != ESP_OK) { esp_lv_adapter_resume(); return; }
   // A physical interaction can arrive while waiting for the display lock.
-  if (last_activity_ms_.load() != last_activity) {
+  if (last_activity_ms_.load() != last_activity || manual_display_sleep_.load() != manual.state()) {
     board_display_unlock(); esp_lv_adapter_resume(); return;
   }
   const int previous = screen_power_mode_.load();

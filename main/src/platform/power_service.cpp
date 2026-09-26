@@ -21,8 +21,10 @@ namespace {
 
 constexpr char kLogTag[] = "power";
 constexpr std::uint32_t kI2cTimeoutMs = 1000;
-constexpr std::uint8_t kPressStableSamples = 3;
-constexpr std::uint8_t kReleaseStableSamples = 10;
+// POWER is sampled every 20 ms: reject contact bounce without merging clicks.
+constexpr std::uint8_t kPressStableSamples = 2;
+constexpr std::uint8_t kReleaseStableSamples = 3;
+constexpr std::uint8_t kHeldReleaseStableSamples = 25;
 constexpr std::uint64_t kButtonErrorLogIntervalMs = 5000;
 constexpr std::uint32_t kPowerButtonPin = IO_EXPANDER_PIN_NUM_4;
 
@@ -153,7 +155,8 @@ PowerButtonAction PowerService::poll_button() {
     release_pending_ = false;
   } else {
     const std::uint8_t required_samples =
-        raw_pressed ? kPressStableSamples : kReleaseStableSamples;
+        raw_pressed ? kPressStableSamples :
+        countdown_stage_ != 0 ? kHeldReleaseStableSamples : kReleaseStableSamples;
     if (!transition_candidate_valid_ || transition_candidate_pressed_ != raw_pressed) {
       transition_candidate_valid_ = true;
       transition_candidate_pressed_ = raw_pressed;
@@ -176,7 +179,7 @@ PowerButtonAction PowerService::poll_button() {
         button_pressed_at_ms_ = transition_at_ms;
         countdown_stage_ = 0;
         ESP_LOGI(kLogTag, "POWER pressed (stable EXIO4)");
-        return PowerButtonAction::wake;
+        return PowerButtonAction::pressed;
       }
 
       const std::uint64_t held_ms = transition_at_ms - button_pressed_at_ms_;
@@ -186,7 +189,7 @@ PowerButtonAction PowerService::poll_button() {
       countdown_stage_ = 0;
       ESP_LOGI(kLogTag, "POWER released after %llu ms (stable EXIO4)", held_ms);
       switch (core::power_button_release_action(held_ms, visible)) {
-        case core::PowerButtonReleaseAction::home: return PowerButtonAction::home;
+        case core::PowerButtonReleaseAction::home: return PowerButtonAction::released;
         case core::PowerButtonReleaseAction::cancel_shutdown:
           return PowerButtonAction::cancel;
         case core::PowerButtonReleaseAction::none: return PowerButtonAction::none;

@@ -253,6 +253,6 @@ const char* printer_activity_label(PrinterActivity activity);
 bool display_wake_transition(JobPhase previous_phase, float previous_completion,
                              JobPhase phase, float completion);
 bool animation_wake_transition(PrinterActivity previous_activity,
-                               PrinterActivity activity);
+                               PrinterActivity activity, bool manual_sleep = false);
 
 }  // namespace printdeck::core
