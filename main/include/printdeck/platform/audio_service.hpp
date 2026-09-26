@@ -13,6 +13,7 @@ namespace printdeck::platform {
 
 class AudioService {
  public:
+  // Runs on the PSRAM playback stack: notify a worker; never write flash/NVS.
   using CompletionCallback = void (*)(void* context);
 
   enum class Preset : std::uint8_t {

@@ -604,8 +604,11 @@ esp_err_t AudioService::start(bool enabled, int volume_percent, std::string_view
     codec_ = nullptr;
     return ESP_ERR_NO_MEM;
   }
-  if (xTaskCreatePinnedToCore(task_entry, "printdeck_audio", 4096, this, 4, &task_,
-                              kServiceCore) != pdPASS) {
+  // Playback reads embedded assets and copies PCM into the driver's internal
+  // DMA buffers. Completion callbacks only notify internal workers; flash/NVS
+  // operations must never execute on this PSRAM stack.
+  if (xTaskCreatePinnedToCoreWithCaps(task_entry, "printdeck_audio", 4096, this, 4, &task_,
+                                      kServiceCore, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
     task_ = nullptr;
     vQueueDelete(queue_);
     queue_ = nullptr;
