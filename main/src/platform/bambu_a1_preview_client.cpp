@@ -252,7 +252,10 @@ bool ftp_command(esp_tls_t* tls, const std::string& command, int expected_a,
     return false;
   }
   int code = 0;
-  return read_ftp_response(tls, &code, response) && (code == expected_a || code == expected_b);
+  const bool received = read_ftp_response(tls, &code, response);
+  const bool accepted = received && (code == expected_a || code == expected_b);
+  if (!accepted) ESP_LOGW(kTag, "FTPS %.4s failed (reply=%d, received=%d)", command.c_str(), code, received);
+  return accepted;
 }
 
 bool parse_pasv_port(const std::string& response, uint16_t* port) {
@@ -341,6 +344,8 @@ bool fetch_archive_png(const BambuLocalConnection& connection, const std::string
         vTaskDelay(pdMS_TO_TICKS(10));
       }
     }
+    if (!success) ESP_LOGW(kTag, "Archive preview missing (read=%u bytes, plate hint=%d)",
+                          unsigned(prefix.size()), !target_name.empty());
     esp_tls_conn_destroy(data);
   } while (false);
   esp_tls_conn_destroy(control);
@@ -489,6 +494,7 @@ void BambuA1PreviewClient::task_loop() {
   std::string attempted_job;
   uint8_t attempts = 0;
   int64_t last_attempt_us = 0;
+  bool memory_deferred = false;
   while (!stop_requested_.load(std::memory_order_acquire)) {
     const BambuLocalConnection current_connection = connection();
     const JobRequest job = job_request();
@@ -516,6 +522,19 @@ void BambuA1PreviewClient::task_loop() {
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
       continue;
     }
+    // FTPS needs control and data TLS sessions beside the printer connection.
+    // Wait for internal headroom without spending this job's bounded retries.
+    const auto internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    const auto internal_block = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (internal_free < 16 * 1024 || internal_block < 8 * 1024) {
+      if (!memory_deferred) ESP_LOGW(kTag, "Print preview waiting for memory (free=%u, largest=%u)",
+                                    unsigned(internal_free), unsigned(internal_block));
+      memory_deferred = true;
+      fetch_requested_.store(true);
+      ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
+      continue;
+    }
+    memory_deferred = false;
     ImageWorkspaceLock workspace(50);
     if (!workspace || !preview_requested_.load()) {
       fetch_requested_.store(true);
@@ -523,6 +542,7 @@ void BambuA1PreviewClient::task_loop() {
       continue;
     }
     ++attempts;
+    ESP_LOGI(kTag, "Print preview attempt %u/%u", unsigned(attempts), unsigned(kMaximumAttemptsPerJob));
     last_attempt_us = now_us;
     publish_status(true, true, "Loading local print preview");
     mark_reset_checkpoint(ResetCheckpoint::kA1PreviewFetch);
