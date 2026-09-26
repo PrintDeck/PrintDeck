@@ -775,11 +775,16 @@ void WebConfig::update_selected_printer_status(const core::PrinterSnapshot& snap
     return phase == core::JobPhase::preparing || phase == core::JobPhase::printing || phase == core::JobPhase::paused;
   };
   if (snapshot.profile_id != selected_status_profile_ || preview_key != selected_preview_key_ ||
-      (active(snapshot.job.phase) && !active(selected_phase_))) {
+      (active(snapshot.job.phase) && selected_phase_ != core::JobPhase::unknown &&
+       !active(selected_phase_))) {
     cloud_thumbnail_key_.clear();
     if (!preview_key.empty()) {
       // Boot/session salt prevents a reused filename from exposing an earlier job's cover.
-      const auto identity = std::to_string(preview_session_) + ":" + std::to_string(++cloud_thumbnail_revision_) + ":" + std::string(preview_key);
+      // A source task ID survives view/connection changes. For protocols without
+      // one, retain the session revision to distinguish reused filenames.
+      const auto revision = (snapshot.job.source_job_id.empty() || snapshot.job.source_job_id == "0")
+          ? ++cloud_thumbnail_revision_ : 0;
+      const auto identity = std::to_string(preview_session_) + ":" + std::to_string(revision) + ":" + std::string(preview_key);
       std::array<unsigned char, 32> digest{};
       if (mbedtls_sha256(reinterpret_cast<const unsigned char*>(identity.data()), identity.size(), digest.data(), 0) == 0) {
         constexpr char hex[] = "0123456789abcdef";

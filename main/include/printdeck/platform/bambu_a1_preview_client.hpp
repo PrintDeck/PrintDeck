@@ -76,6 +76,10 @@ class BambuA1PreviewClient {
   JobRequest job_{};
   mutable std::mutex snapshot_mutex_{};
   BambuA1PreviewSnapshot snapshot_{};
+  // Worker-owned retry state survives suspension; only a new job/configuration resets it.
+  std::string attempted_job_;
+  uint8_t attempts_ = 0;
+  int64_t last_attempt_us_ = 0;
   TaskHandle_t task_handle_ = nullptr;
   std::atomic<bool> network_ready_{false};
   std::atomic<bool> fetch_requested_{false};

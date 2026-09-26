@@ -356,6 +356,38 @@ bool fetch_archive_png(const BambuLocalConnection& connection, const std::string
   return success;
 }
 
+BambuJobMetadata fetch_metadata_prefix(const BambuLocalConnection& connection,
+    const std::string& path, const std::function<bool()>& stopped) {
+  using Tls = std::unique_ptr<esp_tls_t, decltype(&esp_tls_conn_destroy)>;
+  esp_tls_t* initial = nullptr;
+  if (stopped() || !open_ftps_control(connection, &initial)) return {};
+  Tls control(initial, esp_tls_conn_destroy);
+  std::string response;
+  uint16_t port = 0;
+  if (stopped() || !ftp_command(control.get(), "PASV", 227, -1, &response) ||
+      !parse_pasv_port(response, &port) ||
+      !ftp_command(control.get(), "RETR " + path, 125, 150)) return {};
+  Tls data(esp_tls_init(), esp_tls_conn_destroy);
+  auto config = make_tls_config(connection);
+  if (stopped() || !data || esp_tls_conn_new_sync(connection.host.c_str(),
+      connection.host.size(), port, &config, data.get()) != 1) return {};
+  std::string prefix;
+  prefix.reserve(128 * 1024);
+  std::array<char, 2048> buffer{};
+  while (!stopped() && prefix.size() < kMaximumArchivePrefixBytes) {
+    const auto n = esp_tls_conn_read(data.get(), buffer.data(),
+        std::min(buffer.size(), kMaximumArchivePrefixBytes - prefix.size()));
+    if (n == 0) break;
+    if (n < 0) { vTaskDelay(pdMS_TO_TICKS(10)); continue; }
+    prefix.append(buffer.data(), static_cast<std::size_t>(n));
+    auto metadata = bambu_metadata::read_prefix(prefix);
+    if (!metadata.title.empty()) return stopped() ? BambuJobMetadata{} : metadata;
+  }
+  ESP_LOGW(kTag, "Bounded Bambu metadata prefix has no complete title (read=%u)",
+           unsigned(prefix.size()));
+  return {};
+}
+
 BambuJobMetadata fetch_archive_metadata(const BambuLocalConnection& connection,
     const std::string& path, const std::function<bool()>& cancelled) {
   const int64_t deadline = esp_timer_get_time() + 15000000;
@@ -379,6 +411,7 @@ BambuJobMetadata fetch_archive_metadata(const BambuLocalConnection& connection,
   std::string cache;
   std::uint64_t cache_offset = 0;
   unsigned reads = 0;
+  bool rest_unsupported = false;
   const auto reader = [&](std::uint64_t offset, std::size_t length, std::string& out) {
     if (stopped()) return false;
     if (offset >= cache_offset && offset-cache_offset <= cache.size() &&
@@ -395,9 +428,15 @@ BambuJobMetadata fetch_archive_metadata(const BambuLocalConnection& connection,
     }
     if (stopped() || !ftp_command(control.get(), "PASV", 227, -1, &response)) return false;
     uint16_t port = 0;
-    if (!parse_pasv_port(response, &port) ||
-        !ftp_command(control.get(), "REST " + std::to_string(offset), 350) ||
-        !ftp_command(control.get(), "RETR " + path, 125, 150) || stopped()) return false;
+    if (!parse_pasv_port(response, &port)) return false;
+    // Offset zero is already the default. A1 firmware can reject REST entirely.
+    if (offset != 0 && !ftp_command(control.get(), "REST " + std::to_string(offset),
+                                   350, -1, &response)) {
+      rest_unsupported = response.starts_with("500 ") || response.starts_with("502 ") ||
+                         response.starts_with("504 ");
+      return false;
+    }
+    if (!ftp_command(control.get(), "RETR " + path, 125, 150) || stopped()) return false;
     Tls data(esp_tls_init(), esp_tls_conn_destroy);
     auto config = make_tls_config(connection);
     if (!data || esp_tls_conn_new_sync(connection.host.c_str(), connection.host.size(), port, &config, data.get()) != 1) return false;
@@ -417,7 +456,13 @@ BambuJobMetadata fetch_archive_metadata(const BambuLocalConnection& connection,
     out = cache.substr(0,length);
     return true;
   };
-  return bambu_metadata::read(size, reader);
+  auto metadata = bambu_metadata::read(size, reader);
+  control.reset();
+  if (metadata.title.empty() && rest_unsupported && !stopped()) {
+    ESP_LOGI(kTag, "Bambu FTPS ranges unavailable; reading bounded metadata prefix");
+    return fetch_metadata_prefix(connection, path, stopped);
+  }
+  return metadata;
 }
 
 }  // namespace
@@ -490,14 +535,13 @@ esp_err_t BambuA1PreviewClient::start() {
 void BambuA1PreviewClient::stop() {
   stop_requested_.store(true, std::memory_order_release);
   fetch_requested_.store(false, std::memory_order_release);
-  set_job({}, {}, {}, false);
   TaskHandle_t task = nullptr;
   {
     const std::lock_guard<std::mutex> lock(task_mutex_);
     task = task_handle_;
   }
   if (task != nullptr) xTaskNotifyGive(task);
-  publish_status(connection().is_ready(), false, "Print preview idle", true);
+  publish_status(connection().is_ready(), false, "Print preview idle");
 }
 
 BambuA1PreviewSnapshot BambuA1PreviewClient::snapshot() const {
@@ -552,20 +596,20 @@ bool BambuA1PreviewClient::fetch(const BambuLocalConnection& connection, const J
   for (const std::string& path : paths) {
     if (stop_requested_.load(std::memory_order_acquire) || !network_ready_.load() ||
         (!preview_requested_.load() && !metadata_requested_.load()) || job_request().key != job.key) break;
-    const bool found_image = fetch_archive_png(connection, path, target_name, image);
+    const bool found_image = *image || fetch_archive_png(connection, path, target_name, image);
     if (stop_requested_.load() || job_request().key != job.key) break;
-    {
+    if (model_title->empty()) {
       const auto metadata = fetch_archive_metadata(connection, path, [&] {
         return stop_requested_.load() || !network_ready_.load() ||
             (!preview_requested_.load() && !metadata_requested_.load()) || job_request().key != job.key;
       });
       *model_title = core::bounded_job_name(metadata.title);
       *profile_title = core::bounded_job_name(metadata.profile);
-      if (found_image || !model_title->empty()) {
-        ESP_LOGI(kTag, "Loaded local Bambu job data (preview=%d, title=%d)",
-                 found_image, !model_title->empty());
-        return true;
-      }
+    }
+    if (found_image || !model_title->empty()) {
+      ESP_LOGI(kTag, "Loaded local Bambu job data (preview=%d, title=%d)",
+               found_image, !model_title->empty());
+      return true;
     }
   }
   ESP_LOGW(kTag, "Bambu print preview was not found for the active local job");
@@ -584,9 +628,9 @@ void BambuA1PreviewClient::task_entry(void* context) {
 }
 
 void BambuA1PreviewClient::task_loop() {
-  std::string attempted_job;
-  uint8_t attempts = 0;
-  int64_t last_attempt_us = 0;
+  auto& attempted_job = attempted_job_;
+  auto& attempts = attempts_;
+  auto& last_attempt_us = last_attempt_us_;
   bool memory_deferred = false;
   while (!stop_requested_.load(std::memory_order_acquire)) {
     const auto connection_generation = connection_generation_.load();
@@ -598,7 +642,7 @@ void BambuA1PreviewClient::task_loop() {
       last_attempt_us = 0;
     }
     if ((!preview_requested_.load() && !metadata_requested_.load()) || !job.active || !current_connection.is_ready()) {
-      publish_status(current_connection.is_ready(), false, "Print preview idle", true);
+      publish_status(current_connection.is_ready(), false, "Print preview idle");
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
       continue;
     }
@@ -640,14 +684,20 @@ void BambuA1PreviewClient::task_loop() {
     last_attempt_us = now_us;
     publish_status(true, true, "Loading local print preview");
     mark_reset_checkpoint(ResetCheckpoint::kA1PreviewFetch);
-    std::shared_ptr<std::vector<uint8_t>> image;
-    std::string model_title, profile_title;
+    const auto cached = snapshot();
+    const bool same_job = cached.job_key == job.key;
+    auto image = same_job ? cached.image : nullptr;
+    std::string model_title = same_job ? cached.model_title : "";
+    std::string profile_title = same_job ? cached.profile_title : "";
     if (fetch(current_connection, job, &image, &model_title, &profile_title) &&
         !stop_requested_.load(std::memory_order_acquire) && (preview_requested_.load() || metadata_requested_.load()) &&
         connection_generation_.load() == connection_generation &&
         job_request().key == job.key) {
+      const bool complete = image && !model_title.empty();
       publish_image(job.key, std::move(image), std::move(model_title), std::move(profile_title));
-      attempts = kMaximumAttemptsPerJob;
+      // Retry only missing data. Successful cover/title reads survive worker
+      // suspension and never spend another TLS session for the same job.
+      if (complete) attempts = kMaximumAttemptsPerJob;
     } else if (job_request().key == job.key) {
       publish_status(true, false, attempts < kMaximumAttemptsPerJob
                                       ? "Print preview not ready; retrying"
@@ -655,7 +705,7 @@ void BambuA1PreviewClient::task_loop() {
     }
     mark_reset_checkpoint(ResetCheckpoint::kRunning);
   }
-  publish_status(connection().is_ready(), false, "Print preview idle", true);
+  publish_status(connection().is_ready(), false, "Print preview idle");
 }
 
 }  // namespace printdeck::platform

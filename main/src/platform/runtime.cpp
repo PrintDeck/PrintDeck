@@ -1248,11 +1248,13 @@ core::PrinterSnapshot Runtime::update_bambu_snapshot() {
   const auto source_job_id = std::to_string(snapshot.profile_id) + ":" + snapshot.job.source_job_id;
   const auto job_key = BambuA1PreviewClient::job_key(snapshot.job.preview_hint,
       snapshot.job.name, snapshot.job.preview_plate_hint, source_job_id);
-  if (snapshot.job.phase == core::JobPhase::idle || job_key != bambu_job_name_key_) {
+  if (snapshot.job.phase != core::JobPhase::unknown &&
+      (snapshot.job.phase == core::JobPhase::idle || job_key != bambu_job_name_key_)) {
     bambu_job_name_key_ = job_key;
     bambu_job_name_.clear();
   }
-  bambu_a1_preview_.set_job(snapshot.job.preview_hint, snapshot.job.name,
+  if (snapshot.job.phase != core::JobPhase::unknown)
+    bambu_a1_preview_.set_job(snapshot.job.preview_hint, snapshot.job.name,
                             snapshot.job.preview_plate_hint, preview_allowed, source_job_id);
   const BambuA1PreviewSnapshot preview = bambu_a1_preview_.snapshot();
   if (active && preview.job_key == job_key && !preview.model_title.empty()) {
@@ -1838,7 +1840,7 @@ void Runtime::monitor_loop() {
               selected_snapshot.profile_id == selected->id &&
               bambu_lan_.detected_model() != BambuPrinterModel::unknown
               ? bambu_model_name(bambu_lan_.detected_model()) : "",
-          matching_thumbnail ? cached_thumbnail.key : "");
+          selected && selected_snapshot_ready ? PrintPreviewService::key(*selected, selected_snapshot.job) : "");
       if (device_preview_visible && selected_snapshot.job.exposure_preview)
         selected_snapshot.job.preview = selected_snapshot.job.exposure_preview;
       const int rendered_page = display_.page();

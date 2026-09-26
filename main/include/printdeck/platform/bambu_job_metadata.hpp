@@ -87,6 +87,65 @@ inline BambuJobMetadata parse(std::string_view xml) {
   return result;
 }
 
+// Some printer FTPS servers reject REST. Their bounded sequential prefix can
+// still contain the complete root model entry. Never infer a title from object
+// names or accept a partially inflated/CRC-unchecked metadata file.
+inline BambuJobMetadata read_prefix(std::string_view prefix) {
+  std::size_t at = 0;
+  for (unsigned entries = 0; entries < 512 && at + 30 <= prefix.size(); ++entries) {
+    if (prefix.substr(at, 4) != std::string_view("PK\3\4", 4)) return {};
+    const auto flags = number(prefix, at + 6, 2);
+    const auto method = number(prefix, at + 8, 2);
+    const auto crc = number(prefix, at + 14, 4);
+    auto compressed = number(prefix, at + 18, 4);
+    auto raw = number(prefix, at + 22, 4);
+    const auto name_size = number(prefix, at + 26, 2);
+    const auto extra_size = number(prefix, at + 28, 2);
+    const auto data_offset = at + 30 + name_size + extra_size;
+    if ((flags & ~0x800ULL) || data_offset > prefix.size()) return {};
+    auto extra = prefix.substr(at + 30 + name_size, extra_size);
+    for (std::size_t pos = 0; pos + 4 <= extra.size();) {
+      const auto length = number(extra, pos + 2, 2);
+      if (length > extra.size() - pos - 4) return {};
+      if (number(extra, pos, 2) == 1) {
+        std::size_t field = pos + 4;
+        for (auto* value : {&raw, &compressed}) if (*value == 0xffffffff) {
+          if (field + 8 > pos + 4 + length) return {};
+          *value = number(extra, field, 8); field += 8;
+        }
+        break;
+      }
+      pos += 4 + length;
+    }
+    if (compressed > prefix.size() - data_offset) return {};
+    if (prefix.substr(at + 30, name_size) == "3D/3dmodel.model") {
+      if (!raw || raw > 512 * 1024 || !compressed || compressed > 128 * 1024) return {};
+      auto data = prefix.substr(data_offset, compressed);
+      std::string xml;
+      if (method == 0) {
+        if (raw != compressed) return {};
+        xml.assign(data);
+      } else if (method == 8) {
+        xml.resize(raw);
+        z_stream stream{};
+        stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(data.data()));
+        stream.avail_in = data.size();
+        stream.next_out = reinterpret_cast<Bytef*>(xml.data());
+        stream.avail_out = xml.size();
+        if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) return {};
+        const int status = inflate(&stream, Z_FINISH);
+        const bool valid = status == Z_STREAM_END && stream.total_in == compressed && stream.total_out == raw;
+        inflateEnd(&stream);
+        if (!valid) return {};
+      } else return {};
+      if (crc32(0, reinterpret_cast<const Bytef*>(xml.data()), xml.size()) != crc) return {};
+      return parse(xml);
+    }
+    at = data_offset + compressed;
+  }
+  return {};
+}
+
 // Bounded range reads avoid downloading geometry or G-code. ZIP64 offsets are
 // accepted only within the same small archive/file limits as ordinary ZIP.
 using Reader = std::function<bool(std::uint64_t, std::size_t, std::string&)>;

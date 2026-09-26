@@ -15,10 +15,15 @@ std::string printer_key(const core::PrinterProfile& profile) {
 std::string PrintPreviewService::key(const core::PrinterProfile& profile,
                                     const core::JobState& job) {
   if (job.preview_hint.empty() && job.gcode_file.empty() && job.name.empty()) return {};
+  // A resolved display title is presentation, not job identity. Bambu task IDs
+  // also distinguish successive cloud prints reusing the same archive filename.
+  if (!job.source_job_id.empty() && job.source_job_id != "0")
+    return printer_key(profile) + "\njob-v2\n" + job.source_job_id + "\n" + job.preview_plate_hint;
+  const auto name = job.preview_hint.empty() && job.gcode_file.empty() ? job.name : "";
   // Retire stock GK3 black-history thumbnails cached by earlier firmware.
   const auto format = profile.protocol == core::PrinterProtocol::uniformation_sdcp ? "ctb-model-v1\n" : "";
   return printer_key(profile) + "\n" + format + job.preview_hint + "\n" + job.gcode_file +
-      "\n" + job.name + "\n" + job.preview_plate_hint;
+      "\n" + name + "\n" + job.preview_plate_hint;
 }
 esp_err_t PrintPreviewService::start(PersistenceWorker& worker) {
   if (worker_ == &worker) {
