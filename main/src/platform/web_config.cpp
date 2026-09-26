@@ -565,7 +565,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   });
   cloud_.set_command_sink([](void* context, const std::string& payload) {
     core::DeviceCommand integration;
-    if ((core::parse_device_command(payload, integration) && (core::printer_order_command(integration) || core::printer_view_command(integration) || integration.action == "device.mqtt.patch" || integration.action == "device.appearance.patch" || integration.action == "audio.test" || integration.action == "firmware.check" || integration.action == "firmware.install" || core::cloud_reaction_control(integration.action))) || core::is_device_unified_api_command(payload) || core::is_device_name_command(payload) || core::is_device_timezone_command(payload) || core::is_device_voice_command(payload))
+    if ((core::parse_device_command(payload, integration) && (core::device_restart_command(integration) || core::printer_order_command(integration) || core::printer_view_command(integration) || integration.action == "device.mqtt.patch" || integration.action == "device.appearance.patch" || integration.action == "audio.test" || integration.action == "firmware.check" || integration.action == "firmware.install" || core::cloud_reaction_control(integration.action))) || core::is_device_unified_api_command(payload) || core::is_device_name_command(payload) || core::is_device_timezone_command(payload) || core::is_device_voice_command(payload))
       {
       const auto status = static_cast<WebConfig*>(context)->execute_device_command(payload, false).status;
       return status == 200 || status == 202;
@@ -647,6 +647,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   config.stack_size = 12288;
   constexpr unsigned route_capacity = 92;
   preview_session_ = esp_random();
+  restart_boot_id_ = generate_unified_api_token().substr(3, 32);
   config.max_uri_handlers = route_capacity;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
@@ -2410,6 +2411,9 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
     body+=",\""+std::string(action)+R"(":{"supported":true,"available":)";
     body+=firmware_update_&&!update.busy?"true":"false";body+="}";
   }
+  body+=R"(,"device.restart":{"supported":true,"available":)";
+  body+=device_restart_available()?"true":"false";
+  body+=R"(,"boot_id":)";append_json_string(body,restart_boot_id_);body+="}";
   const auto reactions=reaction_assets_?reaction_assets_->snapshot():ReactionAssetSnapshot{};
   for(const auto action:{"reactions.set.install","reactions.set.cancel","reactions.event.set","reactions.event.reset"}){
     body+=",\""+std::string(action)+R"(":{"supported":true,"available":)";
@@ -2490,6 +2494,20 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
   const auto get=[&](const char* key){return cJSON_GetObjectItemCaseSensitive(parameters,key);};
   const auto text=[&](const char* key)->std::string_view{auto* value=get(key);return cJSON_IsString(value)?std::string_view(value->valuestring):std::string_view{};};
   const int count=cJSON_GetArraySize(parameters);
+  if(command.action=="device.restart") {
+    if(!core::device_restart_command(command))return {};
+    const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
+    if(text("boot_id")!=restart_boot_id_)return {409,R"({"status":"rejected"})"};
+    // A retried delivery from this boot must not postpone or repeat the restart.
+    if(device_restart_pending_.load())return {202,R"({"status":"accepted"})"};
+    if(!device_restart_available())return {409,R"({"status":"rejected"})"};
+    device_restart_pending_.store(true);
+    if(request_restart()!=ESP_OK) {
+      device_restart_pending_.store(false);
+      return {503,R"({"status":"rejected"})"};
+    }
+    return {202,R"({"status":"accepted"})"};
+  }
   if(command.action=="firmware.check"||command.action=="firmware.install") {
     if(!firmware_update_||!core::firmware_command(command)||!network_||!network_->status().station_connected)return {};
     const bool accepted=command.action=="firmware.check"
@@ -5636,6 +5654,15 @@ esp_err_t WebConfig::serve_compatibility_report(httpd_req_t* request) const {
 esp_err_t WebConfig::cancel_compatibility_probe(httpd_req_t* request) {
   compatibility_probe_->cancel();
   return send_json(request, "200 OK", "{\"cancelled\":true}");
+}
+
+bool WebConfig::device_restart_available() const {
+  if(device_restart_pending_.load() || restart_boot_id_.empty() ||
+      (firmware_update_ && firmware_update_->snapshot().busy) ||
+      (reaction_assets_ && reaction_assets_->snapshot().busy))return false;
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return configuration_backup_activity_expires_at_ms_ <=
+      static_cast<std::uint64_t>(esp_timer_get_time()/1000);
 }
 
 esp_err_t WebConfig::request_restart() {

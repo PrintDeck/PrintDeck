@@ -186,6 +186,14 @@ inline bool parse_device_command(std::string_view payload,DeviceCommand& command
   if(!device_integer(version,1,1)||!cJSON_IsString(action)||std::strlen(action->valuestring)>40||!device_unique_object(parameters))return false;
   command.action=action->valuestring;command.parameters.reset(cJSON_DetachItemFromObjectCaseSensitive(root.get(),"parameters"));return true;
 }
+inline bool device_restart_command(const DeviceCommand& command) {
+  const auto* p = command.parameters.get();
+  const auto* boot = cJSON_GetObjectItemCaseSensitive(p, "boot_id");
+  return command.action == "device.restart" && cJSON_GetArraySize(p) == 2 &&
+      cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(p, "confirmed")) && cJSON_IsString(boot) &&
+      std::strlen(boot->valuestring) == 32 &&
+      std::string_view(boot->valuestring).find_first_not_of("0123456789abcdef") == std::string_view::npos;
+}
 inline bool printer_view_command(const DeviceCommand& command) {
   const auto* view=cJSON_GetObjectItemCaseSensitive(command.parameters.get(),"view");
   return command.action=="device.printer_view.set" && cJSON_GetArraySize(command.parameters.get())==1 &&

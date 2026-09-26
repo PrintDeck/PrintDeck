@@ -305,6 +305,9 @@ class WebConfig {
   esp_err_t serve_compatibility_report(httpd_req_t* request) const;
   esp_err_t cancel_compatibility_probe(httpd_req_t* request);
   esp_err_t serve_captive_request(httpd_req_t* request) const;
+  bool device_restart_available() const;
+  std::string restart_boot_id_;
+  std::atomic<bool> device_restart_pending_{false};
   esp_err_t request_restart();
   esp_err_t schedule_restart();
   bool derive_configuration_backup_key(std::span<const std::uint8_t> password,
