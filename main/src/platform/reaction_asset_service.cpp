@@ -1,4 +1,7 @@
 #include "printdeck/platform/reaction_asset_service.hpp"
+#include "printdeck/platform/set_catalog_service.hpp"
+#include "printdeck/platform/audio_set_service.hpp"
+#include "printdeck/core/audio_pack.hpp"
 
 #include <algorithm>
 #include <array>
@@ -62,7 +65,7 @@ constexpr bool kNeedsRound240ProfileMigration =
 #include "../../generated/reaction-catalog/reaction_sets.inc"
 #undef PRINTDECK_REACTION_SET
 
-constexpr std::array<ReactionSetDefinition, PRINTDECK_REACTION_SET_COUNT> kSets = {{
+const std::array<ReactionSetDefinition, PRINTDECK_REACTION_SET_COUNT> kSets = {{
 #define PRINTDECK_REACTION_SET(id, name, version, family_id, family_name, variant_name) \
   {id, name, version, family_id, family_name, variant_name},
 #include "../../generated/reaction-catalog/reaction_sets.inc"
@@ -74,7 +77,8 @@ std::uint64_t monotonic_ms() {
 }
 
 bool known_set(std::string_view id) {
-  return std::any_of(kSets.begin(), kSets.end(), [id](const auto& set) {
+  const auto catalog=ReactionAssetService::sets();
+  return std::any_of(catalog.begin(), catalog.end(), [id](const auto& set) {
     return set.id == id;
   });
 }
@@ -183,15 +187,14 @@ std::size_t directory_size(const char* path) {
   return total;
 }
 
-bool storage_has_room(std::size_t requested_bytes) {
+bool storage_has_room(std::size_t requested_bytes,std::size_t reclaimed_bytes=0) {
   std::size_t total = 0;
   std::size_t used = 0;
   if (esp_littlefs_info(kPartitionLabel, &total, &used) != ESP_OK || used > total) {
     return false;
   }
-  const std::size_t available = total - used;
-  return requested_bytes <= available &&
-         kStorageSafetyBytes <= available - requested_bytes;
+  return core::asset_replacement_fits(total,used,requested_bytes,reclaimed_bytes,
+      kBoardHasAudio?AudioSetService::storage_reserve():0,kStorageSafetyBytes);
 }
 
 bool write_bytes(const char* path, std::span<const std::uint8_t> bytes) {
@@ -339,8 +342,12 @@ lv_fs_res_t lv_sd_tell(lv_fs_drv_t*, void* file, std::uint32_t* position) {
 
 }  // namespace
 
-std::span<const ReactionSetDefinition> ReactionAssetService::sets() {
-  return kSets;
+std::vector<ReactionSetDefinition> ReactionAssetService::sets() {
+  const auto catalog=SetCatalogService::instance().sets(false);
+  if(catalog.empty())return {kSets.begin(),kSets.end()};
+  std::vector<ReactionSetDefinition> result;result.reserve(catalog.size());
+  for(const auto& set:catalog)result.push_back({set.id,set.name,set.version,set.family_id,set.family_name,set.variant_name});
+  return result;
 }
 
 esp_err_t ReactionAssetService::start(const NetworkService& network) {
@@ -375,6 +382,8 @@ esp_err_t ReactionAssetService::start(const NetworkService& network) {
     network_ = nullptr;
     return ESP_ERR_NO_MEM;
   }
+  SetCatalogService::instance().start(network);
+  AudioSetService::instance().start(network);
   ensure_directory(kRootPath);
   ensure_directory(kCustomPath);
   // Recover the unambiguous half of an interrupted directory swap. If both
@@ -501,7 +510,8 @@ void ReactionAssetService::refresh_storage_locked() {
   if (esp_littlefs_info(kPartitionLabel, &total, &used) != ESP_OK || total == 0) return;
   snapshot_.storage_total = total;
   snapshot_.storage_used = used;
-  const std::size_t usable = total > kStorageSafetyBytes ? total - kStorageSafetyBytes : 0;
+  const auto reserve=kStorageSafetyBytes+(kBoardHasAudio ? AudioSetService::storage_reserve() : 0);
+  const std::size_t usable = total > reserve ? total - reserve : 0;
   snapshot_.maximum_file_bytes = std::min(kMaximumGifBytes, usable);
   snapshot_.maximum_set_bytes = std::min(kMaximumActiveReactionBytes, usable);
   snapshot_.maximum_custom_bytes = std::min(kMaximumActiveReactionBytes, usable);
@@ -513,7 +523,7 @@ void ReactionAssetService::refresh_storage_locked() {
   if (snapshot_.sd_missing || !sd_index_valid_ || (snapshot_.sd_selected && !snapshot_.sd_ready)) snapshot_.storage_available_for_upload = 0;
   snapshot_.sd_can_copy_internal = snapshot_.sd_ready && sd_store_.missing() == 0 &&
       core::reaction_images_fit_internal(total, used, sd_store_.bytes(),
-          snapshot_.active_bytes, snapshot_.maximum_custom_bytes, kStorageSafetyBytes);
+          snapshot_.active_bytes, snapshot_.maximum_custom_bytes, reserve);
   std::size_t sd_active = 0;
   for (std::size_t i = 0; i < core::kReactionEventCount; ++i)
     sd_active += sd_store_.owned(i) ? sd_store_.index().records[i].bytes :
@@ -528,10 +538,11 @@ bool ReactionAssetService::request_set(std::string_view id, std::string_view req
 
 bool ReactionAssetService::begin_set_request(std::string_view id,
                                              bool profile_migration, std::string_view request_id) {
-  const auto requested = std::find_if(kSets.begin(), kSets.end(), [id](const auto& set) {
+  const auto catalog=sets();
+  const auto requested = std::find_if(catalog.begin(), catalog.end(), [id](const auto& set) {
     return set.id == id;
   });
-  if (requested == kSets.end()) return false;
+  if (requested == catalog.end()) return false;
   const std::lock_guard<std::mutex> lock(mutex_);
   if (snapshot_.busy || snapshot_.sd_busy || task_ != nullptr || reaper_task_ == nullptr) return false;
   requested_set_.assign(id);
@@ -551,6 +562,7 @@ bool ReactionAssetService::begin_set_request(std::string_view id,
   cancel_requested_.store(false, std::memory_order_release);
   profile_migration_attempt_active_ = profile_migration;
   request_pending_ = true;
+  SetCatalogService::instance().cancel();
   // LittleFS writes may briefly disable the flash cache, so this worker needs
   // an internal-RAM stack. Allocate it only for an explicit set change instead
   // of permanently withholding that memory from Wi-Fi and printer TLS.
@@ -714,6 +726,8 @@ bool ReactionAssetService::finish_cloud_upload(std::string_view request, std::sp
 
 esp_err_t ReactionAssetService::install_custom(
     std::string_view id, std::span<const std::uint8_t> bytes, std::string_view upload_request) {
+  AssetTransferLease transfer;
+  if (!transfer) return ESP_ERR_INVALID_STATE;
   const auto* event = core::reaction_event(id);
   if (event == nullptr) return ESP_ERR_INVALID_ARG;
   const std::size_t index = static_cast<std::size_t>(event - core::reaction_events().data());
@@ -1059,8 +1073,9 @@ bool ReactionAssetService::validate_manifest(
   if (root == nullptr) return false;
   const cJSON* set_id = cJSON_GetObjectItemCaseSensitive(root, "set");
   if (cJSON_IsString(set_id)) {
+    const auto catalog=sets();
     const auto definition = std::find_if(
-        kSets.begin(), kSets.end(), [expected_id](const auto& set) {
+        catalog.begin(), catalog.end(), [expected_id](const auto& set) {
           return set.id == expected_id;
         });
     const cJSON* dimensions = cJSON_GetObjectItemCaseSensitive(root, "size");
@@ -1085,7 +1100,7 @@ bool ReactionAssetService::validate_manifest(
          kSetAssetProfile == asset_profile->valuestring) ||
         (allow_legacy_profile && asset_profile == nullptr) ||
         migratable_lcd_profile;
-    bool valid = definition != kSets.end() && expected_id == set_id->valuestring &&
+    bool valid = (definition != catalog.end() || (allow_legacy_profile && core::valid_set_id(expected_id))) && expected_id == set_id->valuestring &&
                  profile_valid &&
                  cJSON_IsArray(dimensions) && cJSON_GetArraySize(dimensions) == 2 &&
                  cJSON_IsNumber(width) && width->valueint == kDisplayWidth &&
@@ -1133,8 +1148,15 @@ bool ReactionAssetService::validate_manifest(
     valid = valid && total <= snapshot_.maximum_set_bytes &&
             declared_total->valuedouble == static_cast<double>(total);
     if (valid) {
-      name = std::string(definition->name);
-      version = std::string(definition->version);
+      name = definition != catalog.end() ? definition->name : std::string(expected_id);
+      version = definition != catalog.end() ? definition->version : "unknown";
+      // Persisted identity remains authoritative when the downloadable catalog changes.
+      if (allow_legacy_profile) {
+        const auto* installed_name=cJSON_GetObjectItemCaseSensitive(root,"installed_name");
+        const auto* installed_version=cJSON_GetObjectItemCaseSensitive(root,"installed_version");
+        if(cJSON_IsString(installed_name) && std::strlen(installed_name->valuestring)<=96) name=installed_name->valuestring;
+        if(cJSON_IsString(installed_version) && std::strlen(installed_version->valuestring)<=32) version=installed_version->valuestring;
+      }
     }
     cJSON_Delete(root);
     return valid;
@@ -1497,6 +1519,12 @@ void ReactionAssetService::task_loop() {
 }
 
 void ReactionAssetService::install_requested_set(std::string id) {
+  // An explicit install takes priority over an in-flight catalog refresh.
+  // Wait only in the worker, while the regular monitor reaps that worker.
+  for(int attempt=0;attempt<250 && SetCatalogService::instance().busy() && !cancellation_requested();++attempt)
+    vTaskDelay(pdMS_TO_TICKS(20));
+  AssetTransferLease transfer;
+  if(!transfer) {fail("Another set download is in progress.");return;}
   bool user_requested;
   { const std::lock_guard<std::mutex> lock(mutex_); user_requested = !profile_migration_attempt_active_; }
   if (cancellation_requested()) {
@@ -1529,6 +1557,17 @@ void ReactionAssetService::install_requested_set(std::string id) {
     fail("The reaction set manifest did not pass validation.");
     return;
   }
+  {
+    std::unique_ptr<cJSON,decltype(&cJSON_Delete)> saved(cJSON_ParseWithLength(manifest.data(),manifest.size()),cJSON_Delete);
+    if(!saved) {fail("PrintDeck could not prepare reaction storage.");return;}
+    cJSON_DeleteItemFromObjectCaseSensitive(saved.get(),"installed_name");
+    cJSON_DeleteItemFromObjectCaseSensitive(saved.get(),"installed_version");
+    cJSON_AddStringToObject(saved.get(),"installed_name",name.c_str());
+    cJSON_AddStringToObject(saved.get(),"installed_version",version.c_str());
+    std::unique_ptr<char,decltype(&cJSON_free)> encoded(cJSON_PrintUnformatted(saved.get()),cJSON_free);
+    if(!encoded) {fail("PrintDeck could not prepare reaction storage.");return;}
+    manifest=encoded.get();
+  }
   std::size_t effective_total = 0;
   std::size_t maximum_active_bytes = 0;
   {
@@ -1554,7 +1593,7 @@ void ReactionAssetService::install_requested_set(std::string id) {
     fail("PrintDeck could not prepare reaction storage.");
     return;
   }
-  if (!storage_has_room(total + manifest.size())) {
+  if (!storage_has_room(total + manifest.size(),directory_size(kCurrentPath))) {
     fail("PrintDeck needs more free reaction storage to change sets safely.");
     return;
   }
@@ -1946,7 +1985,8 @@ void ReactionAssetService::storage_task(std::string action) {
     // The SD index and files stay intact in OFF mode. A missing card therefore
     // remains usable when it returns, even if an internal replacement was added.
     const bool copy = action == "copy_internal";
-    const bool copied = !copy || (storage_has_room(sd_store_.bytes()) &&
+    AssetTransferLease transfer;
+    const bool copied = !copy || (transfer && storage_has_room(sd_store_.bytes()) &&
         sd_store_.copy_to_internal(kCustomPath));
     if (copied) {
       std::uint32_t previous_reset = 0;

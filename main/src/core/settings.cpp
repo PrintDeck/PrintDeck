@@ -277,7 +277,7 @@ bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema < 7 &&
       (settings.audio_preset == "tactile" || settings.audio_preset == "impact" ||
        settings.audio_preset == "lucky")) {
-    settings.audio_preset = "modern";
+    settings.audio_preset = "clean";
   }
   if (source_schema < 8) {
     settings.reaction_progress_bar_enabled = true;

@@ -204,12 +204,15 @@ esp_err_t UsbDeveloperService::start(DisplayShell& display) {
   // Retain an internal-RAM fallback so USB diagnostics still start if external
   // stack allocation is unexpectedly unavailable during early boot.
   s_status.store("task-creating");
-  if (xTaskCreatePinnedToCoreWithCaps(task_entry, "usb_developer", 6144, this, 2,
+  // Composed captures also enter LVGL's indexed-image decoder. Its nested
+  // rendering path exceeds 6 KiB with a reaction cover and translucent label.
+  constexpr std::uint32_t kCaptureStackBytes = 12 * 1024;
+  if (xTaskCreatePinnedToCoreWithCaps(task_entry, "usb_developer", kCaptureStackBytes, this, 2,
                                      &task_, kServiceCore,
                                      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
     ESP_LOGW(kLogTag,
              "USB developer task PSRAM stack unavailable; using internal RAM fallback");
-    if (xTaskCreatePinnedToCore(task_entry, "usb_developer", 6144, this, 2,
+    if (xTaskCreatePinnedToCore(task_entry, "usb_developer", kCaptureStackBytes, this, 2,
                                &task_, kServiceCore) != pdPASS) {
       task_ = nullptr;
       s_status.store("task-failed");

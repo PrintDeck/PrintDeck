@@ -129,6 +129,7 @@ class WebConfig {
  private:
   static esp_err_t device_state_entry(httpd_req_t* request);
   static esp_err_t device_command_entry(httpd_req_t* request);
+  std::string audio_set_state_json() const;
   std::string reaction_state_json(bool include_catalog = true) const;
   CloudPairingService cloud_;
   std::atomic<std::uint32_t> cloud_state_revision_{0};

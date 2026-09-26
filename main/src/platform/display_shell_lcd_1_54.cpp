@@ -485,35 +485,25 @@ void DisplayShell::square_show_quick_menu() {
                                                   : &lv_font_montserrat_24);
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0,
                kDisplayUsesCompactRoundLayout ? 16 : 12);
-  static constexpr const char* icons[]{LV_SYMBOL_EYE_OPEN, LV_SYMBOL_VOLUME_MAX, "Aa"};
-  static constexpr const char* labels[]{"DISPLAY & BRIGHTNESS", "SOUNDS", "LANGUAGE"};
+  static constexpr const char* icons[]{LV_SYMBOL_EYE_OPEN, LV_SYMBOL_VOLUME_MAX, "Aa", LV_SYMBOL_IMAGE};
+  static constexpr const char* labels[]{"DISPLAY", "SOUNDS", "LANGUAGE", "REACTIONS"};
   const std::uint32_t colors[]{theme_style_.accent_secondary,
-                               theme_colors_.preparing, theme_colors_.done};
-  for (int index = 0; index < 3; ++index) {
+                               theme_colors_.preparing, theme_colors_.done, theme_style_.accent_secondary};
+  for (int index = 0; index < 4; ++index) {
     if constexpr (!kBoardHasAudio) {
       if (index == 1) continue;
     }
     lv_obj_t* button = lv_button_create(quick_overlay_);
-    if (index == 0) {
-      lv_obj_set_size(button, kDisplayUsesCompactRoundLayout ? 180 : 208, 66);
-      lv_obj_align(button, LV_ALIGN_TOP_MID, 0,
-                   kDisplayUsesCompactRoundLayout ? 47 : 43);
-    } else if constexpr (!kBoardHasAudio) {
-      lv_obj_set_size(button, 180, 60);
-      lv_obj_align(button, LV_ALIGN_TOP_MID, 0, 124);
-    } else {
-      lv_obj_set_size(button, kDisplayUsesCompactRoundLayout ? 86 : 100, 60);
-      lv_obj_align(button, LV_ALIGN_CENTER,
-                   index == 1 ? (kDisplayUsesCompactRoundLayout ? -47 : -54)
-                              : (kDisplayUsesCompactRoundLayout ? 47 : 54),
-                   40);
-    }
+    const int column=index==0||index==1?0:1;
+    const int row=index==0||index==3?0:1;
+    lv_obj_set_size(button,kDisplayUsesCompactRoundLayout?86:100,60);
+    lv_obj_align(button,LV_ALIGN_CENTER,column==0?-50:50,row==0?-37:33);
     lv_obj_set_style_radius(button, themed_radius(16), LV_PART_MAIN);
     lv_obj_set_style_bg_color(button, lv_color_hex(theme_style_.surface_raised), LV_PART_MAIN);
     lv_obj_set_style_border_width(button, 2, LV_PART_MAIN);
     lv_obj_set_style_border_color(button, lv_color_hex(colors[index]), LV_PART_MAIN);
     apply_surface_effect(button);
-    lv_obj_set_user_data(button, reinterpret_cast<void*>(static_cast<std::intptr_t>(index)));
+    lv_obj_set_user_data(button, reinterpret_cast<void*>(static_cast<std::intptr_t>(index==3?5:index)));
     lv_obj_t* icon = lv_label_create(button);
     lv_label_set_text(icon, icons[index]);
     apply_icon_text_style(icon, lv_color_hex(theme_style_.text_primary),
@@ -523,27 +513,10 @@ void DisplayShell::square_show_quick_menu() {
     lv_obj_t* label = lv_label_create(button);
     lv_label_set_text(label, tr(labels[index]));
     apply_text_style(label, lv_color_hex(colors[index]), &lv_font_montserrat_12);
-    if (index == 0) {
-      lv_obj_set_size(label, 190, 14);
-      lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-      lv_label_set_long_mode(label, LV_LABEL_LONG_MODE_DOTS);
-      lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-      lv_obj_t* detail = lv_label_create(button);
-      lv_label_set_text_fmt(detail, "%d%% / %s",
-                            std::clamp(board_display_brightness_get(),
-                                       kDisplayBrightnessMinimum, 100),
-                            tr(theme_display_name(active_theme_)));
-      apply_text_style(detail, lv_color_hex(theme_style_.text_secondary),
-                       &lv_font_montserrat_12);
-      lv_obj_set_size(detail, 190, 14);
-      lv_obj_set_style_text_align(detail, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-      lv_label_set_long_mode(detail, LV_LABEL_LONG_MODE_DOTS);
-      lv_obj_align(detail, LV_ALIGN_CENTER, 0, 20);
-    } else {
-      lv_obj_set_width(label, 92);
-      lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-      lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -3);
-    }
+    lv_obj_set_width(label,78);
+    lv_obj_set_style_text_align(label,LV_TEXT_ALIGN_CENTER,LV_PART_MAIN);
+    lv_label_set_long_mode(label,LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_align(label,LV_ALIGN_CENTER,0,17);
     lv_obj_add_event_cb(button, [](lv_event_t* event) {
       auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
       if (shell == nullptr || lv_event_get_code(event) != LV_EVENT_CLICKED) return;
@@ -568,7 +541,7 @@ void DisplayShell::square_show_brightness_overlay() {
   lv_obj_set_style_bg_grad_dir(quick_overlay_, LV_GRAD_DIR_NONE, LV_PART_MAIN);
 
   lv_obj_t* title = lv_label_create(quick_overlay_);
-  lv_label_set_text(title, tr("DISPLAY & BRIGHTNESS"));
+  lv_label_set_text(title, tr("DISPLAY"));
   apply_text_style(title, lv_color_hex(theme_style_.text_primary),
                    kDisplayUsesCompactRoundLayout ? &lv_font_montserrat_12
                                                   : &lv_font_montserrat_14);
@@ -737,49 +710,18 @@ void DisplayShell::square_show_audio_overlay() {
   } else {
     lv_obj_align(preset_title, LV_ALIGN_TOP_LEFT, 8, 30);
   }
-  static constexpr const char* preset_ids[]{"modern", "soft", "oldschool",
-                                             "arcade", "scifi", "clean"};
-  static constexpr const char* preset_names[]{"MODERN", "SOFT", "RETRO",
-                                               "ARCADE", "SCI-FI", "VOICE"};
-  for (int index = 0; index < 6; ++index) {
-    const bool active = audio_preset_ == preset_ids[index];
-    lv_obj_t* button = lv_button_create(quick_overlay_);
-    lv_obj_set_size(button, kDisplayUsesCompactRoundLayout ? 58 : 70, 26);
-    lv_obj_align(button, LV_ALIGN_TOP_LEFT,
-                 (kDisplayUsesCompactRoundLayout ? 29 : 6) +
-                     (index % 3) * (kDisplayUsesCompactRoundLayout ? 62 : 77),
-                 (kDisplayUsesCompactRoundLayout ? 55 : 46) +
-                     (index / 3) * 30);
-    lv_obj_set_ext_click_area(button, 2);
-    lv_obj_set_style_radius(button, themed_radius(10), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(button, lv_color_hex(theme_style_.surface_raised), LV_PART_MAIN);
-    lv_obj_set_style_border_width(button, active ? 3 : 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(
-        button, lv_color_hex(active ? theme_style_.accent_secondary : theme_style_.border), LV_PART_MAIN);
-    lv_obj_set_user_data(button,
-                         reinterpret_cast<void*>(static_cast<std::intptr_t>(index)));
-    lv_obj_t* label = lv_label_create(button);
-    lv_label_set_text(label, tr(preset_names[index]));
-    apply_text_style(label, lv_color_hex(active ? theme_style_.accent_secondary : theme_style_.text_secondary),
-                     &lv_font_montserrat_12);
-    lv_obj_center(label);
-    lv_obj_add_flag(label, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_add_event_cb(button, [](lv_event_t* event) {
-      auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
-      if (shell == nullptr || lv_event_get_code(event) != LV_EVENT_CLICKED) return;
-      lv_event_stop_bubbling(event);
-      static constexpr const char* ids[]{"modern", "soft", "oldschool",
-                                          "arcade", "scifi", "clean"};
-      const int index = static_cast<int>(reinterpret_cast<std::intptr_t>(
-          lv_obj_get_user_data(lv_event_get_current_target_obj(event))));
-      if (index < 0 || index >= 6) return;
-      shell->audio_preset_ = ids[index];
-      if (shell->audio_preset_changed_ != nullptr) {
-        shell->audio_preset_changed_(shell->audio_preset_changed_context_, ids[index]);
-      }
-      shell->close_quick_overlay();
-    }, LV_EVENT_CLICKED, this);
-  }
+  lv_obj_t* choose=lv_button_create(quick_overlay_);
+  lv_obj_set_size(choose,180,46);
+  lv_obj_align(choose,LV_ALIGN_TOP_MID,0,53);
+  lv_obj_t* choice=lv_label_create(choose);lv_label_set_text(choice,tr("Choose sound set"));
+  apply_text_style(choice,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_12);
+  lv_obj_center(choice);
+  lv_obj_add_event_cb(choose,[](lv_event_t* e) {
+    auto* shell=static_cast<DisplayShell*>(lv_event_get_user_data(e));
+    if(shell->pending_quick_menu_action_!=-1)return;
+    shell->pending_quick_menu_action_=6;
+    if(lv_async_call(quick_menu_action_async,shell)!=LV_RESULT_OK)shell->pending_quick_menu_action_=-1;
+  },LV_EVENT_CLICKED,this);
   lv_obj_t* mute_button = lv_button_create(quick_overlay_);
   lv_obj_set_size(mute_button, 34, 34);
   lv_obj_align(mute_button, LV_ALIGN_TOP_LEFT, 8, 117);

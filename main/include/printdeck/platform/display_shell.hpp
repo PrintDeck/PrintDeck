@@ -182,6 +182,9 @@ class DisplayShell {
   void show_quick_menu();
   void show_brightness_overlay();
   void show_audio_overlay();
+  void show_set_overlay(bool audio, std::string family = {});
+  void update_set_overlay();
+  void start_selected_set();
   void show_theme_overlay();
   void create_quick_overlay_close_button();
   void request_theme_selection(const char* theme);
@@ -665,9 +668,23 @@ class DisplayShell {
   int printer_animation_native_height_ = 0;
   mutable std::mutex power_policy_mutex_;
   core::DisplayPowerPolicy power_policy_;
+  bool set_picker_audio_=false;
+  std::size_t set_carousel_index_=0;
+  lv_point_t set_picker_press_point_{};
+  bool set_picker_press_moved_=false;
+  std::vector<std::string> set_picker_ids_;
+  std::vector<std::string> set_picker_versions_;
+  std::string set_picker_selected_, set_picker_error_, set_picker_family_;
+  lv_obj_t* set_progress_bar_=nullptr;
+  lv_obj_t* set_cancel_button_=nullptr;
+  lv_obj_t* set_tile_wait_=nullptr;
+  std::string set_busy_id_;
+  lv_obj_t* set_progress_label_=nullptr;
+  lv_obj_t* set_choices_=nullptr;
+  lv_timer_t* set_progress_timer_=nullptr;
   bool audio_enabled_ = true;
   int audio_volume_ = 60;
-  std::string audio_preset_ = "modern";
+  std::string audio_preset_ = "clean";
   std::string active_theme_ = "green";
   std::string language_ = "en";
   std::atomic<core::CalendarDateFormat> clock_date_format_{

@@ -1,5 +1,7 @@
 #include "printdeck/platform/memory_admission.hpp"
 #include "printdeck/platform/runtime.hpp"
+#include "printdeck/platform/set_catalog_service.hpp"
+#include "printdeck/platform/audio_set_service.hpp"
 
 #include "esp_log.h"
 #include "esp_sntp.h"
@@ -647,6 +649,7 @@ bool Runtime::background_update_blocked() const {
       display_.camera_page_active()) {
     return true;
   }
+  if (AudioSetService::instance().snapshot().busy || SetCatalogService::instance().busy()) return true;
   if (moonraker_probe_.snapshot().running) return true;
   if (prusalink_probe_.snapshot().running || (web_config_.tinymaker_check_running() || web_config_.octoprint_check_running())) return true;
   if (elegoo_probe_.snapshot().running || web_config_.uniformation_check_running()) return true;
@@ -982,6 +985,7 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
       settings_.brightness_percent != settings.brightness_percent;
   const bool device_name_changed = settings_.device_name != settings.device_name;
   const bool timezone_changed = settings_.timezone != settings.timezone;
+  if(settings_.audio_preset!=settings.audio_preset) audio_set_check_after_ms_=0;
   AudioService::Preset requested_preset = AudioService::Preset::modern;
   AudioService::preset_from_id(settings.audio_preset, requested_preset);
   const bool audio_changed = audio_.enabled() != settings.audio_enabled ||
@@ -1394,6 +1398,22 @@ void Runtime::monitor_loop() {
     }
     display_.service_resources();
     apply_pending_settings();
+    SetCatalogService::instance().poll();
+    AudioSetService::instance().poll();
+    if constexpr(kBoardHasAudio) {
+      const auto installed=AudioSetService::instance().snapshot();
+      const auto audio_now=static_cast<std::uint64_t>(esp_timer_get_time()/1000);
+      if(installed.generation!=audio_set_generation_) {
+        audio_set_generation_=installed.generation;
+        audio_preset_changed_entry(this,installed.style.c_str());
+        audio_set_check_after_ms_=audio_now+30000;
+      } else if(audio_now>=audio_set_check_after_ms_ && !installed.busy && network_.status().station_connected &&
+          (!installed.available || installed.style!=settings_.audio_preset)) {
+        const auto id=installed.available && installed.style==settings_.audio_preset ? installed.id:settings_.audio_preset;
+        if(AudioSetService::instance().request(id))audio_set_check_after_ms_=audio_now+300000;
+        else audio_set_check_after_ms_=audio_now+30000;
+      }
+    }
     if (pending_reaction_storage_feedback_.exchange(false, std::memory_order_acq_rel)) {
       display_.reset_inactivity_and_wake();
       audio_.set_display_volume_scale(100);

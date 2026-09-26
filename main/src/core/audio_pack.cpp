@@ -26,7 +26,7 @@ bool read_audio_pack_index(std::FILE* file, std::size_t bytes, AudioPackIndex& i
       bytes > kAudioPackMaximumBytes || std::fseek(file, 0, SEEK_SET) != 0) return false;
   std::array<std::uint8_t, kAudioPackEntryBytes> buffer{};
   if (std::fread(buffer.data(), 1, kAudioPackHeaderBytes, file) != kAudioPackHeaderBytes ||
-      std::memcmp(buffer.data(), "PDAUDIO1", 8) != 0) return false;
+      std::memcmp(buffer.data(), "PDAUDIO2", 8) != 0) return false;
   const std::size_t count = little32(buffer.data() + 8);
   if (count == 0 || count > kAudioPackMaximumEntries) return false;
   std::size_t next = kAudioPackHeaderBytes + count * kAudioPackEntryBytes;

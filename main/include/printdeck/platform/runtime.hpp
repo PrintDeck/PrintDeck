@@ -127,6 +127,8 @@ class Runtime {
   BambuCompatibilityProbe bambu_compatibility_;
   OrientationService orientation_;
   AudioService audio_;
+  std::uint32_t audio_set_generation_=0;
+  std::uint64_t audio_set_check_after_ms_=30000;
 #if defined(PRINTDECK_LOCAL_VOICE)
   VoiceService voice_;
   std::uint64_t voice_retry_after_ms_ = 0;

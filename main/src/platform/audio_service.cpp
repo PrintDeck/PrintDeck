@@ -10,7 +10,7 @@
 #include "esp_heap_caps.h"
 #include "printdeck/core/audio_sample.hpp"
 #include "printdeck/core/compressed_resource.hpp"
-#include "printdeck/platform/audio_assets.hpp"
+#include "printdeck/platform/audio_set_service.hpp"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/task_affinity.hpp"
@@ -100,7 +100,7 @@ struct SoundStyle {
   int maximum_volume;
 };
 
-using AdpcmSample = audio_assets::CompressedSample;
+struct AdpcmSample {const std::uint8_t* begin;const std::uint8_t* end;std::size_t decoded_size;};
 
 struct PlaybackControl {
   const std::atomic<std::uint32_t>& generation;
@@ -151,188 +151,6 @@ constexpr std::array<VoiceSample, 8> kTens{
 void* allocate_audio_resource(std::size_t size) {
   return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 }
-
-#define PRINTDECK_ADPCM_SAMPLE(name) audio_assets::name
-constexpr std::size_t kVoiceEventCount = 7;
-#define PRINTDECK_VOICE_SAMPLE_SET(language)                                    \
-  {{PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_started),                   \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_paused),                    \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_finished),                  \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_print_error),                     \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_filament_attention),              \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_shutdown),                        \
-    PRINTDECK_ADPCM_SAMPLE(voice_##language##_restarting)}}
-const std::array<std::array<AdpcmSample, kVoiceEventCount>, 6> kVoiceSamples{{
-    PRINTDECK_VOICE_SAMPLE_SET(en),
-    PRINTDECK_VOICE_SAMPLE_SET(pl),
-    PRINTDECK_VOICE_SAMPLE_SET(es),
-    PRINTDECK_VOICE_SAMPLE_SET(fr),
-    PRINTDECK_VOICE_SAMPLE_SET(de),
-    PRINTDECK_VOICE_SAMPLE_SET(zh_cn),
-}};
-#undef PRINTDECK_VOICE_SAMPLE_SET
-
-// 16 kHz IMA-ADPCM fragments share the phrase and unit across all milestones.
-// Columns: prefix, 25, 50, 75, percent. Only one fragment is resident at a time.
-#define PRINTDECK_PROGRESS_SET(language)                                      \
-  {{audio_assets::voice_##language##_progress_prefix,                         \
-    audio_assets::voice_##language##_progress_number_25,                      \
-    audio_assets::voice_##language##_progress_number_50,                      \
-    audio_assets::voice_##language##_progress_number_75,                      \
-    audio_assets::voice_##language##_progress_percent}}
-const std::array<std::array<AdpcmSample, 5>, 6> kProgressSamples{{
-    PRINTDECK_PROGRESS_SET(en), PRINTDECK_PROGRESS_SET(pl),
-    PRINTDECK_PROGRESS_SET(es), PRINTDECK_PROGRESS_SET(fr),
-    PRINTDECK_PROGRESS_SET(de), PRINTDECK_PROGRESS_SET(zh_cn),
-}};
-#undef PRINTDECK_PROGRESS_SET
-
-bool is_voice_event(AudioService::Event event) {
-  switch (event) {
-    case AudioService::Event::print_started:
-    case AudioService::Event::print_paused:
-    case AudioService::Event::print_finished:
-    case AudioService::Event::print_error:
-    case AudioService::Event::filament_attention:
-    case AudioService::Event::shutdown:
-    case AudioService::Event::restarting:
-      return true;
-    case AudioService::Event::startup:
-    case AudioService::Event::hms_alert:
-    case AudioService::Event::progress_25:
-    case AudioService::Event::progress_50:
-    case AudioService::Event::progress_75:
-    case AudioService::Event::navigation:
-    case AudioService::Event::orientation:
-    case AudioService::Event::shutdown_countdown:
-    case AudioService::Event::test:
-      return false;
-  }
-  return false;
-}
-
-std::size_t voice_event_index(AudioService::Event event) {
-  switch (event) {
-    case AudioService::Event::print_started: return 0;
-    case AudioService::Event::print_paused: return 1;
-    case AudioService::Event::print_finished: return 2;
-    case AudioService::Event::print_error: return 3;
-    case AudioService::Event::filament_attention: return 4;
-    case AudioService::Event::shutdown: return 5;
-    case AudioService::Event::restarting: return 6;
-    case AudioService::Event::startup:
-    case AudioService::Event::hms_alert:
-    case AudioService::Event::progress_25:
-    case AudioService::Event::progress_50:
-    case AudioService::Event::progress_75:
-    case AudioService::Event::navigation:
-    case AudioService::Event::orientation:
-    case AudioService::Event::shutdown_countdown:
-    case AudioService::Event::test:
-    default: return 0;
-  }
-}
-
-AdpcmSample voice_sample_for(std::uint8_t language, AudioService::Event event) {
-  const std::size_t language_index =
-      std::min<std::size_t>(language, kVoiceSamples.size() - 1);
-  return kVoiceSamples[language_index][voice_event_index(event)];
-}
-
-AdpcmSample modern_sample_for(AudioService::Event event) {
-  switch (event) {
-    case AudioService::Event::navigation: return PRINTDECK_ADPCM_SAMPLE(modern_navigation);
-    case AudioService::Event::orientation: return PRINTDECK_ADPCM_SAMPLE(modern_orientation);
-    case AudioService::Event::print_started: return PRINTDECK_ADPCM_SAMPLE(modern_print_started);
-    case AudioService::Event::startup:
-    case AudioService::Event::progress_25:
-    case AudioService::Event::progress_50:
-    case AudioService::Event::progress_75:
-      return PRINTDECK_ADPCM_SAMPLE(modern_test);
-    case AudioService::Event::print_paused: return PRINTDECK_ADPCM_SAMPLE(modern_print_paused);
-    case AudioService::Event::print_finished: return PRINTDECK_ADPCM_SAMPLE(modern_print_finished);
-    case AudioService::Event::print_error: return PRINTDECK_ADPCM_SAMPLE(modern_print_error);
-    case AudioService::Event::hms_alert: return PRINTDECK_ADPCM_SAMPLE(modern_hms_alert);
-    case AudioService::Event::filament_attention:
-      return PRINTDECK_ADPCM_SAMPLE(modern_filament_attention);
-    case AudioService::Event::shutdown_countdown:
-      return PRINTDECK_ADPCM_SAMPLE(modern_shutdown_countdown);
-    case AudioService::Event::shutdown: return PRINTDECK_ADPCM_SAMPLE(modern_shutdown);
-    case AudioService::Event::test: return PRINTDECK_ADPCM_SAMPLE(modern_test);
-    case AudioService::Event::restarting: return PRINTDECK_ADPCM_SAMPLE(modern_test);
-  }
-  return PRINTDECK_ADPCM_SAMPLE(modern_test);
-}
-
-#define PRINTDECK_ADPCM_CASE(prefix, event) \
-  case AudioService::Event::event: return PRINTDECK_ADPCM_SAMPLE(prefix##_##event)
-
-AdpcmSample arcade_sample_for(AudioService::Event event) {
-  switch (event) {
-    case AudioService::Event::startup: return PRINTDECK_ADPCM_SAMPLE(arcade_test);
-    PRINTDECK_ADPCM_CASE(arcade, navigation);
-    PRINTDECK_ADPCM_CASE(arcade, orientation);
-    PRINTDECK_ADPCM_CASE(arcade, print_started);
-    PRINTDECK_ADPCM_CASE(arcade, progress_25);
-    PRINTDECK_ADPCM_CASE(arcade, progress_50);
-    PRINTDECK_ADPCM_CASE(arcade, progress_75);
-    PRINTDECK_ADPCM_CASE(arcade, print_paused);
-    PRINTDECK_ADPCM_CASE(arcade, print_finished);
-    PRINTDECK_ADPCM_CASE(arcade, print_error);
-    PRINTDECK_ADPCM_CASE(arcade, hms_alert);
-    PRINTDECK_ADPCM_CASE(arcade, filament_attention);
-    PRINTDECK_ADPCM_CASE(arcade, shutdown_countdown);
-    PRINTDECK_ADPCM_CASE(arcade, shutdown);
-    PRINTDECK_ADPCM_CASE(arcade, test);
-    case AudioService::Event::restarting: return PRINTDECK_ADPCM_SAMPLE(arcade_test);
-  }
-  return PRINTDECK_ADPCM_SAMPLE(arcade_test);
-}
-
-AdpcmSample scifi_sample_for(AudioService::Event event) {
-  switch (event) {
-    case AudioService::Event::startup: return PRINTDECK_ADPCM_SAMPLE(scifi_test);
-    PRINTDECK_ADPCM_CASE(scifi, navigation);
-    PRINTDECK_ADPCM_CASE(scifi, orientation);
-    PRINTDECK_ADPCM_CASE(scifi, print_started);
-    PRINTDECK_ADPCM_CASE(scifi, progress_25);
-    PRINTDECK_ADPCM_CASE(scifi, progress_50);
-    PRINTDECK_ADPCM_CASE(scifi, progress_75);
-    PRINTDECK_ADPCM_CASE(scifi, print_paused);
-    PRINTDECK_ADPCM_CASE(scifi, print_finished);
-    PRINTDECK_ADPCM_CASE(scifi, print_error);
-    PRINTDECK_ADPCM_CASE(scifi, hms_alert);
-    PRINTDECK_ADPCM_CASE(scifi, filament_attention);
-    PRINTDECK_ADPCM_CASE(scifi, shutdown_countdown);
-    PRINTDECK_ADPCM_CASE(scifi, shutdown);
-    PRINTDECK_ADPCM_CASE(scifi, test);
-    case AudioService::Event::restarting: return PRINTDECK_ADPCM_SAMPLE(scifi_test);
-  }
-  return PRINTDECK_ADPCM_SAMPLE(scifi_test);
-}
-
-AdpcmSample clean_sample_for(AudioService::Event event) {
-  switch (event) {
-    PRINTDECK_ADPCM_CASE(clean, navigation);
-    PRINTDECK_ADPCM_CASE(clean, orientation);
-    PRINTDECK_ADPCM_CASE(clean, shutdown_countdown);
-    PRINTDECK_ADPCM_CASE(clean, test);
-    case AudioService::Event::restarting: return PRINTDECK_ADPCM_SAMPLE(clean_test);
-    default: return PRINTDECK_ADPCM_SAMPLE(clean_test);
-  }
-}
-
-AdpcmSample embedded_sample_for(AudioService::Preset preset, AudioService::Event event) {
-  switch (preset) {
-    case AudioService::Preset::arcade: return arcade_sample_for(event);
-    case AudioService::Preset::scifi: return scifi_sample_for(event);
-    case AudioService::Preset::clean: return clean_sample_for(event);
-    default: return modern_sample_for(event);
-  }
-}
-
-#undef PRINTDECK_ADPCM_CASE
-#undef PRINTDECK_ADPCM_SAMPLE
 
 constexpr Note kStartup[]{{392, 150}, {523, 150}, {659, 190}, {0, 55},
                           {784, 170}, {988, 330}, {0, 45},  {784, 110},
@@ -604,11 +422,11 @@ esp_err_t AudioService::start(bool enabled, int volume_percent, std::string_view
     codec_ = nullptr;
     return ESP_ERR_NO_MEM;
   }
-  // Playback reads embedded assets and copies PCM into the driver's internal
-  // DMA buffers. Completion callbacks only notify internal workers; flash/NVS
-  // operations must never execute on this PSRAM stack.
+  // Playback reads the installed LittleFS package. Even fopen/read may update
+  // filesystem metadata and disable the flash cache, so this task must use an
+  // internal stack. Compressed samples and decoded audio still use PSRAM.
   if (xTaskCreatePinnedToCoreWithCaps(task_entry, "printdeck_audio", 4096, this, 4, &task_,
-                                      kServiceCore, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
+                                      kServiceCore, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) != pdPASS) {
     task_ = nullptr;
     vQueueDelete(queue_);
     queue_ = nullptr;
@@ -733,19 +551,6 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   auto codec = static_cast<esp_codec_dev_handle_t>(codec_);
   if (requested_volume <= 0) return;
   write_silence(codec, 320);
-  // Restarting is a product lifecycle message, not a theme effect. Always use
-  // the localized voice while still respecting the global audio switch and
-  // volume selected by the user.
-  if (event == Event::restarting) {
-    if (write_adpcm_sample(codec, voice_sample_for(language, event),
-                           std::clamp(requested_volume, 1, 100), control)) {
-      write_silence(codec, 1024);
-      return;
-    }
-    ESP_LOGE(kLogTag, "Restarting voice ADPCM asset is invalid");
-    write_silence(codec, 1024);
-    return;
-  }
   // Keep the Retro startup jingle with a perceptual -50..0 dB volume curve.
   // Attenuate samples before queueing: changing codec gain after playback can
   // amplify the last notes still buffered in I2S DMA.
@@ -766,54 +571,31 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   const bool generated_progress = event == Event::progress_25 ||
                                   event == Event::progress_50 ||
                                   event == Event::progress_75;
-  if (preset == Preset::clean && generated_progress) {
-    const std::size_t locale = language < kProgressSamples.size() ? language : 0;
-    const auto& fragments = kProgressSamples[locale];
-    const std::size_t number = event == Event::progress_25 ? 1 :
-                               event == Event::progress_50 ? 2 : 3;
-    // Chinese says "percent twenty-five"; other maintained languages put the
-    // unit after the number. Keep the language captured with this request.
-    const std::array<std::size_t, 3> order{0, locale == 5 ? 4 : number,
-                                            locale == 5 ? number : 4};
-    bool valid = true;
-    for (const auto index : order) {
-      if (!write_adpcm_sample(codec, fragments[index], sample_volume, control)) {
-        valid = false;
-        break;
-      }
-    }
-    if (valid) {
-      write_silence(codec, 1024);
-      return;
-    }
-    ESP_LOGE(kLogTag, "Progress voice ADPCM asset is invalid");
+  constexpr std::array<std::string_view,6> styles{"modern","soft","oldschool","arcade","scifi","clean"};
+  constexpr std::array<std::string_view,16> events{"startup","navigation","orientation","print_started",
+      "progress_25","progress_50","progress_75","print_paused","print_finished","print_error","hms_alert",
+      "filament_attention","shutdown_countdown","shutdown","test","restarting"};
+  const auto locale=language<core::kSetLanguages.size()?language:0;
+  const auto installed_sample=[&](std::string_view key,int volume) {
+    std::vector<std::uint8_t> gzip;std::size_t decoded=0;
+    if(!AudioSetService::instance().read_sample(styles[static_cast<unsigned>(preset)],core::kSetLanguages[locale],key,gzip,decoded)) return false;
+    return write_adpcm_sample(codec,{gzip.data(),gzip.data()+gzip.size(),decoded},volume,control);
+  };
+  bool played=false;
+  if(preset==Preset::clean && generated_progress) {
+    const auto number=events[static_cast<unsigned>(event)];
+    const std::string number_key="progress_number_"+std::string(number.substr(9));
+    const std::array<std::string_view,3> fragments{"progress_prefix",locale==5?"progress_percent":std::string_view(number_key),
+        locale==5?std::string_view(number_key):"progress_percent"};
+    played=true;
+    for(const auto fragment:fragments)if(!installed_sample(fragment,sample_volume)){played=false;break;}
+  } else {
+    const int effect_volume=preset==Preset::clean && event==Event::orientation ? std::max(1,sample_volume*60/100):sample_volume;
+    played=installed_sample(events[static_cast<unsigned>(event)],effect_volume);
   }
-  if (preset == Preset::clean && is_voice_event(event)) {
-    if (write_adpcm_sample(codec, voice_sample_for(language, event), sample_volume, control)) {
-      write_silence(codec, 1024);
-      return;
-    }
-    ESP_LOGE(kLogTag, "Voice ADPCM asset is invalid");
-  }
-  if (preset == Preset::modern && !generated_progress) {
-    if (write_adpcm_sample(codec, modern_sample_for(event), sample_volume, control)) {
-      write_silence(codec, 1024);
-      return;
-    }
-    ESP_LOGE(kLogTag, "Modern ADPCM asset is invalid");
-  }
-  if (preset == Preset::arcade || preset == Preset::scifi ||
-      (preset == Preset::clean && !generated_progress && event != Event::hms_alert)) {
-    const int effect_volume =
-        preset == Preset::clean && event == Event::orientation
-            ? std::max(1, sample_volume * 60 / 100)
-            : sample_volume;
-    if (write_adpcm_sample(codec, embedded_sample_for(preset, event), effect_volume, control)) {
-      write_silence(codec, 1024);
-      return;
-    }
-    ESP_LOGE(kLogTag, "Preset ADPCM asset is invalid");
-  }
+  if(played){write_silence(codec,1024);return;}
+  // The synthesized cue is always available, including a first boot without
+  // internet, a missing set, or a failed package validation.
   const int volume = std::min(sample_volume, selected.maximum_volume);
   for (std::size_t index = 0; index < selected.count; ++index) {
     if (control.cancelled()) return;

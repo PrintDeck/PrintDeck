@@ -1,4 +1,6 @@
 #include "printdeck/core/preview_policy.hpp"
+#include "printdeck/platform/audio_set_service.hpp"
+#include "printdeck/platform/set_catalog_service.hpp"
 #include "printdeck/core/resin_view_policy.hpp"
 #include "printdeck/core/print_time.hpp"
 #include "printdeck/core/power_button.hpp"
@@ -28,6 +30,7 @@
 #include "printdeck/core/printer_driver.hpp"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/embedded_resources.hpp"
+#include "printdeck/platform/reaction_cover.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/status_numeric_font.hpp"
 #include "printdeck/platform/network_service.hpp"
@@ -1655,25 +1658,22 @@ void DisplayShell::show_quick_menu() {
   apply_text_style(title, lv_color_hex(theme_style_.text_primary), &lv_font_montserrat_32);
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 36);
 
-  static constexpr const char* icons[]{LV_SYMBOL_EYE_OPEN, LV_SYMBOL_VOLUME_MAX, "Aa"};
-  static constexpr const char* labels[]{"DISPLAY & BRIGHTNESS", "SOUNDS", "LANGUAGE"};
+  static constexpr const char* icons[]{LV_SYMBOL_EYE_OPEN, LV_SYMBOL_VOLUME_MAX, "Aa", LV_SYMBOL_IMAGE};
+  static constexpr const char* labels[]{"DISPLAY", "SOUNDS", "LANGUAGE", "REACTIONS"};
   const std::uint32_t colors[]{theme_style_.accent_secondary,
-                               theme_colors_.preparing, theme_colors_.done};
-  for (int index = 0; index < 3; ++index) {
+                               theme_colors_.preparing, theme_colors_.done, theme_style_.accent_secondary};
+  for (int index = 0; index < 4; ++index) {
     lv_obj_t* button = lv_button_create(quick_overlay_);
-    if (index == 0) {
-      lv_obj_set_size(button, 302, 112);
-      lv_obj_align(button, LV_ALIGN_CENTER, 0, -63);
-    } else {
-      lv_obj_set_size(button, 142, 108);
-      lv_obj_align(button, LV_ALIGN_CENTER, index == 1 ? -80 : 80, 65);
-    }
+    const int column=index==0||index==1?0:1;
+    const int row=index==0||index==3?0:1;
+    lv_obj_set_size(button,142,108);
+    lv_obj_align(button,LV_ALIGN_CENTER,column==0?-80:80,row==0?-63:65);
     lv_obj_set_style_radius(button, themed_radius(30), LV_PART_MAIN);
     lv_obj_set_style_bg_color(button, lv_color_hex(theme_style_.surface_raised), LV_PART_MAIN);
     lv_obj_set_style_border_width(button, 3, LV_PART_MAIN);
     lv_obj_set_style_border_color(button, lv_color_hex(colors[index]), LV_PART_MAIN);
     apply_surface_effect(button);
-    lv_obj_set_user_data(button, reinterpret_cast<void*>(static_cast<std::intptr_t>(index)));
+    lv_obj_set_user_data(button, reinterpret_cast<void*>(static_cast<std::intptr_t>(index==3?5:index)));
     lv_obj_t* icon = lv_label_create(button);
     lv_label_set_text(icon, icons[index]);
     apply_icon_text_style(icon, lv_color_hex(theme_style_.text_primary),
@@ -1682,26 +1682,10 @@ void DisplayShell::show_quick_menu() {
     lv_obj_t* label = lv_label_create(button);
     lv_label_set_text(label, tr(labels[index]));
     apply_text_style(label, lv_color_hex(colors[index]), &lv_font_montserrat_16);
-    if (index == 0) {
-      lv_obj_set_size(label, 270, 20);
-      lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-      lv_label_set_long_mode(label, LV_LABEL_LONG_MODE_DOTS);
-      lv_obj_align(label, LV_ALIGN_CENTER, 0, 2);
-      lv_obj_t* detail = lv_label_create(button);
-      lv_label_set_text_fmt(detail, "%d%%  /  %s",
-                            std::clamp(board_display_brightness_get(), 10, 100),
-                            tr(theme_display_name(active_theme_)));
-      apply_text_style(detail, lv_color_hex(theme_style_.text_secondary),
-                       &lv_font_montserrat_14);
-      lv_obj_set_size(detail, 270, 18);
-      lv_obj_set_style_text_align(detail, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-      lv_label_set_long_mode(detail, LV_LABEL_LONG_MODE_DOTS);
-      lv_obj_align(detail, LV_ALIGN_CENTER, 0, 29);
-    } else {
-      lv_obj_set_width(label, 126);
-      lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-      lv_obj_align(label, LV_ALIGN_CENTER, 0, 26);
-    }
+    lv_obj_set_width(label,126);
+    lv_obj_set_style_text_align(label,LV_TEXT_ALIGN_CENTER,LV_PART_MAIN);
+    lv_label_set_long_mode(label,LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_align(label,LV_ALIGN_CENTER,0,26);
     lv_obj_add_event_cb(button, [](lv_event_t* event) {
       auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
       if (lv_event_get_code(event) != LV_EVENT_CLICKED || shell == nullptr) return;
@@ -1734,6 +1718,10 @@ void DisplayShell::quick_menu_action_async(void* context) {
   else if (action == 2) shell->show_wifi_setup_language_picker();
   else if (action == 3) shell->show_theme_overlay();
   else if (action == 4) shell->show_quick_menu();
+  else if (action == 5) shell->show_set_overlay(false);
+  else if (action == 6) shell->show_set_overlay(true);
+  else if (action == 7) shell->start_selected_set();
+  else if (action == 8) shell->show_set_overlay(false);
 }
 
 void DisplayShell::request_theme_selection(const char* theme) {
@@ -1801,7 +1789,7 @@ void DisplayShell::show_brightness_overlay() {
   lv_obj_set_style_pad_all(card, 0, LV_PART_MAIN);
 
   lv_obj_t* title = lv_label_create(card);
-  lv_label_set_text(title, tr("DISPLAY & BRIGHTNESS"));
+  lv_label_set_text(title, tr("DISPLAY"));
   apply_text_style(title, lv_color_hex(theme_style_.text_primary), &lv_font_montserrat_16);
   lv_obj_set_size(title, 220, 20);
   lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
@@ -1945,6 +1933,308 @@ void DisplayShell::show_brightness_overlay() {
   create_quick_overlay_close_button();
 }
 
+void DisplayShell::show_set_overlay(bool audio, std::string family) {
+  if(!quick_overlay_ || !lv_obj_is_valid(quick_overlay_))return;
+  set_picker_audio_=audio;set_picker_family_=std::move(family);set_picker_error_.clear();set_picker_selected_.clear();
+  lv_obj_clean(quick_overlay_);set_picker_ids_.clear();set_picker_versions_.clear();
+  set_capture_overlay_name(audio?"audio-sets":set_picker_family_.empty()?"reaction-sets":"reaction-colors");
+  SetCatalogService::instance().request_refresh();
+  const bool large=kDisplayUsesLargeLayout;
+  const bool carousel=!audio && set_picker_family_.empty();
+  auto* panel=lv_obj_create(quick_overlay_);
+  lv_obj_set_size(panel,large?344:184,large?330:176);lv_obj_align(panel,LV_ALIGN_CENTER,0,large?-10:-10);
+  lv_obj_set_style_pad_all(panel,0,0);lv_obj_set_style_border_width(panel,0,0);
+  lv_obj_set_style_bg_opa(panel,LV_OPA_TRANSP,0);lv_obj_remove_flag(panel,LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_add_event_cb(panel,[](lv_event_t* event){
+    auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
+    if(self->set_progress_timer_){lv_timer_delete(self->set_progress_timer_);self->set_progress_timer_=nullptr;}
+    self->set_progress_bar_=self->set_progress_label_=self->set_choices_=self->set_cancel_button_=self->set_tile_wait_=nullptr;
+    self->set_busy_id_.clear();
+  },LV_EVENT_DELETE,this);
+  std::string heading=tr(audio?"SOUND SET":"REACTIONS");
+  if(!audio && !set_picker_family_.empty()) {
+    for(const auto& set:ReactionAssetService::sets())if(set.family_id==set_picker_family_){heading=set.family_name;break;}
+    auto* back=lv_button_create(panel);lv_obj_set_size(back,large?32:24,large?30:22);
+    lv_obj_align(back,LV_ALIGN_TOP_LEFT,large?10:0,0);
+    lv_obj_set_style_bg_color(back,lv_color_hex(theme_style_.surface_raised),0);
+    auto* symbol=lv_label_create(back);lv_label_set_text(symbol,LV_SYMBOL_LEFT);lv_obj_center(symbol);
+    lv_obj_add_event_cb(back,[](lv_event_t* event){
+      auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));lv_event_stop_bubbling(event);
+      if(self->pending_quick_menu_action_!=-1)return;
+      self->pending_quick_menu_action_=5;
+      if(lv_async_call(quick_menu_action_async,self)!=LV_RESULT_OK)self->pending_quick_menu_action_=-1;
+    },LV_EVENT_CLICKED,this);
+  }
+  auto* title=lv_label_create(panel);lv_label_set_text(title,heading.c_str());
+  apply_text_style(title,lv_color_hex(theme_style_.text_primary),large?&lv_font_montserrat_24:&lv_font_montserrat_16);
+  lv_obj_align(title,LV_ALIGN_TOP_MID,0,0);
+  set_choices_=lv_obj_create(panel);lv_obj_set_size(set_choices_,large?340:180,large?216:92);
+  lv_obj_align(set_choices_,LV_ALIGN_TOP_MID,0,large?40:25);
+  lv_obj_set_style_bg_opa(set_choices_,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(set_choices_,0,0);
+  lv_obj_set_style_pad_all(set_choices_,2,0);lv_obj_set_flex_flow(set_choices_,large?LV_FLEX_FLOW_ROW_WRAP:LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(set_choices_,large?8:4,0);lv_obj_set_style_pad_column(set_choices_,8,0);
+  lv_obj_set_scrollbar_mode(set_choices_,LV_SCROLLBAR_MODE_AUTO);
+  if(carousel) {
+    lv_obj_set_size(set_choices_,large?340:180,large?198:94);
+    lv_obj_set_layout(set_choices_,LV_LAYOUT_NONE);
+    lv_obj_remove_flag(set_choices_,LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(set_choices_,LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(set_choices_,[](lv_event_t* event){
+      auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
+      auto* input=lv_indev_active();
+      if(!input || self->pending_quick_menu_action_!=-1 || self->set_picker_ids_.size()<2)return;
+      const auto direction=lv_indev_get_gesture_dir(input);
+      if(direction!=LV_DIR_LEFT && direction!=LV_DIR_RIGHT)return;
+      const auto count=self->set_picker_ids_.size();
+      self->set_carousel_index_=(self->set_carousel_index_+(direction==LV_DIR_LEFT?1:count-1))%count;
+      self->pending_quick_menu_action_=8;
+      if(lv_async_call(quick_menu_action_async,self)!=LV_RESULT_OK)self->pending_quick_menu_action_=-1;
+      lv_indev_wait_release(input);lv_event_stop_bubbling(event);
+    },LV_EVENT_GESTURE,this);
+  }
+  const auto add=[&](const std::string& id,const std::string& name,bool active,std::uint32_t swatch=0,bool color=false,bool eye=false){
+    const auto index=set_picker_ids_.size();set_picker_ids_.push_back(id);
+    auto* button=lv_button_create(set_choices_);lv_obj_set_size(button,large?(color?104:160):174,large?64:30);
+    lv_obj_set_style_radius(button,themed_radius(large?16:10),0);
+    lv_obj_set_style_shadow_width(button,0,0);
+    lv_obj_set_style_pad_all(button,large?8:3,0);
+    lv_obj_set_style_bg_color(button,lv_color_hex(theme_style_.surface_raised),0);
+    lv_obj_set_style_border_width(button,active?2:1,0);
+    lv_obj_set_style_border_color(button,lv_color_hex(active?theme_style_.accent_secondary:theme_style_.surface_soft),0);
+    lv_obj_set_user_data(button,reinterpret_cast<void*>(index));
+    if(carousel) {
+      lv_obj_set_size(button,large?196:92,large?196:92);lv_obj_center(button);
+      lv_obj_set_style_pad_all(button,0,0);
+      lv_obj_remove_flag(button,LV_OBJ_FLAG_SCROLLABLE);
+      if(index!=set_carousel_index_)lv_obj_add_flag(button,LV_OBJ_FLAG_HIDDEN);
+      else {
+        auto* placeholder=lv_label_create(button);lv_label_set_text(placeholder,LV_SYMBOL_IMAGE);
+        apply_icon_text_style(placeholder,lv_color_hex(theme_style_.text_muted),&lv_font_montserrat_24);
+        lv_obj_center(placeholder);
+        if(auto* cover=create_reaction_cover(button,id))lv_obj_center(cover);
+      }
+    }
+    lv_obj_t* label_parent=button;
+    if(carousel) {
+      label_parent=lv_obj_create(button);lv_obj_set_size(label_parent,lv_pct(100),large?64:29);
+      lv_obj_align(label_parent,LV_ALIGN_BOTTOM_MID,0,0);
+      lv_obj_set_style_bg_color(label_parent,lv_color_black(),0);lv_obj_set_style_bg_opa(label_parent,LV_OPA_70,0);
+      lv_obj_set_style_border_width(label_parent,0,0);lv_obj_set_style_pad_all(label_parent,4,0);
+      lv_obj_set_style_radius(label_parent,0,0);
+      lv_obj_remove_flag(label_parent,static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE));
+    }
+    auto* label=lv_label_create(label_parent);lv_obj_set_width(label,lv_pct(100));lv_obj_set_style_text_align(label,LV_TEXT_ALIGN_CENTER,0);lv_label_set_long_mode(label,LV_LABEL_LONG_MODE_DOTS);
+    lv_label_set_text(label,name.c_str());apply_text_style(label,lv_color_hex(theme_style_.text_primary),large?&lv_font_montserrat_16:&lv_font_montserrat_12);
+    lv_obj_center(label);
+    if(carousel)lv_obj_set_style_text_color(label,lv_color_white(),0);
+    if(color || (eye && !carousel)) {
+      auto* mark=lv_label_create(button);lv_label_set_text(mark,LV_SYMBOL_EYE_OPEN);
+      apply_icon_text_style(mark,lv_color_hex(color?swatch:theme_style_.accent_secondary),large?&lv_font_montserrat_24:&lv_font_montserrat_16);
+      if(large){lv_obj_align(mark,LV_ALIGN_TOP_MID,0,-2);lv_obj_align(label,LV_ALIGN_BOTTOM_MID,0,0);}
+      else {lv_obj_align(mark,LV_ALIGN_LEFT_MID,0,0);lv_obj_set_width(label,140);lv_obj_align(label,LV_ALIGN_RIGHT_MID,0,0);}
+    }
+    lv_obj_add_event_cb(button,[](lv_event_t* event){
+      auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
+      const auto code=lv_event_get_code(event);
+      if(code!=LV_EVENT_PRESSED && code!=LV_EVENT_PRESSING &&
+         code!=LV_EVENT_RELEASED && code!=LV_EVENT_SHORT_CLICKED)return;
+      auto* input=lv_indev_active();
+      lv_point_t point{};
+      if(input)lv_indev_get_point(input,&point);
+      if(code==LV_EVENT_PRESSED) {
+        self->set_picker_press_point_=point;self->set_picker_press_moved_=false;
+        return;
+      }
+      const int dx=point.x-self->set_picker_press_point_.x;
+      const int dy=point.y-self->set_picker_press_point_.y;
+      if(input && (std::abs(dx)>12 || std::abs(dy)>12))self->set_picker_press_moved_=true;
+      if(code==LV_EVENT_RELEASED && input && !self->set_picker_audio_ &&
+         self->set_picker_family_.empty() && self->set_picker_ids_.size()>1 &&
+         self->pending_quick_menu_action_==-1 && std::abs(dx)>=24 && std::abs(dx)>std::abs(dy)) {
+        // Slow drags may not reach LVGL's gesture velocity threshold. A
+        // released horizontal drag still changes the page and never installs.
+        const auto count=self->set_picker_ids_.size();
+        self->set_carousel_index_=(self->set_carousel_index_+(dx<0?1:count-1))%count;
+        self->pending_quick_menu_action_=8;
+        if(lv_async_call(quick_menu_action_async,self)!=LV_RESULT_OK)self->pending_quick_menu_action_=-1;
+        lv_event_stop_bubbling(event);
+        return;
+      }
+      if(code!=LV_EVENT_SHORT_CLICKED || self->set_picker_press_moved_)return;
+      const auto index=reinterpret_cast<std::size_t>(lv_obj_get_user_data(lv_event_get_current_target_obj(event)));
+      if(index>=self->set_picker_ids_.size() || self->pending_quick_menu_action_!=-1)return;
+      lv_event_stop_bubbling(event);
+      self->set_picker_selected_=self->set_picker_ids_[index];self->pending_quick_menu_action_=7;
+      if(lv_async_call(quick_menu_action_async,self)!=LV_RESULT_OK)self->pending_quick_menu_action_=-1;
+    },LV_EVENT_ALL,this);
+  };
+  if(audio) {
+    const auto active=AudioSetService::instance().snapshot();
+    for(const auto& set:SetCatalogService::instance().sets(true)) {
+      add(set.id,tr(set.name.c_str()),set.id==active.id);
+      set_picker_versions_.push_back(set.version);
+    }
+  } else if(reaction_assets_) {
+    const auto active=reaction_assets_->snapshot();
+    const auto sets=ReactionAssetService::sets();std::vector<std::string> seen;
+    if(carousel) {
+      std::vector<std::string> families;
+      for(const auto& set:sets) {
+        const auto key=set.family_id.empty()?set.id:set.family_id;
+        if(std::find(families.begin(),families.end(),key)==families.end())families.push_back(key);
+      }
+      if(set_carousel_index_>=families.size())set_carousel_index_=0;
+    }
+    for(const auto& set:sets) {
+      if(!set_picker_family_.empty()) {
+        if(set.family_id!=set_picker_family_)continue;
+        std::uint32_t color=theme_style_.accent_secondary;
+        const std::pair<const char*,std::uint32_t> colors[]{{"Green",0x75cc76},{"Blue",0x609fee},{"Brown",0xb57b50},
+          {"Amber",0xf5b94c},{"Gray",0xb0b8c0},{"Hazel",0xa9bd6a},{"Red",0xf36a68},{"Violet",0xbd89ef},{"Cyan",0x53d5dc}};
+        for(const auto& entry:colors)if(set.variant_name==entry.first){color=entry.second;break;}
+        add(set.id,tr(set.variant_name.empty()?set.name.c_str():set.variant_name.c_str()),set.id==active.active_set_id,color,true);
+      } else {
+        const auto count=std::count_if(sets.begin(),sets.end(),[&](const auto& item){return item.family_id==set.family_id;});
+        if(count>1) {
+          if(std::find(seen.begin(),seen.end(),set.family_id)!=seen.end())continue;
+          seen.push_back(set.family_id);
+          const bool selected=std::any_of(sets.begin(),sets.end(),[&](const auto& item){return item.family_id==set.family_id && item.id==active.active_set_id;});
+          add("family:"+set.family_id,set.family_name,selected,0,false,true);
+        } else add(set.id,set.name,set.id==active.active_set_id);
+      }
+    }
+  }
+  if(carousel && !set_picker_ids_.empty()) {
+    auto* dots=lv_obj_create(panel);lv_obj_set_size(dots,large?280:170,large?12:6);
+    lv_obj_align(dots,LV_ALIGN_TOP_MID,0,large?244:120);
+    lv_obj_set_style_bg_opa(dots,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(dots,0,0);lv_obj_set_style_pad_all(dots,0,0);
+    lv_obj_remove_flag(dots,LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(dots,LV_FLEX_FLOW_ROW);lv_obj_set_flex_align(dots,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(dots,large?7:4,0);
+    for(std::size_t i=0;i<set_picker_ids_.size();++i) {
+      auto* dot=lv_obj_create(dots);lv_obj_set_size(dot,i==set_carousel_index_?(large?18:10):(large?6:4),large?6:4);
+      lv_obj_set_style_radius(dot,LV_RADIUS_CIRCLE,0);lv_obj_set_style_border_width(dot,0,0);
+      lv_obj_set_style_bg_color(dot,lv_color_hex(i==set_carousel_index_?theme_style_.accent_secondary:theme_style_.text_muted),0);
+      lv_obj_remove_flag(dot,static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE));
+    }
+  }
+  set_progress_bar_=lv_bar_create(panel);lv_obj_set_size(set_progress_bar_,large?320:168,large?6:4);
+  lv_obj_align(set_progress_bar_,LV_ALIGN_BOTTOM_MID,0,large?-30:-27);
+  set_progress_label_=lv_label_create(panel);lv_obj_set_size(set_progress_label_,large?332:176,large?30:25);
+  apply_text_style(set_progress_label_,lv_color_hex(theme_style_.text_secondary),&lv_font_montserrat_12);
+  lv_obj_set_style_text_align(set_progress_label_,LV_TEXT_ALIGN_CENTER,0);lv_obj_align(set_progress_label_,LV_ALIGN_BOTTOM_MID,0,large?-38:-33);
+  if(carousel) {
+    lv_obj_set_height(set_progress_label_,large?30:18);
+    lv_obj_align(set_progress_label_,LV_ALIGN_BOTTOM_MID,0,large?-38:-31);
+    lv_obj_align(set_progress_bar_,LV_ALIGN_BOTTOM_MID,0,large?-30:-26);
+  }
+  auto* cancel=lv_button_create(panel);set_cancel_button_=cancel;lv_obj_set_size(cancel,large?132:94,large?26:24);
+  lv_obj_set_style_bg_color(cancel,lv_color_hex(theme_style_.surface_raised),0);
+  lv_obj_set_style_border_width(cancel,1,0);lv_obj_set_style_border_color(cancel,lv_color_hex(theme_style_.text_muted),0);
+  lv_obj_set_style_radius(cancel,themed_radius(12),0);lv_obj_align(cancel,LV_ALIGN_BOTTOM_MID,0,0);
+  auto* label=lv_label_create(cancel);lv_label_set_text(label,tr("Cancel"));apply_text_style(label,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_12);lv_obj_center(label);
+  lv_obj_add_event_cb(cancel,[](lv_event_t* event){
+    auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
+    if(self->set_picker_audio_)AudioSetService::instance().cancel();
+    else if(self->reaction_assets_)self->reaction_assets_->cancel_set();
+    lv_event_stop_bubbling(event);
+  },LV_EVENT_CLICKED,this);
+  set_progress_timer_=lv_timer_create([](lv_timer_t* timer){static_cast<DisplayShell*>(lv_timer_get_user_data(timer))->update_set_overlay();},300,this);
+  update_set_overlay();create_quick_overlay_close_button();
+}
+
+void DisplayShell::start_selected_set() {
+  if(set_picker_selected_.empty())return;
+  if(set_picker_audio_) {
+    const auto state=AudioSetService::instance().snapshot();
+    const auto catalog=SetCatalogService::instance().sets(true);
+    const auto selected=std::find_if(catalog.begin(),catalog.end(),[&](const auto& set){return set.id==set_picker_selected_;});
+    if(state.available && state.id==set_picker_selected_ && state.language=="all" &&
+       (selected==catalog.end() || selected->version==state.version))return;
+  }
+  if(!set_picker_audio_ && set_picker_selected_.rfind("family:",0)==0) {
+    show_set_overlay(false,set_picker_selected_.substr(7));return;
+  }
+  set_picker_error_.clear();
+  if(!SetCatalogService::instance().online())set_picker_error_="Connect to Wi-Fi to download sets.";
+  else if(set_picker_audio_) {
+    if(!AudioSetService::instance().request(set_picker_selected_))set_picker_error_="The download could not start. Try again.";
+  } else if(!reaction_assets_ || !reaction_assets_->request_set(set_picker_selected_))
+    set_picker_error_="The download could not start. Try again.";
+  update_set_overlay();
+}
+
+void DisplayShell::update_set_overlay() {
+  if(!set_progress_label_ || !set_choices_)return;
+  if(set_picker_audio_ && set_picker_ids_.empty() && !SetCatalogService::instance().sets(true).empty()) {
+    if(pending_quick_menu_action_==-1){
+      pending_quick_menu_action_=6;
+      if(lv_async_call(quick_menu_action_async,this)!=LV_RESULT_OK)pending_quick_menu_action_=-1;
+    }
+    return;
+  }
+  bool busy=false,failed=false;int progress=0;std::string error,active_id,requested_id,active_version;
+  if(set_picker_audio_) {
+    const auto state=AudioSetService::instance().snapshot();busy=state.busy;progress=state.progress;error=state.error;failed=!error.empty();active_id=state.available?state.id:"";requested_id=state.requested_id;active_version=state.version;
+  } else if(reaction_assets_) {
+    const auto state=reaction_assets_->snapshot();busy=state.busy;progress=state.progress_percent;failed=state.install_failed;active_id=state.active_set_id;requested_id=state.installing_set_id;
+    if(failed && (state.detail.find("storage")!=std::string::npos || state.detail.find("1.5 MB")!=std::string::npos))error="storage_unavailable";
+    else if(failed && state.detail=="Another set download is in progress.")error="transfer_busy";
+  }
+  if(!set_picker_audio_ && set_picker_family_.empty()) {
+    const auto sets=ReactionAssetService::sets();
+    for(const auto& id:set_picker_ids_)if(id.rfind("family:",0)==0) {
+      const auto family=id.substr(7);
+      for(const auto& set:sets)if(set.family_id==family) {
+        if(set.id==active_id)active_id=id;
+        if(set.id==requested_id)requested_id=id;
+      }
+    }
+  }
+  if(busy)lv_obj_add_state(set_choices_,LV_STATE_DISABLED);else lv_obj_remove_state(set_choices_,LV_STATE_DISABLED);
+  if(set_tile_wait_ && (!busy || set_busy_id_!=requested_id)) {
+    lv_obj_delete(set_tile_wait_);set_tile_wait_=nullptr;set_busy_id_.clear();
+  }
+  // Disable descendants too: an inherited visual state alone does not stop clicks.
+  for(unsigned i=0;i<lv_obj_get_child_count(set_choices_);++i) {
+    auto* button=lv_obj_get_child(set_choices_,i);
+    const bool active=i<set_picker_ids_.size() && set_picker_ids_[i]==active_id;
+    lv_obj_set_style_border_width(button,active?2:1,0);
+    lv_obj_set_style_border_color(button,lv_color_hex(active?theme_style_.accent_secondary:theme_style_.surface_soft),0);
+    const bool installed=active && set_picker_audio_ && i<set_picker_versions_.size() && set_picker_versions_[i]==active_version;
+    if(busy || installed)lv_obj_add_state(button,LV_STATE_DISABLED);else lv_obj_remove_state(button,LV_STATE_DISABLED);
+    if(busy && !set_tile_wait_ && i<set_picker_ids_.size() && set_picker_ids_[i]==requested_id) {
+      set_busy_id_=requested_id;set_tile_wait_=lv_obj_create(button);
+      lv_obj_set_size(set_tile_wait_,lv_pct(100),lv_pct(100));lv_obj_center(set_tile_wait_);
+      lv_obj_remove_flag(set_tile_wait_,static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE));
+      lv_obj_set_style_pad_all(set_tile_wait_,0,0);lv_obj_set_style_border_width(set_tile_wait_,0,0);
+      lv_obj_set_style_radius(set_tile_wait_,themed_radius(kDisplayUsesLargeLayout?12:6),0);
+      lv_obj_set_style_bg_color(set_tile_wait_,lv_color_hex(theme_style_.surface_raised),0);
+      lv_obj_set_style_bg_opa(set_tile_wait_,LV_OPA_90,0);
+      auto* spinner=lv_spinner_create(set_tile_wait_);
+      lv_obj_set_size(spinner,kDisplayUsesLargeLayout?28:20,kDisplayUsesLargeLayout?28:20);
+      lv_obj_center(spinner);lv_obj_set_style_arc_width(spinner,3,LV_PART_MAIN);
+      lv_obj_set_style_arc_width(spinner,3,LV_PART_INDICATOR);
+      lv_obj_set_style_arc_color(spinner,lv_color_hex(theme_style_.accent_secondary),LV_PART_INDICATOR);
+      lv_obj_set_style_arc_opa(spinner,LV_OPA_20,LV_PART_MAIN);
+    }
+  }
+  if(busy){lv_obj_remove_flag(set_progress_bar_,LV_OBJ_FLAG_HIDDEN);lv_obj_remove_flag(set_cancel_button_,LV_OBJ_FLAG_HIDDEN);}
+  else {lv_obj_add_flag(set_progress_bar_,LV_OBJ_FLAG_HIDDEN);lv_obj_add_flag(set_cancel_button_,LV_OBJ_FLAG_HIDDEN);}
+  lv_bar_set_value(set_progress_bar_,progress,LV_ANIM_OFF);
+  const char* message="Choose a set to download.";
+  if(!SetCatalogService::instance().online())message="Connect to Wi-Fi to download sets.";
+  else if(busy)message="Downloading";
+  else if(failed && (error=="memory_unavailable" || error=="transfer_busy"))message="PrintDeck is busy. Try again shortly.";
+  else if(error=="cancelled")message="Download cancelled.";
+  else if(failed)message=error=="storage_unavailable"?"Not enough free space.":"Cannot download the set. Check internet access.";
+  else if(progress==100)message="Set installed.";
+  else if(set_picker_ids_.empty())message=SetCatalogService::instance().busy()?"Loading available sets...":"Cannot download the set. Check internet access.";
+  if(!set_picker_error_.empty())message=set_picker_error_.c_str();
+  if(busy)lv_label_set_text_fmt(set_progress_label_,"%s %d%%",tr(message),progress);
+  else lv_label_set_text(set_progress_label_,tr(message));
+}
+
 void DisplayShell::show_audio_overlay() {
   if constexpr (!kDisplayUsesLargeLayout) {
     square_show_audio_overlay();
@@ -1970,46 +2260,18 @@ void DisplayShell::show_audio_overlay() {
   lv_label_set_text(preset_title, tr("SOUND SET"));
   apply_text_style(preset_title, lv_color_hex(theme_style_.text_muted), &lv_font_montserrat_12);
   lv_obj_align(preset_title, LV_ALIGN_TOP_LEFT, 25, 61);
-  static constexpr const char* preset_ids[]{"modern", "soft", "oldschool",
-                                             "arcade", "scifi", "clean"};
-  static constexpr const char* preset_names[]{"MODERN", "SOFT", "RETRO",
-                                               "ARCADE", "SCI-FI", "VOICE"};
-  for (int index = 0; index < 6; ++index) {
-    const bool active = audio_preset_ == preset_ids[index];
-    lv_obj_t* button = lv_button_create(card);
-    lv_obj_set_size(button, 92, 32);
-    lv_obj_align(button, LV_ALIGN_TOP_LEFT, 25 + (index % 3) * 104,
-                 83 + (index / 3) * 38);
-    lv_obj_set_style_radius(button, themed_radius(12), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(button, lv_color_hex(theme_style_.surface_raised), LV_PART_MAIN);
-    lv_obj_set_style_border_width(button, active ? 3 : 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(
-        button, lv_color_hex(active ? theme_style_.accent_secondary : theme_style_.border), LV_PART_MAIN);
-    apply_surface_effect(button);
-    lv_obj_set_user_data(button,
-                         reinterpret_cast<void*>(static_cast<std::intptr_t>(index)));
-    lv_obj_t* label = lv_label_create(button);
-    lv_label_set_text(label, tr(preset_names[index]));
-    apply_text_style(label, lv_color_hex(active ? theme_style_.accent_secondary : theme_style_.text_secondary),
-                     &lv_font_montserrat_12);
-    lv_obj_center(label);
-    lv_obj_add_flag(label, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_add_event_cb(button, [](lv_event_t* event) {
-      auto* shell = static_cast<DisplayShell*>(lv_event_get_user_data(event));
-      if (shell == nullptr || lv_event_get_code(event) != LV_EVENT_CLICKED) return;
-      lv_event_stop_bubbling(event);
-      static constexpr const char* ids[]{"modern", "soft", "oldschool",
-                                          "arcade", "scifi", "clean"};
-      const int index = static_cast<int>(reinterpret_cast<std::intptr_t>(
-          lv_obj_get_user_data(lv_event_get_current_target_obj(event))));
-      if (index < 0 || index >= 6) return;
-      shell->audio_preset_ = ids[index];
-      if (shell->audio_preset_changed_ != nullptr) {
-        shell->audio_preset_changed_(shell->audio_preset_changed_context_, ids[index]);
-      }
-      shell->close_quick_overlay();
-    }, LV_EVENT_CLICKED, this);
-  }
+  lv_obj_t* choose=lv_button_create(card);
+  lv_obj_set_size(choose,300,64);
+  lv_obj_align(choose,LV_ALIGN_TOP_MID,0,83);
+  lv_obj_t* choice=lv_label_create(choose);lv_label_set_text(choice,tr("Choose sound set"));
+  apply_text_style(choice,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_16);
+  lv_obj_center(choice);
+  lv_obj_add_event_cb(choose,[](lv_event_t* e) {
+    auto* shell=static_cast<DisplayShell*>(lv_event_get_user_data(e));
+    if(shell->pending_quick_menu_action_!=-1)return;
+    shell->pending_quick_menu_action_=6;
+    if(lv_async_call(quick_menu_action_async,shell)!=LV_RESULT_OK)shell->pending_quick_menu_action_=-1;
+  },LV_EVENT_CLICKED,this);
   lv_obj_t* mute_button = lv_button_create(card);
   lv_obj_set_size(mute_button, 48, 48);
   lv_obj_align(mute_button, LV_ALIGN_TOP_LEFT, 25, 194);
@@ -2121,8 +2383,10 @@ void DisplayShell::show_theme_overlay() {
 }
 
 void DisplayShell::close_quick_overlay() {
+  release_reaction_cover();
   lv_async_call_cancel(quick_menu_action_async, this);
   pending_quick_menu_action_ = -1;
+  if(set_progress_timer_){lv_timer_delete(set_progress_timer_);set_progress_timer_=nullptr;}
   if (theme_selection_timer_ != nullptr) {
     lv_timer_delete(theme_selection_timer_);
     theme_selection_timer_ = nullptr;
@@ -3119,7 +3383,7 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
   if (screen_name.empty()) return ESP_ERR_INVALID_ARG;
 
   const bool overlay = screen_name == "quick-menu" || screen_name == "brightness" ||
-                       screen_name == "theme" || screen_name == "audio" ||
+                       screen_name == "theme" || screen_name == "audio" || screen_name == "audio-sets" || screen_name == "reaction-sets" || screen_name == "reaction-colors" ||
                        screen_name == "language-picker";
   if (overlay) {
     if (board_display_lock(1000) != ESP_OK) return ESP_ERR_TIMEOUT;
@@ -3129,6 +3393,9 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
     if (screen_name == "brightness") show_brightness_overlay();
     else if (screen_name == "theme") show_theme_overlay();
     else if (screen_name == "audio") show_audio_overlay();
+    else if (screen_name == "audio-sets") show_set_overlay(true);
+    else if (screen_name == "reaction-sets") show_set_overlay(false);
+    else if (screen_name == "reaction-colors") show_set_overlay(false,"iris_palette");
     else if (screen_name == "language-picker") show_wifi_setup_language_picker();
     board_display_unlock();
     reset_inactivity_and_wake();
@@ -7325,9 +7592,10 @@ void DisplayShell::service_resources() {
   const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
   const bool font_retry_due = localized_fonts_available_ && !localized_cjk_fonts_[0] &&
       embedded_cjk_font().data && now_ms >= cjk_font_retry_after_ms_;
+  const bool cover_work=reaction_cover_work_pending(now_ms);
   if (now_ms < resource_lock_retry_after_ms_ ||
       (!font_retry_due && !embedded_resources_need_preparation(now_ms) &&
-       !embedded_resources_need_publication())) return;
+       !embedded_resources_need_publication() && !cover_work)) return;
   // Avoid competing with camera decode/capture for their large workspaces.
   // The lock order is workspace -> display; a busy worker simply retries.
   ImageWorkspaceLock workspace(0);
@@ -7335,13 +7603,15 @@ void DisplayShell::service_resources() {
   // This method is called on the application core without a display lock.
   // Inflate may allocate PSRAM; neither LVGL events nor draw workers do it.
   prepare_requested_embedded_resources(now_ms);
-  if (!font_retry_due && !embedded_resources_need_publication()) return;
+  if(cover_work)prepare_reaction_cover(now_ms);
+  if (!font_retry_due && !embedded_resources_need_publication() && !cover_work) return;
   if (board_display_lock(1000) != ESP_OK) {
     resource_lock_retry_after_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + 100;
     return;
   }
   resource_lock_retry_after_ms_ = 0;
   publish_prepared_embedded_resources();
+  if(cover_work)publish_reaction_cover();
   const auto cjk = embedded_cjk_font();
   if (localized_fonts_available_ && !localized_cjk_fonts_[0] && cjk.data &&
       now_ms >= cjk_font_retry_after_ms_) {

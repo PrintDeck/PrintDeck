@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <mutex>
 #include <span>
+#include <vector>
 #include <string>
 #include <string_view>
 
@@ -20,12 +21,12 @@
 namespace printdeck::platform {
 
 struct ReactionSetDefinition {
-  std::string_view id;
-  std::string_view name;
-  std::string_view version;
-  std::string_view family_id;
-  std::string_view family_name;
-  std::string_view variant_name;
+  std::string id;
+  std::string name;
+  std::string version;
+  std::string family_id;
+  std::string family_name;
+  std::string variant_name;
 };
 
 struct ReactionAssetSnapshot {
@@ -85,7 +86,7 @@ class ReactionAssetService {
   }
   ReactionAssetSnapshot snapshot() const;
   std::uint32_t generation() const;
-  static std::span<const ReactionSetDefinition> sets();
+  static std::vector<ReactionSetDefinition> sets();
   bool request_set(std::string_view id, std::string_view request_id = {});
   bool request_storage(std::string_view action, std::uint32_t session = 0,
                        std::string_view request_id = {});

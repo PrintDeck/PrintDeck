@@ -113,7 +113,7 @@ struct DeviceSettings {
   std::uint16_t last_auto_rotation = 0;
   bool audio_enabled = true;
   std::uint8_t audio_volume_percent = 60;
-  std::string audio_preset = "modern";
+  std::string audio_preset = "clean";
   std::uint16_t audio_muted_events = 0;
   std::uint32_t inactive_printer_poll_interval_s = 60;
   std::string printer_view = "list";

@@ -1,4 +1,6 @@
 #include "printdeck/platform/uniformation_preview_service.hpp"
+#include "printdeck/platform/audio_set_service.hpp"
+#include "printdeck/platform/set_catalog_service.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/web_config.hpp"
 #include "printdeck/core/printer_address.hpp"
@@ -565,7 +567,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   });
   cloud_.set_command_sink([](void* context, const std::string& payload) {
     core::DeviceCommand integration;
-    if ((core::parse_device_command(payload, integration) && (core::device_restart_command(integration) || core::printer_order_command(integration) || core::printer_view_command(integration) || integration.action == "device.mqtt.patch" || integration.action == "device.appearance.patch" || integration.action == "audio.test" || integration.action == "firmware.check" || integration.action == "firmware.install" || core::cloud_reaction_control(integration.action))) || core::is_device_unified_api_command(payload) || core::is_device_name_command(payload) || core::is_device_timezone_command(payload) || core::is_device_voice_command(payload))
+    if ((core::parse_device_command(payload, integration) && (core::device_restart_command(integration) || core::printer_order_command(integration) || core::printer_view_command(integration) || integration.action == "device.mqtt.patch" || integration.action == "device.appearance.patch" || (integration.action == "audio.test" || integration.action == "audio.set.install" || integration.action == "audio.set.cancel" || integration.action == "sets.catalog.refresh") || integration.action == "firmware.check" || integration.action == "firmware.install" || core::cloud_reaction_control(integration.action))) || core::is_device_unified_api_command(payload) || core::is_device_name_command(payload) || core::is_device_timezone_command(payload) || core::is_device_voice_command(payload))
       {
       const auto status = static_cast<WebConfig*>(context)->execute_device_command(payload, false).status;
       return status == 200 || status == 202;
@@ -2291,7 +2293,8 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   body+=R"(,"unified_api":{"enabled":)";body+=current.unified_api_enabled?"true":"false";
   body+=R"(,"token_set":)";body+=current.unified_api_token.empty()?"false":"true";
   body+="},\"mqtt\":"+mqtt_state_json()+"}";
-  body+=R"(,"reactions":)"+reaction_state_json(include_catalog);
+  body+=R"(,"reactions":)"+reaction_state_json(true);
+  body+=R"(,"audio_sets":)"+audio_set_state_json();
   const auto update=firmware_update_?firmware_update_->snapshot():FirmwareUpdateSnapshot{};
   const char* update_state="idle";
   switch(update.state) {
@@ -2342,6 +2345,11 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   body+=kBoardHasSdCard?"true":"false";
   body+=R"(,"available":)";body+=kBoardHasSdCard&&reactions.available&&!reactions.busy&&!reactions.sd_busy?"true":"false";body+="}";
   body+="}";
+  body.pop_back();
+  body+=R"(,"audio.set.install":{"supported":)";body+=kBoardHasAudio?"true":"false";
+  body+=R"(,"available":)";body+=kBoardHasAudio&&!AudioSetService::instance().snapshot().busy?"true":"false";body+='}';
+  body+=R"(,"audio.set.cancel":{"supported":)";body+=kBoardHasAudio?"true":"false";body+=R"(,"available":true})";
+  body+=R"(,"sets.catalog.refresh":{"supported":true,"available":true}})";
   if(include_catalog){body+=R"(,"catalog":{"themes":)";append_theme_catalog(body,current.custom_theme);body+="}";}
   body+="}";return body;
 }
@@ -2387,6 +2395,8 @@ esp_err_t WebConfig::device_state_entry(httpd_req_t* request){
   auto* self=static_cast<WebConfig*>(request->user_ctx);
   if(std::string_view(request->uri)=="/api/device/state?section=reactions")
     return send_json(request,"200 OK",(std::string(R"({"schema_version":1,"reactions":)")+self->reaction_state_json()+"}").c_str());
+  if(std::string_view(request->uri)=="/api/device/state?section=audio")
+    return send_json(request,"200 OK",(std::string(R"({"schema_version":1,"audio_sets":)")+self->audio_set_state_json()+"}").c_str());
   // Local bootstrap fields are attached only by the HTTP adapter, never by
   // the portable exporter used by a future cloud worker.
   std::string body=self->device_state_json(true);body.pop_back();
@@ -2407,6 +2417,23 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
   const auto get=[&](const char* key){return cJSON_GetObjectItemCaseSensitive(parameters,key);};
   const auto text=[&](const char* key)->std::string_view{auto* value=get(key);return cJSON_IsString(value)?std::string_view(value->valuestring):std::string_view{};};
   const int count=cJSON_GetArraySize(parameters);
+  if(command.action=="sets.catalog.refresh") {
+    if(count!=0)return {};
+    SetCatalogService::instance().request_refresh();
+    return {202,R"({"status":"accepted"})"};
+  }
+  if(command.action=="audio.set.install") {
+    if(!kBoardHasAudio)return {409,R"({"error":"Audio is unavailable on this device."})"};
+    if(count!=(get("request_id")?2:1) || text("id").empty() || (get("request_id") && !cJSON_IsString(get("request_id"))))return {};
+    if(!AudioSetService::instance().request(text("id"),text("request_id")))
+      return {409,R"({"error":"Audio set download could not start."})"};
+    return {202,R"({"status":"accepted"})"};
+  }
+  if(command.action=="audio.set.cancel") {
+    if(count>1 || (count==1 && !cJSON_IsString(get("request_id"))))return {};
+    if(!AudioSetService::instance().cancel(text("request_id")))return {409,R"({"error":"No matching audio download."})"};
+    return {202,R"({"status":"accepted"})"};
+  }
   if(command.action=="device.restart") {
     if(!core::device_restart_command(command))return {};
     const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
@@ -2538,10 +2565,11 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
   if(!reaction_assets_)return {503,R"({"error":"Reaction storage is unavailable."})"};
   if(command.action=="reactions.set.install"){
     const auto id=text("id"), request_id=text("request_id");
+    const auto sets=ReactionAssetService::sets();
     if(count!=(get("request_id")?2:1)||(!local&&!get("request_id"))||
        (get("request_id")&&(request_id.empty()||request_id.size()>20||
         !std::all_of(request_id.begin(),request_id.end(),[](char c){return c>='0'&&c<='9';})))||id.empty()||
-       std::none_of(ReactionAssetService::sets().begin(),ReactionAssetService::sets().end(),[&](const auto& set){return set.id==id;}))return {};
+       std::none_of(sets.begin(),sets.end(),[&](const auto& set){return set.id==id;}))return {};
     if(!reaction_assets_->request_set(id,request_id))return {409,R"({"error":"Another reaction change is already in progress."})"};
     return {202,R"({"schema_version":1,"status":"accepted","started":true})"};
   }
@@ -3270,6 +3298,40 @@ esp_err_t WebConfig::test_audio(httpd_req_t* request) {
                      "{\"error\":\"Wait for the current sound to finish and try again.\"}");
   }
   return send_json(request, "200 OK", "{\"played\":true}");
+}
+
+std::string WebConfig::audio_set_state_json() const {
+  const auto state=AudioSetService::instance().snapshot();
+  const auto catalog=SetCatalogService::instance().sets(true);
+  std::string body="{\"available\":";body+=kBoardHasAudio?"true":"false";
+  body+=",\"installed\":";body+=state.available?"true":"false";
+  body+=",\"busy\":";body+=state.busy?"true":"false";
+  body+=",\"progress\":"+std::to_string(state.progress);
+  body+=",\"storage_budget\":"+std::to_string(kBoardHasAudio?AudioSetService::storage_budget():0)+",\"active_set\":{";
+  bool first=true;
+  for(const auto& item:std::array<std::pair<const char*,const std::string*>,4>{{{"id",&state.id},{"style",&state.style},{"language",&state.language},{"version",&state.version}}}) {
+    if(!first)body+=',';
+    first=false;append_json_string(body,item.first);body+=':';append_json_string(body,*item.second);
+  }
+  body+="},\"requested_id\":";append_json_string(body,state.requested_id);
+  body+=",\"request_id\":";append_json_string(body,state.request_id);
+  body+=",\"error\":";append_json_string(body,state.error);
+  body+=",\"catalog_busy\":";body+=SetCatalogService::instance().busy()?"true":"false";
+  body+=",\"sets\":[";first=true;
+  for(const auto& set:catalog) {
+    if(!first)body+=',';
+    first=false;body+="{\"id\":";append_json_string(body,set.id);
+    body+=",\"name\":";append_json_string(body,set.name);
+    body+=",\"style\":";append_json_string(body,set.style);
+    body+=",\"version\":";append_json_string(body,set.version);
+    body+=",\"descriptions\":{";
+    for(std::size_t locale=0;locale<core::kSetLanguages.size();++locale) {
+      if(locale)body+=',';
+      append_json_string(body,core::kSetLanguages[locale]);body+=':';append_json_string(body,set.descriptions[locale]);
+    }
+    body+="}}";
+  }
+  body+="]}";return body;
 }
 
 std::string WebConfig::reaction_state_json(bool include_catalog) const {

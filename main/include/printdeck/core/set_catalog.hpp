@@ -13,7 +13,8 @@ struct AudioPackageDefinition {
 };
 struct DownloadableSet {
   std::string id, name, version, family_id, family_name, variant_name, style;
-  std::array<AudioPackageDefinition, 6> languages{};
+  AudioPackageDefinition package;
+  std::array<std::string, 6> descriptions{};
 };
 // Catalogs only name files below fixed product origins, never arbitrary URLs.
 // Validation is all-or-nothing so a bad refresh cannot replace the last good list.

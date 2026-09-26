@@ -8,6 +8,11 @@ set(PRINTDECK_SRCS
         "app_main.cpp"
         "src/core/configuration_backup.cpp"
         "src/core/compressed_resource.cpp"
+        "src/core/audio_pack.cpp"
+        "src/core/set_catalog.cpp"
+        "src/core/audio_sample.cpp"
+        "src/platform/set_catalog_service.cpp"
+        "src/platform/audio_set_service.cpp"
         "src/core/device_state.cpp"
         "src/core/firmware_channel.cpp"
         "src/core/job_state.cpp"
@@ -24,6 +29,7 @@ set(PRINTDECK_SRCS
         "src/platform/cloud_pairing_service.cpp"
         "include/font/mdi_40.c"
         "src/platform/embedded_resources.cpp"
+        "src/platform/reaction_cover.cpp"
         "src/platform/runtime.cpp"
         "src/platform/display_shell.cpp"
         "src/platform/lvgl_thread_affinity.cpp"
@@ -115,7 +121,6 @@ elseif(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
 elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
     list(APPEND PRINTDECK_SRCS
         "src/platform/audio_service.cpp"
-        "src/core/audio_sample.cpp"
         "src/platform/board_lcd_1_54.cpp"
         "src/platform/display_shell_lcd_1_54.cpp"
         "src/platform/power_service_lcd_1_54.cpp"
@@ -131,7 +136,6 @@ elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
 else()
     list(APPEND PRINTDECK_SRCS
         "src/platform/audio_service.cpp"
-        "src/core/audio_sample.cpp"
         "src/platform/board_amoled_1_75.cpp"
         "src/platform/rotating_panel.cpp"
         "src/platform/power_service.cpp"
@@ -153,30 +157,9 @@ if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
     include("${CMAKE_CURRENT_LIST_DIR}/audio/voice_en/compressed/manifest.cmake")
 endif()
 
-# KNOMI2 has no speaker; keep audio settings but omit playback and its assets.
+# Notification samples are installed in the asset partition as one audio set.
+# Hi ESP response samples above remain embedded independently.
 set(PRINTDECK_COMPRESSED_AUDIO_FILES)
-if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
-   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
-    set(PRINTDECK_COMPRESSED_AUDIO_ROOT "${CMAKE_CURRENT_LIST_DIR}/audio/compressed")
-    include("${PRINTDECK_COMPRESSED_AUDIO_ROOT}/manifest.cmake")
-    foreach(asset_name IN LISTS PRINTDECK_AUDIO_RESOURCE_NAMES)
-        set(source_variable "PRINTDECK_AUDIO_RESOURCE_${asset_name}_SOURCE")
-        set(source_hash_variable "PRINTDECK_AUDIO_RESOURCE_${asset_name}_SOURCE_SHA256")
-        set(gzip_variable "PRINTDECK_AUDIO_RESOURCE_${asset_name}_GZIP")
-        set(gzip_hash_variable "PRINTDECK_AUDIO_RESOURCE_${asset_name}_GZIP_SHA256")
-        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-            "${CMAKE_CURRENT_LIST_DIR}/${${source_variable}}"
-            "${PRINTDECK_COMPRESSED_AUDIO_ROOT}/${${gzip_variable}}")
-        file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/${${source_variable}}" source_hash)
-        file(SHA256 "${PRINTDECK_COMPRESSED_AUDIO_ROOT}/${${gzip_variable}}" gzip_hash)
-        if(NOT source_hash STREQUAL "${${source_hash_variable}}" OR
-           NOT gzip_hash STREQUAL "${${gzip_hash_variable}}")
-            message(FATAL_ERROR "Compressed audio resource ${asset_name} is stale.")
-        endif()
-        list(APPEND PRINTDECK_COMPRESSED_AUDIO_FILES "audio/compressed/${${gzip_variable}}")
-    endforeach()
-    list(REMOVE_DUPLICATES PRINTDECK_COMPRESSED_AUDIO_FILES)
-endif()
 
 set(PRINTDECK_COMPRESSED_WEB_ROOT "${CMAKE_CURRENT_LIST_DIR}/web/compressed")
 include("${PRINTDECK_COMPRESSED_WEB_ROOT}/manifest.cmake")
