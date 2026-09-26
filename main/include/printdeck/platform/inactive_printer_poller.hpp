@@ -51,6 +51,7 @@ class InactivePrinterPoller {
 
  private:
   struct CheckAttempt {
+    unsigned resource_deferrals = 0;
     std::uint32_t profile_id = 0;
     std::uint64_t started_at_ms = 0;
     std::uint64_t retry_at_ms = 0;

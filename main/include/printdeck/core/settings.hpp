@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "printdeck/core/device_state.hpp"
-#include "printdeck/core/companion_camera.hpp"
 #include "printdeck/core/theme.hpp"
 
 namespace printdeck::core {
@@ -101,7 +100,6 @@ struct DeviceSettings {
   std::string wifi_name;
   std::string wifi_password;
   std::vector<PrinterProfile> profiles;
-  std::vector<CompanionCamera> companion_cameras;
   std::uint32_t selected_profile = 0;
   std::uint8_t brightness_percent = 75;
   bool printer_animations_enabled = true;

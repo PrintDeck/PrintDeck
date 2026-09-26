@@ -45,6 +45,7 @@ struct ReactionAssetSnapshot {
   bool sd_can_enable = true;
   std::uint32_t sd_conflicts = 0;
   std::string sd_detail;
+  std::string sd_check_request_id;
   bool available = false;
   bool busy = false;
   bool cancellable = false;
@@ -86,7 +87,8 @@ class ReactionAssetService {
   std::uint32_t generation() const;
   static std::span<const ReactionSetDefinition> sets();
   bool request_set(std::string_view id, std::string_view request_id = {});
-  bool request_storage(std::string_view action, std::uint32_t session = 0);
+  bool request_storage(std::string_view action, std::uint32_t session = 0,
+                       std::string_view request_id = {});
   core::ReactionGif cached_sd_gif(std::string_view id) const;
   bool read_custom_gif(std::string_view id, std::span<std::uint8_t> destination) const;
   bool cancel_set(std::string_view expected_set = {}, std::string_view expected_request = {});
@@ -108,7 +110,9 @@ class ReactionAssetService {
   static void task_entry(void* context);
   static void cleanup_task_entry(void* context);
   void reaper_loop();
-  void poll_storage();
+  void maybe_check_storage();
+  // Caller holds filesystem_mutation_mutex_, never mutex_. Does not mount.
+  bool refresh_sd_storage();
   void storage_task(std::string action);
   void sync_sd_locked();
   bool initialize_sd_index();
@@ -161,7 +165,9 @@ class ReactionAssetService {
   std::array<bool, core::kReactionEventCount> flash_custom_present_{};
   std::array<std::size_t, core::kReactionEventCount> flash_custom_sizes_{};
   std::string requested_storage_;
-  std::uint64_t sd_poll_after_ms_ = 0;
+  bool sd_startup_pending_ = false;
+  std::uint64_t sd_check_after_ms_ = 0;
+  std::string requested_storage_id_;
   std::string requested_set_;
   std::string profile_migration_set_;
   std::uint64_t profile_migration_not_before_ms_ = 0;

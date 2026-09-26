@@ -178,6 +178,7 @@ struct DeviceCommand {
 inline bool cloud_reaction_control(std::string_view action) {
   return action == "device.reactions.patch" || action == "reactions.event.set" ||
       action == "reactions.event.reset" || action == "reactions.storage.set" ||
+      action == "reactions.storage.check" ||
       action == "reactions.set.install" || action == "reactions.set.cancel";
 }
 inline bool parse_device_command(std::string_view payload,DeviceCommand& command){

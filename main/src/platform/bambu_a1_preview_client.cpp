@@ -1,6 +1,8 @@
 #include "printdeck/platform/bambu_a1_preview_client.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/image_workspace.hpp"
+#include "printdeck/platform/bambu_job_metadata.hpp"
+#include "printdeck/core/job_name.hpp"
 
 #include <algorithm>
 #include <array>
@@ -166,9 +168,11 @@ void add_archive_variants(std::vector<std::string>* names, std::string name) {
 }
 
 std::vector<std::string> archive_paths(const std::string& file_hint,
-                                       const std::string& job_name) {
+                                       const std::string& job_name,
+                                       const std::string& plate_hint) {
   std::vector<std::string> names;
   add_archive_variants(&names, file_hint);
+  if (ends_with_case_insensitive(plate_hint, ".3mf")) add_archive_variants(&names, plate_hint);
   add_archive_variants(&names, job_name);
   std::vector<std::string> paths;
   for (const std::string& name : names) {
@@ -352,6 +356,70 @@ bool fetch_archive_png(const BambuLocalConnection& connection, const std::string
   return success;
 }
 
+BambuJobMetadata fetch_archive_metadata(const BambuLocalConnection& connection,
+    const std::string& path, const std::function<bool()>& cancelled) {
+  const int64_t deadline = esp_timer_get_time() + 15000000;
+  const auto stopped = [&] { return cancelled() || esp_timer_get_time() >= deadline; };
+  using Tls = std::unique_ptr<esp_tls_t, decltype(&esp_tls_conn_destroy)>;
+  esp_tls_t* initial = nullptr;
+  if (stopped() || !open_ftps_control(connection, &initial)) return {};
+  Tls control(initial, esp_tls_conn_destroy);
+  std::string response;
+  if (!ftp_command(control.get(), "SIZE " + path, 213, -1, &response) || response.size() < 5) return {};
+  std::uint64_t size = 0;
+  for (std::size_t i = 4; i < response.size(); ++i) {
+    const char c = response[i];
+    if (c < '0' || c > '9' || size > 512ULL * 1024 * 1024 / 10) return {};
+    size = size * 10 + c - '0';
+  }
+  if (size < 22 || size > 512ULL * 1024 * 1024 ||
+      !ftp_command(control.get(), "MDTM " + path, 213, -1, &response)) return {};
+  const auto modified = response;
+  if (modified.size() < 18 || modified.size() > 28) return {};
+  std::string cache;
+  std::uint64_t cache_offset = 0;
+  unsigned reads = 0;
+  const auto reader = [&](std::uint64_t offset, std::size_t length, std::string& out) {
+    if (stopped()) return false;
+    if (offset >= cache_offset && offset-cache_offset <= cache.size() &&
+        length <= cache.size()-(offset-cache_offset)) {
+      out = cache.substr(offset-cache_offset, length);
+      return true;
+    }
+    if (++reads > 6) return false;
+    if (!control) {
+      esp_tls_t* next = nullptr;
+      if (!open_ftps_control(connection, &next)) return false;
+      control.reset(next);
+      if (!ftp_command(control.get(), "MDTM " + path, 213, -1, &response) || response != modified) return false;
+    }
+    if (stopped() || !ftp_command(control.get(), "PASV", 227, -1, &response)) return false;
+    uint16_t port = 0;
+    if (!parse_pasv_port(response, &port) ||
+        !ftp_command(control.get(), "REST " + std::to_string(offset), 350) ||
+        !ftp_command(control.get(), "RETR " + path, 125, 150) || stopped()) return false;
+    Tls data(esp_tls_init(), esp_tls_conn_destroy);
+    auto config = make_tls_config(connection);
+    if (!data || esp_tls_conn_new_sync(connection.host.c_str(), connection.host.size(), port, &config, data.get()) != 1) return false;
+    const auto count = static_cast<std::size_t>(std::min<std::uint64_t>(size-offset, std::max<std::size_t>(length,4096)));
+    cache.assign(count, '\0');
+    cache_offset = offset;
+    std::size_t received = 0;
+    while (received < count && !stopped()) {
+      const auto n = esp_tls_conn_read(data.get(), cache.data()+received, count-received);
+      if (n > 0) received += n;
+      else if (n == 0) break;
+      else vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    // End this bounded RETR without leaving a partial-transfer response queued.
+    data.reset(); control.reset();
+    if (received != count || stopped()) { cache.clear(); return false; }
+    out = cache.substr(0,length);
+    return true;
+  };
+  return bambu_metadata::read(size, reader);
+}
+
 }  // namespace
 
 void BambuA1PreviewClient::configure(BambuLocalConnection connection) {
@@ -360,6 +428,7 @@ void BambuA1PreviewClient::configure(BambuLocalConnection connection) {
   {
     std::lock_guard<std::mutex> lock(config_mutex_);
     connection_ = std::move(connection);
+    connection_generation_.fetch_add(1);
   }
   reconfigure_requested_.store(true);
   fetch_requested_.store(configured);
@@ -369,9 +438,17 @@ void BambuA1PreviewClient::configure(BambuLocalConnection connection) {
 
 void BambuA1PreviewClient::set_network_ready(bool ready) { network_ready_.store(ready); }
 
+std::string BambuA1PreviewClient::job_key(const std::string& file_hint,
+    const std::string& job_name, const std::string& plate_hint, const std::string& source_job_id) {
+  std::string key;
+  for (const auto* part : {&file_hint, &job_name, &plate_hint, &source_job_id})
+    key += std::to_string(part->size()) + ":" + *part;
+  return key;
+}
+
 void BambuA1PreviewClient::set_job(std::string file_hint, std::string job_name,
-                                   std::string plate_hint, bool active) {
-  const std::string key = active ? file_hint + "\n" + job_name + "\n" + plate_hint
+                                   std::string plate_hint, bool active, std::string source_job_id) {
+  const std::string key = active ? job_key(file_hint, job_name, plate_hint, source_job_id)
                                  : std::string{};
   bool changed = false;
   {
@@ -447,32 +524,48 @@ void BambuA1PreviewClient::publish_status(bool configured, bool fetching,
   if (clear_image) {
     snapshot_.image.reset();
     snapshot_.job_key.clear();
+    snapshot_.model_title.clear();
+    snapshot_.profile_title.clear();
   }
 }
 
 void BambuA1PreviewClient::publish_image(
-    const std::string& job_key, std::shared_ptr<std::vector<uint8_t>> image) {
+    const std::string& job_key, std::shared_ptr<std::vector<uint8_t>> image,
+    std::string model_title, std::string profile_title) {
   std::lock_guard<std::mutex> lock(snapshot_mutex_);
   snapshot_.configured = true;
   snapshot_.fetching = false;
   snapshot_.detail = "Local print preview loaded";
   snapshot_.job_key = job_key;
   snapshot_.image = std::move(image);
+  snapshot_.model_title = std::move(model_title);
+  snapshot_.profile_title = std::move(profile_title);
 }
 
 bool BambuA1PreviewClient::fetch(const BambuLocalConnection& connection, const JobRequest& job,
-                                 std::shared_ptr<std::vector<uint8_t>>* image) {
-  const std::vector<std::string> paths = archive_paths(job.file_hint, job.job_name);
+                                 std::shared_ptr<std::vector<uint8_t>>* image,
+                                 std::string* model_title, std::string* profile_title) {
+  const std::vector<std::string> paths = archive_paths(job.file_hint, job.job_name, job.plate_hint);
   const std::string target_name = plate_png_name(job.plate_hint);
   if (paths.empty() || image == nullptr) return false;
   ESP_LOGI(kTag, "Fetching a bounded local Bambu print preview");
   for (const std::string& path : paths) {
     if (stop_requested_.load(std::memory_order_acquire) || !network_ready_.load() ||
-        !preview_requested_.load() || job_request().key != job.key) break;
-    if (fetch_archive_png(connection, path, target_name, image)) {
-      ESP_LOGI(kTag, "Loaded local Bambu print preview (%u bytes)",
-               static_cast<unsigned>((*image)->size()));
-      return true;
+        (!preview_requested_.load() && !metadata_requested_.load()) || job_request().key != job.key) break;
+    const bool found_image = fetch_archive_png(connection, path, target_name, image);
+    if (stop_requested_.load() || job_request().key != job.key) break;
+    {
+      const auto metadata = fetch_archive_metadata(connection, path, [&] {
+        return stop_requested_.load() || !network_ready_.load() ||
+            (!preview_requested_.load() && !metadata_requested_.load()) || job_request().key != job.key;
+      });
+      *model_title = core::bounded_job_name(metadata.title);
+      *profile_title = core::bounded_job_name(metadata.profile);
+      if (found_image || !model_title->empty()) {
+        ESP_LOGI(kTag, "Loaded local Bambu job data (preview=%d, title=%d)",
+                 found_image, !model_title->empty());
+        return true;
+      }
     }
   }
   ESP_LOGW(kTag, "Bambu print preview was not found for the active local job");
@@ -496,6 +589,7 @@ void BambuA1PreviewClient::task_loop() {
   int64_t last_attempt_us = 0;
   bool memory_deferred = false;
   while (!stop_requested_.load(std::memory_order_acquire)) {
+    const auto connection_generation = connection_generation_.load();
     const BambuLocalConnection current_connection = connection();
     const JobRequest job = job_request();
     if (reconfigure_requested_.exchange(false)) {
@@ -503,7 +597,7 @@ void BambuA1PreviewClient::task_loop() {
       attempts = 0;
       last_attempt_us = 0;
     }
-    if (!preview_requested_.load() || !job.active || !current_connection.is_ready()) {
+    if ((!preview_requested_.load() && !metadata_requested_.load()) || !job.active || !current_connection.is_ready()) {
       publish_status(current_connection.is_ready(), false, "Print preview idle", true);
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
       continue;
@@ -536,7 +630,7 @@ void BambuA1PreviewClient::task_loop() {
     }
     memory_deferred = false;
     ImageWorkspaceLock workspace(50);
-    if (!workspace || !preview_requested_.load()) {
+    if (!workspace || (!preview_requested_.load() && !metadata_requested_.load())) {
       fetch_requested_.store(true);
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100));
       continue;
@@ -547,10 +641,12 @@ void BambuA1PreviewClient::task_loop() {
     publish_status(true, true, "Loading local print preview");
     mark_reset_checkpoint(ResetCheckpoint::kA1PreviewFetch);
     std::shared_ptr<std::vector<uint8_t>> image;
-    if (fetch(current_connection, job, &image) && image &&
-        !stop_requested_.load(std::memory_order_acquire) && preview_requested_.load() &&
+    std::string model_title, profile_title;
+    if (fetch(current_connection, job, &image, &model_title, &profile_title) &&
+        !stop_requested_.load(std::memory_order_acquire) && (preview_requested_.load() || metadata_requested_.load()) &&
+        connection_generation_.load() == connection_generation &&
         job_request().key == job.key) {
-      publish_image(job.key, std::move(image));
+      publish_image(job.key, std::move(image), std::move(model_title), std::move(profile_title));
       attempts = kMaximumAttemptsPerJob;
     } else if (job_request().key == job.key) {
       publish_status(true, false, attempts < kMaximumAttemptsPerJob

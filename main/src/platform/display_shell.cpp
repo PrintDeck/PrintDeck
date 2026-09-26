@@ -45,6 +45,9 @@ namespace printdeck::platform {
 namespace {
 
 constexpr char kLogTag[] = "display";
+// Two AMOLED DMA staging slots at 12 rows retain double buffering while
+// leaving 21.8 KiB more internal RAM for Wi-Fi and Cloud image transfers.
+constexpr int kDisplayTransferRows = kDisplayUsesLargeLayout ? 12 : 24;
 constexpr int kResinBottomCycleView = 62;
 constexpr int kResinNormalCycleView = 65;
 constexpr int kResinReactionsView = 66;
@@ -424,7 +427,7 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
   }
   esp_lcd_panel_handle_t panel_handle = nullptr;
   esp_lcd_panel_io_handle_t panel_io_handle = nullptr;
-  display_result = board_display_new(kDisplayWidth * 24 * 2,
+  display_result = board_display_new(kDisplayWidth * kDisplayTransferRows * 2,
                                      &panel_handle, &panel_io_handle);
   if (display_result != ESP_OK || panel_handle == nullptr || panel_io_handle == nullptr) {
     ESP_LOGE(kLogTag, "Display panel initialization failed: %s",
@@ -448,7 +451,7 @@ esp_err_t DisplayShell::start(int initial_rotation_degrees) {
           .rotation = ESP_LV_ADAPTER_ROTATE_0,
           .hor_res = kDisplayWidth,
           .ver_res = kDisplayHeight,
-          .buffer_height = 24,
+          .buffer_height = kDisplayTransferRows,
           .use_psram = true,
           .enable_ppa_accel = false,
           .require_double_buffer = true,
@@ -921,10 +924,7 @@ void DisplayShell::screen_event(lv_event_t* event) {
     shell->activate_printer_card(pressed_printer_card);
     return;
   }
-  const bool camera_list_scroll=shell->view_==24 && shell->companion_results_ &&
-      lv_obj_is_valid(shell->companion_results_) &&
-      lv_indev_get_scroll_obj(input)==shell->companion_results_;
-  if (list_owned_vertical || camera_list_scroll) return;
+  if (list_owned_vertical) return;
   const int vertical_abs_dy = std::abs(vertical_dy);
   const bool released_as_vertical =
       vertical_abs_dy >= kVerticalSwipeThresholdPx &&
@@ -943,19 +943,12 @@ void DisplayShell::screen_event(lv_event_t* event) {
         current = shell->printer_subpage_.load();
         next = vertical_dy > 0 ? (current + 1) % count
                                : (current + count - 1) % count;
-      } else if (shell->camera_page_active()) {
-        const int count=shell->camera_page_count_.load();
-        current=shell->camera_subpage_.load();
-        next=vertical_dy>0?(current+1)%count:(current+count-1)%count;
       } else {
         return;
       }
       if (next != current) {
         if (depth == 0) shell->page_.store(next);
-        else if(shell->camera_page_active()) {
-          shell->camera_cleanup_pending_.store(true);
-          shell->camera_subpage_.store(next);
-        } else shell->printer_subpage_.store(next);
+        else shell->printer_subpage_.store(next);
         shell->view_ = -1;
         if (shell->navigation_feedback_ != nullptr) {
           shell->navigation_feedback_(shell->navigation_feedback_context_);
@@ -2369,12 +2362,9 @@ void DisplayShell::create_printer_view_dots(int right_offset) {
   if constexpr (kDisplayUsesCompactRoundLayout) {
     right_offset = std::max(right_offset, 9);
   }
-  const bool cameras = camera_page_active();
-  const int count = std::max(1, cameras ? camera_page_count_.load()
-                                      : printer_subpage_count_.load());
-  const int active = std::clamp(cameras ? camera_subpage_.load()
-                                      : printer_subpage_.load(), 0, count - 1);
-  if (count <= 1 || (!cameras && horizontal_depth_.load() != 1)) return;
+  const int count = std::max(1, printer_subpage_count_.load());
+  const int active = std::clamp(printer_subpage_.load(), 0, count - 1);
+  if (count <= 1 || horizontal_depth_.load() != 1) return;
   lv_obj_t* row = lv_obj_create(lv_screen_active());
   lv_obj_set_size(row, 12, count * 18);
   lv_obj_align(row, LV_ALIGN_RIGHT_MID, -right_offset, 0);
@@ -2456,7 +2446,10 @@ void DisplayShell::begin_camera_cleanup() {
   if (board_display_lock(250) != ESP_OK) return;
   // The originating gesture already emitted its navigation feedback. This
   // curtain only waits for camera resources; it is not another user action.
-  if (!horizontal_transition_active_)
+  // Sleeping releases the camera in place. A navigation curtain here would
+  // cover the saver and eventually time out to My Printers while rendering is
+  // suspended, losing the camera page needed when the display wakes.
+  if (!content_hidden() && !horizontal_transition_active_)
     start_horizontal_transition(page_.load(), horizontal_depth_.load() == 0,
                                 1, 0, horizontal_depth_.load(), false);
   board_display_unlock();
@@ -2468,6 +2461,7 @@ bool DisplayShell::finish_camera_cleanup() {
   // the same lock; a busy renderer must leave the whole cleanup pending.
   clear_camera_image();
   camera_was_refreshing_ = false;
+  if (camera_page_active()) view_ = -1;
   if (horizontal_transition_timeout_timer_ != nullptr) {
     lv_timer_set_period(horizontal_transition_timeout_timer_, kHorizontalLoadingTimeoutMs);
     lv_timer_reset(horizontal_transition_timeout_timer_);
@@ -3165,7 +3159,7 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
   else if (screen_name == "resin-pause-resume" || screen_name == "resin-stop") {
     if (!selected_online_.load() || !selected_is_resin_.load() ||
         !printer_control_enabled_.load() || horizontal_depth_count_.load() != 5) return ESP_ERR_INVALID_STATE;
-    target_depth = screen_name == "resin-stop" ? 4 : 3;
+    target_depth = screen_name == "resin-stop" ? 3 : 2;
   }
   else if (screen_name == "resin-printer-status" || screen_name == "resin-print-details" ||
            screen_name == "resin-bottom-layers" || screen_name == "resin-normal-layers" ||
@@ -3235,14 +3229,7 @@ esp_err_t DisplayShell::navigate_for_capture(std::string_view screen_name) {
       return ESP_ERR_NOT_SUPPORTED;
     }
     target_depth = 2;
-  } else if(screen_name=="printdeck-camera" || screen_name=="add-printdeck-camera") {
-    target_depth=selected_camera_depth_.load();
-    if(!selected_online_.load() || target_depth<=0)return ESP_ERR_NOT_SUPPORTED;
-    const int index=screen_name=="add-printdeck-camera"?camera_page_count_.load()-1:(native_camera_page_.load()?1:0);
-    if(screen_name=="printdeck-camera" && index>=camera_page_count_.load()-1)return ESP_ERR_NOT_SUPPORTED;
-    camera_subpage_.store(index);
   } else if (screen_name == "local-camera") {
-    camera_subpage_.store(0);
     target_depth = selected_camera_depth_.load();
     if (!selected_online_.load() || target_depth <= 0) return ESP_ERR_NOT_SUPPORTED;
   } else if (screen_name == "printer-light") {
@@ -3307,8 +3294,8 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
   selected_is_tinymaker_.store(profile.protocol == core::PrinterProtocol::tinymaker);
   if (resin) {
     const bool controls=printer_control_enabled_.load() && profile.protocol==core::PrinterProtocol::uniformation_sdcp;
-    if (!controls && (horizontal_depth_.load() >= 3 || resin_control_overlay_ ||
-        (horizontal_transition_active_ && horizontal_transition_target_depth_ >= 3))) {
+    if (!controls && (horizontal_depth_.load() >= 2 || resin_control_overlay_ ||
+        (horizontal_transition_active_ && horizontal_transition_target_depth_ >= 2))) {
       close_resin_confirmation();
       cancel_horizontal_transition_locked();
       horizontal_depth_.store(1);
@@ -3316,24 +3303,17 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
       resin_control_pending_ = false;
       view_ = -1;
     }
-    selected_camera_depth_.store(2);
-    configure_camera_pages(profile.id,false);
-    if(horizontal_depth_.load()==selected_camera_depth_.load()) {
-      horizontal_depth_count_.store(controls?5:3);
-      if(camera_add_page_active())show_companion_add(profile);
-      else show_printer_camera(profile,snapshot,power);
-      return;
-    }
+    selected_camera_depth_.store(0);
     // Resin uses procedural reactions and its own telemetry pages.
     selected_is_bambu_.store(false);
     selected_light_depth_.store(0);
     const int reaction_offset = printer_animations_enabled_ ? 1 : 0;
     const auto pages = core::resin_telemetry_pages(selected_is_tinymaker_.load());
     const int subpage_count = pages.size() + reaction_offset;
-    horizontal_depth_count_.store(controls ? 5 : 3); printer_subpage_count_.store(subpage_count);
-    horizontal_depth_.store(std::min(controls ? 4 : 1, horizontal_depth_.load()));
-    if (controls && horizontal_depth_.load() >= 3) {
-      show_resin_controls(profile, snapshot, horizontal_depth_.load() == 4);
+    horizontal_depth_count_.store(controls ? 4 : 2); printer_subpage_count_.store(subpage_count);
+    horizontal_depth_.store(std::min(controls ? 3 : 1, horizontal_depth_.load()));
+    if (controls && horizontal_depth_.load() >= 2) {
+      show_resin_controls(profile, snapshot, horizontal_depth_.load() == 3);
       return;
     }
     printer_subpage_.store(std::clamp(printer_subpage_.load(), 0, subpage_count - 1));
@@ -3358,13 +3338,13 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
   const bool has_camera = profile.protocol == core::PrinterProtocol::moonraker ||
                           profile.protocol == core::PrinterProtocol::bambu_lan;
   const bool has_light = is_bambu || snapshot.job.chamber_light_supported;
-  const int camera_depth = is_bambu ? 3 : 2;
-  configure_camera_pages(profile.id,has_camera);
-  const int light_depth = has_light ? camera_depth+1 : 0;
+  const int base_depth = is_bambu ? 3 : 2;
+  const int camera_depth = has_camera ? base_depth : 0;
+  const int light_depth = has_light ? base_depth + (has_camera ? 1 : 0) : 0;
   selected_is_bambu_.store(is_bambu);
   selected_camera_depth_.store(camera_depth);
   selected_light_depth_.store(light_depth);
-  horizontal_depth_count_.store(3 + (is_bambu ? 1 : 0) +
+  horizontal_depth_count_.store(2 + (has_camera ? 1 : 0) + (is_bambu ? 1 : 0) +
                                 (has_light ? 1 : 0));
   const bool reactions_visible =
       printer_animations_enabled_ || capture_animation_override_active_;
@@ -3380,8 +3360,7 @@ void DisplayShell::show_printer(const core::PrinterProfile& profile,
     return;
   }
   if (camera_depth > 0 && depth == camera_depth) {
-    if(camera_add_page_active())show_companion_add(profile);
-    else show_printer_camera(profile, snapshot, power);
+    show_printer_camera(profile, snapshot, power);
     return;
   }
   if (light_depth > 0 && depth == light_depth) {
@@ -4123,8 +4102,11 @@ void DisplayShell::show_resin_confirmation() {
   auto* icon = label(stop ? LV_SYMBOL_STOP : action == core::ResinControl::resume ? LV_SYMBOL_PLAY : LV_SYMBOL_PAUSE,
                      91, 62, 58, 24, color);
   lv_obj_set_style_text_font(icon, kDisplayUsesLargeLayout ? &lv_font_montserrat_32 : &lv_font_montserrat_24, LV_PART_MAIN);
-  label(resin_control_profile_name_.c_str(), 30, 96, 180, 12, 0xF1F5F8);
-  label(resin_control_job_name_.c_str(), 30, 114, 180, 12, 0x9AABB8);
+  auto* profile_name = label(resin_control_profile_name_.c_str(), 30, 96, 180, 12, 0xF1F5F8);
+  auto* job_name = label(resin_control_job_name_.c_str(), 30, 114, 180, 12, 0x9AABB8);
+  for (auto* name : {profile_name, job_name}) {
+    lv_obj_set_height(name, lv_font_get_line_height(lv_obj_get_style_text_font(name, LV_PART_MAIN)));
+  }
   const char* question = again ? (stop ? "This ends the print.\nConfirm once more." : "Check the printer.\nIs everything ready?")
       : stop ? "Stop this print?" : action == core::ResinControl::resume ? "Resume this print?" : "Pause this print?";
   auto* question_label = label(tr(question), 30, 138, 180, 12, 0xCDD9E2);
@@ -6264,10 +6246,9 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
     camera_activity_updated_until_us_ = esp_timer_get_time() + 800000;
   }
   if (view_ != 22 || visible_profile_ != profile.id) {
-    prepare_active_screen(companion_camera_slot()>=0?"printdeck-camera":"local-camera");
+    prepare_active_screen("local-camera");
     create_printer_chrome(profile, snapshot, &power);
-    const int camera_slot=companion_camera_slot();
-    lv_label_set_text(title_label_,camera_slot>=0?"PrintDeck Camera":tr("CAMERA"));
+    lv_label_set_text(title_label_,tr("CAMERA"));
     detail_label_ = lv_label_create(lv_screen_active());
     apply_text_style(detail_label_, lv_color_hex(theme_style_.text_muted), &lv_font_montserrat_12);
     lv_obj_set_width(detail_label_, 390);
@@ -6278,8 +6259,7 @@ void DisplayShell::show_printer_camera(const core::PrinterProfile& profile,
                                   LV_OBJ_FLAG_GESTURE_BUBBLE));
     lv_obj_set_size(media_image_, 360, 203);
     // Fill the AMOLED preview without containing a letterboxed square twice.
-    lv_image_set_inner_align(media_image_, camera_slot >= 0
-        ? LV_IMAGE_ALIGN_COVER : LV_IMAGE_ALIGN_CONTAIN);
+    lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
     lv_obj_align(media_image_, LV_ALIGN_CENTER, 0, 7);
     camera_spinner_ = lv_spinner_create(lv_screen_active());
     lv_obj_set_size(camera_spinner_, 58, 58);
@@ -7089,7 +7069,8 @@ esp_err_t DisplayShell::touch_read(esp_lcd_touch_handle_t touch,
       esp_lcd_touch_get_data(touch, points, count, maximum_count);
   if (data_result == ESP_OK && *count == 0) shell->consume_wake_touch_ = false;
   if (data_result == ESP_OK && *count > 0) {
-    if (shell->content_hidden() || shell->consume_wake_touch_) {
+    if (shell->content_hidden() || shell->manual_display_sleep_active() ||
+        shell->consume_wake_touch_) {
       bool wake = true;
       { const std::lock_guard<std::mutex> lock(shell->power_policy_mutex_);
         wake = !kBoardHasPowerButton || shell->power_policy_.wake_on_touch; }
@@ -7127,8 +7108,8 @@ void DisplayShell::set_printer_control_enabled(bool enabled) {
   if (selected_is_resin_.load() && page_.load() == 0) {
     if (!enabled) {
       horizontal_depth_count_.store(3);
-      if (horizontal_depth_.load() >= 3 || resin_control_overlay_ ||
-          (horizontal_transition_active_ && horizontal_transition_target_depth_ >= 3)) {
+      if (horizontal_depth_.load() >= 2 || resin_control_overlay_ ||
+          (horizontal_transition_active_ && horizontal_transition_target_depth_ >= 2)) {
         cancel_horizontal_transition_locked();
         close_resin_confirmation();
         horizontal_depth_.store(1);
@@ -7609,7 +7590,7 @@ void DisplayShell::clear_camera_image() {
   if (media_zoom_root_ != nullptr) {
     lv_obj_add_flag(media_zoom_root_, LV_OBJ_FLAG_HIDDEN);
     if (view_ == 22)
-      capture_screen_name_ = companion_camera_slot() >= 0 ? "printdeck-camera" : "local-camera";
+      capture_screen_name_ = "local-camera";
   }
   lv_image_cache_drop(&camera_image_dsc_);
   camera_pixels_.reset();
@@ -7662,26 +7643,6 @@ void DisplayShell::update_media_zoom_geometry() {
   }
   int min_x = kDisplayWidth - width, max_x = 0;
   int min_y = kDisplayHeight - height, max_y = 0;
-  if (view_ == 22 && companion_camera_slot() >= 0 && media_image_ != nullptr) {
-    // Enlarge the visible COVER preview to screen height, not its padded square
-    // JPEG. Keep the same vertical framing and let horizontal dragging reveal
-    // either side. The full buffer stays shared; no pixel copy or rescan is needed.
-    const int preview_width = lv_obj_get_width(media_image_);
-    const int preview_height = lv_obj_get_height(media_image_);
-    if (preview_width > 0 && preview_height > 0) {
-      const int content_height = std::max(1, std::min(source_height,
-          source_width * preview_height / preview_width));
-      const int content_width = std::max(1, std::min(source_width,
-          source_height * preview_width / preview_height));
-      width = (source_width * kDisplayHeight + content_height - 1) / content_height;
-      height = (source_height * kDisplayHeight + content_height - 1) / content_height;
-      const int visible_width = (content_width * kDisplayHeight + content_height - 1) / content_height;
-      const int left = (width - visible_width) / 2;
-      min_x = std::min(kDisplayWidth - visible_width, 0) - left;
-      max_x = std::max(kDisplayWidth - visible_width, 0) - left;
-      min_y = max_y = (kDisplayHeight - height) / 2;
-    }
-  }
   const int center_x = (kDisplayWidth - width) / 2;
   const int center_y = (kDisplayHeight - height) / 2;
   const int x = std::clamp(center_x + media_pan_x_, min_x, max_x);
@@ -7703,7 +7664,7 @@ void DisplayShell::media_zoom_event(lv_event_t* event) {
              : (!preview || (!zoom_open && (!shell->preview_pixels_ || shell->preview_pixels_->empty())))) return;
   const char* zoom_name = camera ? "local-camera-zoom" : shell->view_ == 60 ? "resin-print-preview" : "print-preview";
   const char* base_name = camera
-      ? (shell->companion_camera_slot() >= 0 ? "printdeck-camera" : "local-camera")
+      ? "local-camera"
       : shell->view_ == 60 ? "resin-printer-status" : "printer-status";
   // A custom carousel swipe can also finish as a short click in LVGL. Only a
   // stationary tap toggles the image, and a long press remains Quick Menu.
@@ -8199,12 +8160,13 @@ void DisplayShell::set_update_snapshot(const FirmwareUpdateSnapshot& update) {
 }
 
 void DisplayShell::note_activity(bool wake, const char* reason) {
+  if (manual_display_sleep_active()) return;
   if (esp_timer_get_time() <=
       remote_activity_suppressed_until_us_.load(std::memory_order_acquire)) {
     return;
   }
   last_activity_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-  if (wake) request_wake(reason);
+  if (wake) request_wake(reason, false);
 }
 
 void DisplayShell::defer_background_render(std::uint32_t milliseconds) {
@@ -8219,16 +8181,19 @@ void DisplayShell::defer_background_render(std::uint32_t milliseconds) {
   }
 }
 
-void DisplayShell::request_wake(const char* reason) {
+void DisplayShell::request_wake(const char* reason, bool allow_manual) {
   if (board_display_lock(500) != ESP_OK) {
     ESP_LOGW(kLogTag, "Display wake deferred because the LVGL lock is busy");
     return;
   }
-  wake_display_locked(reason);
+  wake_display_locked(reason, allow_manual);
   board_display_unlock();
 }
 
-void DisplayShell::wake_display_locked(const char* reason) {
+void DisplayShell::wake_display_locked(const char* reason, bool allow_manual) {
+  // Check under the display lock so a sensor event queued before the Power
+  // double-click cannot undo the newly requested manual sleep.
+  if (!allow_manual && manual_display_sleep_active()) return;
   if (screen_power_mode_ != 0 || manual_display_sleep_.load() != 0) {
     ESP_LOGI(kLogTag, "Display wake: reason=%s, mode=%d, manual=%d", reason,
              screen_power_mode_.load(), manual_display_sleep_.load() != 0);
@@ -8242,22 +8207,19 @@ void DisplayShell::wake_display_locked(const char* reason) {
   board_display_brightness_set(applied_brightness_);
 }
 
-void DisplayShell::reset_inactivity_and_wake(const char* reason) {
+void DisplayShell::reset_inactivity_and_wake(const char* reason, bool allow_manual) {
+  if (!allow_manual && manual_display_sleep_active()) return;
   last_activity_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-  request_wake(reason);
+  request_wake(reason, allow_manual);
 }
 
 bool DisplayShell::power_button_pressed() {
-  const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-  const core::ManualDisplaySleep manual(manual_display_sleep_.load());
-  // Keep the saver visible while distinguishing the second pair from one click.
-  if (screen_fully_off() || (manual.state() & 3U) == 2 ||
-      (content_hidden() && !manual.followup_allowed(now))) {
-    reset_inactivity_and_wake();
-    return true;
-  }
-  if (!manual.followup_allowed(now)) reset_inactivity_and_wake();
-  return false;
+  // Both manual stages and a dark automatic display must distinguish a single
+  // wake from a double-click step before changing the visible state.
+  if (manual_display_sleep_active() || screen_fully_off()) return false;
+  const bool wake_only = content_hidden();
+  reset_inactivity_and_wake();
+  return wake_only;
 }
 
 void DisplayShell::power_button_single_click() {
@@ -8276,7 +8238,9 @@ void DisplayShell::power_button_double_click() {
   const auto duration = last_print_active_.load() ? policy.saver_duration_active_s
                                                   : policy.saver_duration_idle_s;
   const core::ManualDisplaySleep manual(manual_display_sleep_.load());
-  manual_display_sleep_ = manual.double_click(now, duration != 0).state();
+  const bool display_off = screen_fully_off() || (manual.state() & 3U) == 2;
+  manual_display_sleep_ = manual.double_click(now, duration != 0, display_off).state();
+  if (display_off && duration == 0) wake_display_locked("Power double-click");
   last_activity_ms_ = now;
   // The display worker applies the stage through the normal rendering, camera
   // and audio lifecycle; no network or power-rail operation runs here.
@@ -8295,7 +8259,7 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
     last_on_battery_ = on_battery;
   } else if (on_battery && !last_on_battery_) {
     last_activity_ms_ = now;
-    request_wake("power source changed to battery");
+    request_wake("power source changed to battery", false);
   }
   last_on_battery_ = on_battery;
   if (print_active != last_print_active_) {
@@ -8337,6 +8301,10 @@ void DisplayShell::update_power_save(bool on_battery, bool keep_awake, bool prin
   }
   const int previous = screen_power_mode_.load();
   screen_power_mode_ = target;
+  // A curtain already started before sleep must not obscure the saver or
+  // navigate away on its timeout. Keep the current page for wake/resume.
+  if ((target == 2 || target == 3) && horizontal_transition_active_)
+    cancel_horizontal_transition_locked();
   // Camera workers stop while dark or behind the saver. Invalidate the old
   // visible frame now, before the wake tap can reach its zoom handler.
   if (view_ == 22 && (target == 2 || target == 3)) clear_camera_image();
@@ -8519,110 +8487,5 @@ esp_err_t DisplayShell::capture_png(std::vector<std::uint8_t>& png,
   return ESP_OK;
 }
 
-
-void DisplayShell::set_companion_service(CompanionCameraService* service,CompanionAction action,void* context) {
-  companion_service_=service;companion_action_=action;companion_context_=context;
-}
-void DisplayShell::set_companion_cameras(const std::vector<core::CompanionCamera>& cameras) {
-  if(board_display_lock(1000)!=ESP_OK)return;
-  companion_cameras_=cameras;view_=-1;
-  board_display_unlock();
-}
-void DisplayShell::configure_camera_pages(std::uint32_t printer,bool native) {
-  const bool previous_native=native_camera_page_.load();
-  const int previous_count=camera_page_count_.load();
-  native_camera_page_.store(native);
-  int count=0;
-  for(std::size_t i=0;i<companion_cameras_.size() && count<static_cast<int>(core::kMaximumCompanionCameras);++i)
-    if(companion_cameras_[i].assigned(printer))companion_slots_[count++].store(i);
-  camera_page_count_.store(count+(native?1:0)+1);
-  if(previous_native!=native || previous_count!=camera_page_count_.load())view_=-1;
-  camera_subpage_.store(std::clamp(camera_subpage_.load(),0,camera_page_count_.load()-1));
-}
-int DisplayShell::companion_camera_slot() const {
-  if(!camera_page_active())return -2;
-  const int page=camera_subpage_.load();
-  if(page==camera_page_count_.load()-1)return -2;
-  if(native_camera_page_.load() && page==0)return -1;
-  const int index=page-(native_camera_page_.load()?1:0);
-  return index>=0 && index<static_cast<int>(core::kMaximumCompanionCameras)?companion_slots_[index].load():-2;
-}
-bool DisplayShell::camera_add_page_active() const {
-  return camera_page_active() && camera_subpage_.load()==camera_page_count_.load()-1;
-}
-void DisplayShell::companion_action_event(lv_event_t* event) {
-  auto* shell=static_cast<DisplayShell*>(lv_event_get_user_data(event));
-  auto* target=static_cast<lv_obj_t*>(lv_event_get_current_target(event));
-  if(!shell || !shell->companion_action_)return;
-  const auto value=reinterpret_cast<std::intptr_t>(lv_obj_get_user_data(target));
-  const int action=value==-1?1:value==-2?2:3;
-  const char* id=value>=0 && static_cast<std::size_t>(value)<shell->pairing_camera_ids_.size()?shell->pairing_camera_ids_[value].c_str():"";
-  shell->companion_action_(shell->companion_context_,action,id,shell->selected_profile_);
-}
-void DisplayShell::show_companion_add(const core::PrinterProfile& profile) {
-  if(!companion_service_ || board_display_lock(300)!=ESP_OK)return;
-  const auto state=companion_service_->snapshot();
-  constexpr int width=kDisplayUsesLargeLayout?300:180;
-  if(view_!=24 || visible_profile_!=profile.id) {
-    prepare_active_screen("add-printdeck-camera");
-    if constexpr (kDisplayUsesLargeLayout) {
-      create_page_header("PrintDeck Camera");
-    } else {
-      square_create_header("PrintDeck Camera");
-    }
-    companion_progress_=lv_label_create(lv_screen_active());
-    lv_obj_set_size(companion_progress_, width, kDisplayUsesLargeLayout ? 36 : 32);
-    lv_label_set_long_mode(companion_progress_, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(companion_progress_,LV_TEXT_ALIGN_CENTER,0);
-    apply_text_style(companion_progress_,lv_color_hex(theme_style_.text_secondary),
-                     kDisplayUsesLargeLayout ? &lv_font_montserrat_14 : &lv_font_montserrat_12);
-    lv_obj_align(companion_progress_,LV_ALIGN_TOP_MID,0,kDisplayUsesLargeLayout?90:42);
-    companion_results_=lv_obj_create(lv_screen_active());
-    lv_obj_set_size(companion_results_,width,kDisplayUsesLargeLayout?180:76);
-    if constexpr (kDisplayUsesLargeLayout) {
-      lv_obj_align(companion_results_,LV_ALIGN_CENTER,0,0);
-    } else {
-      lv_obj_align(companion_results_,LV_ALIGN_TOP_MID,0,80);
-    }
-    lv_obj_set_style_bg_opa(companion_results_,LV_OPA_TRANSP,0);
-    lv_obj_set_style_border_width(companion_results_,0,0);
-    lv_obj_set_style_pad_all(companion_results_,0,0);
-    lv_obj_set_flex_flow(companion_results_,LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_scroll_dir(companion_results_,LV_DIR_VER);
-    pairing_camera_ids_.clear();
-    companion_search_=lv_button_create(lv_screen_active());
-    lv_obj_set_size(companion_search_,kDisplayUsesLargeLayout?width:168,44);
-    lv_obj_set_style_bg_color(companion_search_,lv_color_hex(accent_color_),LV_PART_MAIN);
-    lv_obj_set_style_border_width(companion_search_,0,LV_PART_MAIN);
-    lv_obj_set_style_radius(companion_search_,themed_radius(12),LV_PART_MAIN);
-    lv_obj_align(companion_search_,LV_ALIGN_BOTTOM_MID,0,kDisplayUsesLargeLayout?-78:-30);
-    lv_obj_set_user_data(companion_search_,reinterpret_cast<void*>(-1));
-    lv_obj_add_event_cb(companion_search_,companion_action_event,LV_EVENT_CLICKED,this);
-    auto* label=lv_label_create(companion_search_);lv_label_set_text(label,tr("Search PrintDeck Camera"));
-    apply_text_style(label,lv_color_hex(theme_style_.on_accent),
-                     kDisplayUsesLargeLayout ? &lv_font_montserrat_14 : &lv_font_montserrat_12);
-    lv_obj_set_width(label,kDisplayUsesLargeLayout?width-24:148);
-    lv_label_set_long_mode(label,LV_LABEL_LONG_WRAP);
-    lv_obj_center(label);
-    create_printer_view_dots(kDisplayUsesLargeLayout ? 39 : 9);
-    create_depth_dots(kDisplayUsesLargeLayout ? 31 : 4);view_=24;visible_profile_=profile.id;
-  }
-  if(state.scanning)lv_label_set_text_fmt(companion_progress_,"%s %d%%",tr("Searching"),state.progress);
-  else lv_label_set_text(companion_progress_,tr(state.message.empty()?"Choose a camera or search":state.message.c_str()));
-  auto* search_label=lv_obj_get_child(companion_search_,0);
-  lv_label_set_text(search_label,tr(state.scanning?"Cancel":"Search PrintDeck Camera"));
-  lv_obj_set_user_data(companion_search_,reinterpret_cast<void*>(state.scanning?-2:-1));
-  for(const auto& camera:state.cameras) {
-    if(camera.assigned(profile.id) || std::find(pairing_camera_ids_.begin(),pairing_camera_ids_.end(),camera.id)!=pairing_camera_ids_.end())continue;
-    const auto index=pairing_camera_ids_.size();pairing_camera_ids_.push_back(camera.id);
-    auto* button=lv_button_create(companion_results_);lv_obj_set_width(button,LV_PCT(100));lv_obj_set_height(button,kDisplayUsesLargeLayout?48:34);
-    lv_obj_set_user_data(button,reinterpret_cast<void*>(index));
-    lv_obj_add_event_cb(button,companion_action_event,LV_EVENT_CLICKED,this);
-    auto* label=lv_label_create(button);lv_label_set_text(label,camera.name.c_str());
-    apply_text_style(label,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_14);
-    lv_obj_set_width(label,width-28);lv_label_set_long_mode(label,LV_LABEL_LONG_DOT);lv_obj_center(label);
-  }
-  board_display_unlock();
-}
 
 }  // namespace printdeck::platform

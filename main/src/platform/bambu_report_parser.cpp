@@ -707,6 +707,7 @@ BambuReportParseResult parse_bambu_report(const char* payload, std::size_t lengt
     if (next.job.phase == core::JobPhase::idle) {
       next.job.kind = core::JobKind::print;
       next.job.name.clear();
+      next.job.source_job_id.clear();
       next.job.gcode_file.clear();
       next.job.preview_hint.clear();
       next.job.preview_plate_hint.clear();
@@ -714,7 +715,12 @@ BambuReportParseResult parse_bambu_report(const char* payload, std::size_t lengt
     }
   }
   if (read_text(print, "subtask_name", text)) next.job.name = text;
-  if (read_text(print, "gcode_file", text)) next.job.gcode_file = text;
+  if (read_text(print, "subtask_id", text)) next.job.source_job_id = text;
+  if (read_text(print, "gcode_file", text)) {
+    next.job.gcode_file = text;
+    // Some reports expose the archive here instead of the optional file field.
+    if (text.ends_with(".3mf")) next.job.preview_hint = text;
+  }
   if (read_text(print, "file", text)) next.job.preview_hint = text;
   if (read_text(print, "param", text)) next.job.preview_plate_hint = text;
   if (next.job.preview_plate_hint.empty()) next.job.preview_plate_hint = next.job.gcode_file;

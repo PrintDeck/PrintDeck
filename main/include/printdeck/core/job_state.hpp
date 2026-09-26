@@ -201,9 +201,10 @@ struct JobState {
   int activity_remaining_seconds = -1;
   PrinterCondition condition = PrinterCondition::normal;
   std::string name;
+  // Protocol job identity, used only to bind local metadata to this job.
+  std::string source_job_id;
   std::string gcode_file;
   // Adapter-owned local download reference; never serialized to browser/cloud state.
-  std::string gcode_download;
   std::string preview_hint;
   std::string preview_plate_hint;
   std::string detail;

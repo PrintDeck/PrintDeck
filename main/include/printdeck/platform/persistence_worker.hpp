@@ -15,7 +15,7 @@ namespace printdeck::platform {
 // particular, preview steps never invoke the settings handler recursively.
 class PersistenceWorker {
  public:
-  enum class Slot : unsigned { settings, preview, mqtt };
+  enum class Slot : unsigned { settings, preview, mqtt, cloud };
   static constexpr std::uint32_t kNoRetry = std::numeric_limits<std::uint32_t>::max();
   using Handler = std::uint32_t (*)(void*);  // delay in ms, or kNoRetry
   using Cleanup = void (*)(void*);
@@ -44,7 +44,7 @@ class PersistenceWorker {
   static void task_entry(void* context);
   void notify();
   void run();
-  std::array<Mailbox, 3> mailboxes_{};
+  std::array<Mailbox, 4> mailboxes_{};
   std::atomic<TaskHandle_t> task_{nullptr};
   std::atomic<bool> running_{false};
   std::atomic<bool> stopping_{false};

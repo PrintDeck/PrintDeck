@@ -139,3 +139,6 @@ CONFIG_MBEDTLS_SSL_DTLS_SRTP=y
 
 # Keep margin for Wi-Fi event callbacks; the measured 2304-byte stack had < 256 bytes left.
 CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=2816
+
+# Keep the optional software decoder in flash, preserving internal RAM for DMA/TLS.
+# CONFIG_ESP_H264_DECODER_IRAM is not set

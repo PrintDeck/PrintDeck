@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "printdeck/platform/memory_admission.hpp"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -21,8 +22,8 @@ class ImageWorkspaceLock {
  public:
   explicit ImageWorkspaceLock(std::uint32_t timeout_ms)
       : mutex_(image_workspace_mutex()),
-        acquired_(xSemaphoreTakeRecursive(mutex_, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {}
-  ~ImageWorkspaceLock() { if (acquired_) xSemaphoreGiveRecursive(mutex_); }
+        acquired_(xSemaphoreTakeRecursive(mutex_, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) { if (acquired_) memory_image_activity(true); }
+  ~ImageWorkspaceLock() { if (acquired_) { memory_image_activity(false); xSemaphoreGiveRecursive(mutex_); } }
   explicit operator bool() const { return acquired_; }
   ImageWorkspaceLock(const ImageWorkspaceLock&) = delete;
   ImageWorkspaceLock& operator=(const ImageWorkspaceLock&) = delete;

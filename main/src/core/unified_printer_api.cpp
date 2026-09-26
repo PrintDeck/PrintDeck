@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "printdeck/core/printer_driver.hpp"
+#include "printdeck/core/job_name.hpp"
 #include "printdeck/core/settings.hpp"
 #include "printdeck/core/printer_web_details.hpp"
 
@@ -181,7 +182,7 @@ void append_job(std::string& output, const JobState& job) {
   output += activity_id(effective_printer_activity(job));
   output += "\",\"name\":";
   if (job.name.empty()) output += "null";
-  else append_json_string(output, job.name);
+  else append_json_string(output, bounded_job_name(job.name));
   output += ",\"progress_percent\":";
   append_nullable_float(output, job.completion_known, std::clamp(job.completion, 0.0F, 100.0F));
   output += ",\"elapsed_seconds\":" + (job.elapsed_known ? std::to_string(job.elapsed_seconds) : "null");
@@ -562,7 +563,7 @@ std::string printer_state_json(const UnifiedPrinterView& p, std::uint64_t now_ms
     out += ",\"progress\":";
     append_nullable_float(out, has_job && job.completion_known, std::clamp(job.completion, 0.0F, 100.0F));
     out += ",\"name\":";
-    if (has_job && !job.name.empty()) web_detail::string(out, job.name, 192); else out += "null";
+    if (has_job && !job.name.empty()) web_detail::string(out, bounded_job_name(job.name), 192); else out += "null";
     out += ",\"elapsed_seconds\":" + (has_job && job.elapsed_known ? std::to_string(job.elapsed_seconds) : "null");
     out += ",\"remaining_seconds\":" + (has_job && job.remaining_known ? std::to_string(job.remaining_seconds) : "null");
     out += ",\"current_layer\":" + (has_job && job.current_layer > 0 ? std::to_string(job.current_layer) : "null");

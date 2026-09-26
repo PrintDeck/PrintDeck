@@ -60,7 +60,6 @@ class Runtime {
   static void page_refresh_entry(void* context);
   static void chamber_light_changed_entry(void* context, bool enabled);
   static void camera_mode_changed_entry(void* context, bool live);
-  static void companion_action_entry(void* context,int action,const char* id,std::uint32_t printer);
 
   static void update_check_entry(void* context);
   static void update_install_entry(void* context);
@@ -119,11 +118,6 @@ class Runtime {
   MoonrakerCameraClient moonraker_camera_;
   InactivePrinterPoller inactive_printer_poller_;
   PrinterDiscoveryService printer_discovery_;
-  CompanionCameraService companion_camera_;
-  std::atomic<int> pending_companion_scan_{0};
-  std::mutex companion_pair_mutex_;
-  std::string pending_companion_id_;
-  std::uint32_t pending_companion_printer_=0;
 
   FirmwareUpdateService firmware_update_;
   ReactionAssetService reaction_assets_;
@@ -200,6 +194,8 @@ class Runtime {
   bool bambu_preview_requested_ = false;
   bool bambu_camera_requested_ = false;
   bool bambu_phase_primed_ = false;
+  std::string bambu_job_name_key_;
+  std::string bambu_job_name_;
   core::JobPhase last_bambu_phase_ = core::JobPhase::unknown;
   std::uint64_t bambu_completed_reaction_until_ms_ = 0;
   bool bambu_completed_reaction_armed_ = false;

@@ -2446,10 +2446,9 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
     camera_activity_updated_until_us_ = esp_timer_get_time() + 800000;
   }
   if (view_ != 22 || visible_profile_ != profile.id) {
-    prepare_active_screen(companion_camera_slot()>=0?"printdeck-camera":"local-camera");
+    prepare_active_screen("local-camera");
     square_create_printer_chrome(profile, snapshot, &power);
-    const int camera_slot=companion_camera_slot();
-    lv_label_set_text(title_label_,camera_slot>=0?"PrintDeck Camera":tr("CAMERA"));
+    lv_label_set_text(title_label_,tr("CAMERA"));
 
     // Keep the camera description above the image.  The two equal gaps around
     // it visually separate both the progress bar and the camera frame.
@@ -2465,10 +2464,8 @@ void DisplayShell::square_show_printer_camera(const core::PrinterProfile& profil
     lv_obj_add_flag(media_image_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_EVENT_BUBBLE |
                                   LV_OBJ_FLAG_GESTURE_BUBBLE));
     lv_obj_set_size(media_image_, 220, 124);
-    // Companion snapshots already contain letterboxing in a square JPEG.
     // Fill the preview to avoid shrinking that padding into another frame.
-    lv_image_set_inner_align(media_image_, camera_slot >= 0
-        ? LV_IMAGE_ALIGN_COVER : LV_IMAGE_ALIGN_CONTAIN);
+    lv_image_set_inner_align(media_image_, LV_IMAGE_ALIGN_CONTAIN);
     lv_obj_align(media_image_, LV_ALIGN_TOP_MID, 0, 64);
     square_route_screen_gestures(media_image_, true);
     camera_spinner_ = lv_spinner_create(lv_screen_active());

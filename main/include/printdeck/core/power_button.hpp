@@ -8,7 +8,6 @@ constexpr std::uint64_t kPowerButtonShortPressLimitMs = 1000;
 constexpr std::uint64_t kPowerButtonShutdownCountdownStartMs = 1000;
 constexpr std::uint64_t kPowerButtonShutdownCountdownStepMs = 600;
 constexpr std::uint64_t kPowerButtonDoubleClickMs = 400;
-constexpr std::uint64_t kPowerButtonSleepFollowupMs = 5000;
 
 enum class PowerButtonClick { none, single, double_click };
 
@@ -53,12 +52,13 @@ class ManualDisplaySleep {
   explicit constexpr ManualDisplaySleep(std::uint64_t state = 0) : state_(state) {}
   constexpr std::uint64_t state() const { return state_; }
   constexpr bool active() const { return state_ != 0; }
-  constexpr bool followup_allowed(std::uint64_t now) const {
-    return (state_ & 3U) == 3 && now >= started_at() &&
-           now - started_at() <= kPowerButtonSleepFollowupMs;
-  }
-  constexpr ManualDisplaySleep double_click(std::uint64_t now, bool saver_enabled) const {
-    return ManualDisplaySleep((now << 2U) | (followup_allowed(now) || !saver_enabled ? 2U : 3U));
+  constexpr bool saver_stage() const { return (state_ & 3U) == 3; }
+  constexpr ManualDisplaySleep double_click(std::uint64_t now, bool saver_enabled,
+                                           bool display_off = false) const {
+    // From darkness, step back to the optional saver, or exit if it is skipped.
+    if (display_off) return saver_enabled ? ManualDisplaySleep((now << 2U) | 3U)
+                                         : ManualDisplaySleep();
+    return ManualDisplaySleep((now << 2U) | (saver_stage() || !saver_enabled ? 2U : 3U));
   }
   constexpr int mode_after(std::uint64_t now, std::uint32_t saver_seconds,
                            std::uint32_t until_wake) const {

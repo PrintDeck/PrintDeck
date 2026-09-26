@@ -1,3 +1,4 @@
+#include "printdeck/platform/memory_admission.hpp"
 #include "printdeck/platform/inactive_printer_poller.hpp"
 #include "printdeck/platform/printer_address_recovery.hpp"
 #include "printdeck/platform/prusalink_service.hpp"
@@ -425,10 +426,12 @@ void InactivePrinterPoller::finish_automatic_check(
     attempt->in_progress = false;
     if (!available) {
       // No status transaction took place (capacity, cancellation or memory).
-      // Keep it eligible soon instead of charging a full refresh interval.
+      // Retry capacity/memory deferrals with a bounded backoff and per-profile jitter.
       attempt->started_at_ms = 0;
-      attempt->retry_at_ms = esp_timer_get_time() / 1000 + 1000;
-    }
+      attempt->resource_deferrals = std::min(attempt->resource_deferrals + 1U, 5U);
+      attempt->retry_at_ms = esp_timer_get_time() / 1000 +
+          (1000U << attempt->resource_deferrals) + profile_id % 251U;
+    } else { attempt->resource_deferrals = 0; }
   }
 }
 
@@ -801,7 +804,8 @@ InactivePrinterStatus InactivePrinterPoller::probe(
     if (!acquired) return summary;
     lease.emplace(std::move(*acquired));
   }
-  if (stopped() || heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 12 * 1024 ||
+  MemoryLease memory(core::MemoryWork::probe);
+  if (!memory || stopped() || heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 12 * 1024 ||
       heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 4 * 1024 ||
       heap_caps_get_free_size(MALLOC_CAP_SPIRAM) < 128 * 1024) return summary;
   summary.available = true;

@@ -254,7 +254,6 @@ PrusaLinkPollResult PrusaLinkClient::poll(std::uint64_t deadline_ms,
     if (previous_job && ((same_id && job.phase != core::JobPhase::idle) || (terminal && !current.job_id))) {
       if (job.name.empty()) job.name = before.name;
       if (job.gcode_file.empty()) job.gcode_file = before.gcode_file;
-      if (same_id && job.gcode_download.empty()) job.gcode_download = before.gcode_download;
       if (same_id) {
         if (!job.preview && (job.phase == core::JobPhase::printing ||
                              job.phase == core::JobPhase::paused ||

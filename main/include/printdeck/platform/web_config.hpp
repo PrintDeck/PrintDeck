@@ -1,5 +1,4 @@
 #pragma once
-#include "printdeck/platform/gcode_preview_service.hpp"
 #include "printdeck/platform/tinymaker_volume_service.hpp"
 
 #include "printdeck/core/printer_command.hpp"
@@ -23,7 +22,6 @@
 #include "printdeck/core/device_api.hpp"
 #include "printdeck/core/unified_printer_api.hpp"
 #include "printdeck/platform/network_service.hpp"
-#include "printdeck/platform/companion_camera_service.hpp"
 #include "printdeck/platform/power_service.hpp"
 #include "printdeck/platform/settings_store.hpp"
 #include "printdeck/platform/moonraker_connection_probe.hpp"
@@ -46,6 +44,7 @@ class UniformationPreviewService;
 
 class WebConfig {
  public:
+  void bind_cloud_persistence(PersistenceWorker& worker) { cloud_.bind_persistence(worker); }
   using SettingsChangedCallback =
       void (*)(void*, const core::DeviceSettings&, bool play_feedback);
   using AudioTestCallback =
@@ -97,8 +96,6 @@ class WebConfig {
   esp_err_t save_audio_preset(std::string_view preset);
   esp_err_t save_camera_mode(bool live);
   void set_volume_service(UniformationPreviewService* service) { volume_service_ = service; }
-  void set_companion_service(CompanionCameraService* service) { companion_service_=service; }
-  esp_err_t assign_camera(const core::CompanionCamera& camera, std::uint32_t printer);
   esp_err_t save_theme(const char* theme, bool& changed);
   esp_err_t save_language(std::string_view language);
   esp_err_t save_printer_animations(bool enabled);
@@ -140,9 +137,6 @@ class WebConfig {
   MqttExportService* mqtt_export_ = nullptr;
   static esp_err_t mqtt_entry(httpd_req_t* request);
   esp_err_t mqtt_request(httpd_req_t* request);
-  CompanionCameraService* companion_service_=nullptr;
-  static esp_err_t cameras_entry(httpd_req_t* request);
-  esp_err_t cameras_request(httpd_req_t* request);
   static esp_err_t root_entry(httpd_req_t* request);
   static esp_err_t world_map_entry(httpd_req_t* request);
   static esp_err_t localizations_entry(httpd_req_t* request);
@@ -345,10 +339,7 @@ class WebConfig {
   BambuCompatibilityProbe* compatibility_probe_ = nullptr;
   const InactivePrinterPoller* inactive_printer_poller_ = nullptr;
   DisplayShell* display_ = nullptr;
-  GcodePreviewService gcode_service_;
   TinyMakerVolumeService tiny_volume_service_;
-  static esp_err_t gcode_preview_entry(httpd_req_t*);
-  esp_err_t serve_gcode_preview(httpd_req_t*);
   UniformationPreviewService* volume_service_ = nullptr;
   std::uint32_t selected_status_profile_ = 0;
   std::string selected_printer_model_;

@@ -451,6 +451,7 @@ esp_err_t ReactionAssetService::start(const NetworkService& network) {
     flash_custom_sizes_ = custom_sizes;
     sync_sd_locked();
     sd_initialized_ = true;
+    sd_startup_pending_ = kBoardHasSdCard && sd_index_valid_;
     refresh_active_bytes_locked();
     refresh_storage_locked();
     if (reset_mask_ != 0) schedule_cleanup_locked();
@@ -734,24 +735,26 @@ esp_err_t ReactionAssetService::install_custom(
       return ESP_ERR_INVALID_STATE;
     if (snapshot_.sd_selected && !snapshot_.sd_ready) return ESP_ERR_INVALID_STATE;
     if (snapshot_.sd_selected) {
-      const auto old_size = snapshot_.effective_bytes[index];
-      if (snapshot_.active_bytes - old_size + bytes.size() > snapshot_.maximum_custom_bytes ||
-          bytes.size() > snapshot_.storage_available_for_upload) return ESP_ERR_NO_MEM;
       snapshot_.sd_busy = true;
+      lock.unlock();
+      // Capacity can change between edits. Never use an idle-time sample to
+      // admit a write, and never silently mount a replacement card here.
+      const bool ready = refresh_sd_storage();
+      lock.lock();
+      const auto old_size = snapshot_.effective_bytes[index];
+      if (!ready || snapshot_.sd_missing ||
+          snapshot_.active_bytes - old_size + bytes.size() > snapshot_.maximum_custom_bytes ||
+          bytes.size() > snapshot_.storage_available_for_upload) {
+        snapshot_.sd_busy = false;
+        return ready ? ESP_ERR_NO_MEM : ESP_ERR_INVALID_STATE;
+      }
       lock.unlock();
       core::ReactionGifArray changes{};
       changes[index] = core::ReactionGifBytes::copy(bytes);
       const bool saved = changes[index] && sd_store_.save(changes);
-      std::uint64_t total = 0, free = 0;
-      const bool healthy = board_sd_status() == ESP_OK;
-      if (healthy) board_sd_space(&total, &free);
-      else { sd_store_.unmount(); board_sd_unmount(); }
+      refresh_sd_storage();
       lock.lock();
       snapshot_.sd_busy = false;
-      snapshot_.sd_total = total;
-      snapshot_.sd_free = free;
-      sync_sd_locked();
-      refresh_storage_locked();
       lock.unlock();
       if (saved && storage_changed_) storage_changed_(storage_context_);
       return saved ? ESP_OK : ESP_FAIL;
@@ -865,8 +868,11 @@ esp_err_t ReactionAssetService::reset_custom(std::string_view id) {
   }
   flash_custom_present_[index] = false;
   flash_custom_sizes_[index] = 0;
+  const bool sd_selected = snapshot_.sd_selected;
   lock.unlock();
-  const bool forgotten = !snapshot_.sd_selected || sd_store_.forget(index);
+  if (sd_selected) refresh_sd_storage();
+  const bool forgotten = !sd_selected || sd_store_.forget(index);
+  if (sd_selected) refresh_sd_storage();
   lock.lock();
   sync_sd_locked();
   ++snapshot_.generation;
@@ -1381,7 +1387,7 @@ void ReactionAssetService::reaper_loop() {
       if (run_followup) schedule_cleanup_locked();
     }
     maybe_start_profile_migration();
-    poll_storage();
+    maybe_check_storage();
   }
 }
 
@@ -1823,7 +1829,8 @@ bool ReactionAssetService::read_custom_gif(std::string_view id, std::span<std::u
   return read && closed;
 }
 
-bool ReactionAssetService::request_storage(std::string_view action, std::uint32_t session) {
+bool ReactionAssetService::request_storage(std::string_view action, std::uint32_t session,
+                                           std::string_view request_id) {
   const std::lock_guard<std::mutex> lock(mutex_);
   if (!kBoardHasSdCard || !sd_index_valid_ || !sd_initialized_) return false;
   if ((action == "migrate" || action == "eject" || action == "use_sd" || action == "use_internal" || action == "copy_internal") && session != snapshot_.sd_session) return false;
@@ -1836,6 +1843,7 @@ bool ReactionAssetService::request_storage(std::string_view action, std::uint32_
   if (action == "copy_internal" && !snapshot_.sd_can_copy_internal) return false;
 
   requested_storage_ = action;
+  requested_storage_id_ = request_id;
   requested_set_.clear();
   snapshot_.sd_busy = true;
   snapshot_.busy = action != "poll";
@@ -1847,19 +1855,48 @@ bool ReactionAssetService::request_storage(std::string_view action, std::uint32_
     request_pending_ = false;
     snapshot_.busy = snapshot_.sd_busy = false;
     requested_storage_.clear();
+    requested_storage_id_.clear();
     return false;
   }
+  sd_startup_pending_ = false;
+  sd_check_after_ms_ = monotonic_ms() + 120000;
   return true;
 }
 
-void ReactionAssetService::poll_storage() {
+void ReactionAssetService::maybe_check_storage() {
+  // Serialize against mounts and file changes without delaying their workers.
+  const std::unique_lock<std::mutex> mutation_lock(filesystem_mutation_mutex_, std::try_to_lock);
+  if (!mutation_lock.owns_lock()) return;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
-    if (!sd_initialized_ || !sd_index_valid_ || !kBoardHasSdCard || snapshot_.sd_ejected ||
-        monotonic_ms() < sd_poll_after_ms_) return;
-    sd_poll_after_ms_ = monotonic_ms() + (snapshot_.sd_ready ? 5000 : 20000);
+    if (!kBoardHasSdCard || !sd_index_valid_ || !sd_initialized_ || snapshot_.sd_ejected ||
+        snapshot_.busy || snapshot_.sd_busy || task_ || cleanup_task_ ||
+        (!sd_startup_pending_ && monotonic_ms() < sd_check_after_ms_)) return;
+    sd_startup_pending_ = false;
+    sd_check_after_ms_ = monotonic_ms() + 120000;
   }
+  // A mounted card needs only a bounded SDMMC status command, with no FAT/NVS
+  // work or new internal stack. Full mounting/cache recovery runs on the
+  // internal-stack worker only at boot, after removal or while finding a card.
+  if (sd_store_.mounted() && board_sd_status() == ESP_OK) return;
   request_storage("poll");
+}
+
+bool ReactionAssetService::refresh_sd_storage() {
+  std::uint64_t total = 0, free = 0;
+  if (sd_store_.mounted() && (board_sd_status() != ESP_OK ||
+      board_sd_space(&total, &free) != ESP_OK)) {
+    sd_store_.unmount();
+    board_sd_unmount();
+    total = free = 0;
+  }
+  const std::lock_guard<std::mutex> lock(mutex_);
+  snapshot_.sd_total = total;
+  snapshot_.sd_free = free;
+  sd_check_after_ms_ = monotonic_ms() + 120000;
+  sync_sd_locked();
+  refresh_storage_locked();
+  return snapshot_.sd_ready;
 }
 
 void ReactionAssetService::storage_task(std::string action) {
@@ -1967,7 +2004,8 @@ void ReactionAssetService::storage_task(std::string action) {
       sd_store_.unmount();
       board_sd_unmount();
       detail = "SD card unavailable. Default reactions are being used for missing images.";
-    } else if (!sd_store_.mounted()) {
+    }
+    if (!sd_store_.mounted()) {
       std::uint64_t identity = 0;
       if (board_sd_mount(&identity) == ESP_OK) {
         ensure_directory("/sdcard/PRINTDCK");
@@ -2019,6 +2057,8 @@ void ReactionAssetService::storage_task(std::string action) {
     sync_sd_locked();
     refresh_storage_locked();
     snapshot_.busy = snapshot_.sd_busy = false;
+    if (action == "check") snapshot_.sd_check_request_id = requested_storage_id_;
+    requested_storage_id_.clear();
     requested_storage_.clear();
     if (mode_changed && !snapshot_.sd_selected && reset_mask_) schedule_cleanup_locked();
   }

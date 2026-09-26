@@ -1,3 +1,4 @@
+#include "printdeck/platform/memory_admission.hpp"
 #include "printdeck/platform/cloud_pairing_service.hpp"
 #include <array>
 #include <string_view>
@@ -34,8 +35,7 @@ namespace {
 // Production origins remain fixed; development addresses are configured separately.
 constexpr char kPanelOrigin[] = "https://app.printdeck.xyz";
 constexpr char kApi[] = "https://api.printdeck.xyz/api/v1/device";
-// Leave room for other internal-RAM services on configured devices. The
-// worker must retain an internal stack because it commits credentials to NVS.
+// Networking uses PSRAM; acknowledged credential writes use the shared internal stack.
 constexpr unsigned kWorkerStackBytes = 7U * 1024U;
 constexpr char kLocalApi[] = PRINTDECK_LOCAL_CLOUD_API;
 constexpr char kLocalPanel[] = PRINTDECK_LOCAL_CLOUD_PANEL;
@@ -167,6 +167,10 @@ Reply exchange(esp_http_client_handle_t& client, bool local, const std::string& 
 }
 
 CloudPairingService::~CloudPairingService() { close_http(); }
+
+void CloudPairingService::bind_persistence(PersistenceWorker& worker) {
+  if (worker.bind(PersistenceWorker::Slot::cloud, persist_entry, this)) persistence_ = &worker;
+}
 void CloudPairingService::close_http() {
   if (http_client_) { esp_http_client_cleanup(http_client_); http_client_=nullptr; }
 }
@@ -215,7 +219,7 @@ void CloudPairingService::screen_directive(const std::string& payload, std::int6
   if (!screen_session_.empty() && millis() >= screen_expires_) stop_screen();
   if (session == screen_closed_) return;
   if (session != screen_session_) {
-    stop_screen(); screen_session_ = session; screen_seq_ = 0; screen_due_ = millis();
+    stop_screen(); screen_session_ = session; screen_seq_ = 0; screen_upload_seq_ = 0; screen_due_ = millis();
   }
   screen_expires_ = started + ttl;
   auto* input = cJSON_GetObjectItemCaseSensitive(root.get(), "input");
@@ -252,7 +256,7 @@ void CloudPairingService::upload_screen() {
       screen_waiting_ = false; screen_result_ = "applied";
     }
     source = screen_source_; context = feed_context_; session = screen_session_; token = token_;
-    generation = generation_; seq = screen_seq_ + 1; local = developer_mode_; base = local ? local_api_ : kApi;
+    generation = generation_; local = developer_mode_; base = local ? local_api_ : kApi;
     result_id = screen_input_id_; result = screen_result_;
     screen_due_ = millis() + 750; // Retry a busy shared workspace without queueing captures.
   }
@@ -288,6 +292,14 @@ void CloudPairingService::upload_screen() {
     return;
   }
   if (bytes.empty() || bytes.size() > 1024 * 1024 || !current()) return;
+  {
+    std::lock_guard lock(mutex_);
+    if (generation_ != generation || screen_session_ != session) return;
+    if (screen_upload_seq_ == UINT32_MAX) { stop_screen(); return; }
+    // An upload may reach Cloud even if its response is lost. Never reuse its
+    // sequence; keep the last confirmed frame separately for gesture validation.
+    seq = ++screen_upload_seq_;
+  }
   const auto url = base + "/live-view/" + session + "/" + std::to_string(seq);
   esp_http_client_config_t config{};
   config.url = url.c_str(); config.timeout_ms = 1500;
@@ -334,9 +346,16 @@ void CloudPairingService::upload_screen() {
   std::lock_guard lock(mutex_);
   if (session != screen_session_) return;
   if (seq == 1 || status != 200) ESP_LOGI("cloud_screen", "Screen upload: HTTP %d, bytes=%u, elapsed=%u ms", status, unsigned(sent), unsigned(millis() - started));
-  if (generation_ != generation || status != 200 || paused_ || !online_ || millis() >= screen_expires_ || millis() >= deadline) {
+  if (generation_ != generation || paused_ || !online_ || disconnect_ || millis() >= screen_expires_) {
     stop_screen(); return;
   }
+  if (status == 0 || status == 408 || status == 429 || status >= 500) {
+    // A transient transfer failure must not blacklist a still-active viewer.
+    // Keep the existing lease and retry a fresh frame, without replaying input.
+    screen_due_ = millis() + 5000;
+    return;
+  }
+  if (status != 200 || millis() >= deadline) { stop_screen(); return; }
   // A gesture queued while this upload was in flight refers to the frame the
   // viewer saw before it. Validate that exact predecessor, then acknowledge
   // execution only in a later image. Poll replies use the current frame instead.
@@ -357,6 +376,20 @@ bool CloudPairingService::preview_enabled() const {
   return confirmed_ && online_ && !paused_ && !disconnect_ && command_.empty() && !token_.empty();
 }
 
+void CloudPairingService::defer_thumbnail(const char* reason) {
+  const std::lock_guard lock(mutex_);
+  ++thumbnail_deferred_;
+  thumbnail_due_ = millis() + 2000;
+  memory_thumbnail_pending();
+  if (millis() >= thumbnail_log_due_) {
+    ESP_LOGI("cloud_thumbnail", "Deferred reason=%s count=%u internal=%u block=%u psram=%u",
+        reason, thumbnail_deferred_, unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+        unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+        unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+    thumbnail_log_due_ = millis() + 30000;
+  }
+}
+
 void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::string& key,
                                            std::uint32_t generation) {
   if (!printer || key.size() != 64 || key.find_first_not_of("0123456789abcdef") != std::string::npos) return;
@@ -367,14 +400,25 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
   {
     std::lock_guard lock(mutex_);
     if (paused_ || !online_ || disconnect_ || generation_ != generation || result_pending_ || !thumbnail_source_) return;
-    if (thumbnail_key_ != key) { thumbnail_key_ = key; thumbnail_attempts_ = 0; }
-    if (thumbnail_attempts_ >= 3 || millis() < thumbnail_due_) return;
+    if (thumbnail_key_ != key || thumbnail_printer_ != printer || thumbnail_generation_ != generation) {
+      thumbnail_key_ = key; thumbnail_printer_ = printer; thumbnail_generation_ = generation;
+      thumbnail_attempts_ = 0; thumbnail_complete_ = false;
+    }
+    if (thumbnail_complete_ || millis() < thumbnail_due_) return;
     source = thumbnail_source_; context = feed_context_; token = token_;
     local = developer_mode_; base=local?local_api_:kApi;
   }
   auto thumbnail = source(context);
-  if (thumbnail.printer_id != printer || thumbnail.key != key || !thumbnail.image ||
-      thumbnail.image->empty() || thumbnail.image->size() > 512 * 1024) return;
+  if (thumbnail.printer_id != printer || thumbnail.key != key) {
+    const std::lock_guard lock(mutex_);
+    // A feed for the current job will provide its new identity. Never upload
+    // an old image or spin on an obsolete request between feed polls.
+    if (thumbnail_printer_ == printer && thumbnail_key_ == key) thumbnail_printer_ = 0;
+    return;
+  }
+  if (!thumbnail.image || thumbnail.image->empty() || thumbnail.image->size() > 512 * 1024) {
+    defer_thumbnail("source"); return;
+  }
   // No copy, encoder, second connection worker or per-printer pending image queue.
 #ifdef ESP_PLATFORM
   // Support both shipping allocation thresholds (0 and 1024 bytes), while
@@ -388,15 +432,19 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
   // the feed connection. Retain internal headroom without requiring 24 KiB,
   // which excludes normal selected-printer operation with an internal LVGL stack.
   const auto internal_before = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  if (!workspace || internal_before < 16 * 1024 ||
-      heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 8 * 1024 ||
-      heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 384 * 1024 ||
-      heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 64 * 1024) return;
+  if (!workspace) { defer_thumbnail("image_busy"); return; }
+  MemoryLease memory(core::MemoryWork::thumbnail);
+  if (!memory) { defer_thumbnail(memory.reason() == core::MemoryDeferral::block ? "internal_block" : "memory_budget"); return; }
+  if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 384 * 1024 ||
+      heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 64 * 1024) {
+    defer_thumbnail("psram"); return;
+  }
   {
     std::lock_guard lock(mutex_);
     if (paused_ || !online_ || generation_ != generation || result_pending_) return;
-    ++thumbnail_attempts_;
-    thumbnail_due_ = millis() + 60000 * thumbnail_attempts_;
+    // Reserve a short cooldown before client allocation, without consuming a
+    // network attempt. Actual failures retry at 1/2/4/5 minutes until the job changes.
+    thumbnail_due_ = millis() + 5000;
   }
   const auto deadline = millis() + 8000;
   const auto current = [&]() {
@@ -413,7 +461,12 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
   config.disable_auto_redirect = true;
   config.buffer_size = 1024; config.buffer_size_tx = 1024;
   auto* client = esp_http_client_init(&config);
-  if (!client) return;
+  if (!client) { defer_thumbnail("http_client"); return; }
+  {
+    const std::lock_guard lock(mutex_);
+    thumbnail_attempts_ = std::min(thumbnail_attempts_ + 1U, 4U);
+    thumbnail_due_ = millis() + std::min(300000U, 60000U << (thumbnail_attempts_ - 1U));
+  }
   esp_http_client_set_method(client, HTTP_METHOD_POST);
   esp_http_client_set_header(client, "Content-Type", "application/octet-stream");
   esp_http_client_set_header(client, "Accept", "application/json");
@@ -436,7 +489,7 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
   esp_http_client_cleanup(client);
   if (status == 204) {
     std::lock_guard lock(mutex_);
-    if (generation_ == generation && thumbnail_key_ == key) thumbnail_attempts_ = 3;
+    if (generation_ == generation && thumbnail_key_ == key && thumbnail_printer_ == printer) thumbnail_complete_ = true;
   }
   ESP_LOGI("cloud_thumbnail", "Upload %s (%u bytes, HTTP %d, internal before=%u after=%u)",
            status == 204 ? "complete" : "deferred", static_cast<unsigned>(sent), status,
@@ -444,7 +497,7 @@ void CloudPairingService::upload_thumbnail(std::uint32_t printer, const std::str
 }
 
 bool CloudPairingService::download_reaction(const std::string& base, const std::string& token, bool local,
-    const std::string& asset, std::size_t size, const std::string& hash, const std::string& payload, std::uint32_t generation) {
+    const std::string& asset, std::size_t size, const std::string& hash, const std::string& payload, std::uint32_t generation, const std::string& command_id) {
   auto* raw = static_cast<std::uint8_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   std::unique_ptr<std::uint8_t, decltype(&heap_caps_free)> bytes(raw, heap_caps_free);
   const auto deadline = millis() + 30000;
@@ -488,7 +541,12 @@ bool CloudPairingService::download_reaction(const std::string& base, const std::
   // runtime loop, and that loop calls tick() on this same service. Keeping the
   // lock here prevents the decoder from closing until the replacement times out.
   // A later pairing change does not cancel an already admitted local commit.
-  return reaction_upload_(feed_context_,payload,valid?raw:nullptr,valid?size:0,false);
+  auto work = std::make_unique<LocalWork>();
+  work->payload = payload; work->id = command_id; work->generation = generation; work->reaction = true;
+  work->deadline = millis() + 10000;
+  if (valid) { work->bytes = std::shared_ptr<std::uint8_t>(bytes.release(), heap_caps_free); work->size = size; }
+  const std::lock_guard lock(mutex_);
+  return queue_local_work(std::move(work));
 }
 
 void CloudPairingService::initialize() {
@@ -578,35 +636,127 @@ bool CloudPairingService::set_developer_mode(bool enabled, bool& changed, const 
   return true;
 }
 
-bool CloudPairingService::save(const std::string& token, const std::string& account, bool disconnect) {
-  nvs_handle_t handle;
-  if(nvs_open(storage(developer_mode_),NVS_READWRITE,&handle)!=ESP_OK)return false;
-  esp_err_t result;
-  if(token.empty()) {
-    result=nvs_erase_key(handle,"credential");
-    if(result==ESP_ERR_NVS_NOT_FOUND)result=ESP_OK;
-  } else {
-    Json root(cJSON_CreateObject(),cJSON_Delete);
-    if(!root){nvs_close(handle);return false;}
-    if(developer_mode_)cJSON_AddStringToObject(root.get(),"endpoint",local_api_.c_str());
-    cJSON_AddStringToObject(root.get(),"token",token.c_str());
-    cJSON_AddStringToObject(root.get(),"account",account.c_str());
-    cJSON_AddBoolToObject(root.get(),"disconnect",disconnect);
-    const auto blob=encode(root.get());
-    result=nvs_set_str(handle,"credential",blob.c_str());
+bool CloudPairingService::queue_save(SaveAction action, const std::string& token,
+                                      const std::string& account, const std::string& state) {
+  // Called with mutex_ held. One immutable request; no network task waits while
+  // holding a lock needed by settings, preview or the persistence worker.
+  if (!persistence_ || !persistence_->running() || credential_write_) return false;
+  auto write = std::make_unique<CredentialWrite>();
+  write->token = token; write->account = account; write->action = action;
+  write->storage = storage(developer_mode_); write->generation = generation_;
+  write->state = state; write->deadline = millis() + 10000;
+  if (!token.empty()) {
+    Json root(cJSON_CreateObject(), cJSON_Delete);
+    if (!root) return false;
+    if (developer_mode_) cJSON_AddStringToObject(root.get(), "endpoint", local_api_.c_str());
+    cJSON_AddStringToObject(root.get(), "token", token.c_str());
+    cJSON_AddStringToObject(root.get(), "account", account.c_str());
+    cJSON_AddBoolToObject(root.get(), "disconnect", action == SaveAction::disconnect);
+    write->blob = encode(root.get());
+    if (write->blob.empty()) return false;
   }
-  if(result==ESP_OK)result=nvs_commit(handle);
-  nvs_close(handle);return result==ESP_OK;
+  credential_write_ = std::move(write);
+  if (persistence_->request(PersistenceWorker::Slot::cloud)) return true;
+  credential_write_.reset();
+  return false;
+}
+
+bool CloudPairingService::queue_local_work(std::unique_ptr<LocalWork> work) {
+  if (!persistence_ || !persistence_->running() || local_work_ || local_work_running_ || credential_write_) return false;
+  local_work_ = std::move(work);
+  if (persistence_->request(PersistenceWorker::Slot::cloud)) return true;
+  local_work_.reset();
+  return false;
+}
+
+std::uint32_t CloudPairingService::persist_entry(void* context) {
+  auto& service = *static_cast<CloudPairingService*>(context);
+  std::unique_lock lock(service.mutex_);
+  if (service.local_work_) {
+    auto work = std::move(service.local_work_);
+    const bool current = work->generation == service.generation_ && !service.paused_ &&
+        millis() < work->deadline;
+    service.local_work_running_ = true;
+    auto* context = service.feed_context_;
+    lock.unlock();
+    // Device commands and GIF commits can write NVS/LittleFS. Their entire
+    // callback runs on the internal stack, without the Cloud mutex (the display
+    // monitor may call tick while a GIF replacement waits for an open decoder).
+    bool accepted = false;
+    if (work->reaction && service.reaction_upload_)
+      accepted = service.reaction_upload_(context, work->payload,
+          current ? work->bytes.get() : nullptr, current ? work->size : 0, false);
+    else if (current && service.command_sink_)
+      accepted = service.command_sink_(context, work->payload);
+    lock.lock();
+    service.local_work_running_ = false;
+    if (work->generation == service.generation_ && !service.paused_) {
+      service.last_command_id_ = work->id;
+      service.last_command_status_ = accepted ? "accepted" : "rejected";
+      service.result_pending_ = true;
+      if (service.poll_interval_ms_) { service.feed_due_ = millis() + 1000; service.due_ = service.feed_due_; }
+    }
+    return PersistenceWorker::kNoRetry;
+  }
+  auto write = std::move(service.credential_write_);
+  if (!write || write->generation != service.generation_ || service.paused_)
+    return PersistenceWorker::kNoRetry;
+  if (millis() >= write->deadline) {
+    service.state_ = "error";
+    if (write->action == SaveAction::disconnect) service.command_.clear();
+    return PersistenceWorker::kNoRetry;
+  }
+  // The lock makes validation, commit and acknowledgement one boundary. This
+  // callback never acquires a WebConfig/display lock and performs no networking.
+  nvs_handle_t handle;
+  auto result = nvs_open(write->storage.c_str(), NVS_READWRITE, &handle);
+  if (result == ESP_OK) {
+    result = write->token.empty() ? nvs_erase_key(handle, "credential")
+                                 : nvs_set_str(handle, "credential", write->blob.c_str());
+    if (write->token.empty() && result == ESP_ERR_NVS_NOT_FOUND) result = ESP_OK;
+    if (result == ESP_OK) result = nvs_commit(handle);
+    nvs_close(handle);
+  }
+  if (result != ESP_OK) {
+    service.state_ = "error";
+    if (write->action == SaveAction::disconnect) service.command_.clear();
+    return PersistenceWorker::kNoRetry;
+  }
+  switch (write->action) {
+    case SaveAction::disconnect:
+      service.disconnect_ = true; service.command_.clear(); service.state_ = "disconnecting";
+      service.due_ = 0;
+      break;
+    case SaveAction::forget:
+      service.stop_screen();
+      service.token_.clear(); service.account_.clear(); service.disconnect_ = false;
+      service.confirmed_ = false; service.feed_failures_ = 0;
+      service.last_command_id_.clear(); service.last_command_status_.clear(); service.result_pending_ = false;
+      service.poll_interval_ms_ = 0; service.feed_due_ = 0;
+      service.reset_transport_ = true; // HTTP handles belong only to the network worker.
+      service.state_ = write->state;
+      break;
+    case SaveAction::account:
+      service.account_ = write->account; service.state_ = "connected";
+      service.confirmed_ = true; service.feed_failures_ = 0;
+      if (service.feed_source_) service.due_ = millis() + 1000;
+      break;
+    case SaveAction::authorize:
+      service.token_ = write->token;
+      service.secret_.clear(); service.code_.clear(); service.link_.clear();
+      service.state_ = "checking"; service.due_ = 0;
+      break;
+  }
+  return PersistenceWorker::kNoRetry;
 }
 
 void CloudPairingService::tick(bool online) {
   std::lock_guard lock(mutex_);
   online_=online;
-  if(!paused_ && !task_ && millis()>=worker_retry_at_ && (!token_.empty() || !command_.empty())) {
-    // TLS/JSON and persistence stay on core 0; no display callbacks or NVS reads in tick.
-    // NVS writes disable the flash cache, so this worker's stack must stay in internal RAM.
+  if(!paused_ && persistence_ && persistence_->running() && !task_ && millis()>=worker_retry_at_ && (!token_.empty() || !command_.empty())) {
+    // TLS/JSON stay on core 0. Credential commits use the internal persistence stack.
     if(xTaskCreatePinnedToCoreWithCaps(entry,"cloud_pair",kWorkerStackBytes,this,1,&task_,kServiceCore,
-                                     MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)!=pdPASS) {
+                                     MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS) {
       task_=nullptr;state_="error";
       worker_retry_at_=millis()+30000;
       // A failed launch must not leave a start command claiming to be pairing.
@@ -681,9 +831,10 @@ void CloudPairingService::step() {
     if(reset_transport_) { close_http(); stop_screen(); reset_transport_=false; }
     if (paused_ || !online_ || disconnect_ || !command_.empty() || token_.empty() || millis() >= screen_expires_) stop_screen();
     if(paused_) { close_http(); return; }
+    if (credential_write_ || local_work_ || local_work_running_) return;
     if(command_=="disconnect") {
-      if(!save(token_,account_,true)){state_="error";command_.clear();return;}
-      disconnect_=true;command_.clear();state_="disconnecting";
+      if(!queue_save(SaveAction::disconnect,token_,account_)){state_="error";command_.clear();}
+      return;
     }
     if(!secret_.empty() && millis()>=expires_) {
       secret_.clear();code_.clear();link_.clear();state_="expired";
@@ -698,6 +849,13 @@ void CloudPairingService::step() {
         feed_changes_.due(now, feed_revision, feed_failures_)) {
       feed_due_ = std::min(feed_due_, now);
       due_ = std::min(due_, now);
+    }
+    if (confirmed_ && thumbnail_printer_ && !thumbnail_complete_ && !result_pending_ &&
+        generation_ == thumbnail_generation_ && millis() >= thumbnail_due_) {
+      const auto printer = thumbnail_printer_, generation = generation_;
+      const auto key = thumbnail_key_;
+      close_http(); lock.unlock(); upload_thumbnail(printer, key, generation);
+      return;
     }
     if(millis()<due_) {
       if (!screen_session_.empty() && millis() >= screen_due_) {
@@ -744,8 +902,19 @@ void CloudPairingService::step() {
     }
     lock.unlock();
     const auto exchange_started=millis();
-    if (feeding && !polling) feed_changes_.attempted(exchange_started);
-    const auto reply=exchange(http_client_,local,base,path,body,token,removing);
+    bool memory_deferred = false;
+    const auto reply=[&] {
+      MemoryLease memory(core::MemoryWork::cloud);
+      if (!memory) { memory_deferred = true; return Reply{}; }
+      if (feeding && !polling) feed_changes_.attempted(exchange_started);
+      return exchange(http_client_,local,base,path,body,token,removing);
+    }();
+    if (memory_deferred) {
+      close_http();
+      lock.lock();
+      due_ = millis() + 2000;
+      return;
+    }
     if(starting)ESP_LOGI("cloud_pair", "Pairing response: HTTP %d, stack free=%u", reply.status,
                         unsigned(uxTaskGetStackHighWaterMark(nullptr)));
     Json root(cJSON_ParseWithLength(reply.body.data(),reply.body.size()),cJSON_Delete);
@@ -754,13 +923,8 @@ void CloudPairingService::step() {
     if(paused_ || generation!=generation_) { close_http(); return; }
     due_=millis()+(token.empty()?5000:60000);
     if(!token.empty() && (reply.status==401 || (removing && reply.status==200 && field(data,"state")=="disconnected"))) {
-      if(save("","",false)) {
-        stop_screen();
-        token_.clear();account_.clear();disconnect_=false;confirmed_=false;feed_failures_=0;
-        last_command_id_.clear();last_command_status_.clear();result_pending_=false;
-        poll_interval_ms_=0;feed_due_=0;close_http();
-        state_=removing?"disconnected":"revoked";
-      } else state_="error";
+      close_http();
+      if (!queue_save(SaveAction::forget, "", "", removing ? "disconnected" : "revoked")) state_ = "error";
       return;
     }
     if(feeding) {
@@ -818,12 +982,18 @@ void CloudPairingService::step() {
                     std::floor(size->valuedouble)==size->valuedouble && reaction_upload_(feed_context_,payload,nullptr,0,true)) {
                   const auto total = static_cast<std::size_t>(size->valuedouble);
                   close_http(); lock.unlock();
-                  accepted = download_reaction(base,token,local,asset,total,hash,payload,generation);
+                  accepted = download_reaction(base,token,local,asset,total,hash,payload,generation,id);
                   lock.lock();
                   if (generation_ != generation) return;
                 }
-              } else accepted=command_sink_(feed_context_,payload);
-              last_command_id_=id;last_command_status_=accepted?"accepted":"rejected";
+              } else {
+                auto work = std::make_unique<LocalWork>();
+                work->payload = payload; work->id = id; work->generation = generation;
+                work->deadline = exchange_started + static_cast<std::int64_t>(ttl->valuedouble);
+                accepted = queue_local_work(std::move(work));
+              }
+              if (accepted) return; // Receipt follows the acknowledged local operation.
+              last_command_id_=id;last_command_status_="rejected";
             }
             result_pending_=true;
             // Report the receipt and observed state promptly, without another
@@ -842,7 +1012,7 @@ void CloudPairingService::step() {
         due_=millis()+delay;
         state_="offline";close_http();
       }
-      if (!polling && reply.status == 200 && !result_pending_ && screen_session_.empty()) {
+      if (!polling && reply.status == 200 && !result_pending_) {
         auto* thumbnail = cJSON_GetObjectItemCaseSensitive(data, "thumbnail");
         auto* printer = cJSON_GetObjectItemCaseSensitive(thumbnail, "printer_id");
         const auto key = field(thumbnail, "key");
@@ -878,15 +1048,18 @@ void CloudPairingService::step() {
       if(field(data,"state")!="connected") {state_="error";return;}
       const auto account=field(data,"account");
       if(account.size()>254){state_="error";return;}
-      if(account!=account_ && !save(token_,account,false)){state_="error";return;}
+      if(account!=account_) {
+        if(!queue_save(SaveAction::account,token_,account)) state_="error";
+        return;
+      }
       account_=account;state_="connected";confirmed_=true;feed_failures_=0;
       if(feed_source_)due_=millis()+1000;
     } else {
       const auto result=field(data,"state");
       if(result=="authorized") {
         const auto issued=field(data,"token");
-        if(!token_valid(issued) || !save(issued,"",false)){state_="error";return;}
-        token_=issued;secret_.clear();code_.clear();link_.clear();state_="checking";due_=0;
+        if(!token_valid(issued) || !queue_save(SaveAction::authorize,issued,"")) state_="error";
+        return;
       } else if(result=="expired" || result=="denied") {
         secret_.clear();code_.clear();link_.clear();state_=result;
       } else state_=result=="pending" || result=="slow_down"?"pending":"error";
