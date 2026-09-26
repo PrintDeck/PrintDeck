@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "sets": [
+    {
+      "id": "modern",
+      "name": "Modern",
+      "style": "modern",
+      "version": "1.0.0",
+      "languages": {
+        "en": {
+          "file": "packages/43496f626943d715ad96df6450671dc66b3fe3161dabb6082b70cae0f04dbb0d.pda",
+          "bytes": 29819,
+          "sha256": "43496f626943d715ad96df6450671dc66b3fe3161dabb6082b70cae0f04dbb0d"
+        },
+        "pl": {
+          "file": "packages/6fcd3c017eb7d2251c5f4767642a2f190fa647b64b6afc0af716c8d2e6fe8c6c.pda",
+          "bytes": 31491,
+          "sha256": "6fcd3c017eb7d2251c5f4767642a2f190fa647b64b6afc0af716c8d2e6fe8c6c"
+        },
+        "es": {
+          "file": "packages/6f752cb9412a4c7d7c0da704374e1bfc6c2fec25ead866a1b7b73a0e8be9d5fc.pda",
+          "bytes": 29366,
+          "sha256": "6f752cb9412a4c7d7c0da704374e1bfc6c2fec25ead866a1b7b73a0e8be9d5fc"
+        },
+        "fr": {
+          "file": "packages/1d73ea34832c7fa4e9a876c05fa8226c6a955bf0e0d244b8aa0e1a58b5e3bcec.pda",
+          "bytes": 30201,
+          "sha256": "1d73ea34832c7fa4e9a876c05fa8226c6a955bf0e0d244b8aa0e1a58b5e3bcec"
+        },
+        "de": {
+          "file": "packages/6852951bed5171af2994af073b263c9cbf7735c965f3b694bfef83c7ee181934.pda",
+          "bytes": 31493,
+          "sha256": "6852951bed5171af2994af073b263c9cbf7735c965f3b694bfef83c7ee181934"
+        },
+        "zh-CN": {
+          "file": "packages/b8d2dc7eea320165b7a07e306ee5885d5088cd50333844f3ae52d613d2c4ef17.pda",
+          "bytes": 31234,
+          "sha256": "b8d2dc7eea320165b7a07e306ee5885d5088cd50333844f3ae52d613d2c4ef17"
+        }
+      }
+    },
+    {
+      "id": "soft",
+      "name": "Soft",
+      "style": "soft",
+      "version": "1.0.0",
+      "languages": {
+        "en": {
+          "file": "packages/f3b81dd091fb3cc24ea64ab1985c39b52239028c65e26ea9efc3dec66a075a17.pda",
+          "bytes": 9513,
+          "sha256": "f3b81dd091fb3cc24ea64ab1985c39b52239028c65e26ea9efc3dec66a075a17"
+        },
+        "pl": {
+          "file": "packages/5a68ac1702d962ae9a93597f40fcf4a172a316f0ad96524f5a99dc02b513ecd5.pda",
+          "bytes": 11185,
+          "sha256": "5a68ac1702d962ae9a93597f40fcf4a172a316f0ad96524f5a99dc02b513ecd5"
+        },
+        "es": {
+          "file": "packages/4b9deecf543e097070c5aaf771e9f2f36383ffefa1b59a4d368f922eaae23dc2.pda",
+          "bytes": 9060,
+          "sha256": "4b9deecf543e097070c5aaf771e9f2f36383ffefa1b59a4d368f922eaae23dc2"
+        },
+        "fr": {
+          "file": "packages/77028158a323819ef4544238f12108f95658f4d5b57bb074e6db864d7b642ac1.pda",
+          "bytes": 9895,
+          "sha256": "77028158a323819ef4544238f12108f95658f4d5b57bb074e6db864d7b642ac1"
+        },
+        "de": {
+          "file": "packages/bade0f37e085ec84d05ba25e66dd484df310aa227fb55e658141e75f2e4f80bd.pda",
+          "bytes": 11187,
+          "sha256": "bade0f37e085ec84d05ba25e66dd484df310aa227fb55e658141e75f2e4f80bd"
+        },
+        "zh-CN": {
+          "file": "packages/18fa723792d8cc35947f43d1ded2c0913c16aeda4486c040859064369005addb.pda",
+          "bytes": 10928,
+          "sha256": "18fa723792d8cc35947f43d1ded2c0913c16aeda4486c040859064369005addb"
+        }
+      }
+    },
+    {
+      "id": "oldschool",
+      "name": "Retro",
+      "style": "oldschool",
+      "version": "1.0.0",
+      "languages": {
+        "en": {
+          "file": "packages/f3b81dd091fb3cc24ea64ab1985c39b52239028c65e26ea9efc3dec66a075a17.pda",
+          "bytes": 9513,
+          "sha256": "f3b81dd091fb3cc24ea64ab1985c39b52239028c65e26ea9efc3dec66a075a17"
+        },
+        "pl": {
+          "file": "packages/5a68ac1702d962ae9a93597f40fcf4a172a316f0ad96524f5a99dc02b513ecd5.pda",
+          "bytes": 11185,
+          "sha256": "5a68ac1702d962ae9a93597f40fcf4a172a316f0ad96524f5a99dc02b513ecd5"
+        },
+        "es": {
+          "file": "packages/4b9deecf543e097070c5aaf771e9f2f36383ffefa1b59a4d368f922eaae23dc2.pda",
+          "bytes": 9060,
+          "sha256": "4b9deecf543e097070c5aaf771e9f2f36383ffefa1b59a4d368f922eaae23dc2"
+        },
+        "fr": {
+          "file": "packages/77028158a323819ef4544238f12108f95658f4d5b57bb074e6db864d7b642ac1.pda",
+          "bytes": 9895,
+          "sha256": "77028158a323819ef4544238f12108f95658f4d5b57bb074e6db864d7b642ac1"
+        },
+        "de": {
+          "file": "packages/bade0f37e085ec84d05ba25e66dd484df310aa227fb55e658141e75f2e4f80bd.pda",
+          "bytes": 11187,
+          "sha256": "bade0f37e085ec84d05ba25e66dd484df310aa227fb55e658141e75f2e4f80bd"
+        },
+        "zh-CN": {
+          "file": "packages/18fa723792d8cc35947f43d1ded2c0913c16aeda4486c040859064369005addb.pda",
+          "bytes": 10928,
+          "sha256": "18fa723792d8cc35947f43d1ded2c0913c16aeda4486c040859064369005addb"
+        }
+      }
+    },
+    {
+      "id": "arcade",
+      "name": "Arcade",
+      "style": "arcade",
+      "version": "1.0.0",
+      "languages": {
+        "en": {
+          "file": "packages/2b431fbd523b565214b51bc4fb4cce1d0c4bf57ab6e3f650193ae6087f7906dd.pda",
+          "bytes": 74390,
+          "sha256": "2b431fbd523b565214b51bc4fb4cce1d0c4bf57ab6e3f650193ae6087f7906dd"
+        },
+        "pl": {
+          "file": "packages/19b2fa981ffbf0bec05c463a7000691217b1143da99ddcdb5bdf2366fd88b670.pda",
+          "bytes": 76062,
+          "sha256": "19b2fa981ffbf0bec05c463a7000691217b1143da99ddcdb5bdf2366fd88b670"
+        },
+        "es": {
+          "file": "packages/64513d36ab7d96e274d2a08ade4659f397b513659dff267700cf32720e0f0df4.pda",
+          "bytes": 73937,
+          "sha256": "64513d36ab7d96e274d2a08ade4659f397b513659dff267700cf32720e0f0df4"
+        },
+        "fr": {
+          "file": "packages/d551700544dbb1ed156009f19e1fe0962156d0ab356e349fb9b4a572f18659d4.pda",
+          "bytes": 74772,
+          "sha256": "d551700544dbb1ed156009f19e1fe0962156d0ab356e349fb9b4a572f18659d4"
+        },
+        "de": {
+          "file": "packages/e66b931d7c33aeaf94523ce686db7e9c3a8502cb688357b546cffce6ff50c3eb.pda",
+          "bytes": 76064,
+          "sha256": "e66b931d7c33aeaf94523ce686db7e9c3a8502cb688357b546cffce6ff50c3eb"
+        },
+        "zh-CN": {
+          "file": "packages/b1b9d895366217633dd2c501b00d35f2f856252b90c769d4d639fb4df8b81998.pda",
+          "bytes": 75805,
+          "sha256": "b1b9d895366217633dd2c501b00d35f2f856252b90c769d4d639fb4df8b81998"
+        }
+      }
+    },
+    {
+      "id": "scifi",
+      "name": "Sci-Fi",
+      "style": "scifi",
+      "version": "1.0.0",
+      "languages": {
+        "en": {
+          "file": "packages/722e5422ffb1749f920bf4f6ed5d58321492ae9969595ca8948eec4db3220ace.pda",
+          "bytes": 55132,
+          "sha256": "722e5422ffb1749f920bf4f6ed5d58321492ae9969595ca8948eec4db3220ace"
+        },
+        "pl": {
+          "file": "packages/9e67464dc898f9b0de0fd9e5d16d62ead7cf7ca176d5401d1b26d1264eec9dd7.pda",
+          "bytes": 56804,
+          "sha256": "9e67464dc898f9b0de0fd9e5d16d62ead7cf7ca176d5401d1b26d1264eec9dd7"
+        },
+        "es": {
+          "file": "packages/13af88e5e6bf9e298cba4a03a925ee2d53fecb7cf98998d345b8f28f1fb07656.pda",
+          "bytes": 54679,
+          "sha256": "13af88e5e6bf9e298cba4a03a925ee2d53fecb7cf98998d345b8f28f1fb07656"
+        },
+        "fr": {
+          "file": "packages/5c0d3b9c26e1236305158750ebdc80fd8917eec49b63653e16d97e2f56f10232.pda",
+          "bytes": 55514,
+          "sha256": "5c0d3b9c26e1236305158750ebdc80fd8917eec49b63653e16d97e2f56f10232"
+        },
+        "de": {
+          "file": "packages/4ce5e5c1967db2b0d3f843bfcc797c4fd0686984453c9cac00646eab5776431d.pda",
+          "bytes": 56806,
+          "sha256": "4ce5e5c1967db2b0d3f843bfcc797c4fd0686984453c9cac00646eab5776431d"
+        },
+        "zh-CN": {
+          "file": "packages/4293778eef40211eefb189afef7e8710f4b174efd365f7629c303ef7271f7c9e.pda",
+          "bytes": 56547,
+          "sha256": "4293778eef40211eefb189afef7e8710f4b174efd365f7629c303ef7271f7c9e"
+        }
+      }
+    },
+    {
+      "id": "clean",
+      "name": "Voice notifications",
+      "style": "clean",
+      "version": "1.0.0",
+      "languages": {
+        "en": {
+          "file": "packages/00dceff97eb3477457a035cfd6ed1f3abfe3544d92bdd2265cdf1731ba51b603.pda",
+          "bytes": 82364,
+          "sha256": "00dceff97eb3477457a035cfd6ed1f3abfe3544d92bdd2265cdf1731ba51b603"
+        },
+        "pl": {
+          "file": "packages/6508e817ec38f944e3204b8aa124697fe6351dabfed4197dc904e9f1fd8eb4e9.pda",
+          "bytes": 104917,
+          "sha256": "6508e817ec38f944e3204b8aa124697fe6351dabfed4197dc904e9f1fd8eb4e9"
+        },
+        "es": {
+          "file": "packages/20b986553b1dfb6f82c88ddc989dd4021d814a9e91c0e197ab0502be1002c97a.pda",
+          "bytes": 87473,
+          "sha256": "20b986553b1dfb6f82c88ddc989dd4021d814a9e91c0e197ab0502be1002c97a"
+        },
+        "fr": {
+          "file": "packages/dbde8f05062bc2935cbd5a46b498ece1fc0772b590cf322196006de727c2971c.pda",
+          "bytes": 89131,
+          "sha256": "dbde8f05062bc2935cbd5a46b498ece1fc0772b590cf322196006de727c2971c"
+        },
+        "de": {
+          "file": "packages/8f4ba8d2e1023627a64e275b4ed86b6fdc398ed0d24024c05ca5b140120f1033.pda",
+          "bytes": 88808,
+          "sha256": "8f4ba8d2e1023627a64e275b4ed86b6fdc398ed0d24024c05ca5b140120f1033"
+        },
+        "zh-CN": {
+          "file": "packages/d705b3322d7870a085f19a06a6d0aeaedcc71d861385aac2b537ea534d1ca91d.pda",
+          "bytes": 91533,
+          "sha256": "d705b3322d7870a085f19a06a6d0aeaedcc71d861385aac2b537ea534d1ca91d"
+        }
+      }
+    }
+  ]
+}
