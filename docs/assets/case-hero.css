@@ -97,3 +97,8 @@
   .case-page .case-campaign-hero .case-collection-art { left: auto; right: 0; width: 153%; top: 50%; transform: translateY(-50%); }
   .case-page .case-collection-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(#101310, transparent 24%); }
 }
+
+.case-page #riverstone .case-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) {
+  .case-page #riverstone .case-options { grid-template-columns: 1fr; }
+}
