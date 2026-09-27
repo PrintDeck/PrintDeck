@@ -396,7 +396,12 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .printer-address svg{width:14px;height:14px;flex:0 0 14px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .printer-address span,.printer-row .printer-reachability{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.printer-row .printer-reachability{display:block}
 .printer-row:has(.printer-camera:not([hidden])) .printer-job-file{padding-right:24px}
-.printer-job-file{display:block;min-width:0;max-width:100%;grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted);font-weight:400}
+.printer-job-file{display:block;min-width:0;max-width:100%;grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ink);font-weight:600}
+.printer-job-subtitle{display:block;min-width:0;max-width:100%;grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:400;color:var(--muted);margin:0;padding-left:27px}
+.printer-job-subtitle[hidden]{display:none}
+.printer-select-action>.printer-job-subtitle{margin-top:-6px}
+.pd-print-copy>.printer-job-subtitle{font-size:12px;padding-left:29px;margin-top:4px}
+.pd-print-copy h3:has(+.printer-job-subtitle:not([hidden])){margin-bottom:0}
 .printer-metrics{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:3px -16px 0;padding:12px 16px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--ink) 2%,transparent);font-variant-numeric:tabular-nums}
 .printer-metrics>span{display:grid;gap:4px;min-width:0}.printer-metrics small{font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap}.printer-metrics b{font-size:12px;white-space:nowrap;font-weight:700}.printer-metrics>span:nth-child(2){text-align:center}.printer-metrics>span:last-child{text-align:right}
 /* Gallery keeps the list hierarchy with a larger printer image. */
@@ -3416,7 +3421,10 @@ function createAudioSetPicker(host, translate, send, locale) {
       }
       const current=valid(job?.current_layer)&&job.current_layer>0?job.current_layer:'—';
       const total=valid(job?.total_layers)&&job.total_layers>0?job.total_layers:'—';
-      return {online,printing,idleSample:online&&!printing,known:printing,file:typeof job?.name==='string'?job.name:'',left,ends,layer:printing&&(current!=='—'||total!=='—')?current+' / '+total:'—'};
+      const text=value=>typeof value==='string'?value.trim():'';
+      const file=text(job?.name);
+      const subtitle=file&&text(job?.subtitle)!==file?text(job?.subtitle):'';
+      return {online,printing,idleSample:online&&!printing,known:printing,file,subtitle,left,ends,layer:printing&&(current!=='—'||total!=='—')?current+' / '+total:'—'};
     }
     function createPrinterMetrics(){
       const host=document.createElement('span');host.className='printer-metrics';
@@ -3462,9 +3470,9 @@ function createAudioSetPicker(host, translate, send, locale) {
       const select=$('.printer-select-action',row),copy=$('.printer-row-copy',row),job=$('.printer-job',row),address=document.createElement('span');
       address.className='printer-address';address.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="5" rx="1"/><path d="M12 8v5M5 17v-4h14v4"/><rect x="2" y="17" width="6" height="4" rx="1"/><rect x="16" y="17" width="6" height="4" rx="1"/></svg><span></span>';
       $('span',address).textContent=splitEndpoint(p.endpoint,p.protocol)[0];copy.insertBefore(address,$('.printer-row-meta',copy));
-      const file=document.createElement('span');file.className='printer-job-file';select.append(file,job,createPrinterMetrics());
+      const file=document.createElement('span');file.className='printer-job-file';const subtitle=document.createElement('span');subtitle.className='printer-job-subtitle';select.append(file,subtitle,job,createPrinterMetrics());
     }
-    function paintDesignRow(row,p){const d=printerDesignData(p),file=$('.printer-job-file',row);file.textContent=d.file;file.title=d.file;file.hidden=!d.file;const metrics=$('.printer-metrics',row);paintPrinterMetrics(metrics,p);metrics.hidden=![d.left,d.layer,d.ends].some(value=>value!=='—')}
+    function paintDesignRow(row,p){const d=printerDesignData(p),file=$('.printer-job-file',row);file.textContent=d.file;file.title=d.file;file.hidden=!d.file;const subtitle=$('.printer-job-subtitle',row);subtitle.textContent=d.subtitle;subtitle.title=d.subtitle;subtitle.hidden=!d.subtitle;const metrics=$('.printer-metrics',row);paintPrinterMetrics(metrics,p);metrics.hidden=![d.left,d.layer,d.ends].some(value=>value!=='—')}
     function previewUrl(value){return typeof value==='string'&&/^\/api\/printers\/preview\?id=\d+&kind=(model|layer)&v=\d+-\d+$/.test(value)?value:''}
     function createPrintPreview(p){
       const host=document.createElement('span');host.className='pd-print-media';host.dataset.printerId=String(p.id);
@@ -3617,7 +3625,7 @@ function createAudioSetPicker(host, translate, send, locale) {
       $('.printer-detail-head',detail).remove();$('.printer-detail-footer',detail).remove();
       const reaction=document.createElement('button');reaction.type='button';reaction.className='pd-mini-screen';reaction.innerHTML='<img alt="">';
       reaction.setAttribute('aria-label',translated('Reactions'));reaction.title=translated('Reactions');reaction.addEventListener('click',()=>p.technology==='resin'?openResinReaction(p.id,reaction):openFdmReaction(reaction));
-      const overview=document.createElement('section');overview.className='pd-print-overview';overview.innerHTML='<button type="button" class="pd-print-thumb"></button><div class="pd-print-copy"><h3></h3></div>';
+      const overview=document.createElement('section');overview.className='pd-print-overview';overview.innerHTML='<button type="button" class="pd-print-thumb"></button><div class="pd-print-copy"><h3></h3><p class="printer-job-subtitle" hidden></p></div>';
       const thumb=$('button',overview);thumb.setAttribute('aria-label',translated('Enlarge thumbnail'));thumb.append(createPrintPreview(p));
       const visuals=document.createElement('div');visuals.className='pd-print-visuals';overview.prepend(visuals);visuals.append(thumb,reaction);const tabs=document.createElement('div');tabs.className='pd-media-switch';tabs.setAttribute('role','group');tabs.setAttribute('aria-label',translated('Preview mode'));
       for(const [mode,label,icon] of [['thumbnail','Print thumbnail','<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="m4 18 5-5 4 4 3-4 5 5"/>'],['reaction','Reactions','<circle cx="12" cy="12" r="9"/><path d="M8 14a4 4 0 0 0 8 0M8 8h.01M16 8h.01"/>']]){const button=document.createElement('button');button.type='button';button.dataset.mediaChoice=mode;button.setAttribute('aria-label',translated(label));button.title=translated(label);button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+icon+'</svg>';button.addEventListener('click',()=>{printerMediaChoices.set(p.id,mode);paintPrinterMedia(detail,p)});tabs.append(button)}visuals.append(tabs);const job=$(':scope > .printer-job',detail);$('.pd-print-copy',overview).append(job,createPrinterMetrics());detail.prepend(overview);
@@ -3754,7 +3762,7 @@ function createAudioSetPicker(host, translate, send, locale) {
     }
 
     function paintDesignDetail(detail,p){
-      const d=printerDesignData(p),heading=$('.pd-print-copy h3',detail);heading.textContent=d.file;heading.title=d.file;heading.hidden=!d.file;$('.pd-print-copy .printer-job',detail).hidden=!d.online;$('.pd-print-copy .printer-metrics',detail).hidden=!d.printing;
+      const d=printerDesignData(p),heading=$('.pd-print-copy h3',detail);heading.textContent=d.file;heading.title=d.file;heading.hidden=!d.file;const subtitle=$('.printer-job-subtitle',detail);subtitle.textContent=d.subtitle;subtitle.title=d.subtitle;subtitle.hidden=!d.subtitle;$('.pd-print-copy .printer-job',detail).hidden=!d.online;$('.pd-print-copy .printer-metrics',detail).hidden=!d.printing;
       const thumb=$('.pd-print-thumb',detail);paintPrintPreview($('.pd-print-media',thumb),p);
       paintPrinterMetrics($('.printer-metrics',detail),p);
       const printerTitle=$('.pd-printer-title',detail);printerTitle.textContent=p.name||translated('Printer');printerTitle.title=printerTitle.textContent;printerTitle.hidden=printerView!=='tiles';

@@ -374,17 +374,34 @@ BambuJobMetadata fetch_metadata_prefix(const BambuLocalConnection& connection,
   std::string prefix;
   prefix.reserve(128 * 1024);
   std::array<char, 2048> buffer{};
+  bambu_metadata::PrefixDiagnostic diagnostic;
+  std::size_t next_parse = 0;
   while (!stopped() && prefix.size() < kMaximumArchivePrefixBytes) {
     const auto n = esp_tls_conn_read(data.get(), buffer.data(),
         std::min(buffer.size(), kMaximumArchivePrefixBytes - prefix.size()));
     if (n == 0) break;
     if (n < 0) { vTaskDelay(pdMS_TO_TICKS(10)); continue; }
     prefix.append(buffer.data(), static_cast<std::size_t>(n));
-    auto metadata = bambu_metadata::read_prefix(prefix);
-    if (!metadata.title.empty()) return stopped() ? BambuJobMetadata{} : metadata;
+    if (prefix.size() < next_parse) continue;
+    auto metadata = bambu_metadata::read_prefix(prefix, &diagnostic);
+    if (!metadata.title.empty()) {
+      ESP_LOGI(kTag, "Verified Bambu metadata prefix (read=%u)", unsigned(prefix.size()));
+      return stopped() ? BambuJobMetadata{} : metadata;
+    }
+    if (!diagnostic.incomplete) break;
+    next_parse = std::min(diagnostic.needed, kMaximumArchivePrefixBytes);
   }
-  ESP_LOGW(kTag, "Bounded Bambu metadata prefix has no complete title (read=%u)",
-           unsigned(prefix.size()));
+  // EOF can precede the next exponential parse threshold.
+  if (!stopped() && diagnostic.incomplete) {
+    auto metadata = bambu_metadata::read_prefix(prefix, &diagnostic);
+    if (!metadata.title.empty()) return metadata;
+  }
+  ESP_LOGW(kTag, "Bambu metadata prefix rejected: reason=%s read=%u entry=%u offset=%llu compressed=%llu raw=%llu flags=%llu root=%d",
+           diagnostic.reason, unsigned(prefix.size()), diagnostic.entry,
+           static_cast<unsigned long long>(diagnostic.offset),
+           static_cast<unsigned long long>(diagnostic.compressed),
+           static_cast<unsigned long long>(diagnostic.raw),
+           static_cast<unsigned long long>(diagnostic.flags), diagnostic.root_model);
   return {};
 }
 

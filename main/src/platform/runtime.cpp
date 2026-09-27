@@ -305,6 +305,7 @@ void Runtime::start() {
   bambu_a1_preview_.configure(bambu_connection);
   bambu_job_name_key_.clear();
   bambu_job_name_.clear();
+  bambu_job_subtitle_.clear();
   bambu_a1_camera_.configure(bambu_connection);
   // Reserve the display-state worker before printer-specific services allocate
   // their larger stacks. Web Config starts earlier, so exhausting task memory
@@ -1138,6 +1139,7 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
     bambu_a1_preview_.configure(bambu_connection);
     bambu_job_name_key_.clear();
     bambu_job_name_.clear();
+    bambu_job_subtitle_.clear();
     bambu_a1_camera_.configure(bambu_connection);
     bambu_phase_primed_ = false;
     bambu_completed_reaction_until_ms_ = 0;
@@ -1234,6 +1236,7 @@ bool Runtime::clear_unavailable_selection(std::uint32_t profile_id) {
   bambu_a1_preview_.configure({});
   bambu_job_name_key_.clear();
   bambu_job_name_.clear();
+  bambu_job_subtitle_.clear();
   bambu_a1_camera_.configure({});
   bambu_phase_primed_ = false;
   bambu_completed_reaction_until_ms_ = 0;
@@ -1313,16 +1316,22 @@ core::PrinterSnapshot Runtime::update_bambu_snapshot() {
       (snapshot.job.phase == core::JobPhase::idle || job_key != bambu_job_name_key_)) {
     bambu_job_name_key_ = job_key;
     bambu_job_name_.clear();
+    bambu_job_subtitle_.clear();
   }
   if (snapshot.job.phase != core::JobPhase::unknown)
     bambu_a1_preview_.set_job(snapshot.job.preview_hint, snapshot.job.name,
                             snapshot.job.preview_plate_hint, preview_allowed, source_job_id);
   const BambuA1PreviewSnapshot preview = bambu_a1_preview_.snapshot();
   if (active && preview.job_key == job_key && !preview.model_title.empty()) {
-    bambu_job_name_ = core::combined_job_name(preview.model_title,
-        preview.profile_title.empty() ? snapshot.job.name : preview.profile_title);
+    const auto profile = preview.profile_title.empty() ? snapshot.job.name : preview.profile_title;
+    const auto parts = core::job_name_parts(preview.model_title, profile);
+    bambu_job_subtitle_ = parts.subtitle;
+    bambu_job_name_ = parts.title;
   }
-  if (!bambu_job_name_.empty()) snapshot.job.name = bambu_job_name_;
+  if (!bambu_job_name_.empty()) {
+    snapshot.job.name = bambu_job_name_;
+    snapshot.job.subtitle = bambu_job_subtitle_;
+  }
   if (active && preview.job_key == job_key && preview.image && !preview.image->empty()) {
     snapshot.job.preview = preview.image;
   } else if (!active) {

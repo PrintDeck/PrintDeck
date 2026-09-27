@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
+#include <limits>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -90,60 +92,171 @@ inline BambuJobMetadata parse(std::string_view xml) {
 // Some printer FTPS servers reject REST. Their bounded sequential prefix can
 // still contain the complete root model entry. Never infer a title from object
 // names or accept a partially inflated/CRC-unchecked metadata file.
-inline BambuJobMetadata read_prefix(std::string_view prefix) {
+struct PrefixDiagnostic {
+  const char* reason = "header-incomplete";
+  unsigned entry = 0;
+  std::uint64_t offset = 0, compressed = 0, raw = 0, flags = 0;
+  bool root_model = false;
+  bool incomplete = true;
+  std::size_t needed = 30;
+};
+inline BambuJobMetadata read_prefix(std::string_view prefix, PrefixDiagnostic* diagnostic = nullptr) {
+  PrefixDiagnostic state;
+  const auto reject = [&](const char* reason, bool incomplete = false,
+                          std::size_t needed = 0) -> BambuJobMetadata {
+    state.reason = reason; state.incomplete = incomplete; state.needed = needed;
+    if (diagnostic) *diagnostic = state;
+    return {};
+  };
+  // Reparse only after enough bytes arrive, doubling unknown-length input.
+  // This bounds repeated inflation while keeping the transfer itself small.
+  const auto more = [&](const char* reason, std::size_t start) {
+    const auto available = prefix.size() - start;
+    return reject(reason, true, start + std::max<std::size_t>(2048, available * 2));
+  };
   std::size_t at = 0;
-  for (unsigned entries = 0; entries < 512 && at + 30 <= prefix.size(); ++entries) {
-    if (prefix.substr(at, 4) != std::string_view("PK\3\4", 4)) return {};
+  std::size_t inflated_total = 0;
+  for (unsigned entries = 0; entries < 512; ++entries) {
+    state = {}; state.entry = entries; state.offset = at;
+    if (prefix.size() - at < 30) return reject("next-header-incomplete", true, at + 30);
+    if (prefix.substr(at, 4) != std::string_view("PK\3\4", 4)) return reject("local-header-signature");
     const auto flags = number(prefix, at + 6, 2);
     const auto method = number(prefix, at + 8, 2);
-    const auto crc = number(prefix, at + 14, 4);
+    auto crc = number(prefix, at + 14, 4);
     auto compressed = number(prefix, at + 18, 4);
     auto raw = number(prefix, at + 22, 4);
+    const bool descriptor = (flags & 8) != 0;
+    const bool zip64 = compressed == 0xffffffff || raw == 0xffffffff;
     const auto name_size = number(prefix, at + 26, 2);
     const auto extra_size = number(prefix, at + 28, 2);
     const auto data_offset = at + 30 + name_size + extra_size;
-    if ((flags & ~0x800ULL) || data_offset > prefix.size()) return {};
+    state.flags = flags; state.compressed = compressed; state.raw = raw;
+    if (data_offset > prefix.size()) return reject("entry-header-incomplete", true, data_offset);
+    state.root_model = prefix.substr(at + 30, name_size) == "3D/3dmodel.model";
+    if (flags & ~0x808ULL) return reject("unsupported-flags");
     auto extra = prefix.substr(at + 30 + name_size, extra_size);
     for (std::size_t pos = 0; pos + 4 <= extra.size();) {
       const auto length = number(extra, pos + 2, 2);
-      if (length > extra.size() - pos - 4) return {};
+      if (length > extra.size() - pos - 4) return reject("extra-field-invalid");
       if (number(extra, pos, 2) == 1) {
         std::size_t field = pos + 4;
         for (auto* value : {&raw, &compressed}) if (*value == 0xffffffff) {
-          if (field + 8 > pos + 4 + length) return {};
+          if (field + 8 > pos + 4 + length) return reject("zip64-field-incomplete");
           *value = number(extra, field, 8); field += 8;
         }
         break;
       }
       pos += 4 + length;
     }
-    if (compressed > prefix.size() - data_offset) return {};
-    if (prefix.substr(at + 30, name_size) == "3D/3dmodel.model") {
-      if (!raw || raw > 512 * 1024 || !compressed || compressed > 128 * 1024) return {};
-      auto data = prefix.substr(data_offset, compressed);
-      std::string xml;
-      if (method == 0) {
-        if (raw != compressed) return {};
-        xml.assign(data);
-      } else if (method == 8) {
-        xml.resize(raw);
+    state.compressed = compressed; state.raw = raw;
+    std::string xml;
+    std::size_t descriptor_bytes = 0;
+    if (descriptor) {
+      const auto data = prefix.substr(data_offset);
+      const unsigned size_width = zip64 ? 8 : 4;
+      const std::size_t descriptor_size = 4 + size_width * 2;
+      if (method == 8) {
         z_stream stream{};
+        if (data.size() > std::numeric_limits<uInt>::max()) return reject("input-limit");
         stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(data.data()));
-        stream.avail_in = data.size();
-        stream.next_out = reinterpret_cast<Bytef*>(xml.data());
-        stream.avail_out = xml.size();
-        if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) return {};
-        const int status = inflate(&stream, Z_FINISH);
-        const bool valid = status == Z_STREAM_END && stream.total_in == compressed && stream.total_out == raw;
+        stream.avail_in = static_cast<uInt>(data.size());
+        if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) return reject("inflate-init");
+        std::array<Bytef, 2048> output{};
+        uLong checksum = crc32(0, nullptr, 0);
+        int status = Z_OK;
+        bool over_limit = false;
+        do {
+          stream.next_out = output.data(); stream.avail_out = output.size();
+          const auto before_in = stream.total_in, before_out = stream.total_out;
+          status = inflate(&stream, Z_NO_FLUSH);
+          const auto produced = output.size() - stream.avail_out;
+          checksum = crc32(checksum, output.data(), produced);
+          // Validate skipped entries without retaining their expanded content.
+          over_limit = stream.total_out + inflated_total > 4 * 1024 * 1024 ||
+              (state.root_model && (stream.total_out > 512 * 1024 || stream.total_in > 128 * 1024));
+          if (over_limit) break;
+          if (state.root_model) xml.append(reinterpret_cast<const char*>(output.data()), produced);
+          if (stream.total_in == before_in && stream.total_out == before_out) break;
+        } while (status == Z_OK);
+        compressed = stream.total_in; raw = stream.total_out; crc = checksum;
+        const bool truncated = (status == Z_OK || status == Z_BUF_ERROR) && stream.avail_in == 0;
         inflateEnd(&stream);
-        if (!valid) return {};
-      } else return {};
-      if (crc32(0, reinterpret_cast<const Bytef*>(xml.data()), xml.size()) != crc) return {};
-      return parse(xml);
+        state.compressed = compressed; state.raw = raw;
+        if (over_limit) return reject("inflate-size-limit");
+        if (status != Z_STREAM_END) {
+          if (truncated) return more("deflate-incomplete", data_offset);
+          return reject("inflate-invalid");
+        }
+        inflated_total += raw;
+        auto pos = static_cast<std::size_t>(compressed);
+        if (data.size() - pos < 4) return reject("descriptor-incomplete", true, data_offset + pos + descriptor_size);
+        const bool signed_descriptor = number(data, pos, 4) == 0x08074b50;
+        if (signed_descriptor) pos += 4;
+        if (data.size() - pos < descriptor_size)
+          return reject("descriptor-incomplete", true, data_offset + pos + descriptor_size);
+        if (number(data, pos, 4) != crc || number(data, pos + 4, size_width) != compressed ||
+            number(data, pos + 4 + size_width, size_width) != raw) return reject("descriptor-mismatch");
+        descriptor_bytes = descriptor_size + (signed_descriptor ? 4 : 0);
+      } else if (method == 0) {
+        // Stored streams have no deflate terminator. Accept a descriptor only
+        // when both sizes match its exact offset and its CRC verifies the data.
+        bool found = false;
+        for (std::size_t pos = 0; pos + descriptor_size <= data.size(); ++pos) {
+          const bool signed_descriptor = number(data, pos, 4) == 0x08074b50;
+          const auto fields = pos + (signed_descriptor ? 4 : 0);
+          if (fields + descriptor_size > data.size()) continue;
+          if (number(data, fields + 4, size_width) != pos ||
+              number(data, fields + 4 + size_width, size_width) != pos) continue;
+          const auto checksum = crc32(0, reinterpret_cast<const Bytef*>(data.data()), pos);
+          if (number(data, fields, 4) != checksum) continue;
+          compressed = raw = pos; crc = checksum;
+          descriptor_bytes = descriptor_size + (signed_descriptor ? 4 : 0);
+          found = true; break;
+        }
+        if (!found) return more("stored-descriptor-incomplete", data_offset);
+        if (state.root_model) {
+          if (raw > 128 * 1024) return reject("root-model-compressed-limit");
+          xml.assign(data.substr(0, raw));
+        }
+      } else return reject("compression-unsupported");
+    } else {
+      if (compressed > prefix.size() - data_offset)
+        return reject("entry-data-incomplete", true, data_offset + compressed);
+      if (state.root_model) {
+        if (!raw || !compressed) return reject("root-model-empty");
+        if (raw > 512 * 1024) return reject("root-model-raw-limit");
+        if (compressed > 128 * 1024) return reject("root-model-compressed-limit");
+        auto data = prefix.substr(data_offset, compressed);
+        if (method == 0) {
+          if (raw != compressed) return reject("stored-size-mismatch");
+          xml.assign(data);
+        } else if (method == 8) {
+          xml.resize(raw);
+          z_stream stream{};
+          stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(data.data()));
+          stream.avail_in = data.size();
+          stream.next_out = reinterpret_cast<Bytef*>(xml.data());
+          stream.avail_out = xml.size();
+          if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) return reject("inflate-init");
+          const int status = inflate(&stream, Z_FINISH);
+          const bool valid = status == Z_STREAM_END && stream.total_in == compressed && stream.total_out == raw;
+          inflateEnd(&stream);
+          if (!valid) return reject("inflate-invalid");
+        } else return reject("compression-unsupported");
+        if (crc32(0, reinterpret_cast<const Bytef*>(xml.data()), xml.size()) != crc) return reject("crc-mismatch");
+      }
     }
-    at = data_offset + compressed;
+    if (state.root_model) {
+      auto metadata = parse(xml);
+      state.compressed = compressed; state.raw = raw;
+      state.reason = metadata.title.empty() ? "root-title-empty" : "complete";
+      state.incomplete = false;
+      if (diagnostic) *diagnostic = state;
+      return metadata;
+    }
+    at = data_offset + compressed + descriptor_bytes;
   }
-  return {};
+  return reject("entry-count-limit");
 }
 
 // Bounded range reads avoid downloading geometry or G-code. ZIP64 offsets are

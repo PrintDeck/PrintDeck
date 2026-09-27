@@ -206,6 +206,7 @@ class Runtime {
   bool bambu_phase_primed_ = false;
   std::string bambu_job_name_key_;
   std::string bambu_job_name_;
+  std::string bambu_job_subtitle_;
   core::JobPhase last_bambu_phase_ = core::JobPhase::unknown;
   std::uint64_t bambu_completed_reaction_until_ms_ = 0;
   bool bambu_completed_reaction_armed_ = false;

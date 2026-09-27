@@ -61,6 +61,7 @@ bool retain_last_known_job_during_reconnect(PrinterSnapshot& current,
   current.job.kind = last_known.job.kind;
   current.job.activity = last_known.job.activity;
   current.job.name = last_known.job.name;
+  current.job.subtitle = last_known.job.subtitle;
   current.job.completion = last_known.job.completion;
   current.job.remaining_seconds = last_known.job.remaining_seconds;
   current.job.completion_known = last_known.job.completion_known;

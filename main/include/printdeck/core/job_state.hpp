@@ -201,6 +201,8 @@ struct JobState {
   int activity_remaining_seconds = -1;
   PrinterCondition condition = PrinterCondition::normal;
   std::string name;
+  // Profile description displayed below the primary job name when available.
+  std::string subtitle;
   // Protocol job identity, used only to bind local metadata to this job.
   std::string source_job_id;
   std::string gcode_file;

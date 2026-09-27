@@ -11,7 +11,8 @@ inline bool cloud_printer_state_changed(const PrinterSnapshot& previous,
                                         const PrinterSnapshot& current) {
   return previous.profile_id != current.profile_id || previous.link != current.link ||
       previous.job.phase != current.job.phase || previous.job.condition != current.job.condition ||
-      previous.job.name != current.job.name || previous.job.kind != current.job.kind ||
+      previous.job.name != current.job.name ||
+      previous.job.subtitle != current.job.subtitle || previous.job.kind != current.job.kind ||
       effective_printer_activity(previous.job) != effective_printer_activity(current.job);
 }
 

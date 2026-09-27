@@ -15,7 +15,12 @@ inline std::string bounded_job_name(std::string_view name, std::size_t limit = 1
   return std::string(name.substr(0, end)) + "...";
 }
 
-inline std::string combined_job_name(std::string_view title, std::string_view profile) {
+struct JobNameParts {
+  std::string title;
+  std::string subtitle;
+};
+
+inline JobNameParts job_name_parts(std::string_view title, std::string_view profile) {
   const auto trim = [](std::string_view value) {
     while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front()))) value.remove_prefix(1);
     while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back()))) value.remove_suffix(1);
@@ -34,9 +39,9 @@ inline std::string combined_job_name(std::string_view title, std::string_view pr
     }
     return result;
   };
-  if (title.empty()) return bounded_job_name(profile);
-  if (profile.empty() || key(title) == key(profile)) return bounded_job_name(title);
-  return bounded_job_name(std::string(title) + " - " + std::string(profile));
+  if (title.empty()) return {bounded_job_name(profile), {}};
+  return {bounded_job_name(title), profile.empty() || key(title) == key(profile)
+      ? std::string{} : bounded_job_name(profile)};
 }
 
 }  // namespace printdeck::core
