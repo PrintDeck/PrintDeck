@@ -128,6 +128,20 @@
       }
     },
     {
+      "id": "boo_boo",
+      "name": "BooBoo",
+      "version": "1.0.0",
+      "family_id": "boo_boo",
+      "family_name": "BooBoo",
+      "variant_name": "",
+      "preview": "previews/boo_boo.webp",
+      "available": true,
+      "device_previews": {
+        "192": "167462a932f9cae73a255d4c75435fc3082d1f9dad814c23d0ab341c2b93a918",
+        "88": "c8dbaebe54865cd2834d51d102b66ea33ad582acef963e7d079230ff98ca2284"
+      }
+    },
+    {
       "id": "cartoon",
       "name": "Cartoon",
       "version": "1.0.0",
