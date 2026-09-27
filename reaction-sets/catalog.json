@@ -8,7 +8,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Green",
-      "preview": "previews/alloy_iris_green.webp"
+      "preview": "previews/alloy_iris_green.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "alloy_iris_blue",
@@ -17,7 +21,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Blue",
-      "preview": "previews/alloy_iris_blue.webp"
+      "preview": "previews/alloy_iris_blue.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "alloy_iris_brown",
@@ -26,7 +34,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Brown",
-      "preview": "previews/alloy_iris_brown.webp"
+      "preview": "previews/alloy_iris_brown.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "alloy_iris_amber",
@@ -35,7 +47,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Amber",
-      "preview": "previews/alloy_iris_amber.webp"
+      "preview": "previews/alloy_iris_amber.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "alloy_iris_gray",
@@ -44,7 +60,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Gray",
-      "preview": "previews/alloy_iris_gray.webp"
+      "preview": "previews/alloy_iris_gray.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "alloy_iris_hazel",
@@ -53,7 +73,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Hazel",
-      "preview": "previews/alloy_iris_hazel.webp"
+      "preview": "previews/alloy_iris_hazel.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "alloy_iris_red",
@@ -62,7 +86,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Red",
-      "preview": "previews/alloy_iris_red.webp"
+      "preview": "previews/alloy_iris_red.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "alloy_iris_violet",
@@ -71,7 +99,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Violet",
-      "preview": "previews/alloy_iris_violet.webp"
+      "preview": "previews/alloy_iris_violet.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "alloy_iris_cyan",
@@ -80,7 +112,11 @@
       "family_id": "iris_palette",
       "family_name": "Iris Palette",
       "variant_name": "Cyan",
-      "preview": "previews/alloy_iris_cyan.webp"
+      "preview": "previews/alloy_iris_cyan.webp",
+      "device_previews": {
+        "192": "f4b021a7a85e0171a2ef0241572a2f187e0d2163387dde7c2809c2e602e1d45e",
+        "88": "82d7767024a2204631003585ec701ad03044647ad8a792d40c40aa8d4a0bf940"
+      }
     },
     {
       "id": "cartoon",
@@ -89,7 +125,11 @@
       "family_id": "cartoon",
       "family_name": "Cartoon",
       "variant_name": "",
-      "preview": "previews/cartoon.webp"
+      "preview": "previews/cartoon.webp",
+      "device_previews": {
+        "192": "fde9a981400aadc339d2eb9bebe2cc4675af958c3e93172ab2f9908f7eb6a284",
+        "88": "43c9d98696b83cff6e3c443c84d93e7a94705a4c0a3b121dc5a2c0b8da07f342"
+      }
     },
     {
       "id": "clay_frenzy",
@@ -98,7 +138,11 @@
       "family_id": "clay_frenzy",
       "family_name": "Clay Frenzy",
       "variant_name": "",
-      "preview": "previews/clay_frenzy.webp"
+      "preview": "previews/clay_frenzy.webp",
+      "device_previews": {
+        "192": "abcdf0aaa261af285155d10dca83c16ee7a5c37adf67e7c2fed1e991d1f72813",
+        "88": "1443b80ddb9286c5462ed0c673ddca7d783650708d123a38854a312e0e154b1f"
+      }
     },
     {
       "id": "cookie",
@@ -107,7 +151,24 @@
       "family_id": "cookie",
       "family_name": "Cookie",
       "variant_name": "",
-      "preview": "previews/cookie.webp"
+      "preview": "previews/cookie.webp",
+      "device_previews": {
+        "192": "2bafb497f96e31202481ad3b3e6d0965293ef4b3acf8b8a3b7952d93d285d7d9",
+        "88": "4d74f886d6e1fefa4879d2c5f9e3cbfb37ba915b25c800bbd07cb4c3720cb751"
+      }
+    },
+    {
+      "id": "spooky",
+      "name": "Spooky",
+      "version": "1.0.0",
+      "family_id": "spooky",
+      "family_name": "Spooky",
+      "variant_name": "",
+      "preview": "previews/spooky.webp",
+      "device_previews": {
+        "192": "a1c831f305389afa695e313685397b646ad64c258d0c497a12fc1017fe0c9891",
+        "88": "6b9cd44cc6fa32c9612244cc82506d7dbaf9f971d8e62c86762d435f53f7d172"
+      }
     },
     {
       "id": "timmy",
@@ -116,7 +177,11 @@
       "family_id": "timmy",
       "family_name": "Timmy",
       "variant_name": "",
-      "preview": "previews/timmy.webp"
+      "preview": "previews/timmy.webp",
+      "device_previews": {
+        "192": "0b9a00011583c06e0df164b6cc6f73dfed362eb30e3389b11d2b0a31cb00b5b1",
+        "88": "b6081dd59fb3de96db7d8994de83c96dca485455b0baf7378c9cbd96fa5cf315"
+      }
     }
   ]
 }
