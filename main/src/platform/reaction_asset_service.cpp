@@ -1,7 +1,9 @@
+#include "printdeck/platform/reaction_cover.hpp"
 #include "printdeck/platform/reaction_asset_service.hpp"
 #include "printdeck/platform/set_catalog_service.hpp"
 #include "printdeck/platform/audio_set_service.hpp"
 #include "printdeck/core/audio_pack.hpp"
+#include "printdeck/core/asset_download_buffer.hpp"
 
 #include <algorithm>
 #include <array>
@@ -188,15 +190,25 @@ std::size_t directory_size(const char* path) {
   return total;
 }
 
-bool storage_has_room(std::size_t requested_bytes,std::size_t reclaimed_bytes=0) {
+bool storage_has_room(std::size_t requested_bytes,std::size_t reclaimed_bytes=0, bool direct=false) {
   std::size_t total = 0;
   std::size_t used = 0;
   if (esp_littlefs_info(kPartitionLabel, &total, &used) != ESP_OK || used > total) {
     return false;
   }
   const auto reserve = kBoardHasAudio ? AudioSetService::storage_reserve() : 0;
-  const bool fits = core::asset_replacement_fits(total, used, requested_bytes,
-      reclaimed_bytes, reserve, kStorageSafetyBytes);
+  const auto admission = direct ? core::asset_direct_install_fits : core::asset_replacement_fits;
+  bool fits = admission(total, used, requested_bytes, reclaimed_bytes, reserve, kStorageSafetyBytes);
+  if (!fits && requested_bytes) {
+    const auto removed = PrintPreviewCache{}.reclaim() + reclaim_reaction_cover_cache();
+    if (removed) {
+      ESP_LOGI(kTag, "Reclaimed %u bytes of print thumbnail cache for reaction storage",
+               static_cast<unsigned>(removed));
+      if (esp_littlefs_info(kPartitionLabel, &total, &used) != ESP_OK) return false;
+      fits = admission(total, used, requested_bytes,
+          reclaimed_bytes, reserve, kStorageSafetyBytes);
+    }
+  }
   ESP_LOGI(kTag, "Storage admission: total=%u used=%u requested=%u reclaimed=%u reserve=%u fits=%d",
       static_cast<unsigned>(total), static_cast<unsigned>(used),
       static_cast<unsigned>(requested_bytes), static_cast<unsigned>(reclaimed_bytes),
@@ -318,7 +330,7 @@ void* lv_sd_open(lv_fs_drv_t* driver, const char* path, lv_fs_mode_t mode) {
   if (!path || mode != LV_FS_MODE_RD) return nullptr;
   auto* service = static_cast<ReactionAssetService*>(driver->user_data);
   const std::string_view id(path);
-  auto bytes = id.starts_with("set/") ? service->cached_set_gif(id.substr(4)) : service->cached_sd_gif(id);
+  auto bytes = id == "preview" ? service->cached_preview() : id.starts_with("set/") ? service->cached_set_gif(id.substr(4)) : service->cached_sd_gif(id);
   return bytes ? new (std::nothrow) SdGifReader{std::move(bytes), 0} : nullptr;
 }
 lv_fs_res_t lv_sd_close(lv_fs_drv_t*, void* file) {
@@ -351,11 +363,16 @@ lv_fs_res_t lv_sd_tell(lv_fs_drv_t*, void* file, std::uint32_t* position) {
 
 }  // namespace
 
+std::string_view ReactionAssetService::embedded_version(std::string_view id) {
+  for(const auto& set:kSets)if(set.id==id)return set.version;
+  return {};
+}
+
 std::vector<ReactionSetDefinition> ReactionAssetService::sets() {
   const auto catalog=SetCatalogService::instance().sets(false);
-  if(catalog.empty())return {kSets.begin(),kSets.end()};
+  if(!SetCatalogService::instance().reaction_catalog_ready())return {kSets.begin(),kSets.end()};
   std::vector<ReactionSetDefinition> result;result.reserve(catalog.size());
-  for(const auto& set:catalog)result.push_back({set.id,set.name,set.version,set.family_id,set.family_name,set.variant_name});
+  for(const auto& set:catalog)if(set.available)result.push_back({set.id,set.name,set.version,set.family_id,set.family_name,set.variant_name});
   return result;
 }
 
@@ -550,6 +567,49 @@ bool ReactionAssetService::request_set(std::string_view id, std::string_view req
   return begin_set_request(id, false, request_id);
 }
 
+core::ReactionGif ReactionAssetService::cached_preview() const {
+  const std::lock_guard lock(mutex_); return preview_gif_;
+}
+void ReactionAssetService::clear_preview() {
+  const std::lock_guard lock(mutex_); preview_gif_.reset();
+}
+bool ReactionAssetService::request_preview(std::string_view set, std::string_view event,
+    std::string_view request, PreviewReady callback, void* context) {
+  if (!known_set(set) || !core::reaction_event(event) || !callback) return false;
+  const std::lock_guard lock(mutex_);
+  if (task_ || !reaper_task_ || snapshot_.busy || snapshot_.sd_busy) return false;
+  preview_set_ = set; preview_event_ = event; preview_request_ = request;
+  preview_ready_ = callback; preview_context_ = context;
+  cancel_requested_.store(false);
+  request_pending_.store(true);
+  SetCatalogService::instance().cancel();
+  if (xTaskCreatePinnedToCoreWithCaps(task_entry, "reaction_try", 6144, this, 2,
+      &task_, kServiceCore, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) == pdPASS) return true;
+  task_ = nullptr; request_pending_.store(false); preview_ready_ = nullptr;
+  return false;
+}
+core::ReactionGif ReactionAssetService::download_preview(std::string_view set, std::string_view event) {
+  for (int i=0;i<250 && SetCatalogService::instance().busy();++i) vTaskDelay(pdMS_TO_TICKS(20));
+  AssetTransferLease transfer;
+  if (!transfer || !network_ || !network_->status().station_connected) return {};
+  std::string manifest, name, version;
+  std::array<std::size_t, core::kReactionEventCount> sizes{};
+  std::array<std::string, core::kReactionEventCount> hashes{};
+  std::size_t total = 0;
+  if (!download_manifest(set, manifest) || !validate_manifest(manifest, set, sizes, hashes, name, version, total, false)) return {};
+  const auto index = core::reaction_event_index(core::reaction_event(event)->activity);
+  const auto size = sizes[index];
+  if (!size || size > kMaximumGifBytes || heap_caps_get_free_size(MALLOC_CAP_SPIRAM) < size + 1024*1024) return {};
+  auto* buffer = static_cast<std::uint8_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  if (!buffer) return {};
+  auto image = core::ReactionGifBytes::adopt(buffer, size);
+  if (!image || !download_file(set_asset_base_url()+std::string(set)+"/"+std::string(event)+".gif?v="+version,
+      nullptr,size,hashes[index],{buffer,size})) return {};
+  core::GifMetadata metadata;
+  if (!core::inspect_gif(*image, metadata, kDisplayWidth, 120)) return {};
+  return image;
+}
+
 bool ReactionAssetService::begin_set_request(std::string_view id,
                                              bool profile_migration, std::string_view request_id) {
   const auto catalog=sets();
@@ -559,6 +619,15 @@ bool ReactionAssetService::begin_set_request(std::string_view id,
   if (requested == catalog.end()) return false;
   const std::lock_guard<std::mutex> lock(mutex_);
   if (snapshot_.busy || snapshot_.sd_busy || task_ != nullptr || reaper_task_ == nullptr) return false;
+  if (!profile_migration && snapshot_.active_set_id == id &&
+      snapshot_.active_set_version == requested->version &&
+      std::all_of(current_present_.begin(), current_present_.end(), [](bool present) { return present; })) {
+    snapshot_.request_id.assign(request_id);
+    snapshot_.install_failed = false;
+    snapshot_.progress_percent = 100;
+    snapshot_.detail = "Reaction set installed.";
+    return true;
+  }
   requested_set_.assign(id);
   snapshot_.upload_event.clear();
   snapshot_.upload_success = false;
@@ -1019,11 +1088,11 @@ std::string ReactionAssetService::preview_vfs_path(std::string_view id) const {
              : std::string{};
 }
 
-std::string ReactionAssetService::effective_lvgl_path(core::PrinterActivity activity) const {
+std::string ReactionAssetService::effective_lvgl_path(core::PrinterActivity activity, bool preview) const {
   const auto id = core::reaction_event(activity).id;
   const auto index = core::reaction_event_index(activity);
   const std::lock_guard<std::mutex> lock(mutex_);
-  if (disabled_mask_ & (1UL << index)) return {};
+  if (!preview && (disabled_mask_ & (1UL << index))) return {};
   if (sd_cache_[index] && !(reset_mask_ & (1UL << index))) return "S:" + std::string(id);
   if (!(sd_owned_mask_ & (1UL << index)) && custom_present_[index])
     return "R:/reactions/custom/" + std::string(id) + ".gif";
@@ -1032,7 +1101,9 @@ std::string ReactionAssetService::effective_lvgl_path(core::PrinterActivity acti
 }
 
 bool ReactionAssetService::download_manifest(std::string_view id, std::string& body) const {
-  const std::string url = set_asset_base_url() + std::string(id) + "/manifest.json";
+  std::string version;
+  for(const auto& set:sets())if(set.id==id){version=set.version;break;}
+  const std::string url = set_asset_base_url() + std::string(id) + "/manifest.json?v="+version;
   for (int attempt = 1; attempt <= 2; ++attempt) {
     if (cancellation_requested()) return false;
     TextResponse response;
@@ -1226,7 +1297,10 @@ bool ReactionAssetService::validate_manifest(
 bool ReactionAssetService::download_file(std::string_view url_view,
                                          const char* output_path,
                                          std::size_t expected_size,
-                                         std::string_view expected_sha256) const {
+                                         std::string_view expected_sha256,
+                                         std::span<std::uint8_t> memory) const {
+  const bool buffered = !memory.empty();
+  if (!expected_size || (buffered ? memory.size() != expected_size : !output_path)) return false;
   const std::string url(url_view);
   std::array<std::uint8_t, 32> expected{};
   if (!parse_sha256(expected_sha256, expected)) return false;
@@ -1253,8 +1327,8 @@ bool ReactionAssetService::download_file(std::string_view url_view,
     return false;
   }
   esp_http_client_set_timeout_ms(client, 2000);
-  FILE* file = std::fopen(output_path, "wb");
-  if (file == nullptr) {
+  FILE* file = buffered ? nullptr : std::fopen(output_path, "wb");
+  if (!buffered && file == nullptr) {
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
     return false;
@@ -1265,18 +1339,20 @@ bool ReactionAssetService::download_file(std::string_view url_view,
   struct HeapCapsDeleter {
     void operator()(std::uint8_t* pointer) const { heap_caps_free(pointer); }
   };
-  std::unique_ptr<std::uint8_t, HeapCapsDeleter> buffer(static_cast<std::uint8_t*>(
+  std::unique_ptr<std::uint8_t, HeapCapsDeleter> buffer(buffered ? nullptr : static_cast<std::uint8_t*>(
       heap_caps_malloc(4096, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
-  if (!buffer) valid = false;
+  if (!buffered && !buffer) valid = false;
   std::size_t received = 0;
   int consecutive_timeouts = 0;
+  const auto deadline = monotonic_ms() + (buffered ? 20'000 : 60'000);
   while (valid && received < expected_size) {
-    if (cancellation_requested()) {
+    if (cancellation_requested() || monotonic_ms() >= deadline) {
       valid = false;
       break;
     }
+    auto* destination = buffered ? memory.data() + received : buffer.get();
     const int bytes = esp_http_client_read(
-        client, reinterpret_cast<char*>(buffer.get()),
+        client, reinterpret_cast<char*>(destination),
         std::min<std::size_t>(4096, expected_size - received));
     if (bytes == -ESP_ERR_HTTP_EAGAIN) {
       if (++consecutive_timeouts <= 5) continue;
@@ -1288,10 +1364,11 @@ bool ReactionAssetService::download_file(std::string_view url_view,
       break;
     }
     consecutive_timeouts = 0;
-    valid = std::fwrite(buffer.get(), 1, static_cast<std::size_t>(bytes), file) ==
-                static_cast<std::size_t>(bytes) &&
-            mbedtls_sha256_update(&sha, buffer.get(), static_cast<std::size_t>(bytes)) == 0;
+    valid = (buffered || std::fwrite(destination, 1, static_cast<std::size_t>(bytes), file) ==
+                static_cast<std::size_t>(bytes)) &&
+            mbedtls_sha256_update(&sha, destination, static_cast<std::size_t>(bytes)) == 0;
     received += static_cast<std::size_t>(bytes);
+    if (buffered) vTaskDelay(1);
   }
   std::array<std::uint8_t, 32> actual{};
   valid = valid && received == expected_size &&
@@ -1300,11 +1377,11 @@ bool ReactionAssetService::download_file(std::string_view url_view,
   // Always close the staging file, including cancellation and checksum error
   // paths. Short-circuiting fclose when `valid` is already false leaves an
   // open LittleFS descriptor and prevents the staging tree from being removed.
-  const bool file_closed = std::fclose(file) == 0;
+  const bool file_closed = file == nullptr || std::fclose(file) == 0;
   valid = valid && file_closed;
   esp_http_client_close(client);
   esp_http_client_cleanup(client);
-  if (!valid) unlink(output_path);
+  if (!valid && !buffered) unlink(output_path);
   return valid;
 }
 
@@ -1364,6 +1441,7 @@ bool ReactionAssetService::load_active_manifest(const std::string& directory) {
   }
   const std::lock_guard<std::mutex> lock(mutex_);
   active_set_directory_ = directory;
+  catalog_revision_ = ~0U;
   sd_set_cache_ = std::move(images);
   current_present_.fill(true);
   current_sizes_ = sizes;
@@ -1436,6 +1514,7 @@ void ReactionAssetService::reaper_loop() {
       cleanup_followup_requested_ = false;
       if (run_followup) schedule_cleanup_locked();
     }
+    maybe_reconcile_catalog();
     maybe_start_profile_migration();
     maybe_check_storage();
   }
@@ -1530,8 +1609,88 @@ void ReactionAssetService::finish_cancelled_install() {
   refresh_storage_locked();
 }
 
+void ReactionAssetService::maybe_reconcile_catalog() {
+  if(background_blocked_ && background_blocked_(background_context_))return;
+  auto& catalog=SetCatalogService::instance();
+  if(!catalog.reaction_catalog_ready() || catalog.busy() || preview_in_use_.load())return;
+  const auto revision=catalog.revision();
+  const std::lock_guard lock(mutex_);
+  if(task_ || snapshot_.busy || snapshot_.sd_busy || !reaper_task_ ||
+      (revision==catalog_revision_ && monotonic_ms()<catalog_retry_ms_))return;
+  catalog_revision_=revision;catalog_retry_ms_=monotonic_ms()+5*60*1000;
+  catalog_reconcile_pending_=true;request_pending_.store(true);
+  snapshot_.busy=true;cancel_requested_.store(false);
+  if(xTaskCreatePinnedToCoreWithCaps(task_entry,"reaction_sync",6144,this,2,&task_,kServiceCore,
+      MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)!=pdPASS) {
+    task_=nullptr;snapshot_.busy=false;catalog_reconcile_pending_=false;request_pending_.store(false);
+  }
+}
+void ReactionAssetService::reconcile_catalog() {
+  const auto catalog=SetCatalogService::instance().sets(false);
+  const auto before=snapshot();
+  const auto action=core::reaction_catalog_action(catalog,before.active_set_id,before.active_set_version);
+  // Snapshot admission stops installation/uploads while decoders release their files.
+  if(action==core::CatalogAction::remove) {
+    {const std::lock_guard lock(mutex_);
+      current_present_.fill(false);current_sizes_.fill(0);sd_set_cache_={};
+      snapshot_.active_set_id.clear();snapshot_.active_set_name.clear();snapshot_.active_set_version.clear();
+      ++snapshot_.generation;refresh_set_preview_generations_locked();refresh_active_bytes_locked();
+      profile_migration_pending_=false;
+    }
+    if(release_active_ && !release_active_(release_context_)) {
+      const std::lock_guard lock(mutex_);snapshot_.busy=false;catalog_retry_ms_=monotonic_ms()+30000;return;
+    }
+  }
+  {
+    const std::lock_guard card(sd_set_storage().mutex);
+    const std::lock_guard mutation(filesystem_mutation_mutex_);
+    std::vector<std::string> roots{kRootPath};
+    if(!sd_set_storage().root.empty()) roots.push_back(sd_set_storage().root+"/reacts");
+    for(const auto& root:roots)for(const auto* suffix:{"/current","/previous","/staging"}) {
+      const auto directory=root+suffix;
+      std::vector<std::uint8_t> bytes;
+      if(!read_file(directory+(root.starts_with("/sdcard")?"/set.jsn":"/manifest.json"),kMaximumManifestBytes,bytes))continue;
+      cJSON* manifest=cJSON_ParseWithLength(reinterpret_cast<const char*>(bytes.data()),bytes.size());
+      const auto* id=manifest?cJSON_GetObjectItemCaseSensitive(manifest,"set"):nullptr;
+      if(!cJSON_IsString(id) && manifest)id=cJSON_GetObjectItemCaseSensitive(manifest,"id");
+      const bool removed=cJSON_IsString(id) && core::reaction_catalog_action(catalog,id->valuestring,"")==core::CatalogAction::remove;
+      if(manifest)cJSON_Delete(manifest);
+      if(removed && !remove_tree(directory.c_str())) ESP_LOGW(kTag,"Withdrawn reaction cleanup will retry");
+    }
+  }
+  if(action==core::CatalogAction::update) {
+    {const std::lock_guard lock(mutex_);
+      requested_set_=before.active_set_id;snapshot_.installing_set_id=before.active_set_id;
+      snapshot_.installing_set_name=before.active_set_name;snapshot_.cancellable=true;
+      snapshot_.request_id="catalog-"+std::to_string(SetCatalogService::instance().revision());
+      snapshot_.progress_percent=0;snapshot_.install_failed=false;
+    }
+    install_requested_set(before.active_set_id);
+  } else {
+    const std::lock_guard lock(mutex_);snapshot_.busy=false;refresh_storage_locked();
+  }
+}
+
 void ReactionAssetService::task_loop() {
   if (!request_pending_.exchange(false)) return;
+  bool reconcile;
+  {const std::lock_guard lock(mutex_);reconcile=catalog_reconcile_pending_;catalog_reconcile_pending_=false;}
+  if(reconcile) {reconcile_catalog();return;}
+  PreviewReady callback;
+  void* context;
+  std::string set, event, request;
+  { const std::lock_guard lock(mutex_);
+    callback = preview_ready_; context = preview_context_;
+    set = preview_set_; event = preview_event_; request = preview_request_;
+    preview_ready_ = nullptr;
+  }
+  if (callback) {
+    auto image = download_preview(set, event);
+    const bool ready = bool(image);
+    { const std::lock_guard lock(mutex_); preview_gif_ = std::move(image); }
+    callback(context, request, ready);
+    return;
+  }
   std::string id;
   {
     const std::lock_guard<std::mutex> lock(mutex_);
@@ -1637,29 +1796,114 @@ void ReactionAssetService::install_requested_set(std::string id) {
   std::uint64_t sd_total = 0, sd_free = 0;
   const bool room = on_sd ? (board_sd_status() == ESP_OK &&
       board_sd_space(&sd_total, &sd_free) == ESP_OK && total + manifest.size() + kSdSetReserveBytes <= sd_free) :
-      storage_has_room(total + manifest.size(), directory_size(kCurrentPath));
+      storage_has_room(total + manifest.size(), directory_size(kCurrentPath), true);
   if (!room) {
     fail("PrintDeck needs more free reaction storage to change sets safely.");
     return;
   }
-  ensure_directory(kStagingPath);
-  if (!write_text((std::string(kStagingPath) + (on_sd ? "/set.jsn" : "/manifest.json")).c_str(), manifest)) {
-    remove_tree(kStagingPath);
-    fail("PrintDeck could not prepare reaction storage.");
+  core::AssetDownloadBuffer download;
+  constexpr std::size_t kPsramReserve = 1024 * 1024;
+  // SD activation retains another complete image cache, so reserve it too.
+  const auto reserve = kPsramReserve + (on_sd ? total : 0);
+  download.prepare(total, *std::min_element(sizes.begin(), sizes.end()),
+      heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT),
+      heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT), reserve,
+      +[](std::size_t bytes) -> void* {
+        return heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+      }, heap_caps_free);
+  std::array<std::size_t, core::kReactionEventCount> offsets{};
+  std::array<bool, core::kReactionEventCount> buffered{};
+  std::size_t retained = 0, spill = 0;
+  for (std::size_t i = 0; i < sizes.size(); ++i) {
+    buffered[i] = !download.file(retained, sizes[i]).empty();
+    if (buffered[i]) { offsets[i] = retained; retained += sizes[i]; }
+    else spill += sizes[i];
+  }
+  ESP_LOGI(kTag, "Reaction download buffer: mode=%s RAM=%u disk=%u reserve=%u",
+      !spill ? "PSRAM-set" : retained ? "hybrid" : "stream",
+      static_cast<unsigned>(retained), static_cast<unsigned>(spill), static_cast<unsigned>(reserve));
+  bool current_discarded = false;
+  const auto discard_current = [&] {
+    if (current_discarded) return true;
+    const std::lock_guard mutation(filesystem_mutation_mutex_);
+    {
+      const std::lock_guard lock(mutex_);
+      current_present_.fill(false);
+      current_sizes_.fill(0);
+      sd_set_cache_ = {};
+      snapshot_.active_set_id.clear(); snapshot_.active_set_name.clear(); snapshot_.active_set_version.clear();
+      ++snapshot_.generation;
+      refresh_set_preview_generations_locked(); refresh_active_bytes_locked();
+    }
+    // Pausing an animation does not close its LittleFS descriptor. Wait for
+    // the display owner to close it before removing any current-set files.
+    if (release_active_ && !release_active_(release_context_)) {
+      ESP_LOGW(kTag, "Current reaction decoder did not release its files");
+      return false;
+    }
+    for (int attempt = 0; attempt < 20; ++attempt) {
+      if (remove_tree(kCurrentPath)) { current_discarded = true; return true; }
+      if (attempt == 0) ESP_LOGW(kTag, "Current reaction removal pending: errno=%d", errno);
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    return false;
+  };
+  const auto prepare_staging = [&] {
+    ensure_directory(kStagingPath);
+    return write_text((std::string(kStagingPath) + (on_sd ? "/set.jsn" : "/manifest.json")).c_str(), manifest);
+  };
+  const auto output_path = [&](std::size_t index) {
+    return std::string(kStagingPath) + "/" + (on_sd ? sd_reaction_filename(index) :
+        std::string(core::reaction_events()[index].id) + ".gif");
+  };
+  const auto stage_verified = [&](std::size_t index, std::span<const std::uint8_t> bytes) {
+    const auto path = output_path(index);
+    FILE* file = std::fopen(path.c_str(), "wb");
+    if (!file) return false;
+    bool written = true;
+    for (std::size_t offset = 0; offset < bytes.size();) {
+      const auto chunk = bytes.subspan(offset, std::min<std::size_t>(4096, bytes.size() - offset));
+      const auto write_started = esp_timer_get_time();
+      if (cancellation_requested() || std::fwrite(chunk.data(), 1, chunk.size(), file) != chunk.size()) {
+        written = false;
+        break;
+      }
+      offset += chunk.size();
+      // A RAM-backed download can write continuously; leave time for Live View
+      // and the core-0 idle task between flash writes.
+      const auto write_us = esp_timer_get_time() - write_started;
+      vTaskDelay(pdMS_TO_TICKS(std::clamp<std::int64_t>((write_us * 2 + 999) / 1000, 10, 250)));
+    }
+    const bool closed = std::fclose(file) == 0;
+    return written && closed;
+  };
+  const auto storage_failure = [&] {
+    if (cancellation_requested()) finish_cancelled_install();
+    else {
+      remove_tree(kStagingPath);
+      fail("PrintDeck could not prepare reaction storage.");
+    }
+  };
+  // Keep the current set during downloading when the disk spill fits. If it
+  // does not, release it first; built-in reactions remain available for retry.
+  if (spill && !on_sd && !storage_has_room(spill + manifest.size(), directory_size(kCurrentPath)) &&
+      !discard_current()) { storage_failure(); return; }
+  if (spill && !prepare_staging()) {
+    storage_failure();
     return;
   }
-  std::vector<std::uint8_t> gif;
   for (std::size_t index = 0; index < core::kReactionEventCount; ++index) {
     if (cancellation_requested()) {
       finish_cancelled_install();
       return;
     }
-    const std::string event(core::reaction_events()[index].id);
-    const std::string filename = event + ".gif";
-    const std::string url = set_asset_base_url() + id + "/" + filename;
-    const std::string output = std::string(kStagingPath) + "/" + (on_sd ? sd_reaction_filename(index) : filename);
-    if (!download_file(url, output.c_str(), sizes[index], hashes[index]) ||
-        !read_file(output, sizes[index], gif)) {
+    const std::string filename = std::string(core::reaction_events()[index].id) + ".gif";
+    const auto memory = buffered[index] ? download.file(offsets[index], sizes[index]) : std::span<std::uint8_t>{};
+    core::ReactionGif disk_gif;
+    const auto output = output_path(index);
+    if (!download_file(set_asset_base_url() + id + "/" + filename + "?v=" + version,
+                       memory.empty() ? output.c_str() : nullptr, sizes[index], hashes[index], memory) ||
+        (memory.empty() && !(disk_gif = core::ReactionGifBytes::read(output, sizes[index])))) {
       if (cancellation_requested()) {
         finish_cancelled_install();
         return;
@@ -1668,90 +1912,42 @@ void ReactionAssetService::install_requested_set(std::string id) {
       fail("A reaction GIF was incomplete or did not match its checksum.");
       return;
     }
+    const std::span<const std::uint8_t> bytes = memory.empty() ? std::span<const std::uint8_t>(*disk_gif) : memory;
     core::GifMetadata metadata;
-    if (!core::inspect_gif(gif, metadata)) {
+    if (!core::inspect_gif(bytes, metadata)) {
       remove_tree(kStagingPath);
       fail("A reaction GIF did not pass device validation.");
       return;
     }
     if (on_sd) {
-      images[index] = core::ReactionGifBytes::copy(gif);
-      if (!images[index]) {
-        remove_tree(kStagingPath);
-        fail("PrintDeck could not prepare reaction storage.");
-        return;
-      }
+      images[index] = core::ReactionGifBytes::copy(bytes);
+      if (!images[index]) { storage_failure(); return; }
     }
     const std::lock_guard<std::mutex> lock(mutex_);
-    snapshot_.progress_percent = static_cast<int>((index + 1) * 95 /
+    snapshot_.progress_percent = static_cast<int>((index + 1) * 80 /
                                                   core::kReactionEventCount);
     snapshot_.detail = "Downloading and validating reaction GIFs…";
   }
-  bool cancelled_before_activation = false;
   {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    cancelled_before_activation = cancellation_requested();
-    if (!cancelled_before_activation) {
-      snapshot_.cancellable = false;
-      snapshot_.detail = "Activating reaction set…";
+    const std::lock_guard lock(mutex_);
+    if (!cancellation_requested()) snapshot_.cancellable = false;
+  }
+  if (cancellation_requested()) { finish_cancelled_install(); return; }
+  ESP_LOGI(kTag, "Reaction download validated; replacing current set without rollback copy");
+  if (!discard_current() || !prepare_staging()) { storage_failure(); return; }
+  for (std::size_t index = 0; index < core::kReactionEventCount; ++index) {
+    if (buffered[index] && !stage_verified(index, download.file(offsets[index], sizes[index]))) {
+      storage_failure(); return;
     }
+    const std::lock_guard lock(mutex_);
+    snapshot_.progress_percent = 80 + static_cast<int>((index + 1) * 15 / core::kReactionEventCount);
+    snapshot_.detail = "Activating reaction set…";
   }
-  if (cancelled_before_activation) {
-    finish_cancelled_install();
-    return;
-  }
-  std::array<bool, core::kReactionEventCount> previous_present{};
+  download.reset();
   {
-    const std::lock_guard<std::mutex> mutation_lock(filesystem_mutation_mutex_);
-    const bool had_current = directory_exists(kCurrentPath);
-    if (had_current) {
-      {
-        const std::lock_guard<std::mutex> lock(mutex_);
-        previous_present = current_present_;
-        current_present_.fill(false);
-        ++snapshot_.generation;
-        refresh_active_bytes_locked();
-      }
-      // Let the LVGL task observe the empty source and close any decoder
-      // before the bounded directory swap begins.
-      vTaskDelay(pdMS_TO_TICKS(150));
-    }
-    if (had_current &&
-        !rename_with_busy_retry(kCurrentPath, kPreviousPath,
-                                "Preserving current reaction set")) {
+    const std::lock_guard mutation(filesystem_mutation_mutex_);
+    if (!rename_with_busy_retry(kStagingPath, kCurrentPath, "Activating downloaded reaction set")) {
       remove_tree(kStagingPath);
-      {
-        const std::lock_guard<std::mutex> lock(mutex_);
-        current_present_ = previous_present;
-        ++snapshot_.generation;
-        refresh_active_bytes_locked();
-      }
-      fail("The current reaction set could not be preserved.");
-      return;
-    }
-    if (!rename_with_busy_retry(kStagingPath, kCurrentPath,
-                                "Activating staged reaction set")) {
-      bool rollback_ok = true;
-      if (had_current) {
-        rollback_ok = rename_with_busy_retry(kPreviousPath, kCurrentPath,
-                                             "Restoring current reaction set");
-      }
-      remove_tree(kStagingPath);
-      if (rollback_ok) {
-        const std::lock_guard<std::mutex> lock(mutex_);
-        current_present_ = previous_present;
-        ++snapshot_.generation;
-        refresh_active_bytes_locked();
-      } else {
-        const std::lock_guard<std::mutex> lock(mutex_);
-        current_present_.fill(false);
-        snapshot_.active_set_id.clear();
-        snapshot_.active_set_name.clear();
-        snapshot_.active_set_version.clear();
-        ++snapshot_.generation;
-        refresh_set_preview_generations_locked();
-        refresh_active_bytes_locked();
-      }
       fail("The new reaction set could not be activated.");
       return;
     }
@@ -1773,16 +1969,6 @@ void ReactionAssetService::install_requested_set(std::string id) {
     refresh_set_preview_generations_locked();
     refresh_active_bytes_locked();
     refresh_storage_locked();
-  }
-  // Publish the new generation before deleting the rollback directory. This
-  // gives LVGL and browser readers time to close descriptors that still refer
-  // to files moved under `previous` during the atomic directory swap.
-  vTaskDelay(pdMS_TO_TICKS(1000));
-  {
-    const std::lock_guard<std::mutex> mutation_lock(filesystem_mutation_mutex_);
-    if (!remove_tree(kPreviousPath)) {
-      ESP_LOGW(kTag, "Old reaction set cleanup deferred until the next restart");
-    }
   }
   {
     const std::lock_guard<std::mutex> lock(mutex_);

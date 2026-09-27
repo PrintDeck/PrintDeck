@@ -31,6 +31,7 @@ set(PRINTDECK_SRCS
         "src/platform/embedded_resources.cpp"
         "src/platform/reaction_cover.cpp"
         "src/platform/runtime.cpp"
+        "src/platform/cpu_load.cpp"
         "src/platform/display_shell.cpp"
         "src/platform/lvgl_thread_affinity.cpp"
         "src/platform/printer_animation_renderer.cpp"

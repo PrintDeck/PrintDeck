@@ -176,7 +176,7 @@ struct DeviceCommand {
 // Shared by Cloud transport and its Web Config executor; neither adapter may
 // advertise delivery of a reaction control that the other silently rejects.
 inline bool cloud_reaction_control(std::string_view action) {
-  return action == "device.reactions.patch" || action == "reactions.event.set" ||
+  return action == "reactions.event.try" || action == "device.reactions.patch" || action == "reactions.event.set" ||
       action == "reactions.event.reset" || action == "reactions.storage.set" ||
       action == "reactions.storage.check" ||
       action == "reactions.set.install" || action == "reactions.set.cancel";

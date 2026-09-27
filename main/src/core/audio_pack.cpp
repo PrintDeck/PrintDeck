@@ -20,19 +20,20 @@ const AudioPackEntry* AudioPackIndex::find(std::string_view key) const {
   return nullptr;
 }
 
-bool read_audio_pack_index(std::FILE* file, std::size_t bytes, AudioPackIndex& index) {
+namespace {
+template <typename Read>
+bool parse_index(std::size_t bytes, AudioPackIndex& index, Read read) {
   index.count = 0;
-  if (file == nullptr || bytes < kAudioPackHeaderBytes ||
-      bytes > kAudioPackMaximumBytes || std::fseek(file, 0, SEEK_SET) != 0) return false;
+  if (bytes < kAudioPackHeaderBytes || bytes > kAudioPackMaximumBytes) return false;
   std::array<std::uint8_t, kAudioPackEntryBytes> buffer{};
-  if (std::fread(buffer.data(), 1, kAudioPackHeaderBytes, file) != kAudioPackHeaderBytes ||
+  if (!read(buffer.data(), kAudioPackHeaderBytes) ||
       std::memcmp(buffer.data(), "PDAUDIO2", 8) != 0) return false;
   const std::size_t count = little32(buffer.data() + 8);
   if (count == 0 || count > kAudioPackMaximumEntries) return false;
   std::size_t next = kAudioPackHeaderBytes + count * kAudioPackEntryBytes;
   if (next > bytes) return false;
   for (std::size_t i = 0; i < count; ++i) {
-    if (std::fread(buffer.data(), 1, buffer.size(), file) != buffer.size()) return false;
+    if (!read(buffer.data(), buffer.size())) return false;
     const auto terminator = std::find(buffer.begin(), buffer.begin() + 64, 0);
     if (terminator == buffer.begin() || terminator == buffer.begin() + 64) return false;
     for (auto p = buffer.begin(); p != terminator; ++p) {
@@ -55,6 +56,26 @@ bool read_audio_pack_index(std::FILE* file, std::size_t bytes, AudioPackIndex& i
   if (next != bytes) return false;
   index.count = count;
   return true;
+}
+
+}  // namespace
+
+bool read_audio_pack_index(std::FILE* file, std::size_t bytes, AudioPackIndex& index) {
+  index.count = 0;
+  if (!file || std::fseek(file, 0, SEEK_SET) != 0) return false;
+  return parse_index(bytes, index, [file](std::uint8_t* output, std::size_t size) {
+    return std::fread(output, 1, size, file) == size;
+  });
+}
+
+bool read_audio_pack_index(std::span<const std::uint8_t> bytes, AudioPackIndex& index) {
+  std::size_t offset = 0;
+  return parse_index(bytes.size(), index, [&](std::uint8_t* output, std::size_t size) {
+    if (size > bytes.size() - offset) return false;
+    std::memcpy(output, bytes.data() + offset, size);
+    offset += size;
+    return true;
+  });
 }
 
 }  // namespace printdeck::core

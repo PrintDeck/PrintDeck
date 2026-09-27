@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <dirent.h>
+#include <mutex>
 #include <sys/stat.h>
 #ifdef ESP_PLATFORM
 #include "esp_littlefs.h"
@@ -13,7 +14,17 @@
 
 namespace printdeck::platform {
 namespace {
+std::mutex cache_mutex;
+unsigned asset_writers = 0;
+PrintPreviewCache::Transfer* pending_transfers = nullptr;
 constexpr std::uint32_t kMagic = 0x31565050;
+bool owned_cache_file(std::string_view name) {
+  if (!((name.size() == 20 && name.ends_with(".bin")) ||
+        (name.size() == 25 && name.ends_with(".bin.part")))) return false;
+  return std::all_of(name.begin(), name.begin() + 16, [](char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+  });
+}
 struct Header { std::uint32_t magic, size; std::uint64_t identity, checksum; };
 std::uint64_t hash(std::span<const std::uint8_t> bytes) {
   std::uint64_t result = 14695981039346656037ULL;
@@ -39,9 +50,35 @@ bool read_header(FILE* file, std::string_view key, Header& header) {
 }
 }
 
+PrintPreviewCache::AssetWriteGuard::AssetWriteGuard() {
+  const std::lock_guard lock(cache_mutex);
+  ++asset_writers;
+  // Close partial writers before measuring or reclaiming flash. The service
+  // still owns its image and publishes it from RAM when the transfer fails.
+  for (auto* transfer = pending_transfers; transfer;) {
+    auto* next = transfer->next_transfer_;
+    if (!transfer->input_.empty()) transfer->cancel_locked();
+    transfer = next;
+  }
+}
+
+PrintPreviewCache::AssetWriteGuard::~AssetWriteGuard() {
+  const std::lock_guard lock(cache_mutex);
+  --asset_writers;
+}
+
 PrintPreviewCache::Transfer::~Transfer() { cancel(); }
 
 void PrintPreviewCache::Transfer::cancel() {
+  const std::lock_guard lock(cache_mutex);
+  cancel_locked();
+}
+
+void PrintPreviewCache::Transfer::cancel_locked() {
+  auto** transfer = &pending_transfers;
+  while (*transfer && *transfer != this) transfer = &(*transfer)->next_transfer_;
+  if (*transfer) *transfer = next_transfer_;
+  next_transfer_ = nullptr;
   if (file_) { std::fclose(file_); file_ = nullptr; }
   if (directory_handle_) { closedir(directory_handle_); directory_handle_ = nullptr; }
   if (owns_staging_) std::remove(staging_.c_str());
@@ -52,13 +89,15 @@ void PrintPreviewCache::Transfer::cancel() {
 }
 
 PrintPreviewCache::Transfer::Result PrintPreviewCache::Transfer::fail() {
-  cancel();
+  cancel_locked();
   return Result::failed;
 }
 
 void PrintPreviewCache::Transfer::begin_write(const PrintPreviewCache& cache,
     std::string_view key, std::span<const std::uint8_t> bytes) {
-  cancel();
+  const std::lock_guard lock(cache_mutex);
+  cancel_locked();
+  if (asset_writers) return;
   if (key.empty() || bytes.size() > kMaximumBytes || !valid_image(bytes)) return;
   directory_ = cache.directory_;
   destination_ = cache.path(key);
@@ -68,21 +107,28 @@ void PrintPreviewCache::Transfer::begin_write(const PrintPreviewCache& cache,
   offset_ = used_ = 0;
   input_ = bytes;
   stage_ = Stage::prepare;
+  next_transfer_ = pending_transfers;
+  pending_transfers = this;
 }
 
 void PrintPreviewCache::Transfer::begin_read(const PrintPreviewCache& cache,
     std::string_view key, std::span<std::uint8_t> bytes) {
-  cancel();
+  const std::lock_guard lock(cache_mutex);
+  cancel_locked();
   if (key.empty() || bytes.size() < 33 || bytes.size() > kMaximumBytes) return;
+  directory_ = cache.directory_;
   destination_ = cache.path(key);
   identity_ = identity(key);
   checksum_ = 14695981039346656037ULL;
   offset_ = 0;
   output_ = bytes;
   stage_ = Stage::open_read;
+  next_transfer_ = pending_transfers;
+  pending_transfers = this;
 }
 
 PrintPreviewCache::Transfer::Result PrintPreviewCache::Transfer::step() {
+  const std::lock_guard lock(cache_mutex);
   switch (stage_) {
     case Stage::idle: return Result::failed;
     case Stage::prepare:
@@ -153,8 +199,7 @@ PrintPreviewCache::Transfer::Result PrintPreviewCache::Transfer::step() {
       file_ = nullptr;
       if (!closed || std::rename(staging_.c_str(), destination_.c_str()) != 0) return fail();
       owns_staging_ = false;
-      stage_ = Stage::idle;
-      input_ = {};
+      cancel_locked();
       return Result::complete;
     }
     case Stage::open_read: {
@@ -176,7 +221,7 @@ PrintPreviewCache::Transfer::Result PrintPreviewCache::Transfer::step() {
       offset_ += bytes.size();
       if (offset_ != output_.size()) return Result::pending;
       if (!valid_image(output_) || checksum_ != expected_checksum_) return fail();
-      cancel();
+      cancel_locked();
       return Result::complete;
     }
   }
@@ -191,6 +236,7 @@ std::string PrintPreviewCache::path(std::string_view key) const {
 }
 
 std::size_t PrintPreviewCache::size(std::string_view key) const {
+  const std::lock_guard lock(cache_mutex);
   if (key.empty()) return 0;
   FILE* file = std::fopen(path(key).c_str(), "rb");
   Header header{};
@@ -200,6 +246,7 @@ std::size_t PrintPreviewCache::size(std::string_view key) const {
 }
 
 bool PrintPreviewCache::read(std::string_view key, std::span<std::uint8_t> bytes) const {
+  const std::lock_guard lock(cache_mutex);
   if (key.empty()) return false;
   FILE* file = std::fopen(path(key).c_str(), "rb");
   Header header{};
@@ -220,9 +267,35 @@ bool PrintPreviewCache::write(std::string_view key,
 }
 
 void PrintPreviewCache::remove(std::string_view key) const {
+  const std::lock_guard lock(cache_mutex);
   if (key.empty()) return;
   const std::string filename = path(key);
   std::remove(filename.c_str());
   std::remove((filename + ".part").c_str());
+}
+
+std::size_t PrintPreviewCache::reclaim() const {
+  const std::lock_guard lock(cache_mutex);
+  if (!asset_writers) return 0;
+  // LittleFS refuses to unlink files with open descriptors. Cancel any cache
+  // reads only when reclamation is needed, so admission does not depend on the
+  // preview worker finishing a read first. It can fetch that thumbnail again.
+  for (auto* transfer = pending_transfers; transfer;) {
+    auto* next = transfer->next_transfer_;
+    if (transfer->directory_ == directory_) transfer->cancel_locked();
+    transfer = next;
+  }
+  DIR* directory = opendir(directory_.c_str());
+  if (!directory) return 0;
+  std::size_t removed = 0;
+  while (const auto* entry = readdir(directory)) {
+    if (!owned_cache_file(entry->d_name)) continue;
+    const auto candidate = directory_ + "/" + entry->d_name;
+    struct stat info{};
+    if (stat(candidate.c_str(), &info) == 0 && S_ISREG(info.st_mode) &&
+        std::remove(candidate.c_str()) == 0) removed += info.st_size;
+  }
+  closedir(directory);
+  return removed;
 }
 }  // namespace printdeck::platform

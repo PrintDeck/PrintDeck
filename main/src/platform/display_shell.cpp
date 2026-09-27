@@ -6,6 +6,7 @@
 #include "printdeck/core/power_button.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/display_shell.hpp"
+#include "printdeck/platform/cpu_load.hpp"
 #include "printdeck/platform/display_snapshot.hpp"
 #include "printdeck/platform/live_view_png.hpp"
 
@@ -1729,6 +1730,7 @@ void DisplayShell::quick_menu_action_async(void* context) {
   else if (action == 6) shell->show_set_overlay(true);
   else if (action == 7) shell->start_selected_set();
   else if (action == 8) shell->update_set_carousel_page();
+  else if (action == 9) shell->show_set_overlay(shell->set_picker_audio_, shell->set_picker_family_, false);
 }
 
 void DisplayShell::request_theme_selection(const char* theme) {
@@ -1988,7 +1990,8 @@ void DisplayShell::show_set_overlay(bool audio, std::string family, bool select_
   lv_obj_clean(quick_overlay_);set_picker_ids_.clear();set_picker_versions_.clear();
   set_active_badges_.clear();set_cancel_pending_=false;set_was_busy_=false;set_success_visible_=false;set_picker_gesture_.cancel();
   set_capture_overlay_name(audio?"audio-sets":set_picker_family_.empty()?"reaction-sets":"reaction-colors");
-  SetCatalogService::instance().request_refresh();
+  if(select_active)SetCatalogService::instance().request_refresh();
+  set_catalog_revision_=SetCatalogService::instance().revision();
   const bool large=kDisplayUsesLargeLayout;
   const bool carousel=!audio && set_picker_family_.empty();
   // The overlay survives navigation; never accumulate callbacks on reopening.
@@ -2254,6 +2257,17 @@ void DisplayShell::update_set_carousel_page() {
 
 void DisplayShell::start_selected_set() {
   if(set_picker_selected_.empty())return;
+  if (!set_picker_audio_ && reaction_assets_) {
+    const auto state = reaction_assets_->snapshot();
+    const auto catalog = ReactionAssetService::sets();
+    const auto selected = std::find_if(catalog.begin(), catalog.end(), [&](const auto& set) {
+      return set.id == set_picker_selected_;
+    });
+    // Keep carousel swipes and family colour navigation available, but ignore
+    // taps that would download the installed version again.
+    if (state.active_set_id == set_picker_selected_ && selected != catalog.end() &&
+        state.active_set_version == selected->version) return;
+  }
   if(set_picker_audio_) {
     const auto state=AudioSetService::instance().snapshot();
     const auto catalog=SetCatalogService::instance().sets(true);
@@ -2293,6 +2307,11 @@ void DisplayShell::update_set_overlay() {
     else if(failed && state.detail=="Another set download is in progress.")error="transfer_busy";
   }
   if (!busy) set_cancel_pending_ = false;
+  if(!busy && pending_quick_menu_action_==-1 && set_catalog_revision_!=SetCatalogService::instance().revision()) {
+    pending_quick_menu_action_=9;
+    if(lv_async_call(quick_menu_action_async,this)!=LV_RESULT_OK)pending_quick_menu_action_=-1;
+    return;
+  }
   if (set_cancel_pending_) lv_obj_add_state(set_cancel_button_, LV_STATE_DISABLED);
   else lv_obj_remove_state(set_cancel_button_, LV_STATE_DISABLED);
   if(set_was_busy_ && !busy && !failed && progress==100) {
@@ -4152,6 +4171,151 @@ void DisplayShell::update_printer_animation(const core::JobState& job) {
   render_printer_animation_frame();
 }
 
+DisplayShell::ReactionTryState DisplayShell::reaction_try_state() const {
+  const std::lock_guard lock(reaction_try_mutex_);
+  auto state = reaction_try_state_;
+  if (state.status == "playing") state.remaining_ms = static_cast<std::uint32_t>(
+      std::max<std::int64_t>(0, (reaction_try_until_us_ - esp_timer_get_time()) / 1000));
+  return state;
+}
+
+bool DisplayShell::request_reaction_try(std::string_view event, std::string_view request_id, std::string_view set) {
+  if (!core::reaction_event(event) || !reaction_assets_) return false;
+  // A redelivered command only acknowledges the existing preview. It must not
+  // compete with GIF rendering for the display lock or restart its timer.
+  {
+    const std::lock_guard lock(reaction_try_mutex_);
+    if (reaction_try_state_.request_id == request_id)
+      return reaction_try_state_.event == event && reaction_try_state_.set == set;
+    if (reaction_try_active_.load()) return false;
+  }
+  const auto assets = reaction_assets_->snapshot();
+  if (!assets.available || assets.busy || assets.sd_busy) return false;
+  if (board_display_lock(100) != ESP_OK) return false;
+  if (configuration_backup_overlay_ != nullptr) { board_display_unlock(); return false; }
+  bool accepted = false;
+  {
+    const std::lock_guard lock(reaction_try_mutex_);
+    if (reaction_try_state_.request_id == request_id) accepted = reaction_try_state_.event == event && reaction_try_state_.set == set;
+    else if (!reaction_try_active_.load()) {
+      reaction_try_state_ = {std::string(request_id), std::string(event), "loading", 0, std::string(set)};
+      reaction_try_active_.store(true);
+      reaction_assets_->set_preview_active(true);
+      accepted = set.empty() ? lv_async_call(reaction_try_start, this) == LV_RESULT_OK
+          : reaction_assets_->request_preview(set,event,request_id,reaction_preview_ready,this);
+      if (!accepted) { reaction_try_state_.status = "failed"; reaction_try_active_.store(false); reaction_assets_->set_preview_active(false); }
+    }
+  }
+  board_display_unlock();
+  if (accepted) reset_inactivity_and_wake("reaction preview");
+  return accepted;
+}
+
+void DisplayShell::reaction_preview_ready(void* context, std::string_view request, bool ready) {
+  auto* shell = static_cast<DisplayShell*>(context);
+  if (board_display_lock(1000) != ESP_OK) {
+    const std::lock_guard lock(shell->reaction_try_mutex_);
+    shell->reaction_try_state_.status = "failed"; shell->reaction_try_active_.store(false);
+    shell->reaction_assets_->clear_preview(); shell->reaction_assets_->set_preview_active(false); return;
+  }
+  const auto state = shell->reaction_try_state();
+  if (state.request_id != request || state.status != "loading" || !ready ||
+      lv_async_call(reaction_try_start, shell) != LV_RESULT_OK) {
+    shell->close_reaction_try("failed");
+  }
+  board_display_unlock();
+}
+
+void DisplayShell::reaction_try_start(void* context) {
+  auto* shell = static_cast<DisplayShell*>(context);
+  const auto state = shell->reaction_try_state();
+  if (state.status != "loading") return;
+  const auto assets = shell->reaction_assets_->snapshot();
+  const auto* event = core::reaction_event(state.event);
+  if (!event || assets.busy || assets.sd_busy) { shell->close_reaction_try("failed"); return; }
+  const auto path = state.set.empty() ? shell->reaction_assets_->effective_lvgl_path(event->activity, true) : std::string("S:preview");
+  if (path.empty()) { shell->close_reaction_try("failed"); return; }
+  shell->reaction_try_previous_overlay_ = shell->capture_overlay_name_;
+  shell->reaction_try_overlay_ = lv_obj_create(lv_layer_top());
+  auto* overlay = shell->reaction_try_overlay_;
+  lv_obj_set_size(overlay, LV_PCT(100), LV_PCT(100));
+  lv_obj_center(overlay);
+  lv_obj_set_style_bg_color(overlay, lv_color_black(), 0);
+  lv_obj_set_style_bg_opa(overlay, LV_OPA_COVER, 0);
+  lv_obj_set_style_border_width(overlay, 0, 0);
+  lv_obj_set_style_radius(overlay, 0, 0);
+  lv_obj_set_style_pad_all(overlay, 0, 0);
+  lv_obj_remove_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
+  shell->suspend_visual_updates(true);
+  auto* gif = lv_gif_create(overlay);
+  lv_gif_set_src(gif, path.c_str());
+  if (!lv_gif_is_loaded(gif)) { lv_gif_pause(gif); shell->close_reaction_try("failed"); return; }
+  const int width = std::max<int>(1, lv_obj_get_width(gif));
+  const int height = std::max<int>(1, lv_obj_get_height(gif));
+  lv_image_set_scale(gif, std::min<int>(LV_SCALE_NONE,
+      std::min(kDisplayWidth * LV_SCALE_NONE / width, kDisplayHeight * LV_SCALE_NONE / height)));
+  lv_obj_center(gif);
+  shell->set_capture_overlay_name("reaction-preview");
+  shell->reaction_try_timer_ = lv_timer_create(reaction_try_finish, 5000, shell);
+  if (!shell->reaction_try_timer_) { shell->close_reaction_try("failed"); return; }
+  const std::lock_guard lock(shell->reaction_try_mutex_);
+  shell->reaction_try_until_us_ = esp_timer_get_time() + 5000000;
+  shell->reaction_try_state_.status = "playing";
+  if(shell->reaction_try_changed_)shell->reaction_try_changed_(shell->reaction_try_context_);
+}
+
+void DisplayShell::reaction_try_finish(lv_timer_t* timer) {
+  static_cast<DisplayShell*>(lv_timer_get_user_data(timer))->close_reaction_try("finished");
+}
+
+void DisplayShell::close_reaction_try(const char* status) {
+  if (reaction_try_timer_) lv_timer_delete(reaction_try_timer_);
+  reaction_try_timer_ = nullptr;
+  if (reaction_try_overlay_) {
+    lv_obj_delete(reaction_try_overlay_);
+    reaction_try_overlay_ = nullptr;
+    capture_overlay_name_ = reaction_try_previous_overlay_;
+  }
+  { const std::lock_guard lock(reaction_try_mutex_);
+    reaction_try_state_.status = status;
+    reaction_try_state_.remaining_ms = 0;
+    reaction_try_active_.store(false);
+  }
+  reaction_assets_->clear_preview();
+  reaction_assets_->set_preview_active(false);
+  if(reaction_try_changed_)reaction_try_changed_(reaction_try_context_);
+  suspend_visual_updates(false);
+}
+
+bool DisplayShell::release_reaction_files() {
+  if (board_display_lock(500) != ESP_OK) return false;
+  reaction_files_release_pending_.store(true);
+  const auto result = lv_async_call(+[](void* context) {
+    auto* shell = static_cast<DisplayShell*>(context);
+    if (shell->printer_animation_gif_ && lv_obj_is_valid(shell->printer_animation_gif_)) {
+      lv_gif_set_src(shell->printer_animation_gif_, nullptr);
+      // LVGL resumes the GIF timer while closing its old source. A null
+      // replacement must never let that timer run against a closed decoder.
+      lv_gif_pause(shell->printer_animation_gif_);
+      lv_obj_add_flag(shell->printer_animation_gif_, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (shell->reaction_try_active_.load()) shell->close_reaction_try("failed");
+    shell->printer_animation_gif_path_.clear();
+    shell->printer_animation_asset_generation_ = 0xffffffffU;
+    shell->reaction_files_release_pending_.store(false, std::memory_order_release);
+  }, this);
+  board_display_unlock();
+  if (result != LV_RESULT_OK) {
+    reaction_files_release_pending_.store(false);
+    return false;
+  }
+  for (unsigned attempt = 0; attempt < 500; ++attempt) {
+    if (!reaction_files_release_pending_.load(std::memory_order_acquire)) return true;
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  return false;
+}
+
 bool DisplayShell::update_printer_animation_source() {
   if (printer_animation_gif_ == nullptr || !lv_obj_is_valid(printer_animation_gif_) ||
       reaction_assets_ == nullptr) return false;
@@ -4188,8 +4352,8 @@ bool DisplayShell::update_printer_animation_source() {
     // worker intentionally uses a PSRAM stack, so defer the open to LVGL's
     // core-1 task, whose stack is internal RAM. The decoder's later reads
     // then remain on that same safe task as well.
-    if (!printer_animation_gif_path_.empty() &&
-        !printer_animation_source_pending_) {
+    if (!printer_animation_source_pending_ &&
+        (!path.empty() || lv_gif_is_loaded(printer_animation_gif_))) {
       printer_animation_source_pending_ = true;
       if (lv_async_call(printer_animation_source_async, this) != LV_RESULT_OK) {
         printer_animation_source_pending_ = false;
@@ -4246,7 +4410,7 @@ void DisplayShell::printer_animation_source_async(void* context) {
   shell->printer_animation_source_pending_ = false;
   if (shell->printer_animation_gif_ == nullptr ||
       !lv_obj_is_valid(shell->printer_animation_gif_)) return;
-  if (shell->visual_updates_suspended()) {
+  if (shell->visual_updates_suspended() && !shell->printer_animation_gif_path_.empty()) {
     shell->printer_animation_asset_generation_ = 0xffffffffU;
     return;
   }
@@ -4262,6 +4426,7 @@ void DisplayShell::printer_animation_source_async(void* context) {
     shell->printer_animation_native_height_ =
         std::max<int>(1, lv_obj_get_height(shell->printer_animation_gif_));
   } else {
+    lv_gif_pause(shell->printer_animation_gif_);
     shell->printer_animation_native_width_ = 0;
     shell->printer_animation_native_height_ = 0;
   }
@@ -6969,7 +7134,7 @@ void DisplayShell::show_system_details(const NetworkStatus& network, const Power
     detail_label_ = label("", &lv_font_montserrat_16, theme_style_.text_muted, 330,
                           LV_ALIGN_TOP_MID, 0, 190);
 
-    const char* captions[4] = {"DEVICE TEMP", "INTERNAL", "PSRAM", "SOUND"};
+    const char* captions[4] = {"DEVICE TEMP", "INTERNAL", "PSRAM", "CPU"};
     const std::uint32_t colors[4] = {theme_colors_.paused, theme_style_.accent_secondary,
                                      theme_style_.accent, theme_colors_.preparing};
     std::array<lv_obj_t*, 4> values{};
@@ -7064,7 +7229,9 @@ void DisplayShell::show_system_details(const NetworkStatus& network, const Power
   char psram_text[24]{};
   std::snprintf(psram_text, sizeof(psram_text), "%.1f MB", static_cast<double>(psram_mb));
   lv_label_set_text(progress_label_, psram_text);
-  lv_label_set_text_fmt(active_accent_label_, "%d%%", audio_enabled_ ? audio_volume_ : 0);
+  const auto cpu = cpu_load_snapshot();
+  if (cpu.available) lv_label_set_text_fmt(active_accent_label_, "%u%%", cpu.percent);
+  else lv_label_set_text(active_accent_label_, "--");
   const std::uint64_t uptime_seconds = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000000ULL;
   lv_label_set_text_fmt(clock_date_label_, "%s %lluh %02llum", tr("UPTIME"),
                         static_cast<unsigned long long>(uptime_seconds / 3600ULL),
@@ -8753,7 +8920,7 @@ bool DisplayShell::automatic_shutdown_due(bool on_battery, bool keep_awake,
 }
 
 bool DisplayShell::visual_updates_suspended() const {
-  return content_hidden() || (quick_overlay_ != nullptr && lv_obj_is_valid(quick_overlay_) &&
+  return reaction_try_active_.load() || content_hidden() || (quick_overlay_ != nullptr && lv_obj_is_valid(quick_overlay_) &&
                              !lv_obj_has_flag(quick_overlay_, LV_OBJ_FLAG_HIDDEN));
 }
 

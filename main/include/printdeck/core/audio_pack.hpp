@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <span>
 #include <string_view>
 
 namespace printdeck::core {
@@ -30,6 +31,7 @@ struct AudioPackIndex {
 // Reads only the bounded index. The installer must also verify the whole-file
 // digest and each gzip/PDIA payload before making a package active.
 bool read_audio_pack_index(std::FILE* file, std::size_t bytes, AudioPackIndex& index);
+bool read_audio_pack_index(std::span<const std::uint8_t> bytes, AudioPackIndex& index);
 
 // Admission follows the largest published package, leaving expansion room for
 // the current multilingual Voice. The hard package/storage ceilings stay fixed.
@@ -44,6 +46,13 @@ constexpr bool asset_replacement_fits(std::size_t total,std::size_t used,
   const auto during=total-used-requested;
   if(during<safety)return false;
   return during-safety+reclaimed>=reserve;
+}
+
+// Direct replacement removes the current files before writing the RAM buffer.
+constexpr bool asset_direct_install_fits(std::size_t total, std::size_t used,
+    std::size_t requested, std::size_t discarded, std::size_t reserve, std::size_t safety) {
+  return discarded <= used && used <= total &&
+      asset_replacement_fits(total, used - discarded, requested, 0, reserve, safety);
 }
 
 // Reaction writes must leave the unused part of the audio budget available.

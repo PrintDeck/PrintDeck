@@ -666,6 +666,13 @@ body.has-live-dock dialog:modal{margin-bottom:var(--live-dock-clearance)}
 #audio-sets-picker .appearance-saving>.appearance-card-wait{display:grid}
 #audio-sets-picker .appearance-card-wait:after{content:"";width:44px;height:44px;box-sizing:border-box;border:4px solid color-mix(in srgb,var(--accent) 22%,transparent);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @media(prefers-reduced-motion:reduce){#audio-sets-picker .appearance-card-wait:after{animation:none}}
+.reaction-event-head{align-items:flex-start}.reaction-event-controls{display:flex;flex-direction:column;align-items:flex-end;gap:8px}.reaction-try{min-width:96px;min-height:34px;padding:6px 9px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px}.reaction-try.busy:before{content:"";width:12px;height:12px;flex:0 0 12px;border:2px solid var(--line);border-top-color:currentColor;border-radius:50%;animation:spin .75s linear infinite}
+.reaction-try[aria-busy="true"]{opacity:1;color:var(--accent)}
+
+.browser-preview .reaction-toggle,.browser-preview .actions,.reaction-installed[hidden]{display:none!important}
+.reaction-install-action>.secondary{margin-bottom:10px}
+
+@media(max-width:600px){.reaction-event-head{display:block!important}.reaction-event-head>strong{display:block;white-space:normal!important;overflow:visible!important;max-width:100%!important;width:auto!important}.reaction-event-controls{align-items:flex-start;margin-top:8px}}
 </style>
 
 
@@ -971,7 +978,7 @@ class Viewer{
           <p class="status busy" id="reaction-sd-working" role="status" hidden>Updating reaction storage…</p><p class="status error" id="reaction-sd-error" role="alert"></p>
         </article>
         <div class="reaction-detail">
-          <article class="card"><div class="section-head reaction-events-head"><div><h2 id="reaction-events-heading">Reaction events</h2><p class="micro">Customize individual events in your installed set.</p></div><div class="reaction-resources" aria-label="Useful GIF resources"><span class="reaction-resources-label">Useful GIF resources</span><a class="reaction-resource-link" data-source="giphy" href="https://giphy.com/" target="_blank" rel="noopener noreferrer" aria-label="Open GIPHY"><span class="reaction-resource-mark" aria-hidden="true">G</span><span>GIPHY</span><span aria-hidden="true">↗</span></a><a class="reaction-resource-link" data-source="tenor" href="https://tenor.com/search/free-gifs" target="_blank" rel="noopener noreferrer" aria-label="Open Tenor"><span class="reaction-resource-mark" aria-hidden="true">T</span><span>Tenor</span><span aria-hidden="true">↗</span></a><small>Check reuse rights for each GIF.</small></div></div><fieldset class="reaction-event-grid" id="reaction-event-grid" aria-labelledby="reaction-events-heading" aria-busy="true" disabled><div class="reaction-loading" id="reaction-event-loading" role="status"><span class="reaction-loading-spinner" aria-hidden="true"></span><span>Loading reaction events…</span></div></fieldset><p class="micro reaction-upload-help">Replace the image shown for any printer event, or stop PrintDeck from showing a reaction for that event. Supported formats: GIF, PNG, JPEG, WebP, AVIF and BMP; HEIC and HEIF when supported by your browser. Drag and drop a file onto a reaction slot.</p><p class="status" id="reaction-event-status"></p></article>
+          <article class="card"><div class="section-head reaction-events-head"><div><h2 id="reaction-events-heading">Reaction events</h2><p class="micro" id="reaction-events-description">Customize individual events in your installed set.</p><p id="reaction-browser-notice" class="micro" hidden></p><button id="reaction-browser-back" class="secondary" type="button" hidden>Back to installed set</button></div><div class="reaction-resources" aria-label="Useful GIF resources"><span class="reaction-resources-label">Useful GIF resources</span><a class="reaction-resource-link" data-source="giphy" href="https://giphy.com/" target="_blank" rel="noopener noreferrer" aria-label="Open GIPHY"><span class="reaction-resource-mark" aria-hidden="true">G</span><span>GIPHY</span><span aria-hidden="true">↗</span></a><a class="reaction-resource-link" data-source="tenor" href="https://tenor.com/search/free-gifs" target="_blank" rel="noopener noreferrer" aria-label="Open Tenor"><span class="reaction-resource-mark" aria-hidden="true">T</span><span>Tenor</span><span aria-hidden="true">↗</span></a><small>Check reuse rights for each GIF.</small></div></div><fieldset class="reaction-event-grid" id="reaction-event-grid" aria-labelledby="reaction-events-heading" aria-busy="true" disabled><div class="reaction-loading" id="reaction-event-loading" role="status"><span class="reaction-loading-spinner" aria-hidden="true"></span><span>Loading reaction events…</span></div></fieldset><p class="micro reaction-upload-help">Replace the image shown for any printer event, or stop PrintDeck from showing a reaction for that event. Supported formats: GIF, PNG, JPEG, WebP, AVIF and BMP; HEIC and HEIF when supported by your browser. Drag and drop a file onto a reaction slot.</p><p class="status" id="reaction-event-status"></p></article>
         </div>
       </section>
 
@@ -1528,7 +1535,7 @@ class Viewer{
       if(!panelVisible('printers'))$$('.pd-mini-screen img').forEach(image=>image.removeAttribute('src'));
       if(!reactionPollingNeeded())clearTimeout(reactionTimer);
     }
-    let reactionData=null,previewReactionSetId='',reactionTimer=0,reactionCandidateUrls=new Set(),reactionEventNotices=new Map(),reactionPrepareTokens=new Map(),reactionInstallMode='closed',pendingReactionSet=null,reactionInstallStarting=false,reactionCancelPending=false,reactionCropState=null,reactionCropPrepareTimer=0;
+    let browserReactionSetId='',reactionData=null,previewReactionSetId='',reactionTimer=0,reactionCandidateUrls=new Set(),reactionEventNotices=new Map(),reactionPrepareTokens=new Map(),reactionInstallMode='closed',pendingReactionSet=null,reactionInstallStarting=false,reactionCancelPending=false,reactionCropState=null,reactionCropPrepareTimer=0;
     let deviceSettingsBaseline={},localSettingsBaseline={},deviceSettingsRevision=0,deviceSaveQueue=Promise.resolve();
     let deviceRestartBusy=false,deviceRestartBoot='';
     const restartDialog=$('#device-restart-dialog'),restartButton=$('#device-restart-open'),restartStatus=$('#device-restart-status');
@@ -1569,23 +1576,35 @@ class Viewer{
       if(path==='/api/reactions/set/cancel')return deviceCommand('reactions.set.cancel',{});
       if(path==='/api/reactions/event')return deviceCommand(values.action==='reset'?'reactions.event.reset':'reactions.event.set',values.action==='reset'?{event:values.event}:{event:values.event,enabled:values.value==='1'});
 return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(values)})}
-    function reactionEditingDisabled(){return !$('#printer-animations-enabled').checked||!reactionData||Boolean(reactionData.busy||reactionInstallStarting)}
+    function reactionEditingDisabled(){return !!browserReactionSetId||reactionBaseDisabled()}
+    function reactionBaseDisabled(){return !$('#printer-animations-enabled').checked||!reactionData||Boolean(reactionData.busy||reactionInstallStarting)}
     $('.reaction-settings').addEventListener('change',event=>{if(event.target.matches('.reaction-switch-input'))paintReactionSwitches()});
     function paintReactionSwitches(){
       $$("[data-panel=reactions] .reaction-switch-input").forEach(input=>{const thumb=input.nextElementSibling;if(thumb?.classList.contains('reaction-switch'))thumb.dataset.stateLabel=translated(input.checked?'ON':'OFF')});
     }
     function paintReactionAvailability(){
       paintReactionSwitches();
-      const enabled=$('#printer-animations-enabled').checked,disabled=reactionEditingDisabled();
+      const enabled=$('#printer-animations-enabled').checked,disabled=reactionBaseDisabled();
       $('.reaction-settings').classList.toggle('is-disabled',!enabled);
       $$('[data-reaction-child]').forEach(option=>{option.classList.toggle('is-disabled',!enabled);const control=$('input',option);if(control)control.disabled=!enabled});
-      $('#reaction-event-grid').disabled=disabled;
+      $('#reaction-event-grid').disabled=!reactionData||Boolean(reactionData.busy);
       $$('.reaction-event').forEach(card=>{card.setAttribute('aria-disabled',String(disabled));if(disabled)card.classList.remove('is-drag-over')});
       const install=$('#reaction-selected-install'),selected=(reactionData?.sets||[]).find(set=>set.id===previewReactionSetId);
       if(install)install.disabled=disabled||reactionSetIsActive(selected);
       if(!enabled){clearReactionCandidates();if(reactionCropState)closeReactionCrop();if(reactionInstallMode==='confirm')hideReactionInstallModal()}
     }
-    function reactionPreviewUrl(id){const event=reactionData?.events?.find(item=>item.id===id);return'/api/reactions/gif?event='+encodeURIComponent(id)+'&scope=effective&v='+encodeURIComponent(event?.preview_version??reactionData?.generation??0)}
+    function browserReactionSet(){return (reactionData?.sets||[]).find(set=>set.id===browserReactionSetId)}
+    function showReactionBrowserPreview(id){
+      const set=(reactionData?.sets||[]).find(item=>item.id===id);
+      browserReactionSetId=set&&!reactionSetIsActive(set)?set.id:'';
+      clearReactionCandidates();if(reactionCropState)closeReactionCrop();
+      renderReactionEvents();paintReactionAvailability();
+      $('#reaction-events-heading').scrollIntoView({behavior:'smooth',block:'start'});
+    }
+    function reactionPreviewUrl(id){
+      const set=browserReactionSet();
+      if(set){const profile=(reactionData?.limits?.maximum_dimension===466)?'466x466':isKnomiHardware()?'240x240-round':'240x240';return 'https://raw.githubusercontent.com/PrintDeck/PrintDeck/main/reaction-sets/'+profile+'/sets/'+encodeURIComponent(set.id)+'/'+encodeURIComponent(id)+'.gif?v='+encodeURIComponent(set.version)}
+const event=reactionData?.events?.find(item=>item.id===id);return'/api/reactions/gif?event='+encodeURIComponent(id)+'&scope=effective&v='+encodeURIComponent(event?.preview_version??reactionData?.generation??0)}
     function paintReactionPreview(card,event){
       if(!panelVisible('reactions'))return;
       const preview=$('.reaction-event-preview',card),status=$('.reaction-preview-status',card),url=reactionPreviewUrl(event.id);
@@ -1595,7 +1614,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       if(state.loadedUrl===url){state.cancel?.();status.hidden=true;return}
       if(state.requestedUrl===url&&(state.cancel||state.attempts>=2))return;
       state.cancel?.();
-      if(state.requestedUrl!==url){state.requestedUrl=url;state.attempts=0}
+      if(state.requestedUrl!==url){state.requestedUrl=url;state.attempts=0;preview.replaceChildren();state.loadedUrl=''}
       state.attempts++;
       const image=new Image();let finished=false;
       const finish=()=>{finished=true;clearTimeout(timer);image.onload=null;image.onerror=null;state.cancel=null;preview.setAttribute('aria-busy','false')};
@@ -1648,11 +1667,12 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       $$('.reaction-family-card').forEach(button=>{const selected=button.dataset.reactionFamily===family.id,installed=button.dataset.reactionFamily===activeFamily?.id;button.setAttribute('aria-pressed',String(selected));button.dataset.installed=String(installed);const cardFamily=families.find(item=>item.id===button.dataset.reactionFamily);button.setAttribute('aria-label',translated('Choose {set}').replace('{set}',translated(cardFamily?.name||''))+(installed?' · '+translated('Installed'):''));button.disabled=busy;$('.reaction-family-installed',button).hidden=!installed;if(selected){const cardImage=$('img',button);if(cardImage.getAttribute('src')!==url)cardImage.src=url;paintReactionPreviewColor(cardImage,set);cardImage.alt=translated(family.name)+' · '+translated('Preview')}});
       $$('.reaction-swatch').forEach(button=>{button.setAttribute('aria-pressed',String(button.dataset.reactionSet===set.id));button.disabled=busy});
       const installed=$('#reaction-installed-name');
-      installed.textContent=activeSet?reactionSetDisplayName(activeSet):active?.name?translated(active.name):'—';
+      $('.reaction-installed').hidden=!isActive;
+      installed.textContent=translated('Installed on PrintDeck');
       $('.reaction-installed-dot').style.background=activeSet?.family_id==='iris_palette'?reactionSetColor(activeSet):activeSet?'var(--accent)':'var(--muted)';
       $('.reaction-color-picker').hidden=family.variants.length<2;
       const install=$('#reaction-selected-install');
-      install.disabled=reactionEditingDisabled()||isActive;
+      install.disabled=reactionBaseDisabled()||isActive;
       install.classList.toggle('busy',busy);
       $('#reaction-selected-install-label').textContent=busy?translated('Installing reaction set'):isActive?translated('Installed'):translated('Install {set}').replace('{set}',reactionSetDisplayName(set));
       const help=$('#reaction-selected-install-help');
@@ -1677,7 +1697,8 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       grid.dataset.selectedFamily=selectedFamily?.id||'';
       grid.replaceChildren();
       if(!sets.length){const empty=document.createElement('p');empty.className='micro';empty.textContent=translated('No reaction sets are available.');grid.append(empty);return}
-      grid.innerHTML='<div class="reaction-family-grid" role="group" aria-labelledby="reaction-set-title"></div><div class="reaction-set-selection"><div class="reaction-preview-column"><div class="reaction-set-preview"><img id="reaction-selected-preview" alt=""><span class="micro" id="reaction-preview-error" hidden>Preview unavailable</span></div></div><div class="reaction-selection-copy"><h4 id="reaction-selected-name"></h4><p class="micro" id="reaction-selected-version"></p><div class="reaction-color-picker"><strong id="reaction-color-label">Choose a color</strong><div class="reaction-swatches" role="group" aria-labelledby="reaction-color-label"></div></div><div class="reaction-selection-footer"><p class="micro reaction-installed"><span class="reaction-installed-dot" aria-hidden="true"></span><span>Installed on PrintDeck:</span> <strong id="reaction-installed-name"></strong></p><div class="reaction-install-action"><button class="primary" id="reaction-selected-install" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"></path></svg><span id="reaction-selected-install-label"></span></button><p class="micro" id="reaction-selected-install-help"></p></div></div><div class="progress-track reaction-set-progress" id="reaction-selected-progress" role="progressbar" aria-label="Reaction set installation progress" aria-valuemin="0" aria-valuemax="100" hidden><div class="progress-fill"></div></div><p class="micro" id="reaction-selected-status" role="status" aria-live="polite" hidden></p></div></div>';
+      grid.innerHTML='<div class="reaction-family-grid" role="group" aria-labelledby="reaction-set-title"></div><div class="reaction-set-selection"><div class="reaction-preview-column"><div class="reaction-set-preview"><img id="reaction-selected-preview" alt=""><span class="micro" id="reaction-preview-error" hidden>Preview unavailable</span></div></div><div class="reaction-selection-copy"><h4 id="reaction-selected-name"></h4><p class="micro" id="reaction-selected-version"></p><div class="reaction-color-picker"><strong id="reaction-color-label">Choose a color</strong><div class="reaction-swatches" role="group" aria-labelledby="reaction-color-label"></div></div><div class="reaction-selection-footer"><p class="micro reaction-installed"><span class="reaction-installed-dot" aria-hidden="true"></span><span aria-hidden="true">✓</span> <span id="reaction-installed-name"></span></p><div class="reaction-install-action"><button class="secondary" id="reaction-preview-below" type="button">Preview Below</button><button class="primary" id="reaction-selected-install" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"></path></svg><span id="reaction-selected-install-label"></span></button><p class="micro" id="reaction-selected-install-help"></p></div></div><div class="progress-track reaction-set-progress" id="reaction-selected-progress" role="progressbar" aria-label="Reaction set installation progress" aria-valuemin="0" aria-valuemax="100" hidden><div class="progress-fill"></div></div><p class="micro" id="reaction-selected-status" role="status" aria-live="polite" hidden></p></div></div>';
+      $('#reaction-preview-below').addEventListener('click',()=>showReactionBrowserPreview(previewReactionSetId));
       const familyGrid=$('.reaction-family-grid',grid);
       for(const family of families){const representative=family.id===selectedFamily?.id?selectedSet:family.variants.find(set=>set.id===reactionData.active_set?.id)||family.variants[0],isInstalled=family.variants.some(set=>set.id===reactionData.active_set?.id),button=document.createElement('button'),device=document.createElement('span'),cardImage=document.createElement('img'),copy=document.createElement('span'),title=document.createElement('strong'),description=document.createElement('span'),installedBadge=document.createElement('span');button.type='button';button.className='reaction-family-card';button.dataset.reactionFamily=family.id;button.dataset.installed=String(isInstalled);button.setAttribute('aria-pressed',String(family.id===selectedFamily?.id));button.setAttribute('aria-label',translated('Choose {set}').replace('{set}',translated(family.name))+(isInstalled?' · '+translated('Installed'):''));device.className='reaction-family-device';cardImage.src=reactionSetPreviewUrl(representative);paintReactionPreviewColor(cardImage,representative);cardImage.alt=translated(family.name)+' · '+translated('Preview');cardImage.addEventListener('error',()=>{cardImage.hidden=true});device.append(cardImage);copy.className='reaction-family-copy';title.textContent=translated(family.name);copy.append(title);if(family.variants.length>1){description.className='micro';description.textContent=translated('{count} color variants').replace('{count}',String(family.variants.length));copy.append(description)}installedBadge.className='reaction-family-installed';installedBadge.textContent='✓';installedBadge.setAttribute('aria-hidden','true');installedBadge.hidden=!isInstalled;button.append(device,copy,installedBadge);button.addEventListener('click',()=>{if(reactionData?.busy||reactionInstallStarting)return;previewReactionSetId=(family.variants.find(set=>set.id===reactionData.active_set?.id)||family.variants[0]).id;renderReactionSets()});familyGrid.append(button)}
       const swatches=$('.reaction-swatches',grid);
@@ -1698,7 +1719,15 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       if(focusedSet)$$('.reaction-swatch').find(button=>button.dataset.reactionSet===focusedSet)?.focus();else if(focusedFamily)$$('.reaction-family-card').find(button=>button.dataset.reactionFamily===focusedFamily)?.focus();
     }
     function clearReactionCandidates(){for(const url of reactionCandidateUrls)URL.revokeObjectURL(url);reactionCandidateUrls.clear();for(const event of reactionData?.events||[]){reactionPrepareTokens.set(event.id,(reactionPrepareTokens.get(event.id)||0)+1);const notice=reactionEventNotices.get(event.id);if(notice&&['Checking and optimizing GIF…','Preview ready. Confirm to upload it to PrintDeck.'].includes(notice.message))reactionEventNotices.delete(event.id)}}
+    $('#reaction-browser-back').addEventListener('click',()=>showReactionBrowserPreview(''));
     function renderReactionEvents(){
+      if(browserReactionSetId && (!browserReactionSet() || reactionSetIsActive(browserReactionSet())))browserReactionSetId='';
+      const browse=browserReactionSet();
+      $('#reaction-events-description').hidden=!!browse;
+      $('#reaction-browser-notice').hidden=!browse;
+      $('#reaction-browser-notice').textContent=browse?translated('Browser preview: {set}. This set is not installed.').replace('{set}',reactionSetDisplayName(browse)):'';
+      $('#reaction-browser-back').hidden=!browse;
+      $('.reaction-upload-help').hidden=!!browse;
       if(!panelVisible('reactions'))return;
       const grid=$('#reaction-event-grid');
       $('#reaction-event-loading')?.remove();
@@ -1712,7 +1741,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
         card=document.createElement('section');
         card.className='reaction-event';
         card.dataset.event=event.id;
-        card.innerHTML='<div class="reaction-event-preview"></div><div class="reaction-event-copy"><div class="reaction-event-head"><strong></strong><label class="reaction-toggle"><input class="reaction-switch-input" type="checkbox" role="switch" aria-label="Enabled"><span class="reaction-switch" aria-hidden="true"></span></label></div><span class="micro reaction-source"></span><div class="actions"><button class="secondary reaction-choose" type="button">Upload / Replace image</button><button class="secondary reaction-reset" type="button">Reset to set default</button><input class="reaction-file" type="file" accept="image/gif,image/png,image/jpeg,image/webp,image/avif,image/bmp,image/heic,image/heif,.gif,.png,.jpg,.jpeg,.webp,.avif,.bmp,.heic,.heif" hidden></div><p class="micro reaction-inline-status" role="status" aria-live="polite"></p><p class="micro error reaction-preview-status" role="status" hidden></p></div><div class="reaction-drop-overlay" aria-hidden="true"><span class="reaction-drop-plus">+</span><strong>Drop to upload</strong></div>';
+        card.innerHTML='<div class="reaction-event-preview"></div><div class="reaction-event-copy"><div class="reaction-event-head"><strong></strong><div class="reaction-event-controls"><label class="reaction-toggle"><input class="reaction-switch-input" type="checkbox" role="switch" aria-label="Enabled"><span class="reaction-switch" aria-hidden="true"></span></label><button class="secondary reaction-try" type="button">TRY</button></div></div><span class="micro reaction-source"></span><div class="actions"><button class="secondary reaction-choose" type="button">Upload / Replace image</button><button class="secondary reaction-reset" type="button">Reset to set default</button><input class="reaction-file" type="file" accept="image/gif,image/png,image/jpeg,image/webp,image/avif,image/bmp,image/heic,image/heif,.gif,.png,.jpg,.jpeg,.webp,.avif,.bmp,.heic,.heif" hidden></div><p class="micro reaction-inline-status" role="status" aria-live="polite"></p><p class="micro error reaction-preview-status" role="status" hidden></p></div><div class="reaction-drop-overlay" aria-hidden="true"><span class="reaction-drop-plus">+</span><strong>Drop to upload</strong></div>';
         const toggle=$('.reaction-toggle input',card);
         toggle.addEventListener('change',()=>{paintReactionSwitches();setReactionEventEnabled(event.id,toggle.checked,toggle)});
         const file=$('.reaction-file',card),choose=$('.reaction-choose',card);
@@ -1724,26 +1753,28 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
         }
         cards.delete(event.id);
         card.reactionEvent=event;
+        card.classList.toggle('browser-preview',!!browse);
+        $('.reaction-toggle',card).hidden=!!browse;$('.actions',card).hidden=!!browse;
         if(card!==cursor)grid.insertBefore(card,cursor);
         cursor=card.nextElementSibling;
         card.setAttribute('aria-disabled',String(reactionEditingDisabled()));
         $('.reaction-event-head strong',card).textContent=translated(event.label);
-        $('.reaction-source',card).textContent=translated(event.custom?'Custom GIF override':'Set default')+' · '+formatReactionBytes(event.bytes);
+        $('.reaction-source',card).textContent=browse?reactionSetDisplayName(browse):translated(event.custom?'Custom GIF override':'Set default')+' · '+formatReactionBytes(event.bytes);
         const toggle=$('.reaction-toggle input',card);
         toggle.checked=event.enabled;
         toggle.nextElementSibling.dataset.stateLabel=translated(toggle.checked?'ON':'OFF');
-        toggle.disabled=Boolean(reactionData.busy);
+        toggle.disabled=reactionEditingDisabled();
         for(const control of $$('.reaction-file,.reaction-choose',card))control.disabled=Boolean(reactionData.busy)||reactionUploadUnavailable()||control.classList.contains('busy');
         $('.reaction-reset',card).disabled=Boolean(reactionData.busy)||!event.custom||$('.reaction-reset',card).classList.contains('busy');
         let badge=$('.reaction-custom-badge',card);
         card.classList.toggle('has-custom',Boolean(event.custom));
-        if(event.custom){if(!badge){badge=document.createElement('span');badge.className='reaction-custom-badge';card.append(badge)}badge.textContent=translated('Custom')}else badge?.remove();
+        if(event.custom&&!browse){if(!badge){badge=document.createElement('span');badge.className='reaction-custom-badge';card.append(badge)}badge.textContent=translated('Custom')}else badge?.remove();
         paintReactionPreview(card,event);
         const notice=reactionEventNotices.get(event.id);
         if(notice)setReactionEventNotice(event.id,notice.message,notice.error,notice.busy);
       }
       for(const [id,card] of cards){card.reactionPreview?.cancel?.();card.remove();reactionPrepareTokens.set(id,(reactionPrepareTokens.get(id)||0)+1);reactionEventNotices.delete(id);if(reactionCropState?.event.id===id)closeReactionCrop()}
-      applyLanguage();paintReactionSwitches();
+      applyLanguage();paintReactionSwitches();reactionTry.paint();
     }
     function reactionDownloadVariant(){const size=reactionData?.limits?.maximum_dimension||0;if(!size)return'';const hardware=size===466?'AMOLED':isKnomiHardware()?knomiHardwareName():'LCD';return hardware+' · '+size+' × '+size}
     function reactionDownloadStatus(detail){const parts=[translated(detail)];if(reactionData?.busy&&reactionData.installing_set?.name){const installing=(reactionData.sets||[]).find(set=>set.id===reactionData.installing_set.id);parts.push(installing?reactionSetDisplayName(installing):translated(reactionData.installing_set.name),reactionDownloadVariant())}return parts.filter(Boolean).join(' · ')}
@@ -1766,16 +1797,16 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       setReactionInstallOpen(true);
       const title=$('#reaction-install-title'),description=$('#reaction-install-description'),preview=$('#reaction-install-preview'),name=$('#reaction-install-name'),version=$('#reaction-install-version'),progressArea=$('#reaction-install-progress-area'),dismiss=$('#reaction-install-dismiss'),confirm=$('#reaction-install-confirm'),cancel=$('#reaction-install-cancel'),error=$('#reaction-install-error'),displayName=reactionSetDisplayName(set)||translated(set.name||reactionData?.installing_set?.name||'');
       title.textContent=translated(failedMode?'Reaction set installation failed.':progressMode?'Installing reaction set':'Install reaction set?');
-      description.textContent=translated(failedMode?'The active reaction set was not changed.':progressMode?'The active reaction set remains unchanged until the new set is fully validated.':'After the download is validated, this set replaces the active reaction set.');
+      description.textContent=translated(failedMode?'Please try installing the reaction set again.':progressMode?'Downloading and checking the new reaction set.':'After the download is validated, this set replaces the active reaction set.');
       preview.src=reactionSetPreviewUrl(set);paintReactionPreviewColor(preview,set);preview.alt=displayName+' '+translated('preview');name.textContent=displayName;version.textContent=set.version?translated('Version')+' '+set.version:reactionDownloadVariant();
       progressArea.hidden=!progressMode;dismiss.hidden=progressMode;dismiss.textContent=translated(failedMode?'Close':'Cancel');confirm.hidden=progressMode||failedMode;cancel.hidden=!progressMode;
       error.textContent=failedMode?translated(reactionData?.detail||'The reaction set could not be installed.'):'';error.hidden=!failedMode;
       $('#reaction-install-progress').style.width=(reactionData?.progress||0)+'%';$('#reaction-install-detail').textContent=progressMode?(reactionInstallStarting?translated('Starting reaction set download…'):reactionDownloadStatus(reactionData?.detail||'')):'';
       const cancelling=reactionCancelPending||reactionData?.detail==='Cancelling reaction set installation…';cancel.textContent=translated(cancelling?'Cancelling…':reactionData?.cancellable?'Cancel installation':'Finishing installation…');cancel.disabled=!reactionData?.cancellable||reactionCancelPending;applyLanguage()
     }
-    function openReactionSetConfirmation(set){if(reactionEditingDisabled())return;pendingReactionSet=set;reactionInstallMode='confirm';reactionInstallStarting=false;reactionCancelPending=false;const error=$('#reaction-install-error');error.hidden=true;error.textContent='';paintReactionInstallModal();requestAnimationFrame(()=>$('#reaction-install-confirm').focus())}
+    function openReactionSetConfirmation(set){if(reactionBaseDisabled())return;pendingReactionSet=set;reactionInstallMode='confirm';reactionInstallStarting=false;reactionCancelPending=false;const error=$('#reaction-install-error');error.hidden=true;error.textContent='';paintReactionInstallModal();requestAnimationFrame(()=>$('#reaction-install-confirm').focus())}
     function dismissReactionSetConfirmation(){if((reactionInstallMode==='confirm'||reactionInstallMode==='failed')&&!reactionInstallStarting)hideReactionInstallModal()}
-    async function startReactionSetInstall(){if(reactionEditingDisabled()||reactionInstallMode!=='confirm'||!pendingReactionSet||reactionInstallStarting)return;const error=$('#reaction-install-error');error.hidden=true;error.textContent='';reactionInstallStarting=true;reactionInstallMode='progress';renderReactionSets();paintReactionAvailability();paintReactionInstallModal();try{await reactionForm('/api/reactions/set',{id:pendingReactionSet.id});reactionInstallStarting=false;await loadReactions()}catch(problem){reactionInstallStarting=false;reactionInstallMode='confirm';error.textContent=translated(problem.message);error.hidden=false;renderReactionSets();paintReactionAvailability();paintReactionInstallModal()}}
+    async function startReactionSetInstall(){if(reactionBaseDisabled()||reactionInstallMode!=='confirm'||!pendingReactionSet||reactionInstallStarting)return;const error=$('#reaction-install-error');error.hidden=true;error.textContent='';reactionInstallStarting=true;reactionInstallMode='progress';renderReactionSets();paintReactionAvailability();paintReactionInstallModal();try{await reactionForm('/api/reactions/set',{id:pendingReactionSet.id});reactionInstallStarting=false;await loadReactions()}catch(problem){reactionInstallStarting=false;reactionInstallMode='confirm';error.textContent=translated(problem.message);error.hidden=false;renderReactionSets();paintReactionAvailability();paintReactionInstallModal()}}
     async function cancelReactionSetInstall(){if(!reactionData?.busy||!reactionData.cancellable||reactionCancelPending)return;const error=$('#reaction-install-error');error.hidden=true;error.textContent='';reactionCancelPending=true;paintReactionInstallModal();try{await reactionForm('/api/reactions/set/cancel',{});await loadReactions()}catch(problem){reactionCancelPending=false;error.textContent=translated(problem.message);error.hidden=false;paintReactionInstallModal()}}
     $('#reaction-install-dismiss').addEventListener('click',dismissReactionSetConfirmation);$('#reaction-install-confirm').addEventListener('click',startReactionSetInstall);$('#reaction-install-cancel').addEventListener('click',cancelReactionSetInstall);$('#reaction-install-modal').addEventListener('click',event=>{if(event.target===event.currentTarget)dismissReactionSetConfirmation()});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('#reaction-install-modal').hidden)dismissReactionSetConfirmation()});
     let reactionSdPending=false,reactionSdFocus=null,reactionSdPromptSession=null;
@@ -1878,6 +1909,57 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     function paintReactionState(){if(!reactionData)return;if(!panelVisible('reactions')){if(webPageVisible()&&reactionInstallMode!=='closed')paintReactionInstallModal();if(panelVisible('printers'))paintPrinters();return}paintReactionShape();renderReactionSets();renderReactionEvents();paintReactionStorage();paintReactionSdStorage();const status=$('#reaction-set-status'),detail=reactionData.detail==='Reaction storage is ready.'?'':reactionData.detail||'',belongsToPicker=detail==='Reaction set installed.'||Boolean(reactionData.busy&&reactionData.installing_set?.id);status.textContent=belongsToPicker?'':reactionDownloadStatus(detail);status.hidden=!status.textContent;status.classList.toggle('error',Boolean(reactionData.install_failed));paintReactionAvailability();paintReactionInstallModal()}
     function paintInitialReactionLoading(waiting=false){const setLoader=$('#reaction-set-loading'),eventLoader=$('#reaction-event-loading');if(setLoader){$('#reaction-set-grid').setAttribute('aria-busy','true');$('span:last-child',setLoader).textContent=translated(waiting?'Waiting for PrintDeck…':'Loading reaction sets…')}if(eventLoader){$('#reaction-event-grid').setAttribute('aria-busy','true');$('span:last-child',eventLoader).textContent=translated(waiting?'Waiting for PrintDeck…':'Loading reaction events…')}}
     let reactionLoadSequence=0,reactionLoads=0;
+function reactionTryControls(options) {
+  let pending = null, timer = null, polling = false;
+  const paint = () => {
+    const state = options.state(), preview = state.preview || {};
+    if (pending && preview.request_id === pending.id) {
+      if (preview.status === 'playing') pending.until = Math.min(pending.until || Infinity, performance.now() + Math.max(0, preview.remaining_ms));
+      if (preview.status === 'finished' || preview.status === 'failed') {
+        if (preview.status === 'failed') options.error(pending.event, options.labels.failed);
+        pending = null;
+      }
+    }
+    if (pending && ((pending.until && performance.now() >= pending.until) || Date.now() > pending.expires)) {
+      if (!pending.until) options.error(pending.event, options.labels.failed);
+      pending = null;
+    }
+    options.root.querySelectorAll('.reaction-try').forEach(button => {
+      const event = button.closest('[data-event],[data-reaction-event-card]')?.dataset;
+      const active = pending && pending.event === (event.event || event.reactionEventCard);
+      button.disabled = !!pending || !state.available;
+      button.classList.toggle('busy', !!active && !pending.until);
+      button.setAttribute('aria-busy', String(!!active));
+      button.textContent = active ? (pending.until ? `${Math.max(1, Math.ceil((pending.until-performance.now())/1000))} s` : options.labels.loading) : options.labels.try;
+      button.title = options.labels.hint;
+    });
+    if (!pending && timer) { clearInterval(timer); timer = null; }
+  };
+  options.root.addEventListener('click', async event => {
+    const button = event.target.closest('.reaction-try');
+    if (!button || button.disabled || pending) return;
+    const card = button.closest('[data-event],[data-reaction-event-card]');
+    const bytes = crypto.getRandomValues(new Uint8Array(16)); bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+    const hex=[...bytes].map(n=>n.toString(16).padStart(2,'0')).join('');
+    const id=`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+    pending = {id,event:card.dataset.event || card.dataset.reactionEventCard,set:options.set?.()||'',expires:Date.now()+90000,until:0};
+    options.error(pending.event, ''); paint();
+    timer = setInterval(async () => {
+      paint();
+      if (!pending || polling) return;
+      polling = true;
+      try { await options.refresh(); } finally { polling = false; paint(); }
+    }, 500);
+    try { await options.send({event:pending.event,request_id:id,...(pending.set?{set:pending.set}:{})}); }
+    catch (_) { if(pending) options.error(pending.event, options.labels.failed); pending = null; paint(); }
+  });
+  return {paint, busy:()=>!!pending};
+}
+    const reactionTry = reactionTryControls({root:$('#reaction-event-grid'),
+      state:()=>({preview:reactionData?.preview,available:reactionData?.try_available === true && !reactionData?.busy}),
+      get labels(){return {try:translated('TRY'),loading:translated('Loading…'),hint:translated('Show on PrintDeck for 5 seconds'),failed:translated('The preview could not start. Please try again.')}},
+      set:()=>browserReactionSetId,send:parameters=>deviceCommand('reactions.event.try',parameters),refresh:()=>loadReactions(),
+      error:(event,message)=>setReactionEventNotice(event,message,!!message,false)});
     async function loadReactions(){reactionLoads++;const sequence=++reactionLoadSequence;clearTimeout(reactionTimer);if(!reactionData)paintInitialReactionLoading();try{const next=(await jsonFetch('/api/device/state?section=reactions')).reactions;if(sequence!==reactionLoadSequence)return;reactionData=next;paintReactionState();if(reactionData.busy)scheduleReactionPoll(700)}catch(error){if(sequence!==reactionLoadSequence)return;const status=$('#reaction-set-status');status.textContent=translated(error.message);status.classList.add('error');status.hidden=false;if(!reactionData){paintInitialReactionLoading(true);scheduleReactionPoll(1200)}if(reactionInstallMode==='progress'){const modalError=$('#reaction-install-error');modalError.textContent=translated(error.message);modalError.hidden=false;scheduleReactionPoll(1200)}}finally{reactionLoads--}}
     async function setReactionEventEnabled(event,enabled,input){if(reactionEditingDisabled()){input.checked=Boolean(reactionData?.events?.find(item=>item.id===event)?.enabled);paintReactionSwitches();return}const focused=document.activeElement===input;input.disabled=true;clearReactionEventNotice(event);const status=$('#reaction-event-status');status.classList.remove('error');try{await reactionForm('/api/reactions/event',{event,action:'enabled',value:enabled?'1':'0'});await loadReactions();status.textContent=''}catch(error){input.checked=!enabled;status.textContent=translated(error.message);status.classList.add('error')}finally{input.disabled=Boolean(reactionData?.busy);paintReactionSwitches();if(focused&&document.activeElement===document.body&&input.isConnected&&!input.disabled)input.focus({preventScroll:true})}}
     async function resetReactionEvent(event,button){if(reactionEditingDisabled())return;button.disabled=true;button.classList.add('busy');button.setAttribute('aria-busy','true');clearReactionEventNotice(event);const status=$('#reaction-event-status');status.classList.remove('error');status.textContent='';setReactionEventNotice(event,'Restoring set default…',false,true);await nextPaint();try{if(reactionEditingDisabled())return;await reactionForm('/api/reactions/event',{event,action:'reset'});await loadReactions();setReactionEventNotice(event,'Set default restored.')}catch(error){setReactionEventNotice(event,error.message,true)}finally{button.classList.remove('busy');button.setAttribute('aria-busy','false');button.disabled=Boolean(reactionData?.busy)||!reactionData?.events?.find(item=>item.id===event)?.custom}}
@@ -2225,7 +2307,7 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
     function formatDeviceBytes(value){const bytes=Math.max(0,Number(value)||0),units=['B','KB','MB','GB'];let size=bytes,unit=0;while(size>=1024&&unit<units.length-1){size/=1024;unit++}const digits=unit===0?0:size<10?2:size<100?1:0;return new Intl.NumberFormat(currentLanguage,{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(size)+' '+units[unit]}
     function formatDeviceUptime(value){let seconds=Math.max(0,Number(value)||0),days=Math.floor(seconds/86400);seconds%=86400;const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),parts=[];if(days)parts.push(days+' '+translated(days===1?'day':'days'));if(hours||days)parts.push(hours+' '+translated(hours===1?'hour':'hours'));parts.push(minutes+' '+translated(minutes===1?'minute':'minutes'));return parts.join(' · ')}
     function paintDeviceResource(id,used,total,minimumFree=0){const value=$('#device-'+id),detail=$('#device-'+id+'-detail'),meter=$('#device-'+id+'-meter'),maximum=Math.max(0,Number(total)||0),consumed=Math.min(maximum,Math.max(0,Number(used)||0));if(!maximum){value.textContent=translated('Not available');detail.textContent='';meter.hidden=true;return}const percent=Math.round(consumed*100/maximum),free=maximum-consumed;value.textContent=formatDeviceBytes(consumed)+' / '+formatDeviceBytes(maximum);detail.textContent=percent+'% '+translated('used')+' · '+formatDeviceBytes(free)+' '+translated('free')+(minimumFree?' · '+translated('lowest free')+' '+formatDeviceBytes(minimumFree):'');meter.hidden=false;meter.setAttribute('aria-valuenow',String(percent));$('span',meter).style.width=percent+'%'}
-    function paintDeviceHealth(){if(!$('#device-hardware')||!health.hardware)return;const hardwareNames={amoled_1_75:'Waveshare ESP32-S3 Touch AMOLED 1.75',lcd_1_54:'Waveshare ESP32-S3 Touch LCD 1.54',knomi2:'BIGTREETECH KNOMI2',knomipanda:'Panda KNOMI 3D'},resetLabels={'power-on':'Power on','external-pin':'External reset',software:'Software restart',panic:'System fault','interrupt-watchdog':'Watchdog restart','task-watchdog':'Watchdog restart',watchdog:'Watchdog restart','deep-sleep':'Deep sleep wake',brownout:'Brownout',usb:'USB reset',jtag:'System restart',efuse:'System restart','power-glitch':'Power glitch','cpu-lockup':'CPU lockup',sdio:'System restart',unknown:'Unknown'};$('#device-hardware').textContent=hardwareNames[health.hardware]||health.hardware;$('#device-firmware').textContent='PrintDeck '+(health.version||'—');$('#device-uptime').textContent=formatDeviceUptime(health.uptime_seconds);$('#device-cpu').textContent=health.cpu_model||'ESP32-S3';const cores=Number(health.cpu_cores)||0;$('#device-cpu-detail').textContent=cores+' '+translated(cores===1?'core':'cores')+' · '+(Number(health.cpu_frequency_mhz)||0)+' MHz';const ramTotal=Number(health.internal_ram_total_bytes)||0,ramFree=Number(health.internal_ram_free_bytes)||0;paintDeviceResource('ram',ramTotal-ramFree,ramTotal,Number(health.internal_ram_minimum_free_bytes)||0);const psramTotal=Number(health.psram_total_bytes)||0,psramFree=Number(health.psram_free_bytes)||0;paintDeviceResource('psram',psramTotal-psramFree,psramTotal);$('#device-flash').textContent=formatDeviceBytes(health.flash_total_bytes);$('#device-flash-detail').textContent=translated('Firmware partition')+' · '+formatDeviceBytes(health.firmware_partition_bytes);if(health.storage_usage_available){paintDeviceResource('storage',health.storage_used_bytes,health.storage_total_bytes)}else{$('#device-storage').textContent=formatDeviceBytes(health.storage_total_bytes);$('#device-storage-detail').textContent=translated('Content partition');$('#device-storage-meter').hidden=true}const connected=Boolean(health.wifi_connected),setup=Boolean(health.setup_access_point);$('#device-network').textContent=translated(connected?'Connected':setup?'Setup mode':'Offline');const networkParts=[];if(connected&&Number(health.wifi_rssi_dbm)){networkParts.push(translated('Signal')+' '+health.wifi_rssi_dbm+' dBm')}if(connected&&Number(health.wifi_channel)){networkParts.push(translated('Channel')+' '+health.wifi_channel)}$('#device-network-detail').textContent=networkParts.join(' · ');$('#device-display').textContent=(health.display_width||'—')+' × '+(health.display_height||'—');$('#device-display-detail').textContent=translated(health.display_round?'Round display':'Square display');$('#device-system').textContent='ESP-IDF '+(health.idf_version||'—');$('#device-system-detail').textContent=translated('Last restart')+' · '+translated(resetLabels[health.reset_reason]||'Unknown')}
+    function paintDeviceHealth(){if(!$('#device-hardware')||!health.hardware)return;const hardwareNames={amoled_1_75:'Waveshare ESP32-S3 Touch AMOLED 1.75',lcd_1_54:'Waveshare ESP32-S3 Touch LCD 1.54',knomi2:'BIGTREETECH KNOMI2',knomipanda:'Panda KNOMI 3D'},resetLabels={'power-on':'Power on','external-pin':'External reset',software:'Software restart',panic:'System fault','interrupt-watchdog':'Watchdog restart','task-watchdog':'Watchdog restart',watchdog:'Watchdog restart','deep-sleep':'Deep sleep wake',brownout:'Brownout',usb:'USB reset',jtag:'System restart',efuse:'System restart','power-glitch':'Power glitch','cpu-lockup':'CPU lockup',sdio:'System restart',unknown:'Unknown'};$('#device-hardware').textContent=hardwareNames[health.hardware]||health.hardware;$('#device-firmware').textContent='PrintDeck '+(health.version||'—');$('#device-uptime').textContent=formatDeviceUptime(health.uptime_seconds);$('#device-cpu').textContent=Number.isFinite(health.cpu_usage_percent)?health.cpu_usage_percent+'%':'—';const cores=Number(health.cpu_cores)||0;$('#device-cpu-detail').textContent=(health.cpu_model||'ESP32-S3')+' · '+cores+' '+translated(cores===1?'core':'cores')+' · '+(Number(health.cpu_frequency_mhz)||0)+' MHz'+(Number.isFinite(health.cpu_core0_usage_percent)&&Number.isFinite(health.cpu_core1_usage_percent)?' · CPU 0: '+health.cpu_core0_usage_percent+'% · CPU 1: '+health.cpu_core1_usage_percent+'%':'');const ramTotal=Number(health.internal_ram_total_bytes)||0,ramFree=Number(health.internal_ram_free_bytes)||0;paintDeviceResource('ram',ramTotal-ramFree,ramTotal,Number(health.internal_ram_minimum_free_bytes)||0);const psramTotal=Number(health.psram_total_bytes)||0,psramFree=Number(health.psram_free_bytes)||0;paintDeviceResource('psram',psramTotal-psramFree,psramTotal);$('#device-flash').textContent=formatDeviceBytes(health.flash_total_bytes);$('#device-flash-detail').textContent=translated('Firmware partition')+' · '+formatDeviceBytes(health.firmware_partition_bytes);if(health.storage_usage_available){paintDeviceResource('storage',health.storage_used_bytes,health.storage_total_bytes)}else{$('#device-storage').textContent=formatDeviceBytes(health.storage_total_bytes);$('#device-storage-detail').textContent=translated('Content partition');$('#device-storage-meter').hidden=true}const connected=Boolean(health.wifi_connected),setup=Boolean(health.setup_access_point);$('#device-network').textContent=translated(connected?'Connected':setup?'Setup mode':'Offline');const networkParts=[];if(connected&&Number(health.wifi_rssi_dbm)){networkParts.push(translated('Signal')+' '+health.wifi_rssi_dbm+' dBm')}if(connected&&Number(health.wifi_channel)){networkParts.push(translated('Channel')+' '+health.wifi_channel)}$('#device-network-detail').textContent=networkParts.join(' · ');$('#device-display').textContent=(health.display_width||'—')+' × '+(health.display_height||'—');$('#device-display-detail').textContent=translated(health.display_round?'Round display':'Square display');$('#device-system').textContent='ESP-IDF '+(health.idf_version||'—');$('#device-system-detail').textContent=translated('Last restart')+' · '+translated(resetLabels[health.reset_reason]||'Unknown')}
     function displaySleepAvailable(){return health.display_sleep_available??settings.display_sleep_available??((health.hardware||settings.hardware)!=='knomipanda')}
     function applyHardwareSettings(){$('.tab[data-tab="power"]').hidden=!displaySleepAvailable();if(!displaySleepAvailable()&&!$('[data-panel="power"]').hidden)setTab('themes');const hardware=health.hardware||settings.hardware,rotation=$('#rotation'),automatic=$('option[value="auto"]',rotation),manualRotation=isKnomiHardware(hardware);automatic.hidden=manualRotation;automatic.disabled=manualRotation;if(manualRotation&&rotation.value==='auto')rotation.value='0';const audioAvailable=health.audio_available??settings.audio_available??true;if(!audioAvailable){$('.tab[data-tab="sounds"]')?.remove();$('[data-panel="sounds"]')?.remove()}}
     let screenSaverRevision=0;
@@ -2578,7 +2660,7 @@ function createAudioSetPicker(host, translate, send, locale) {
     function paint(state, disabled = false) {
         current = state; locked = disabled; host.hidden = !state;
         if (!state) return;
-        description.textContent = translate('One sound set is stored on PrintDeck. Choosing another set downloads it over the internet. Your current set stays available until installation succeeds.');
+        description.textContent = translate('One sound set is stored on PrintDeck. Choosing another set downloads and installs it over the internet.');
         const next = JSON.stringify([state.sets || [], document.documentElement.lang]);
         if (signature !== next) {
             signature = next; grid.replaceChildren();
@@ -2938,7 +3020,7 @@ function createAudioSetPicker(host, translate, send, locale) {
     const settingsSections=['device','printer-controls','wifi','live-view','hi-esp','camera','unified-api','cloud','time','backup','firmware'];
     function currentPageHash(){const tab=$('.tab[aria-selected=true]')?.dataset.tab||'printers';return '#'+(tab==='device'?$('.side-tab[aria-selected=true]')?.dataset.section||'device':tab)}
     function setSettingsSection(section){closeLiveDock(false);if(!settingsSections.includes(section)||(section==='hi-esp'&&settings.voice_available!==true))section='device';$$('.side-tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.section===section)));$$('[data-settings-pane]').forEach(p=>p.hidden=p.dataset.settingsPane!==section);clearTimeout(deviceInfoTimer);history.replaceState(null,'','#'+section);if(section==='live-view'){paintLiveViewDevice();refreshLiveView(true)}else stopLiveView(true);if(section==='device')loadDeviceInfo();if(section==='wifi'&&!wifiScanned)scanAllWifi();if(section==='unified-api'){loadUnifiedApi();loadMqtt();}if(section==='cloud')loadCloud();if(section==='firmware')loadOfficialReleases();syncLiveDock()}
-    function setTab(id,section=''){closeLiveDock(false);if(id==='power'&&!displaySleepAvailable())id='themes';closePrinterMenu();const settingsSection=section||(id!=='device'&&settingsSections.includes(id)?id:'');if(settingsSection)id='device';$$('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===id)));$$('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==id);if(id!=='printers')stopPrinterTransport();if(id==='device'){setSettingsSection(settingsSection||$('.side-tab[aria-selected=true]')?.dataset.section||'device')}else{stopLiveView(true);clearTimeout(deviceInfoTimer);history.replaceState(null,'','#'+id)}pauseHiddenPreviews();if(id==='sounds'){loadAudioSets();jsonFetch('/api/device/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({schema_version:1,action:'sets.catalog.refresh',parameters:{}})}).catch(()=>{});}if(id==='printers'){loadPrinters();}if(id==='reactions')loadReactions();if(id==='themes')loadPrinters().catch(()=>{});syncLiveDock()}
+    function setTab(id,section=''){closeLiveDock(false);if(id==='power'&&!displaySleepAvailable())id='themes';closePrinterMenu();const settingsSection=section||(id!=='device'&&settingsSections.includes(id)?id:'');if(settingsSection)id='device';$$('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===id)));$$('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==id);if(id!=='printers')stopPrinterTransport();if(id==='device'){setSettingsSection(settingsSection||$('.side-tab[aria-selected=true]')?.dataset.section||'device')}else{stopLiveView(true);clearTimeout(deviceInfoTimer);history.replaceState(null,'','#'+id)}pauseHiddenPreviews();if(id==='sounds')loadAudioSets();if(id==='sounds'||id==='reactions'){jsonFetch('/api/device/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({schema_version:1,action:'sets.catalog.refresh',parameters:{}})}).catch(()=>{});}if(id==='printers'){loadPrinters();}if(id==='reactions')loadReactions();if(id==='themes')loadPrinters().catch(()=>{});syncLiveDock()}
     $$('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));$$('.side-tab').forEach(b=>b.addEventListener('click',()=>setSettingsSection(b.dataset.section)));$('#wifi-badge').addEventListener('click',event=>{if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();setTab('wifi')});$('#audio-badge').addEventListener('click',event=>{if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();setTab('sounds')});$('#battery-badge').addEventListener('click',event=>{if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();setTab('device','device')});
 
     function wifiSignalRssi(){const rssi=health.wifi_rssi_dbm;return health.wifi_connected&&Number.isInteger(rssi)&&rssi<0&&rssi>=-127?rssi:null}

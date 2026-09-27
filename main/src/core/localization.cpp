@@ -115,6 +115,7 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"RETRY", "PONÓW", "REINTENTAR", "RÉESSAYER", "ERNEUT VERSUCHEN", "重试"},
       {"DEVICE TEMP", "TEMP. URZĄDZENIA", "TEMP. DISPOSITIVO", "TEMP. APPAREIL", "GERÄTETEMP.", "设备温度"},
       {"INTERNAL", "PAMIĘĆ WEWN.", "MEMORIA INTERNA", "MÉMOIRE INTERNE", "INTERNER SPEICHER", "内部内存"},
+      {"CPU", "CPU", "CPU", "CPU", "CPU", "CPU"},
       {"SOUND", "DŹWIĘK", "SONIDO", "SON", "TON", "声音"},
       {"CHARGING", "ŁADOWANIE", "CARGANDO", "EN CHARGE", "WIRD GELADEN", "正在充电"},
       {"USB POWER", "ZASILANIE USB", "ALIMENTACIÓN USB", "ALIMENTATION USB", "USB-STROM", "USB 供电"},

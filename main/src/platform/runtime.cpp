@@ -15,6 +15,7 @@
 #include "printdeck/core/printer_driver.hpp"
 #include "printdeck/core/job_name.hpp"
 #include "printdeck/core/power_button.hpp"
+#include "printdeck/platform/cpu_load.hpp"
 #include "printdeck/core/timezone.hpp"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/task_affinity.hpp"
@@ -177,6 +178,8 @@ void Runtime::start() {
     ESP_LOGW(kLogTag, "Audio service is unavailable: %s", esp_err_to_name(audio_result));
   }
   verify_heap("audio startup");
+  power_ui_queue_ = xQueueCreateStatic(16, sizeof(PowerUiAction),
+      power_ui_queue_bytes_.data(), &power_ui_queue_storage_);
   const esp_err_t power_result = power_.start();
   if (power_result != ESP_OK) {
     ESP_LOGW(kLogTag, "Power service is unavailable: %s", esp_err_to_name(power_result));
@@ -227,10 +230,17 @@ void Runtime::start() {
   verify_heap("network startup");
   const esp_err_t preview_result = print_preview_.start(persistence_);
   if (preview_result != ESP_OK) ESP_LOGW(kLogTag, "Print thumbnail cache worker unavailable");
+  reaction_assets_.set_background_blocked(+[](void* context){
+    auto* runtime=static_cast<Runtime*>(context);
+    return runtime->firmware_update_.snapshot().busy || AudioSetService::instance().snapshot().busy;
+  },this);
   reaction_assets_.set_storage_changed_callback(+[](void* context) {
     auto* runtime = static_cast<Runtime*>(context);
     runtime->pending_reaction_storage_feedback_.store(true, std::memory_order_release);
     if (runtime->monitor_task_) xTaskNotifyGive(runtime->monitor_task_);
+  }, this);
+  reaction_assets_.set_release_active_callback(+[](void* context) {
+    return static_cast<Runtime*>(context)->display_.release_reaction_files();
   }, this);
   const esp_err_t reactions_result = reaction_assets_.start(network_);
   if (reactions_result != ESP_OK) {
@@ -492,38 +502,68 @@ bool Runtime::ensure_bambu_camera_started() {
   return true;
 }
 
+void Runtime::queue_power_ui(PowerUiAction action) {
+  if (xQueueSend(power_ui_queue_, &action, 0) != pdPASS)
+    ESP_LOGW(kLogTag, "Power input queue is full");
+  if (monitor_task_) xTaskNotifyGive(monitor_task_);
+}
+
+void Runtime::service_power_ui() {
+  PowerUiAction action;
+  if (xQueuePeek(power_ui_queue_, &action, 0) != pdPASS || board_display_lock(100) != ESP_OK) return;
+  // A bounded wait joins the LVGL mutex queue; zero-time polling can starve
+  // behind an animated saver. Physical edge sampling remains independent.
+  for (unsigned count = 0; count < 16 &&
+       xQueueReceive(power_ui_queue_, &action, 0) == pdPASS; ++count) {
+    switch (action) {
+      case PowerUiAction::wake: display_.reset_inactivity_and_wake(); break;
+      case PowerUiAction::single: display_.power_button_single_click(); break;
+      case PowerUiAction::double_click: display_.power_button_double_click(); break;
+      case PowerUiAction::home: display_.return_to_printer_list(); break;
+      case PowerUiAction::show_3:
+        display_.reset_inactivity_and_wake(); display_.show_shutdown_countdown(3); break;
+      case PowerUiAction::show_2: display_.show_shutdown_countdown(2); break;
+      case PowerUiAction::show_1: display_.show_shutdown_countdown(1); break;
+      case PowerUiAction::cancel: display_.cancel_shutdown_countdown(); break;
+    }
+  }
+  board_display_unlock();
+}
+
 void Runtime::power_loop() {
   core::PowerButtonClicks clicks;
   while (true) {
     const auto now = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
-    if (clicks.poll(now) == core::PowerButtonClick::single) display_.power_button_single_click();
+    if (clicks.poll(now) == core::PowerButtonClick::single) queue_power_ui(PowerUiAction::single);
     switch (power_.poll_button()) {
-      case PowerButtonAction::wake: display_.reset_inactivity_and_wake(); break;
-      case PowerButtonAction::pressed:
-        clicks.press(now, display_.power_button_pressed());
+      case PowerButtonAction::wake: queue_power_ui(PowerUiAction::wake); break;
+      case PowerButtonAction::pressed: {
+        const bool can_wake = !display_.manual_display_sleep_active() && !display_.screen_fully_off();
+        clicks.press(now, can_wake && display_.content_hidden());
+        if (can_wake) queue_power_ui(PowerUiAction::wake);
         break;
+      }
       case PowerButtonAction::released:
         if (clicks.release(now) == core::PowerButtonClick::double_click)
-          display_.power_button_double_click();
+          queue_power_ui(PowerUiAction::double_click);
         break;
-      case PowerButtonAction::home: display_.return_to_printer_list(); break;
+      case PowerButtonAction::home: queue_power_ui(PowerUiAction::home); break;
       case PowerButtonAction::show_3:
         clicks.cancel();
-        display_.reset_inactivity_and_wake();
-        display_.show_shutdown_countdown(3);
+        queue_power_ui(PowerUiAction::show_3);
         audio_.play(AudioService::Event::shutdown_countdown);
         break;
       case PowerButtonAction::show_2:
-        display_.show_shutdown_countdown(2);
+        queue_power_ui(PowerUiAction::show_2);
         audio_.play(AudioService::Event::shutdown_countdown);
         break;
       case PowerButtonAction::show_1:
-        display_.show_shutdown_countdown(1);
+        queue_power_ui(PowerUiAction::show_1);
         audio_.play(AudioService::Event::shutdown_countdown);
         break;
       case PowerButtonAction::cancel:
         clicks.cancel();
-        display_.cancel_shutdown_countdown();
+        queue_power_ui(PowerUiAction::cancel);
         break;
       case PowerButtonAction::shutdown: perform_shutdown();
       case PowerButtonAction::none: break;
@@ -1390,6 +1430,8 @@ void Runtime::update_audio_state(const core::PrinterSnapshot& snapshot) {
 void Runtime::monitor_loop() {
   std::int64_t camera_cleanup_started_us = 0;
   while (true) {
+    service_power_ui();
+    cpu_load_snapshot();
     moonraker_camera_.reap_stopped();
     bambu_a1_camera_.reap_stopped();
     // Handle a gesture's stop barrier before any display-lock wait or other
@@ -2038,7 +2080,7 @@ void Runtime::monitor_loop() {
     }
     // Camera frames are independent of the one-second telemetry cadence.
     // Only the visible Moonraker camera needs this faster presentation pass.
-    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(want_moonraker_camera ? 100 : 1000));
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(uxQueueMessagesWaiting(power_ui_queue_) ? 20 : want_moonraker_camera ? 100 : 1000));
   }
 }
 

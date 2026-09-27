@@ -13,6 +13,7 @@
 #include "esp_littlefs.h"
 #include "printdeck/core/audio_pack.hpp"
 #include "printdeck/platform/audio_set_service.hpp"
+#include "printdeck/platform/reaction_cover.hpp"
 #include "freertos/idf_additions.h"
 
 namespace printdeck::platform {
@@ -77,8 +78,13 @@ bool download(bool audio, const std::atomic<bool>& cancelled, std::string& body)
   return valid;
 }
 }
-AssetTransferLease::AssetTransferLease() : acquired_(!transfer_active.exchange(true)) {}
-AssetTransferLease::~AssetTransferLease() {if(acquired_) transfer_active.store(false);}
+AssetTransferLease::AssetTransferLease() : acquired_(!transfer_active.exchange(true)) {
+  if (acquired_) cache_guard_.emplace();
+}
+AssetTransferLease::~AssetTransferLease() {
+  cache_guard_.reset();
+  if (acquired_) transfer_active.store(false);
+}
 SetCatalogService& SetCatalogService::instance() {static SetCatalogService service;return service;}
 void SetCatalogService::start(const NetworkService& network) {
   network_=&network;load(false);if(kBoardHasAudio)load(true);requested_.store(true);next_refresh_ms_=now_ms()+15000;
@@ -87,8 +93,9 @@ void SetCatalogService::load(bool audio) {
   std::string body;std::vector<core::DownloadableSet> parsed;
   if (!read_cached(audio,body) || !core::parse_set_catalog(body,audio,parsed)) return;
   const std::lock_guard lock(mutex_);(audio ? audio_ : reactions_)=std::move(parsed);
+  if(!audio) reaction_ready_.store(true);
 }
-void SetCatalogService::request_refresh() {requested_.store(true);}
+void SetCatalogService::request_refresh() {requested_.store(true);next_refresh_ms_.store(0);}
 void SetCatalogService::cancel() {cancelled_.store(true);requested_.store(false);}
 std::vector<core::DownloadableSet> SetCatalogService::sets(bool audio) const {
   const std::lock_guard lock(mutex_);return audio ? audio_ : reactions_;
@@ -96,8 +103,9 @@ std::vector<core::DownloadableSet> SetCatalogService::sets(bool audio) const {
 std::string SetCatalogService::error() const {const std::lock_guard lock(mutex_);return error_;}
 void SetCatalogService::poll() {
   if(finished_.load() && task_ && eTaskGetState(task_)==eSuspended) {finished_.store(false);vTaskDeleteWithCaps(task_);task_=nullptr;running_.store(false);}
-  if (!network_ || running_.load() || now_ms()<next_refresh_ms_ || !network_->status().station_connected) return;
-  if (!requested_.exchange(false)) return;
+  if (!network_ || running_.load() || now_ms()<next_refresh_ms_) return;
+  requested_.store(false);
+  if (!online()) {next_refresh_ms_=now_ms()+60000;return;}
   if (heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<32*1024 ||
       heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<12*1024) {
     requested_.store(true);next_refresh_ms_=now_ms()+5000;return;
@@ -117,6 +125,10 @@ void SetCatalogService::refresh() {
   AssetTransferLease lease;
   if (!lease) {requested_.store(true);return;}
   {const std::lock_guard lock(mutex_);error_.clear();}
+  if (!online()) {
+    refresh_reaction_covers(sets(false), cancelled_, false);
+    ++revision_;requested_.store(true);return;
+  }
   for (bool audio : {false,true}) {
     if(audio && !kBoardHasAudio)continue;
     if (cancelled_.load()) return;
@@ -130,6 +142,10 @@ void SetCatalogService::refresh() {
     }
     const std::lock_guard lock(mutex_);
     (audio ? audio_ : reactions_)=std::move(parsed);
+    if(!audio)reaction_ready_.store(true);
   }
+  if (!cancelled_.load()) refresh_reaction_covers(sets(false), cancelled_, true);
+  ++revision_;
+  next_refresh_ms_=now_ms()+(error().empty()?15*60*1000:60000);
 }
 }  // namespace printdeck::platform

@@ -1,14 +1,18 @@
+#include "printdeck/platform/reaction_cover.hpp"
 #include "printdeck/platform/audio_set_service.hpp"
 #include "printdeck/platform/set_catalog_service.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 #include "printdeck/platform/sd_set_storage.hpp"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/core/audio_pack.hpp"
+#include "printdeck/core/asset_download_buffer.hpp"
 #include "printdeck/core/audio_sample.hpp"
 #include "printdeck/core/compressed_resource.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <cerrno>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <sys/stat.h>
@@ -57,13 +61,41 @@ bool valid_pack(const std::string& path, const std::string& expected) {
   }
   return true;
 }
-struct Download {FILE* output;const std::atomic<bool>* cancelled;std::size_t bytes=0,expected=0;std::uint64_t deadline;std::function<void(int)> progress;};
+bool valid_pack(std::span<const std::uint8_t> bytes, const std::string& expected,
+                const std::atomic<bool>& cancelled) {
+  auto index = std::make_unique<core::AudioPackIndex>();
+  if (!core::read_audio_pack_index(bytes, *index)) return false;
+  std::array<unsigned char, 32> digest{};
+  if (mbedtls_sha256(bytes.data(), bytes.size(), digest.data(), 0) != 0) return false;
+  constexpr char hex[] = "0123456789abcdef";
+  std::string actual;
+  for (auto byte : digest) { actual += hex[byte >> 4]; actual += hex[byte & 15]; }
+  if (actual != expected) return false;
+  for (std::size_t i = 0; i < index->count; ++i) {
+    if (cancelled.load()) return false;
+    const auto& entry = index->entries[i];
+    std::unique_ptr<std::uint8_t, decltype(&heap_caps_free)> decoded(
+        static_cast<std::uint8_t*>(allocate(entry.decoded_bytes)), heap_caps_free);
+    core::AudioSampleDecoder decoder;
+    if (!decoded || !core::decompress_gzip_exact(bytes.data() + entry.offset,
+        entry.compressed_bytes, decoded.get(), entry.decoded_bytes, allocate, heap_caps_free) ||
+        !decoder.open(decoded.get(), entry.decoded_bytes)) return false;
+    vTaskDelay(1);
+  }
+  return true;
+}
+struct Download {FILE* output;const std::atomic<bool>* cancelled;std::size_t bytes=0,expected=0;std::uint64_t deadline;std::function<void(int)> progress;std::span<std::uint8_t> memory;};
 esp_err_t receive(esp_http_client_event_t* event) {
   auto& data=*static_cast<Download*>(event->user_data);
   if(data.cancelled->load() || now_ms()>=data.deadline) return ESP_FAIL;
   if(event->event_id==HTTP_EVENT_ON_DATA) {
     if(event->data_len<0 || static_cast<std::size_t>(event->data_len)>data.expected-data.bytes) return ESP_FAIL;
-    const auto n=std::fwrite(event->data,1,event->data_len,data.output);data.bytes+=n;
+    std::size_t n = event->data_len;
+    if (!data.memory.empty()) {
+      if (n > data.memory.size() - data.bytes) return ESP_FAIL;
+      if (n) std::memcpy(data.memory.data() + data.bytes, event->data, n);
+    } else n=std::fwrite(event->data,1,event->data_len,data.output);
+    data.bytes+=n;
     if(n!=static_cast<std::size_t>(event->data_len)) return ESP_FAIL;
     data.progress(static_cast<int>(data.bytes*80/data.expected));
   }
@@ -156,6 +188,7 @@ bool AudioSetService::request(std::string_view id,std::string_view request_id) {
   const std::lock_guard lock(mutex_);
   if(state_.busy || running_.load()) return false;
   state_.error.clear();
+  committing_ = false;
   // An installed, validated pack is usable offline too. Keep this idempotent
   // even when an older client sends the same install command again.
   if(state_.available && state_.id==id && state_.language=="all" &&
@@ -172,7 +205,7 @@ bool AudioSetService::request(std::string_view id,std::string_view request_id) {
 }
 bool AudioSetService::cancel(std::string_view request_id) {
   const std::lock_guard lock(mutex_);
-  if(!state_.busy || (!request_id.empty() && request_id!=state_.request_id))return false;
+  if(!state_.busy || committing_ || (!request_id.empty() && request_id!=state_.request_id))return false;
   cancelled_.store(true);return true;
 }
 void AudioSetService::poll() {
@@ -213,16 +246,60 @@ void AudioSetService::install() {
   remove_pair(previous);remove_pair(staging);
   std::size_t total=0,used=0;
   std::uint64_t sd_total = 0, sd_free = 0;
+  const auto internal_room = [&] {
+    const auto discarded = size_of(current_path + "/audio.pda") + size_of(current_path + "/manifest.json");
+    return esp_littlefs_info("assets", &total, &used) == ESP_OK &&
+        core::asset_direct_install_fits(total, used, package.bytes + 2048, discarded, 0, 128 * 1024) &&
+        package.bytes + 2048 <= core::kAudioStorageBudget;
+  };
+  if (!on_sd && !internal_room()) {
+    const auto removed = PrintPreviewCache{}.reclaim() + reclaim_reaction_cover_cache();
+    if (removed) ESP_LOGI("audio_sets", "Reclaimed %u bytes of print thumbnail cache for audio storage",
+                         static_cast<unsigned>(removed));
+  }
   const bool room = on_sd ? (board_sd_status() == ESP_OK &&
       board_sd_space(&sd_total, &sd_free) == ESP_OK && package.bytes + kSdSetReserveBytes <= sd_free) :
-      (esp_littlefs_info("assets",&total,&used)==ESP_OK && used<=total &&
-       package.bytes+2048+128*1024<=total-used && storage_bytes()+package.bytes+2048<=core::kAudioStorageBudget);
+      internal_room();
   if (!room) {fail("storage_unavailable");return;}
-  if(mkdir(staging,0755)!=0){fail("storage_unavailable");return;}
+  core::AssetDownloadBuffer buffer;
+  constexpr std::size_t kPsramReserve = 1024 * 1024;
+  buffer.prepare(package.bytes, package.bytes,
+      heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT),
+      heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT),
+      kPsramReserve + (on_sd ? package.bytes : 0), allocate, heap_caps_free);
+  const auto memory = buffer.file(0, package.bytes);
+  ESP_LOGI("audio_sets", "Audio download buffer: mode=%s bytes=%u",
+      memory.empty() ? "stream" : "PSRAM-package", static_cast<unsigned>(buffer.size()));
+  bool current_discarded = false;
+  const auto discard_current = [&] {
+    if (current_discarded) return true;
+    const std::lock_guard files(file_mutex_);
+    {
+      const std::lock_guard lock(mutex_);
+      state_.available = false; state_.id.clear(); ++state_.generation;
+      sd_pack_.reset(); sd_pack_index_.reset();
+    }
+    remove_pair(current);
+    struct stat info{};
+    current_discarded = stat(current, &info) != 0 && errno == ENOENT;
+    return current_discarded;
+  };
+  if (memory.empty() && !on_sd &&
+      (esp_littlefs_info("assets", &total, &used) != ESP_OK || used > total ||
+       package.bytes + 2048 + 128 * 1024 > total - used)) {
+    PrintPreviewCache{}.reclaim();
+    reclaim_reaction_cover_cache();
+    if ((esp_littlefs_info("assets", &total, &used) != ESP_OK || used > total ||
+         package.bytes + 2048 + 128 * 1024 > total - used) && !discard_current()) {
+      fail("storage_unavailable"); return;
+    }
+  }
+  if(memory.empty() && mkdir(staging,0755)!=0){fail("storage_unavailable");return;}
   const auto path=std::string(staging)+"/audio.pda";
-  FILE* output=std::fopen(path.c_str(),"wb");if(!output){fail("storage_unavailable");return;}
+  FILE* output=memory.empty()?std::fopen(path.c_str(),"wb"):nullptr;
+  if(memory.empty() && !output){fail("storage_unavailable");return;}
   Download data{output,&cancelled_,0,package.bytes,now_ms()+60000,[this](int progress) {
-    const std::lock_guard lock(mutex_);state_.progress=progress;}};
+    const std::lock_guard lock(mutex_);state_.progress=progress;},memory};
   const auto url=std::string(kAudioSetOrigin)+package.file;
   esp_http_client_config_t config{};config.url=url.c_str();config.crt_bundle_attach=esp_crt_bundle_attach;
   config.timeout_ms=3000;config.disable_auto_redirect=true;config.buffer_size=2048;config.buffer_size_tx=512;
@@ -234,10 +311,39 @@ void AudioSetService::install() {
       esp_http_client_is_complete_data_received(client) && data.bytes==package.bytes && now_ms()<data.deadline;
     esp_http_client_cleanup(client);
   }
-  if(std::fclose(output)!=0)downloaded=false;
+  if(output && std::fclose(output)!=0)downloaded=false;
   if(!downloaded || cancelled_.load()){fail("download_unavailable");return;}
   {const std::lock_guard lock(mutex_);state_.progress=85;}
-  if(!valid_pack(path,package.sha256)){fail("invalid_package");return;}
+  if(!(memory.empty() ? valid_pack(path,package.sha256) : valid_pack(memory,package.sha256,cancelled_))){fail("invalid_package");return;}
+  {
+    const std::lock_guard lock(mutex_);
+    if (!cancelled_.load()) committing_ = true;
+  }
+  if (cancelled_.load()) { fail("cancelled"); return; }
+  ESP_LOGI("audio_sets", "Audio download validated; replacing current set without rollback copy");
+  if (!discard_current()) { fail("storage_unavailable"); return; }
+  if (!memory.empty()) {
+    if (cancelled_.load()) { fail("cancelled"); return; }
+    ESP_LOGI("audio_sets", "Writing validated PSRAM package to storage");
+    if (mkdir(staging,0755)!=0) { fail("storage_unavailable"); return; }
+    output = std::fopen(path.c_str(), "wb");
+    if (!output) { fail("storage_unavailable"); return; }
+    bool written = true;
+    for (std::size_t offset = 0; offset < memory.size();) {
+      const auto chunk = memory.subspan(offset, std::min<std::size_t>(4096, memory.size() - offset));
+      const auto write_started = esp_timer_get_time();
+      if (cancelled_.load() || std::fwrite(chunk.data(),1,chunk.size(),output)!=chunk.size()) {
+        written = false; break;
+      }
+      offset += chunk.size();
+      // Pace the RAM-to-flash burst alongside display and network workers.
+      const auto write_us = esp_timer_get_time() - write_started;
+      vTaskDelay(pdMS_TO_TICKS(std::clamp<std::int64_t>((write_us * 2 + 999) / 1000, 10, 250)));
+    }
+    const bool closed = std::fclose(output) == 0;
+    if (!written || !closed) { fail("storage_unavailable"); return; }
+  }
+  buffer.reset();
   std::unique_ptr<cJSON,decltype(&cJSON_Delete)> manifest(cJSON_CreateObject(),cJSON_Delete);
   if(!manifest){fail("memory_unavailable");return;}
   const std::string all_languages="all";
@@ -260,14 +366,8 @@ void AudioSetService::install() {
     }
   }
   const std::lock_guard files(file_mutex_);
-  // Cancellation and commit are serialized: cancellation accepted before this
-  // point leaves the previous set intact; after commit there is nothing to cancel.
   std::unique_lock commit(mutex_);
-  if(cancelled_.load()){commit.unlock();fail("cancelled");return;}
-  struct stat info{};const bool had_current=stat(current,&info)==0;
-  if(had_current && std::rename(current,previous)!=0){commit.unlock();fail("storage_unavailable");return;}
   if(std::rename(staging,current)!=0) {
-    if(had_current)std::rename(previous,current);
     commit.unlock();fail("storage_unavailable");return;
   }
   active_directory_ = current_path;

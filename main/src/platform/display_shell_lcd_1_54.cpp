@@ -1,4 +1,5 @@
 #include "printdeck/platform/display_shell.hpp"
+#include "printdeck/platform/cpu_load.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -2726,7 +2727,7 @@ void DisplayShell::square_show_system_details(const NetworkStatus& network,
     lv_label_set_long_mode(detail_label_, LV_LABEL_LONG_DOT);
     lv_obj_align(detail_label_, LV_ALIGN_BOTTOM_LEFT, 8, -6);
 
-    const char* captions[4] = {"CPU", "INTERNAL", "PSRAM", "SOUND"};
+    const char* captions[4] = {"DEVICE TEMP", "INTERNAL", "PSRAM", "CPU"};
     const std::uint32_t colors[4] = {theme_colors_.paused, theme_style_.accent_secondary,
                                      theme_style_.accent, theme_colors_.preparing};
     lv_obj_t* values[4]{};
@@ -2822,7 +2823,9 @@ void DisplayShell::square_show_system_details(const NetworkStatus& network,
   lv_label_set_text_fmt(temperature_label_, "%d MHz", CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ);
   lv_label_set_text_fmt(metrics_label_, "%u KB", static_cast<unsigned>(internal_kb));
   lv_label_set_text_fmt(progress_label_, "%.1f MB", static_cast<double>(psram_mb));
-  lv_label_set_text_fmt(layer_label_, "%d%%", audio_enabled_ ? audio_volume_ : 0);
+  const auto cpu = cpu_load_snapshot();
+  if (cpu.available) lv_label_set_text_fmt(layer_label_, "%u%%", cpu.percent);
+  else lv_label_set_text(layer_label_, "--");
   const std::uint64_t uptime = static_cast<std::uint64_t>(esp_timer_get_time()) / 1000000ULL;
   lv_label_set_text_fmt(clock_date_label_, "%s %lluh %02llum", tr("UPTIME"),
                         static_cast<unsigned long long>(uptime / 3600ULL),

@@ -249,7 +249,7 @@ class WebConfig {
   esp_err_t serve_live_view_frame(httpd_req_t* request);
   esp_err_t send_live_view_input(httpd_req_t* request);
   esp_err_t serve_device_info(httpd_req_t* request) const;
-  std::string device_info_json() const;
+  std::string device_info_json(bool include_cpu_usage = true) const;
   esp_err_t serve_brand_logos(httpd_req_t* request) const;
   esp_err_t save_wifi(httpd_req_t* request);
   esp_err_t serve_wifi_scan(httpd_req_t* request);

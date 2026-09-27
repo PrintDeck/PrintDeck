@@ -45,6 +45,8 @@ class ReactionGifBytes {
   const std::uint8_t* end() const { return data_ + size_; }
   bool operator==(const ReactionGifBytes& other) const;
   operator std::span<const std::uint8_t>() const { return {data_, size_}; }
+  // Takes ownership of a malloc-compatible buffer, including on failure.
+  static std::shared_ptr<const ReactionGifBytes> adopt(std::uint8_t* data, std::size_t size);
   static std::shared_ptr<const ReactionGifBytes> copy(std::span<const std::uint8_t> bytes);
   static std::shared_ptr<const ReactionGifBytes> read(const std::string& path, std::size_t maximum);
  private:

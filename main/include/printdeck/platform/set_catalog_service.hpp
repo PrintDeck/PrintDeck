@@ -1,10 +1,12 @@
 #pragma once
 #include <atomic>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 #include "printdeck/core/set_catalog.hpp"
 #include "printdeck/platform/network_service.hpp"
+#include "printdeck/platform/print_preview_cache.hpp"
 
 namespace printdeck::platform {
 // Catalog refresh and set installation share one bounded transfer budget.
@@ -17,6 +19,7 @@ class AssetTransferLease {
   AssetTransferLease& operator=(const AssetTransferLease&) = delete;
  private:
   bool acquired_;
+  std::optional<PrintPreviewCache::AssetWriteGuard> cache_guard_;
 };
 inline constexpr const char* kAudioSetOrigin = "https://raw.githubusercontent.com/PrintDeck/PrintDeck/main/audio-sets/";
 inline constexpr const char* kReactionSetOrigin = "https://raw.githubusercontent.com/PrintDeck/PrintDeck/main/reaction-sets/";
@@ -31,9 +34,11 @@ class SetCatalogService {
   void request_refresh();
   void cancel();
   std::vector<core::DownloadableSet> sets(bool audio) const;
+  bool reaction_catalog_ready() const {return reaction_ready_.load();}
   bool online() const {return network_ && network_->status().station_connected;}
   bool busy() const {return running_.load();}
   std::string error() const;
+  unsigned revision() const {return revision_.load();}
  private:
   static void task_entry(void* context);
   void refresh();
@@ -43,9 +48,11 @@ class SetCatalogService {
   std::vector<core::DownloadableSet> reactions_, audio_;
   std::string error_;
   std::atomic<bool> requested_{false}, cancelled_{false}, running_{false};
-  std::uint64_t next_refresh_ms_ = 0;
+  std::atomic<std::uint64_t> next_refresh_ms_{0};
   TaskHandle_t task_=nullptr;
   std::atomic<bool> finished_{false};
+  std::atomic<unsigned> revision_{0};
+  std::atomic<bool> reaction_ready_{false};
 
 };
 }  // namespace printdeck::platform

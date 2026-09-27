@@ -48,6 +48,15 @@ class DisplayShell {
   esp_err_t start(int initial_rotation_degrees = 0);
   // Application core, outside the display lock, once per monitor pass.
   void service_resources();
+  struct ReactionTryState {
+    std::string request_id, event, status = "idle";
+    std::uint32_t remaining_ms = 0;
+    std::string set;
+  };
+  bool request_reaction_try(std::string_view event, std::string_view request_id, std::string_view set = {});
+  ReactionTryState reaction_try_state() const;
+  void set_reaction_try_callback(void (*callback)(void*), void* context) {reaction_try_changed_=callback;reaction_try_context_=context;}
+  bool release_reaction_files();
   void show_boot_status(const char* text);
   void show_wifi_error(const char* network_name);
   void show_wifi_setup(const char* network_name, const char* local_hostname);
@@ -631,6 +640,7 @@ class DisplayShell {
   int square_gesture_peak_dy_ = 0;
   std::atomic<std::int64_t> background_render_quiet_until_us_{0};
   std::atomic<std::uint64_t> last_activity_ms_{0};
+  std::atomic<bool> reaction_files_release_pending_{false};
   std::atomic<std::uint64_t> display_off_since_ms_{0};
   std::atomic<bool> last_print_active_{false};
   std::atomic<std::uint64_t> manual_display_sleep_{0};
@@ -675,6 +685,7 @@ class DisplayShell {
   core::DisplayPowerPolicy power_policy_;
   bool set_picker_audio_=false;
   std::size_t set_carousel_index_=0;
+  unsigned set_catalog_revision_=0;
   lv_point_t set_picker_press_point_{};
   bool set_picker_press_moved_=false;
   core::SetPickerGesture set_picker_gesture_;
@@ -712,6 +723,20 @@ class DisplayShell {
   std::uint64_t resource_lock_retry_after_ms_ = 0;
   std::string capture_screen_name_ = "boot-status";
   std::string capture_overlay_name_;
+  void (*reaction_try_changed_)(void*) = nullptr;
+  void* reaction_try_context_ = nullptr;
+  mutable std::mutex reaction_try_mutex_;
+  ReactionTryState reaction_try_state_;
+  std::atomic<bool> reaction_try_active_{false};
+  std::int64_t reaction_try_until_us_ = 0;
+  lv_obj_t* reaction_try_overlay_ = nullptr;
+  lv_timer_t* reaction_try_timer_ = nullptr;
+  std::string reaction_try_previous_overlay_;
+  static void reaction_preview_ready(void* context, std::string_view request, bool ready);
+  static void reaction_try_start(void* context);
+  static void reaction_try_finish(lv_timer_t* timer);
+  void close_reaction_try(const char* status);
+
   core::ThemeColors custom_theme_colors_{};
   std::uint32_t accent_color_ = 0x00FF00;
   core::ThemeColors theme_colors_ = core::resolved_theme("green", {});

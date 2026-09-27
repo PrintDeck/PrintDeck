@@ -851,6 +851,7 @@ void CloudPairingService::step() {
     // another service's mutex while holding the cloud mutex.
     const auto feed_revision = feed_revision_source_ ? feed_revision_source_(feed_context_) : core::CloudFeedRevision{};
     const auto now = millis();
+    if(confirmed_ && state_feed_requested_.exchange(false)) {feed_due_=now;due_=now;}
     if (confirmed_ && !disconnect_ && command_.empty() && !token_.empty() &&
         feed_changes_.due(now, feed_revision, feed_failures_)) {
       feed_due_ = std::min(feed_due_, now);
@@ -938,6 +939,7 @@ void CloudPairingService::step() {
         if (!polling) {
           feed_changes_.acknowledge(feed_revision);
         }
+        cpu_usage_supported_.store(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(data,"cpu_usage_supported")));
         feed_failures_=0;
         screen_directive(encode(cJSON_GetObjectItemCaseSensitive(data,"live_view")), exchange_started);
         const auto interval=[&](const char* name, unsigned fallback, unsigned minimum, unsigned maximum) {

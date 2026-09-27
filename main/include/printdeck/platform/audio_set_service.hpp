@@ -37,6 +37,7 @@ class AudioSetService {
   mutable std::mutex mutex_, file_mutex_;
   const NetworkService* network_=nullptr;
   AudioSetSnapshot state_;
+  bool committing_ = false;
   core::DownloadableSet requested_;
   std::string active_directory_ = "/assets/audio/current";
   core::ReactionGif sd_pack_;

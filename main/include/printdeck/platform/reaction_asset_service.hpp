@@ -84,9 +84,20 @@ class ReactionAssetService {
   void set_storage_changed_callback(void (*callback)(void*), void* context) {
     storage_changed_ = callback; storage_context_ = context;
   }
+  void set_release_active_callback(bool (*callback)(void*), void* context) {
+    release_active_ = callback; release_context_ = context;
+  }
+  void set_background_blocked(bool (*callback)(void*), void* context) {background_blocked_=callback;background_context_=context;}
   ReactionAssetSnapshot snapshot() const;
   std::uint32_t generation() const;
   static std::vector<ReactionSetDefinition> sets();
+  static std::string_view embedded_version(std::string_view id);
+  void set_preview_active(bool value) {preview_in_use_.store(value);}
+  using PreviewReady = void (*)(void*, std::string_view, bool);
+  bool request_preview(std::string_view set, std::string_view event, std::string_view request,
+                       PreviewReady callback, void* context);
+  core::ReactionGif cached_preview() const;
+  void clear_preview();
   bool request_set(std::string_view id, std::string_view request_id = {});
   bool request_storage(std::string_view action, std::uint32_t session = 0,
                        std::string_view request_id = {});
@@ -102,12 +113,14 @@ class ReactionAssetService {
   bool finish_cloud_upload(std::string_view request, std::span<const std::uint8_t> bytes);
   esp_err_t reset_custom(std::string_view id);
   esp_err_t prepare_factory_reset();
-  std::string effective_lvgl_path(core::PrinterActivity activity) const;
+  std::string effective_lvgl_path(core::PrinterActivity activity, bool preview = false) const;
   std::string effective_vfs_path(std::string_view id) const;
   std::string preview_vfs_path(std::string_view id) const;
   std::string set_vfs_path(std::string_view id) const;
 
  private:
+  bool (*release_active_)(void*) = nullptr;
+  void* release_context_ = nullptr;
   static void reaper_task_entry(void* context);
   static void task_entry(void* context);
   static void cleanup_task_entry(void* context);
@@ -136,7 +149,8 @@ class ReactionAssetService {
                          std::size_t& total, bool allow_legacy_profile) const;
   bool download_manifest(std::string_view id, std::string& body) const;
   bool download_file(std::string_view url, const char* output_path,
-                     std::size_t expected_size, std::string_view expected_sha256) const;
+                     std::size_t expected_size, std::string_view expected_sha256,
+                     std::span<std::uint8_t> memory = {}) const;
   void refresh_active_bytes_locked();
   void refresh_set_preview_generations_locked();
   void refresh_storage_locked();
@@ -145,6 +159,19 @@ class ReactionAssetService {
   esp_err_t persist_reset_mask_locked();
   void schedule_cleanup_locked();
 
+  core::ReactionGif download_preview(std::string_view set, std::string_view event);
+  bool (*background_blocked_)(void*) = nullptr;
+  void* background_context_ = nullptr;
+  void maybe_reconcile_catalog();
+  void reconcile_catalog();
+  std::atomic<bool> preview_in_use_{false};
+  bool catalog_reconcile_pending_ = false;
+  unsigned catalog_revision_ = ~0U;
+  std::uint64_t catalog_retry_ms_ = 0;
+  core::ReactionGif preview_gif_;
+  std::string preview_set_, preview_event_, preview_request_;
+  PreviewReady preview_ready_ = nullptr;
+  void* preview_context_ = nullptr;
   mutable std::mutex mutex_;
   // Serializes filesystem swaps while allowing readers to observe generation
   // changes and release an open LVGL decoder between rename retries.

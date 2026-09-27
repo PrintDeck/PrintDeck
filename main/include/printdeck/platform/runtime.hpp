@@ -38,6 +38,7 @@
 #include "printdeck/platform/usb_developer_service.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 
 namespace printdeck::platform {
 
@@ -100,6 +101,12 @@ class Runtime {
   void update_audio_state(const core::PrinterSnapshot& snapshot);
   bool clear_unavailable_selection(std::uint32_t profile_id);
   bool background_update_blocked() const;
+  enum class PowerUiAction : std::uint8_t { wake, single, double_click, home, show_3, show_2, show_1, cancel };
+  void queue_power_ui(PowerUiAction action);
+  void service_power_ui();
+  StaticQueue_t power_ui_queue_storage_{};
+  std::array<std::uint8_t, 16 * sizeof(PowerUiAction)> power_ui_queue_bytes_{};
+  QueueHandle_t power_ui_queue_ = nullptr;
   DisplayShell display_;
   SettingsStore settings_store_;
   core::DeviceSettings settings_;

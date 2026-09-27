@@ -6,6 +6,27 @@
 #include "cJSON.h"
 
 namespace printdeck::core {
+namespace {
+bool numeric_version(std::string_view value, std::array<unsigned,3>& out) {
+  if(value.empty()) return false;
+  std::size_t part=0; bool digit=false;
+  for(char c:value) {
+    if(c=='.') { if(!digit || ++part>=out.size())return false; digit=false; }
+    else if(c>='0' && c<='9' && out[part]<=100000) {out[part]=out[part]*10+(c-'0');digit=true;}
+    else return false;
+  }
+  return digit;
+}
+}
+CatalogAction reaction_catalog_action(const std::vector<DownloadableSet>& sets,
+    std::string_view installed, std::string_view version) {
+  if(installed.empty())return CatalogAction::keep;
+  const auto found=std::find_if(sets.begin(),sets.end(),[&](const auto& set){return set.id==installed;});
+  if(found==sets.end() || !found->available)return CatalogAction::remove;
+  std::array<unsigned,3> old{}, next{};
+  return numeric_version(version,old) && numeric_version(found->version,next) && next>old
+      ? CatalogAction::update : CatalogAction::keep;
+}
 bool valid_set_id(std::string_view id) {
   return !id.empty() && id.size() <= 48 && std::all_of(id.begin(), id.end(), [](char c) {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
@@ -27,12 +48,16 @@ bool parse_set_catalog(std::string_view json, bool audio, std::vector<Downloadab
   const auto* schema = get(root.get(), "schema");
   const auto* entries = get(root.get(), "sets");
   const int count = cJSON_GetArraySize(entries);
-  if (!cJSON_IsNumber(schema) || schema->valuedouble != (audio ? 2 : 1) || !cJSON_IsArray(entries) || count < 1 || count > 32) return false;
+  if (!cJSON_IsNumber(schema) || schema->valuedouble != (audio ? 2 : 1) || !cJSON_IsArray(entries) || (audio && count < 1) || count > 32) return false;
   std::vector<DownloadableSet> next;
   next.reserve(count);
   for (int i = 0; i < count; ++i) {
     const auto* entry = cJSON_GetArrayItem(entries, i);
     DownloadableSet item;
+    if (const auto* available = get(entry, "available")) {
+      if (!cJSON_IsBool(available)) return false;
+      item.available = cJSON_IsTrue(available);
+    }
     item.id = text(entry, "id", 48); item.name = text(entry, "name", 96); item.version = text(entry, "version", 32);
     if (!valid_set_id(item.id) || item.name.empty() || item.version.empty() ||
         std::any_of(next.begin(), next.end(), [&](const auto& previous) {return previous.id == item.id;})) return false;
@@ -59,6 +84,14 @@ bool parse_set_catalog(std::string_view json, bool audio, std::vector<Downloadab
       item.family_id = text(entry, "family_id", 48); item.family_name = text(entry, "family_name", 96);
       item.variant_name = text(entry, "variant_name", 96);
       if (!valid_set_id(item.family_id) || item.family_name.empty()) return false;
+      if (const auto* covers = get(entry, "device_previews")) {
+        if (!cJSON_IsObject(covers)) return false;
+        for (std::size_t n = 0; n < 2; ++n) {
+          auto& hash = item.device_previews[n];
+          hash = text(covers, n == 0 ? "192" : "88", 64);
+          if (hash.size() != 64 || hash.find_first_not_of("0123456789abcdef") != std::string::npos) return false;
+        }
+      }
     }
     next.push_back(std::move(item));
   }

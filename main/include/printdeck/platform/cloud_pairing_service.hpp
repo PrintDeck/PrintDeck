@@ -1,5 +1,6 @@
 #pragma once
 #include <mutex>
+#include <atomic>
 #include <memory>
 #include <vector>
 #include <string>
@@ -15,6 +16,8 @@ namespace printdeck::platform {
 class CloudPairingService {
  public:
   ~CloudPairingService();
+  void request_state_feed() {state_feed_requested_.store(true);}
+  bool cpu_usage_supported() const { return cpu_usage_supported_.load(); }
   using CommandSink = bool (*)(void*, const std::string&);
   void set_command_sink(CommandSink sink);
   using ReactionUpload = bool (*)(void*, const std::string&, const std::uint8_t*, std::size_t, bool);
@@ -106,6 +109,7 @@ class CloudPairingService {
   FeedSource feed_source_ = nullptr;
   FeedRevisionSource feed_revision_source_ = nullptr;
   core::CloudFeedChanges feed_changes_;
+  std::atomic<bool> state_feed_requested_{false};
   void* feed_context_ = nullptr;
   CommandSink command_sink_ = nullptr;
   ReactionUpload reaction_upload_ = nullptr;
@@ -115,6 +119,7 @@ class CloudPairingService {
   bool result_pending_ = false;
   bool confirmed_ = false;
   unsigned feed_failures_ = 0;
+  std::atomic<bool> cpu_usage_supported_{false};
   bool online_ = false, paused_ = false, disconnect_ = false, initialized_ = false;
   std::uint32_t generation_ = 0;
   std::int64_t due_ = 0, expires_ = 0;

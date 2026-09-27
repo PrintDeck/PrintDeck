@@ -51,10 +51,10 @@ endif()
 
 # Each hardware target has an independent release stream. Never align one
 # target to the other target's version merely because both share this source.
-set(PRINTDECK_AMOLED_1_75_VERSION "1.0.24")
-set(PRINTDECK_LCD_1_54_VERSION "1.0.13")
-set(PRINTDECK_KNOMI2_VERSION "1.0.25")
-set(PRINTDECK_KNOMIPANDA_VERSION "1.0.1")
+set(PRINTDECK_AMOLED_1_75_VERSION "1.0.25")
+set(PRINTDECK_LCD_1_54_VERSION "1.0.14")
+set(PRINTDECK_KNOMI2_VERSION "1.0.26")
+set(PRINTDECK_KNOMIPANDA_VERSION "1.0.2")
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     set(PROJECT_VER "${PRINTDECK_KNOMI2_VERSION}")
     set(PRINTDECK_REACTION_SEED_DIR "main/reaction_seed/knomi2")
@@ -106,6 +106,12 @@ if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
     add_custom_target(voice_models_bin DEPENDS "${voice_model_image}")
     add_dependencies(flash voice_models_bin)
     esptool_py_flash_to_partition(flash "voice_models" "${voice_model_image}")
+endif()
+
+if(NOT CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS OR NOT CONFIG_FREERTOS_RUN_TIME_STATS_USING_ESP_TIMER)
+    message(FATAL_ERROR
+        "PrintDeck CPU utilisation requires FreeRTOS runtime statistics using ESP timer. "
+        "Update the build-local sdkconfig from the committed defaults or use the local development runner.")
 endif()
 
 if(NOT CONFIG_MQTT_TASK_STACK_ON_EXTERNAL_MEMORY)

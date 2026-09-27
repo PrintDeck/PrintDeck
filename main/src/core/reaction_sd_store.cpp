@@ -43,6 +43,13 @@ bool ReactionGifBytes::operator==(const ReactionGifBytes& other) const {
   return size_ == other.size_ && std::memcmp(data_, other.data_, size_) == 0;
 }
 
+ReactionGif ReactionGifBytes::adopt(std::uint8_t* data, std::size_t size) {
+  if (!data || !size || size > ReactionSdStore::maximum_bytes) { std::free(data); return {}; }
+  auto* object = new (std::nothrow) ReactionGifBytes(data, size);
+  if (!object) { std::free(data); return {}; }
+  return ReactionGif(object);
+}
+
 ReactionGif ReactionGifBytes::copy(std::span<const std::uint8_t> bytes) {
   if (bytes.empty() || bytes.size() > ReactionSdStore::maximum_bytes) return {};
   auto* data = static_cast<std::uint8_t*>(std::malloc(bytes.size()));

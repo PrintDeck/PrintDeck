@@ -3,6 +3,7 @@
 #include "printdeck/platform/set_catalog_service.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/web_config.hpp"
+#include "printdeck/platform/cpu_load.hpp"
 #include "printdeck/core/printer_address.hpp"
 #include "printdeck/core/bambu_printer_name.hpp"
 
@@ -629,6 +630,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   compatibility_probe_ = &compatibility_probe;
   inactive_printer_poller_ = &inactive_printer_poller;
   display_ = &display;
+  display_->set_reaction_try_callback(+[](void* context){static_cast<WebConfig*>(context)->cloud_.request_state_feed();},this);
 
   const esp_timer_create_args_t timer_args = {
       .callback = restart_entry,
@@ -1867,9 +1869,14 @@ esp_err_t WebConfig::serve_reaction_set_preview(httpd_req_t* request) const {
   if (!query_value(request, "id", id)) {
     return send_json(request, "400 Bad Request", "{\"error\":\"Choose a valid reaction set.\"}");
   }
-  const std::string_view preview = reaction_set_preview(id);
-  if (preview.empty()) {
-    return send_json(request, "404 Not Found", "{\"error\":\"Reaction set preview not found.\"}");
+  const auto sets = ReactionAssetService::sets();
+  const auto set=std::find_if(sets.begin(),sets.end(),[&](const auto& item){return item.id==id;});
+  if(set==sets.end())return send_json(request,"404 Not Found","{\"error\":\"Reaction set preview not found.\"}");
+  const auto preview=reaction_set_preview(id);
+  if(preview.empty() || (SetCatalogService::instance().online() && set->version!=ReactionAssetService::embedded_version(id))) {
+    const std::string url=std::string(kReactionSetOrigin)+"previews/"+id+".webp?v="+set->version;
+    httpd_resp_set_status(request,"302 Found");httpd_resp_set_hdr(request,"Location",url.c_str());
+    httpd_resp_set_hdr(request,"Cache-Control","no-store");return httpd_resp_send(request,nullptr,0);
   }
   httpd_resp_set_type(request, "image/webp");
   httpd_resp_set_hdr(request, "Cache-Control", "public, max-age=86400");
@@ -2172,7 +2179,7 @@ esp_err_t WebConfig::send_live_view_input(httpd_req_t* request) {
   return send_json(request, "202 Accepted", "{\"accepted\":true}");
 }
 
-std::string WebConfig::device_info_json() const {
+std::string WebConfig::device_info_json(bool include_cpu_usage) const {
   esp_chip_info_t chip_info{};
   esp_chip_info(&chip_info);
   const std::size_t internal_total =
@@ -2226,7 +2233,15 @@ std::string WebConfig::device_info_json() const {
   if (length < 0 || static_cast<std::size_t>(length) >= kResponseBytes) {
     return {};
   }
-  return std::string(body.get(), static_cast<std::size_t>(length));
+  std::string result(body.get(), static_cast<std::size_t>(length));
+  const auto cpu = cpu_load_snapshot();
+  if (include_cpu_usage && cpu.available) {
+    result.pop_back();
+    result += ",\"cpu_usage_percent\":" + std::to_string(cpu.percent) +
+        ",\"cpu_core0_usage_percent\":" + std::to_string(cpu.cores[0]) +
+        ",\"cpu_core1_usage_percent\":" + std::to_string(cpu.cores[1]) + "}";
+  }
+  return result;
 }
 
 esp_err_t WebConfig::serve_device_info(httpd_req_t* request) const {
@@ -2263,7 +2278,7 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
     body += power.usb_present || power.charging ? "true" : "false";
     body += "}";
     body += R"(,"system_info":)";
-    const auto info = device_info_json();
+    const auto info = device_info_json(cloud_.cpu_usage_supported());
     body += info.empty() ? "null" : info;
     body += R"(,"ipv4":)";
     if (network.station_connected && !network.ipv4.empty()) append_json_string(body, network.ipv4);
@@ -2336,6 +2351,9 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
     if(std::string_view(action)=="reactions.set.install"||std::string_view(action)=="reactions.set.cancel")body+=R"(,"request_id_supported":true)";
     body+="}";
   }
+  body+=R"(,"reactions.event.try":{"supported":true,"available":)";
+  body+=display_&&reactions.available&&!reactions.busy&&!reactions.sd_busy&&!update.busy?"true":"false";
+  body+="}";
   body+=R"(,"reactions.image.upload":{"supported":true,"available":)";
   body+=reactions.available&&!reactions.busy&&!reactions.sd_busy&&!reactions.sd_missing&&(!reactions.sd_selected||reactions.sd_ready)?"true":"false";
   body+="}";
@@ -2433,6 +2451,12 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
   if(command.action=="audio.set.cancel") {
     if(count>1 || (count==1 && !cJSON_IsString(get("request_id"))))return {};
     if(!AudioSetService::instance().cancel(text("request_id")))return {409,R"({"error":"No matching audio download."})"};
+    return {202,R"({"status":"accepted"})"};
+  }
+  if(command.action=="reactions.event.try") {
+    if((count!=2 && count!=3) || (count==3 && (!cJSON_IsString(get("set")) || text("set").empty())) || !core::reaction_event(text("event")) || !core::firmware_request_id(text("request_id")))return {};
+    if(!display_ || (firmware_update_ && firmware_update_->snapshot().busy) ||
+       !display_->request_reaction_try(text("event"),text("request_id"),text("set")))return {409,R"({"status":"rejected"})"};
     return {202,R"({"status":"accepted"})"};
   }
   if(command.action=="device.restart") {
@@ -3340,6 +3364,15 @@ std::string WebConfig::reaction_state_json(bool include_catalog) const {
   const ReactionAssetSnapshot state = reaction_assets_->snapshot();
   std::string body = "{\"schema\":1,\"available\":";
   body += state.available ? "true" : "false";
+  const auto preview=display_?display_->reaction_try_state():DisplayShell::ReactionTryState{};
+  body += ",\"preview\":{\"request_id\":";append_json_string(body,preview.request_id);
+  body += ",\"set\":";append_json_string(body,preview.set);
+  body += ",\"event\":";append_json_string(body,preview.event);
+  body += ",\"status\":";append_json_string(body,preview.status);
+  body += ",\"remaining_ms\":"+std::to_string(preview.remaining_ms)+"}";
+  body += ",\"try_available\":";
+  body += display_&&state.available&&!state.busy&&!state.sd_busy&&
+      !(firmware_update_&&firmware_update_->snapshot().busy)?"true":"false";
   body += ",\"busy\":";
   body += state.busy ? "true" : "false";
   body += ",\"cancellable\":";
