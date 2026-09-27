@@ -91,6 +91,7 @@ class ReactionAssetService {
   bool request_storage(std::string_view action, std::uint32_t session = 0,
                        std::string_view request_id = {});
   core::ReactionGif cached_sd_gif(std::string_view id) const;
+  core::ReactionGif cached_set_gif(std::string_view id) const;
   bool read_custom_gif(std::string_view id, std::span<std::uint8_t> destination) const;
   bool cancel_set(std::string_view expected_set = {}, std::string_view expected_request = {});
   bool event_enabled(std::string_view id) const;
@@ -126,7 +127,8 @@ class ReactionAssetService {
   void schedule_profile_migration_retry_locked();
   bool cancellation_requested() const;
   void finish_cancelled_install();
-  bool load_active_manifest();
+  bool load_active_manifest(const std::string& directory = "/assets/reactions/current");
+  void select_set_storage();
   bool validate_manifest(std::string_view body, std::string_view expected_id,
                          std::array<std::size_t, core::kReactionEventCount>& sizes,
                          std::array<std::string, core::kReactionEventCount>& hashes,
@@ -159,6 +161,9 @@ class ReactionAssetService {
   void* storage_context_ = nullptr;
   core::ReactionSdStore sd_store_;
   core::ReactionGifArray sd_cache_{};
+  core::ReactionGifArray sd_set_cache_{};
+  std::string active_set_directory_ = "/assets/reactions/current";
+  std::string install_staging_directory_ = "/assets/reactions/staging";
   std::uint32_t sd_owned_mask_ = 0;
   bool sd_index_valid_ = false;
   bool sd_initialized_ = false;

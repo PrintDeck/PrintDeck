@@ -29,6 +29,7 @@
 #include "nvs.h"
 #include "printdeck/platform/board.hpp"
 #include "printdeck/platform/image_workspace.hpp"
+#include "printdeck/platform/sd_set_storage.hpp"
 #include "printdeck/platform/task_affinity.hpp"
 
 namespace printdeck::platform {
@@ -193,8 +194,14 @@ bool storage_has_room(std::size_t requested_bytes,std::size_t reclaimed_bytes=0)
   if (esp_littlefs_info(kPartitionLabel, &total, &used) != ESP_OK || used > total) {
     return false;
   }
-  return core::asset_replacement_fits(total,used,requested_bytes,reclaimed_bytes,
-      kBoardHasAudio?AudioSetService::storage_reserve():0,kStorageSafetyBytes);
+  const auto reserve = kBoardHasAudio ? AudioSetService::storage_reserve() : 0;
+  const bool fits = core::asset_replacement_fits(total, used, requested_bytes,
+      reclaimed_bytes, reserve, kStorageSafetyBytes);
+  ESP_LOGI(kTag, "Storage admission: total=%u used=%u requested=%u reclaimed=%u reserve=%u fits=%d",
+      static_cast<unsigned>(total), static_cast<unsigned>(used),
+      static_cast<unsigned>(requested_bytes), static_cast<unsigned>(reclaimed_bytes),
+      static_cast<unsigned>(reserve), fits);
+  return fits;
 }
 
 bool write_bytes(const char* path, std::span<const std::uint8_t> bytes) {
@@ -309,7 +316,9 @@ struct SdGifReader {
 };
 void* lv_sd_open(lv_fs_drv_t* driver, const char* path, lv_fs_mode_t mode) {
   if (!path || mode != LV_FS_MODE_RD) return nullptr;
-  auto bytes = static_cast<ReactionAssetService*>(driver->user_data)->cached_sd_gif(path);
+  auto* service = static_cast<ReactionAssetService*>(driver->user_data);
+  const std::string_view id(path);
+  auto bytes = id.starts_with("set/") ? service->cached_set_gif(id.substr(4)) : service->cached_sd_gif(id);
   return bytes ? new (std::nothrow) SdGifReader{std::move(bytes), 0} : nullptr;
 }
 lv_fs_res_t lv_sd_close(lv_fs_drv_t*, void* file) {
@@ -441,6 +450,11 @@ esp_err_t ReactionAssetService::start(const NetworkService& network) {
   if (active_valid && !remove_tree(kPreviousPath)) {
     ESP_LOGW(kTag, "Old reaction set cleanup will be retried later");
   }
+  storage_has_room(0, directory_size(kCurrentPath));
+  ESP_LOGI(kTag, "Stored assets: reactions=%u custom=%u audio=%u",
+      static_cast<unsigned>(directory_size(kCurrentPath)),
+      static_cast<unsigned>(directory_size(kCustomPath)),
+      static_cast<unsigned>(AudioSetService::storage_bytes()));
   std::array<bool, core::kReactionEventCount> custom_present{};
   std::array<std::size_t, core::kReactionEventCount> custom_sizes{};
   for (std::size_t index = 0; index < core::kReactionEventCount; ++index) {
@@ -726,6 +740,7 @@ bool ReactionAssetService::finish_cloud_upload(std::string_view request, std::sp
 
 esp_err_t ReactionAssetService::install_custom(
     std::string_view id, std::span<const std::uint8_t> bytes, std::string_view upload_request) {
+  const std::lock_guard card(sd_set_storage().mutex);
   AssetTransferLease transfer;
   if (!transfer) return ESP_ERR_INVALID_STATE;
   const auto* event = core::reaction_event(id);
@@ -800,7 +815,7 @@ esp_err_t ReactionAssetService::install_custom(
     } else if (custom_present_[event_index]) {
       effective_total += custom_sizes_[event_index];
     } else if (current_present_[event_index]) {
-      effective_total += file_size(std::string(kCurrentPath) + "/" + event_id + ".gif");
+      effective_total += current_sizes_[event_index];
     }
   }
   if (effective_total > snapshot_.maximum_custom_bytes) return ESP_ERR_NO_MEM;
@@ -861,6 +876,8 @@ esp_err_t ReactionAssetService::install_custom(
 }
 
 esp_err_t ReactionAssetService::reset_custom(std::string_view id) {
+  const std::unique_lock card(sd_set_storage().mutex, std::try_to_lock);
+  if (!card.owns_lock()) return ESP_ERR_INVALID_STATE;
   const auto* event = core::reaction_event(id);
   if (event == nullptr) return ESP_ERR_INVALID_ARG;
   const std::size_t index = static_cast<std::size_t>(event - core::reaction_events().data());
@@ -897,6 +914,8 @@ esp_err_t ReactionAssetService::reset_custom(std::string_view id) {
 }
 
 esp_err_t ReactionAssetService::prepare_factory_reset() {
+  const std::unique_lock card(sd_set_storage().mutex, std::try_to_lock);
+  if (!card.owns_lock()) return ESP_ERR_INVALID_STATE;
   static_assert(core::kReactionEventCount < 32);
   const std::lock_guard<std::mutex> mutation_lock(filesystem_mutation_mutex_);
   {
@@ -964,8 +983,9 @@ std::string ReactionAssetService::set_vfs_path(std::string_view id) const {
   if (event == nullptr) return {};
   const std::size_t index = static_cast<std::size_t>(event - core::reaction_events().data());
   const std::lock_guard<std::mutex> lock(mutex_);
+  if (sd_set_cache_[index]) return {};
   return current_present_[index]
-             ? std::string(kCurrentPath) + "/" + std::string(id) + ".gif"
+             ? active_set_directory_ + "/" + std::string(id) + ".gif"
              : std::string{};
 }
 
@@ -979,8 +999,9 @@ std::string ReactionAssetService::effective_vfs_path(std::string_view id) const 
   if (custom_present_[index]) {
     return std::string(kCustomPath) + "/" + std::string(id) + ".gif";
   }
+  if (sd_set_cache_[index]) return {};
   return current_present_[index]
-             ? std::string(kCurrentPath) + "/" + std::string(id) + ".gif"
+             ? active_set_directory_ + "/" + std::string(id) + ".gif"
              : std::string{};
 }
 
@@ -992,24 +1013,22 @@ std::string ReactionAssetService::preview_vfs_path(std::string_view id) const {
   if (!(sd_owned_mask_ & (1UL << index)) && custom_present_[index]) {
     return std::string(kCustomPath) + "/" + std::string(id) + ".gif";
   }
+  if (sd_set_cache_[index]) return {};
   return current_present_[index]
-             ? std::string(kCurrentPath) + "/" + std::string(id) + ".gif"
+             ? active_set_directory_ + "/" + std::string(id) + ".gif"
              : std::string{};
 }
 
 std::string ReactionAssetService::effective_lvgl_path(core::PrinterActivity activity) const {
   const auto id = core::reaction_event(activity).id;
-  {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    const auto index = core::reaction_event_index(activity);
-    if ((disabled_mask_ & (1UL << index)) == 0 && sd_cache_[index] &&
-        (reset_mask_ & (1UL << index)) == 0) return std::string("S:") + std::string(id);
-    if ((sd_owned_mask_ & (1UL << index)) && (disabled_mask_ & (1UL << index)) == 0)
-      return current_present_[index] ? std::string("R:/reactions/current/") + std::string(id) + ".gif" : std::string{};
-  }
-  const std::string vfs = effective_vfs_path(id);
-  if (vfs.rfind(kMountPath, 0) != 0) return {};
-  return std::string("R:") + vfs.substr(std::strlen(kMountPath));
+  const auto index = core::reaction_event_index(activity);
+  const std::lock_guard<std::mutex> lock(mutex_);
+  if (disabled_mask_ & (1UL << index)) return {};
+  if (sd_cache_[index] && !(reset_mask_ & (1UL << index))) return "S:" + std::string(id);
+  if (!(sd_owned_mask_ & (1UL << index)) && custom_present_[index])
+    return "R:/reactions/custom/" + std::string(id) + ".gif";
+  if (sd_set_cache_[index]) return "S:set/" + std::string(id);
+  return current_present_[index] ? "R:/reactions/current/" + std::string(id) + ".gif" : std::string{};
 }
 
 bool ReactionAssetService::download_manifest(std::string_view id, std::string& body) const {
@@ -1289,9 +1308,11 @@ bool ReactionAssetService::download_file(std::string_view url_view,
   return valid;
 }
 
-bool ReactionAssetService::load_active_manifest() {
+bool ReactionAssetService::load_active_manifest(const std::string& directory) {
+  const bool on_sd = directory.rfind("/sdcard/", 0) == 0;
+  core::ReactionGifArray images{};
   std::vector<std::uint8_t> bytes;
-  if (!read_file(std::string(kCurrentPath) + "/manifest.json",
+  if (!read_file(directory + (on_sd ? "/set.jsn" : "/manifest.json"),
                  kMaximumManifestBytes, bytes)) return false;
   const std::string_view body(reinterpret_cast<const char*>(bytes.data()), bytes.size());
   cJSON* root = cJSON_ParseWithLength(body.data(), body.size());
@@ -1319,8 +1340,8 @@ bool ReactionAssetService::load_active_manifest() {
     return false;
   }
   for (std::size_t index = 0; index < core::kReactionEventCount; ++index) {
-    const std::string path = std::string(kCurrentPath) + "/" +
-                             std::string(core::reaction_events()[index].id) + ".gif";
+    const std::string path = directory + "/" + (on_sd ? sd_reaction_filename(index) :
+                             std::string(core::reaction_events()[index].id) + ".gif");
     std::vector<std::uint8_t> gif;
     std::array<std::uint8_t, 32> expected{};
     if (file_size(path) != sizes[index] || !parse_sha256(hashes[index], expected) ||
@@ -1335,8 +1356,15 @@ bool ReactionAssetService::load_active_manifest() {
     mbedtls_sha256_free(&sha);
     core::GifMetadata metadata;
     if (!checksum_ok || !core::inspect_gif(gif, metadata)) return false;
+    if (on_sd) {
+      images[index] = core::ReactionGifBytes::copy(gif);
+      if (!images[index]) return false;
+    }
+    vTaskDelay(1);
   }
   const std::lock_guard<std::mutex> lock(mutex_);
+  active_set_directory_ = directory;
+  sd_set_cache_ = std::move(images);
   current_present_.fill(true);
   current_sizes_ = sizes;
   snapshot_.active_set_id = id;
@@ -1448,6 +1476,7 @@ void ReactionAssetService::cleanup_reset_custom_files() {
     vTaskDelay(pdMS_TO_TICKS(100));
     bool pending = false;
     {
+      const std::lock_guard card(sd_set_storage().mutex);
       const std::lock_guard<std::mutex> mutation_lock(filesystem_mutation_mutex_);
       std::unique_lock<std::mutex> lock(mutex_);
       const std::uint32_t previous_reset_mask = reset_mask_;
@@ -1486,7 +1515,7 @@ bool ReactionAssetService::cancellation_requested() const {
 }
 
 void ReactionAssetService::finish_cancelled_install() {
-  remove_tree(kStagingPath);
+  remove_tree(install_staging_directory_.c_str());
   const std::lock_guard<std::mutex> lock(mutex_);
   cancel_requested_.store(false, std::memory_order_release);
   snapshot_.busy = false;
@@ -1525,6 +1554,18 @@ void ReactionAssetService::install_requested_set(std::string id) {
     vTaskDelay(pdMS_TO_TICKS(20));
   AssetTransferLease transfer;
   if(!transfer) {fail("Another set download is in progress.");return;}
+  auto& storage = sd_set_storage();
+  const std::lock_guard card(storage.mutex);
+  const bool on_sd = !storage.root.empty();
+  const std::string directory = on_sd ? storage.root + "/reacts" : kRootPath;
+  const std::string current_path = directory + "/current", previous_path = directory + "/previous";
+  install_staging_directory_ = directory + "/staging";
+  const char* kCurrentPath = current_path.c_str();
+  const char* kPreviousPath = previous_path.c_str();
+  const char* kStagingPath = install_staging_directory_.c_str();
+  ensure_directory(directory.c_str());
+  ESP_LOGI(kTag, "Set download destination: %s", on_sd ? "SD" : "internal");
+  core::ReactionGifArray images{};
   bool user_requested;
   { const std::lock_guard<std::mutex> lock(mutex_); user_requested = !profile_migration_attempt_active_; }
   if (cancellation_requested()) {
@@ -1593,12 +1634,16 @@ void ReactionAssetService::install_requested_set(std::string id) {
     fail("PrintDeck could not prepare reaction storage.");
     return;
   }
-  if (!storage_has_room(total + manifest.size(),directory_size(kCurrentPath))) {
+  std::uint64_t sd_total = 0, sd_free = 0;
+  const bool room = on_sd ? (board_sd_status() == ESP_OK &&
+      board_sd_space(&sd_total, &sd_free) == ESP_OK && total + manifest.size() + kSdSetReserveBytes <= sd_free) :
+      storage_has_room(total + manifest.size(), directory_size(kCurrentPath));
+  if (!room) {
     fail("PrintDeck needs more free reaction storage to change sets safely.");
     return;
   }
   ensure_directory(kStagingPath);
-  if (!write_text((std::string(kStagingPath) + "/manifest.json").c_str(), manifest)) {
+  if (!write_text((std::string(kStagingPath) + (on_sd ? "/set.jsn" : "/manifest.json")).c_str(), manifest)) {
     remove_tree(kStagingPath);
     fail("PrintDeck could not prepare reaction storage.");
     return;
@@ -1612,7 +1657,7 @@ void ReactionAssetService::install_requested_set(std::string id) {
     const std::string event(core::reaction_events()[index].id);
     const std::string filename = event + ".gif";
     const std::string url = set_asset_base_url() + id + "/" + filename;
-    const std::string output = std::string(kStagingPath) + "/" + filename;
+    const std::string output = std::string(kStagingPath) + "/" + (on_sd ? sd_reaction_filename(index) : filename);
     if (!download_file(url, output.c_str(), sizes[index], hashes[index]) ||
         !read_file(output, sizes[index], gif)) {
       if (cancellation_requested()) {
@@ -1628,6 +1673,14 @@ void ReactionAssetService::install_requested_set(std::string id) {
       remove_tree(kStagingPath);
       fail("A reaction GIF did not pass device validation.");
       return;
+    }
+    if (on_sd) {
+      images[index] = core::ReactionGifBytes::copy(gif);
+      if (!images[index]) {
+        remove_tree(kStagingPath);
+        fail("PrintDeck could not prepare reaction storage.");
+        return;
+      }
     }
     const std::lock_guard<std::mutex> lock(mutex_);
     snapshot_.progress_percent = static_cast<int>((index + 1) * 95 /
@@ -1705,6 +1758,8 @@ void ReactionAssetService::install_requested_set(std::string id) {
   }
   {
     const std::lock_guard<std::mutex> lock(mutex_);
+    active_set_directory_ = current_path;
+    sd_set_cache_ = std::move(images);
     snapshot_.active_set_id = std::move(id);
     snapshot_.active_set_name = std::move(name);
     snapshot_.active_set_version = std::move(version);
@@ -1836,6 +1891,55 @@ void ReactionAssetService::sync_sd_locked() {
   refresh_active_bytes_locked();
 }
 
+void ReactionAssetService::select_set_storage() {
+  auto& storage = sd_set_storage();
+  std::string selected;
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (snapshot_.sd_selected && sd_store_.mounted()) {
+      char root[80];
+      std::snprintf(root, sizeof(root), "/sdcard/PRINTDCK/%08lx/sets", static_cast<unsigned long>(sd_store_.index().owner));
+      selected = root;
+    }
+  }
+  if (selected == storage.root) return;
+  storage.root = selected;
+  bool loaded = false;
+  if (!selected.empty()) {
+    ensure_directory(selected.c_str());
+    const auto directory = selected + "/reacts";
+    ensure_directory(directory.c_str());
+    const auto current = directory + "/current", previous = directory + "/previous";
+    if (!directory_exists(current.c_str())) rename(previous.c_str(), current.c_str());
+    remove_tree((directory + "/staging").c_str());
+    loaded = load_active_manifest(current);
+    if (!loaded && directory_exists(previous.c_str()) && remove_tree(current.c_str()) &&
+        rename(previous.c_str(), current.c_str()) == 0) loaded = load_active_manifest(current);
+    if (loaded) remove_tree(previous.c_str());
+  }
+  if (!loaded) loaded = load_active_manifest();
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (!loaded) {
+      sd_set_cache_ = {}; current_present_.fill(false); current_sizes_.fill(0);
+      active_set_directory_ = kCurrentPath;
+      snapshot_.active_set_id.clear(); snapshot_.active_set_name.clear(); snapshot_.active_set_version.clear();
+    }
+    ++snapshot_.generation;
+    refresh_set_preview_generations_locked();
+    refresh_active_bytes_locked();
+  }
+  AudioSetService::instance().select_storage(selected.empty() ? std::string{} : selected + "/audio");
+  ESP_LOGI(kTag, "Set storage selected: %s", selected.empty() ? "internal" : "SD");
+}
+
+core::ReactionGif ReactionAssetService::cached_set_gif(std::string_view id) const {
+  const auto* event = core::reaction_event(id);
+  if (!event) return {};
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return sd_set_cache_[event - core::reaction_events().data()];
+}
+
 core::ReactionGif ReactionAssetService::cached_sd_gif(std::string_view id) const {
   const auto* event = core::reaction_event(id);
   if (!event) return {};
@@ -1903,6 +2007,8 @@ bool ReactionAssetService::request_storage(std::string_view action, std::uint32_
 }
 
 void ReactionAssetService::maybe_check_storage() {
+  const std::unique_lock card(sd_set_storage().mutex, std::try_to_lock);
+  if (!card.owns_lock()) return;
   // Serialize against mounts and file changes without delaying their workers.
   const std::unique_lock<std::mutex> mutation_lock(filesystem_mutation_mutex_, std::try_to_lock);
   if (!mutation_lock.owns_lock()) return;
@@ -1929,6 +2035,7 @@ bool ReactionAssetService::refresh_sd_storage() {
     board_sd_unmount();
     total = free = 0;
   }
+  select_set_storage();
   const std::lock_guard<std::mutex> lock(mutex_);
   snapshot_.sd_total = total;
   snapshot_.sd_free = free;
@@ -1939,6 +2046,7 @@ bool ReactionAssetService::refresh_sd_storage() {
 }
 
 void ReactionAssetService::storage_task(std::string action) {
+  const std::lock_guard card(sd_set_storage().mutex);
   const std::lock_guard<std::mutex> mutation_lock(filesystem_mutation_mutex_);
   bool mounted_now = false;
   bool migrated = false;
@@ -2061,6 +2169,7 @@ void ReactionAssetService::storage_task(std::string action) {
     sd_store_.unmount();
     board_sd_unmount();
   }
+  select_set_storage();
   std::uint64_t total = 0, free = 0;
   if (sd_store_.mounted()) board_sd_space(&total, &free);
   {

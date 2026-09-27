@@ -962,11 +962,11 @@ class Viewer{
         </article>
         <article class="card" id="reaction-sd-empty" hidden style="margin-top:16px"><h2>SD card not detected</h2><p class="micro">Optionally insert a FAT32 microSD card to store your custom reaction images on it instead of in PrintDeck’s memory.</p><div class="actions"><button class="secondary" data-reaction-sd-check type="button">Check card</button></div><p class="status" id="reaction-sd-empty-status" role="status"></p></article>
         <article class="card" id="reaction-sd-card" hidden style="margin-top:16px">
-          <div class="section-head reaction-header"><div><h2>SD card for custom reactions</h2></div><label class="reaction-master"><strong>Use SD card for custom reactions</strong><input class="reaction-switch-input" id="reaction-sd-enabled" type="checkbox" role="switch"><span class="reaction-switch" aria-hidden="true"></span></label></div>
+          <div class="section-head reaction-header"><div><h2>SD card for reactions and audio</h2></div><label class="reaction-master"><strong>Use SD card</strong><input class="reaction-switch-input" id="reaction-sd-enabled" type="checkbox" role="switch"><span class="reaction-switch" aria-hidden="true"></span></label></div>
           <div class="reaction-sd-body"><p><strong id="reaction-sd-state"></strong></p><p class="micro" id="reaction-sd-detail" role="status"></p>
           <p><span id="reaction-sd-image-bytes" style="display:block"></span><span class="micro" id="reaction-sd-capacity" style="display:block"></span></p>
           <div class="actions"><button class="secondary" data-reaction-sd-check type="button">Check card</button><button class="primary" id="reaction-sd-migrate" type="button" hidden>Move custom reactions</button></div>
-          <p class="micro" id="reaction-sd-limit"></p><p class="micro">Image requirements and animation limits stay the same. Default reactions remain on the device.</p>
+          <p class="micro" id="reaction-sd-limit"></p><p class="micro">With SD enabled, new reaction and audio sets are downloaded to the card. Without it, PrintDeck uses its internal sets. Animation limits stay the same.</p>
           <p class="micro">Use a FAT32 card. PrintDeck never formats your card.</p></div>
           <p class="status busy" id="reaction-sd-working" role="status" hidden>Updating reaction storage…</p><p class="status error" id="reaction-sd-error" role="alert"></p>
         </article>
@@ -1802,10 +1802,10 @@ return jsonFetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-
       reactionSdMode=mode;reactionSdModeSession=s.session;reactionSdFocus=document.activeElement;
       const canCopy=mode==='disable'&&s.sd_ready&&s.can_copy_internal&&s.image_bytes>0;
       const conflicts=(s.conflicting_events||[]).map(id=>translated(reactionData.events.find(e=>e.id===id)?.label||id));
-      $('#reaction-sd-mode-title').textContent=translated(mode==='enable'?'Use SD card for custom reactions':mode==='missing'?(s.sd_ready?'Some SD images are unavailable':'SD card is missing'):'Turn off SD card for custom reactions');
+      $('#reaction-sd-mode-title').textContent=translated(mode==='enable'?'Use SD card':mode==='missing'?(s.sd_ready?'Some SD images are unavailable':'SD card is missing'):'Turn off SD storage');
       const detail=mode==='enable'?'For matching reactions, the image on SD will be used and the device copy removed.':mode==='missing'?'SD storage is still on. Reinsert the card to read or upload your images, or turn SD storage off to use device storage.':canCopy?'Your SD images fit in device storage. You can copy them or use defaults. The files on SD will remain.':s.sd_ready&&!s.missing_images&&s.image_bytes>0?'These images do not fit in device storage. They will stay on SD; the device will use defaults.':'Images on SD will stay on the card. The device will use defaults for unavailable reactions.';
       $('#reaction-sd-mode-description').textContent=translated(detail)+(mode==='enable'&&conflicts.length?' '+conflicts.join(', ')+'.':'');
-      const primary=$('#reaction-sd-mode-confirm');primary.textContent=translated(mode==='enable'?'Use SD card':canCopy?'Copy images and turn off SD':'Turn off SD card for custom reactions');
+      const primary=$('#reaction-sd-mode-confirm');primary.textContent=translated(mode==='enable'?'Use SD card':canCopy?'Copy images and turn off SD':'Turn off SD storage');
       primary.dataset.action=mode==='enable'?'use_sd':canCopy?'copy_internal':'use_internal';
       $('#reaction-sd-mode-defaults').hidden=!canCopy;
       $('#reaction-sd-mode-close').textContent=translated(mode==='missing'?'OK':'Cancel');

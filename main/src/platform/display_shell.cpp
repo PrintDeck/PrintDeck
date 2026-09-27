@@ -1633,6 +1633,12 @@ lv_obj_t* DisplayShell::create_quick_overlay_close_button() {
 
 void DisplayShell::show_quick_menu() {
   close_resin_confirmation();
+  // The opaque menu covers the reaction; stop decoding before building it.
+  suspend_visual_updates(true);
+  // LVGL redraws the active screen even below an opaque top-layer menu.
+  // Skip that covered tree too, otherwise every transfer stripe redraws the GIF.
+  if (printer_animation_root_ != nullptr && lv_obj_is_valid(printer_animation_root_))
+    lv_obj_add_flag(printer_animation_root_, LV_OBJ_FLAG_HIDDEN);
   if constexpr (!kDisplayUsesLargeLayout) {
     square_show_quick_menu();
     return;
@@ -1722,7 +1728,7 @@ void DisplayShell::quick_menu_action_async(void* context) {
   else if (action == 5) shell->show_set_overlay(false);
   else if (action == 6) shell->show_set_overlay(true);
   else if (action == 7) shell->start_selected_set();
-  else if (action == 8) shell->show_set_overlay(false);
+  else if (action == 8) shell->update_set_carousel_page();
 }
 
 void DisplayShell::request_theme_selection(const char* theme) {
@@ -1941,6 +1947,8 @@ void DisplayShell::set_carousel_event(lv_event_t* event) {
      lv_obj_has_state(self->set_choices_,LV_STATE_DISABLED) ||
      lv_event_get_target_obj(event)!=lv_event_get_current_target_obj(event))return;
   const auto code=lv_event_get_code(event);
+  static std::uint32_t start=0, last=0, gap=0, samples=0;
+  static lv_point_t origin{};
   auto* input=lv_indev_active();
   if(!input)return;
   lv_point_t point{};lv_indev_get_point(input,&point);
@@ -1948,15 +1956,22 @@ void DisplayShell::set_carousel_event(lv_event_t* event) {
     // Sparse remote samples must not turn an explicitly requested drag into a tap.
     const bool remote_drag=self->remote_activity_suppressed_until_us_.load(std::memory_order_acquire)>esp_timer_get_time() &&
         self->remote_input_is_drag_.load(std::memory_order_acquire);
+    start=last=lv_tick_get();gap=0;samples=1;origin=point;
     self->set_picker_gesture_.press(point.x,point.y,remote_drag);return;
   }
-  if(code==LV_EVENT_PRESSING) { self->set_picker_gesture_.move(point.x,point.y);return; }
+  if(code==LV_EVENT_PRESSING) {
+    const auto now=lv_tick_get();gap=std::max(gap,now-last);last=now;++samples;
+    self->set_picker_gesture_.move(point.x,point.y);return;
+  }
   if(code==LV_EVENT_PRESS_LOST) { self->set_picker_gesture_.cancel();return; }
   if(code==LV_EVENT_GESTURE) {
     self->set_picker_gesture_.mark_gesture();lv_event_stop_bubbling(event);return;
   }
   if(code!=LV_EVENT_RELEASED)return;
   const auto result=self->set_picker_gesture_.release(point.x,point.y);
+  ESP_LOGI(kLogTag,"Set gesture: dx=%d dy=%d samples=%lu duration=%lu max_gap=%lu result=%d",
+           point.x-origin.x,point.y-origin.y,static_cast<unsigned long>(samples),
+           static_cast<unsigned long>(lv_tick_get()-start),static_cast<unsigned long>(gap),static_cast<int>(result));
   if(result!=core::SetPickerGesture::Result::next && result!=core::SetPickerGesture::Result::previous)return;
   if(self->pending_quick_menu_action_!=-1 || self->set_picker_ids_.size()<2)return;
   const auto count=self->set_picker_ids_.size();
@@ -1966,11 +1981,12 @@ void DisplayShell::set_carousel_event(lv_event_t* event) {
   lv_event_stop_bubbling(event);
 }
 
-void DisplayShell::show_set_overlay(bool audio, std::string family) {
+void DisplayShell::show_set_overlay(bool audio, std::string family, bool select_active) {
   if(!quick_overlay_ || !lv_obj_is_valid(quick_overlay_))return;
+  const auto menu_started = esp_timer_get_time();
   set_picker_audio_=audio;set_picker_family_=std::move(family);set_picker_error_.clear();set_picker_selected_.clear();
   lv_obj_clean(quick_overlay_);set_picker_ids_.clear();set_picker_versions_.clear();
-  set_active_badges_.clear();set_was_busy_=false;set_success_visible_=false;set_picker_gesture_.cancel();
+  set_active_badges_.clear();set_cancel_pending_=false;set_was_busy_=false;set_success_visible_=false;set_picker_gesture_.cancel();
   set_capture_overlay_name(audio?"audio-sets":set_picker_family_.empty()?"reaction-sets":"reaction-colors");
   SetCatalogService::instance().request_refresh();
   const bool large=kDisplayUsesLargeLayout;
@@ -1990,6 +2006,7 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     if(self->set_progress_timer_){lv_timer_delete(self->set_progress_timer_);self->set_progress_timer_=nullptr;}
     self->set_progress_bar_=self->set_progress_label_=self->set_choices_=self->set_cancel_button_=self->set_close_button_=self->set_tile_wait_=nullptr;
     self->set_busy_id_.clear();
+    self->set_position_dots_.clear();
   },LV_EVENT_DELETE,this);
   if(carousel){lv_obj_add_flag(panel,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_add_event_cb(panel,set_carousel_event,LV_EVENT_ALL,this);}
   std::string heading=tr(audio?"SOUND SET":"REACTIONS");
@@ -2035,6 +2052,11 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     lv_obj_set_user_data(button,reinterpret_cast<void*>(index));
     if(carousel) {
       lv_obj_set_size(button,large?196:92,large?196:92);lv_obj_center(button);
+      // Recoloring the whole cover on press creates a slow compositing layer
+      // and starves touch sampling. Use an immediate border highlight instead.
+      lv_obj_set_style_recolor_opa(button, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_PRESSED);
+      lv_obj_set_style_border_color(button, lv_color_hex(theme_style_.accent_secondary),
+                                    LV_PART_MAIN | LV_STATE_PRESSED);
       // Keep the rounded selection border above the square cover and name band.
       lv_obj_set_style_border_post(button,true,LV_PART_MAIN);
       lv_obj_set_style_clip_corner(button,true,LV_PART_MAIN);
@@ -2044,7 +2066,7 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
       lv_obj_set_style_pad_all(button,0,0);
       lv_obj_remove_flag(button,LV_OBJ_FLAG_SCROLLABLE);
       if(index!=set_carousel_index_)lv_obj_add_flag(button,LV_OBJ_FLAG_HIDDEN);
-      else {
+      {
         auto* placeholder=lv_label_create(button);lv_label_set_text(placeholder,LV_SYMBOL_IMAGE);
         apply_icon_text_style(placeholder,lv_color_hex(theme_style_.text_muted),&lv_font_montserrat_24);
         lv_obj_center(placeholder);
@@ -2129,6 +2151,17 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
         const auto key=set.family_id.empty()?set.id:set.family_id;
         if(std::find(families.begin(),families.end(),key)==families.end())families.push_back(key);
       }
+      if (select_active) {
+        set_carousel_index_ = 0;
+        const auto selected = std::find_if(sets.begin(), sets.end(), [&](const auto& set) {
+          return set.id == active.active_set_id;
+        });
+        if (selected != sets.end()) {
+          const auto& key = selected->family_id.empty() ? selected->id : selected->family_id;
+          const auto family = std::find(families.begin(), families.end(), key);
+          if (family != families.end()) set_carousel_index_ = family - families.begin();
+        }
+      }
       if(set_carousel_index_>=families.size())set_carousel_index_=0;
     }
     for(const auto& set:sets) {
@@ -2158,7 +2191,7 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     lv_obj_set_flex_flow(dots,LV_FLEX_FLOW_ROW);lv_obj_set_flex_align(dots,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(dots,large?7:4,0);
     for(std::size_t i=0;i<set_picker_ids_.size();++i) {
-      auto* dot=lv_obj_create(dots);lv_obj_set_size(dot,i==set_carousel_index_?(large?18:10):(large?6:4),large?6:4);
+      auto* dot=lv_obj_create(dots);set_position_dots_.push_back(dot);lv_obj_set_size(dot,i==set_carousel_index_?(large?18:10):(large?6:4),large?6:4);
       lv_obj_set_style_radius(dot,LV_RADIUS_CIRCLE,0);lv_obj_set_style_border_width(dot,0,0);
       lv_obj_set_style_bg_color(dot,lv_color_hex(i==set_carousel_index_?theme_style_.accent_secondary:theme_style_.text_muted),0);
       lv_obj_remove_flag(dot,static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE));
@@ -2182,12 +2215,40 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
   auto* label=lv_label_create(cancel);lv_label_set_text(label,tr("Cancel"));apply_text_style(label,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_12);lv_obj_center(label);
   lv_obj_add_event_cb(cancel,[](lv_event_t* event){
     auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
-    if(self->set_picker_audio_)AudioSetService::instance().cancel();
-    else if(self->reaction_assets_)self->reaction_assets_->cancel_set();
+    const bool accepted = self->set_picker_audio_
+        ? AudioSetService::instance().cancel()
+        : self->reaction_assets_ && self->reaction_assets_->cancel_set();
+    if (accepted) {
+      self->set_cancel_pending_ = true;
+      self->update_set_overlay();
+    }
     lv_event_stop_bubbling(event);
   },LV_EVENT_CLICKED,this);
   set_progress_timer_=lv_timer_create([](lv_timer_t* timer){static_cast<DisplayShell*>(lv_timer_get_user_data(timer))->update_set_overlay();},300,this);
   set_close_button_=create_quick_overlay_close_button();
+  update_set_overlay();
+  ESP_LOGI(kLogTag,"Set menu built in %lld us; background paused=%d",esp_timer_get_time()-menu_started,visual_updates_suspended());
+}
+
+void DisplayShell::update_set_carousel_page() {
+  if (!set_choices_ || set_picker_audio_ || !set_picker_family_.empty()) return;
+  // Reuse the cards. Rebuilding the full overlay on every swipe stalls input
+  // and can leave only one sampled point from the following gesture.
+  for (std::size_t i = 0; i < set_picker_ids_.size(); ++i) {
+    auto* card = lv_obj_get_child(set_choices_, i);
+    const bool selected = i == set_carousel_index_;
+    if (selected) lv_obj_remove_flag(card, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(card, LV_OBJ_FLAG_HIDDEN);
+    if (i < set_position_dots_.size()) {
+      auto* dot = set_position_dots_[i];
+      const int width = selected ? (kDisplayUsesLargeLayout ? 18 : 10)
+                                 : (kDisplayUsesLargeLayout ? 6 : 4);
+      if (lv_obj_get_width(dot) != width) lv_obj_set_width(dot, width);
+      const auto color = lv_color_hex(selected ? theme_style_.accent_secondary : theme_style_.text_muted);
+      if (!lv_color_eq(lv_obj_get_style_bg_color(dot, LV_PART_MAIN), color))
+        lv_obj_set_style_bg_color(dot, color, 0);
+    }
+  }
   update_set_overlay();
 }
 
@@ -2226,9 +2287,14 @@ void DisplayShell::update_set_overlay() {
     const auto state=AudioSetService::instance().snapshot();busy=state.busy;progress=state.progress;error=state.error;failed=!error.empty();active_id=state.available?state.id:"";requested_id=state.requested_id;active_version=state.version;
   } else if(reaction_assets_) {
     const auto state=reaction_assets_->snapshot();busy=state.busy;progress=state.progress_percent;failed=state.install_failed;active_id=state.active_set_id;requested_id=state.installing_set_id;
+    if (state.detail == "Cancelling reaction set installation…") set_cancel_pending_ = true;
+    if (state.detail == "Reaction set installation cancelled.") error = "cancelled";
     if(failed && (state.detail.find("storage")!=std::string::npos || state.detail.find("1.5 MB")!=std::string::npos))error="storage_unavailable";
     else if(failed && state.detail=="Another set download is in progress.")error="transfer_busy";
   }
+  if (!busy) set_cancel_pending_ = false;
+  if (set_cancel_pending_) lv_obj_add_state(set_cancel_button_, LV_STATE_DISABLED);
+  else lv_obj_remove_state(set_cancel_button_, LV_STATE_DISABLED);
   if(set_was_busy_ && !busy && !failed && progress==100) {
     set_success_visible_=true;set_success_tick_=lv_tick_get();
   }
@@ -2252,8 +2318,12 @@ void DisplayShell::update_set_overlay() {
   for(unsigned i=0;i<lv_obj_get_child_count(set_choices_);++i) {
     auto* button=lv_obj_get_child(set_choices_,i);
     const bool active=i<set_picker_ids_.size() && set_picker_ids_[i]==active_id;
-    lv_obj_set_style_border_width(button,active?2:1,0);
-    lv_obj_set_style_border_color(button,lv_color_hex(active?theme_style_.accent_secondary:theme_style_.surface_soft),0);
+    const int border_width = active ? 2 : 1;
+    const auto border_color = lv_color_hex(active ? theme_style_.accent_secondary : theme_style_.surface_soft);
+    if (lv_obj_get_style_border_width(button, LV_PART_MAIN) != border_width)
+      lv_obj_set_style_border_width(button, border_width, 0);
+    if (!lv_color_eq(lv_obj_get_style_border_color(button, LV_PART_MAIN), border_color))
+      lv_obj_set_style_border_color(button, border_color, 0);
     if(i<set_active_badges_.size() && set_active_badges_[i]) {
       if(active)lv_obj_remove_flag(set_active_badges_[i],LV_OBJ_FLAG_HIDDEN);
       else lv_obj_add_flag(set_active_badges_[i],LV_OBJ_FLAG_HIDDEN);
@@ -2286,7 +2356,8 @@ void DisplayShell::update_set_overlay() {
   const bool viewing_active=!set_picker_audio_ && set_picker_family_.empty() &&
       set_carousel_index_<set_picker_ids_.size() && set_picker_ids_[set_carousel_index_]==active_id;
   const char* message=viewing_active?"Active set":"Choose a set to download.";
-  if(!SetCatalogService::instance().online())message="Connect to Wi-Fi to download sets.";
+  if(set_cancel_pending_)message="Cancelling download…";
+  else if(!SetCatalogService::instance().online())message="Connect to Wi-Fi to download sets.";
   else if(busy)message="Downloading";
   else if(failed && (error=="memory_unavailable" || error=="transfer_busy"))message="PrintDeck is busy. Try again shortly.";
   else if(error=="cancelled")message="Download cancelled.";
@@ -2294,8 +2365,11 @@ void DisplayShell::update_set_overlay() {
   else if(set_success_visible_)message="Set installed.";
   else if(set_picker_ids_.empty())message=SetCatalogService::instance().busy()?"Loading available sets...":"Cannot download the set. Check internet access.";
   if(!set_picker_error_.empty())message=set_picker_error_.c_str();
-  if(busy)lv_label_set_text_fmt(set_progress_label_,"%s %d%%",tr(message),progress);
-  else lv_label_set_text(set_progress_label_,tr(message));
+  if (kDisplayUsesLargeLayout && !set_picker_audio_ && set_picker_family_.empty())
+    lv_obj_align(set_progress_label_, LV_ALIGN_BOTTOM_MID, 0, busy ? -38 : -13);
+  std::string progress_text = tr(message);
+  if (busy && !set_cancel_pending_) progress_text += " " + std::to_string(progress) + "%";
+  set_label_text_if_changed(set_progress_label_, progress_text.c_str());
 }
 
 void DisplayShell::show_audio_overlay() {
@@ -2460,6 +2534,9 @@ void DisplayShell::close_quick_overlay() {
     lv_obj_add_flag(quick_overlay_, LV_OBJ_FLAG_HIDDEN);
   }
   capture_overlay_name_.clear();
+  if (printer_animation_root_ != nullptr && lv_obj_is_valid(printer_animation_root_))
+    lv_obj_remove_flag(printer_animation_root_, LV_OBJ_FLAG_HIDDEN);
+  suspend_visual_updates(content_hidden());
   note_activity(false);
 }
 
@@ -3808,6 +3885,9 @@ void DisplayShell::create_printer_animation(lv_obj_t* parent) {
   printer_animation_filament_color_ = theme_colors_.filament;
 
   printer_animation_root_ = lv_obj_create(parent);
+  if (quick_overlay_ != nullptr && lv_obj_is_valid(quick_overlay_) &&
+      !lv_obj_has_flag(quick_overlay_, LV_OBJ_FLAG_HIDDEN))
+    lv_obj_add_flag(printer_animation_root_, LV_OBJ_FLAG_HIDDEN);
   // The percentage is an overlay, not reserved layout space. Let a native
   // screen-sized GIF use the whole display while keeping smaller uploads at
   // their original pixel size instead of stretching them.
@@ -4000,7 +4080,7 @@ void DisplayShell::printer_animation_tick(lv_timer_t* timer) {
       !lv_obj_is_valid(shell->printer_animation_root_)) {
     return;
   }
-  if (shell->content_hidden()) { lv_timer_pause(timer); return; }
+  if (shell->visual_updates_suspended()) { lv_timer_pause(timer); return; }
   shell->printer_animation_frame_ = (shell->printer_animation_frame_ + 1U) % 240U;
   shell->render_printer_animation_frame();
 }
@@ -4166,7 +4246,7 @@ void DisplayShell::printer_animation_source_async(void* context) {
   shell->printer_animation_source_pending_ = false;
   if (shell->printer_animation_gif_ == nullptr ||
       !lv_obj_is_valid(shell->printer_animation_gif_)) return;
-  if (shell->content_hidden()) {
+  if (shell->visual_updates_suspended()) {
     shell->printer_animation_asset_generation_ = 0xffffffffU;
     return;
   }
@@ -4189,6 +4269,7 @@ void DisplayShell::printer_animation_source_async(void* context) {
 }
 
 void DisplayShell::render_printer_animation_frame() {
+  if (visual_updates_suspended()) return;
   if (update_printer_animation_source()) return;
   if (!ensure_printer_animation_canvas()) return;
 
@@ -4727,7 +4808,7 @@ void DisplayShell::show_resin_reactions(const core::PrinterProfile& profile,
   render_resin_reaction(changed);
   if (resin_reaction_timer_ != nullptr) {
     lv_timer_set_period(resin_reaction_timer_, core::resin_reaction_animated(next) ? 80 : 250);
-    if (content_hidden()) lv_timer_pause(resin_reaction_timer_);
+    if (visual_updates_suspended()) lv_timer_pause(resin_reaction_timer_);
     else lv_timer_resume(resin_reaction_timer_);
   }
   board_display_unlock();
@@ -4735,7 +4816,7 @@ void DisplayShell::show_resin_reactions(const core::PrinterProfile& profile,
 
 void DisplayShell::resin_reaction_tick(lv_timer_t* timer) {
   auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
-  if (shell == nullptr || shell->view_ != kResinReactionsView || shell->content_hidden()) {
+  if (shell == nullptr || shell->view_ != kResinReactionsView || shell->visual_updates_suspended()) {
     lv_timer_pause(timer);
     return;
   }
@@ -4852,7 +4933,7 @@ void DisplayShell::set_resin_status(const core::PrinterSnapshot& snapshot, const
   if (resin_exposure_ && !resin_status_timer_)
     resin_status_timer_ = lv_timer_create(resin_status_tick, 100, this);
   if (resin_status_timer_) {
-    if (!resin_exposure_ || content_hidden()) lv_timer_pause(resin_status_timer_);
+    if (!resin_exposure_ || visual_updates_suspended()) lv_timer_pause(resin_status_timer_);
     else lv_timer_resume(resin_status_timer_);
   }
 }
@@ -4872,7 +4953,7 @@ void DisplayShell::update_resin_status() {
 
 void DisplayShell::resin_status_tick(lv_timer_t* timer) {
   auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
-  if (!shell || shell->content_hidden()) { lv_timer_pause(timer); return; }
+  if (!shell || shell->visual_updates_suspended()) { lv_timer_pause(timer); return; }
   shell->update_resin_status();
 }
 
@@ -7394,7 +7475,11 @@ esp_err_t DisplayShell::touch_read(esp_lcd_touch_handle_t touch,
     shell->touch_rotation_applied_ = rotation;
   }
   const esp_err_t read_result = esp_lcd_touch_read_data(touch);
-  if (read_result != ESP_OK) return read_result;
+  if (read_result != ESP_OK) {
+    if (shell->capture_overlay_name_ == "reaction-sets")
+      ESP_LOGW(kLogTag,"Set touch read failed: %s",esp_err_to_name(read_result));
+    return read_result;
+  }
   const esp_err_t data_result =
       esp_lcd_touch_get_data(touch, points, count, maximum_count);
   if (data_result == ESP_OK && *count == 0) shell->consume_wake_touch_ = false;
@@ -8667,7 +8752,14 @@ bool DisplayShell::automatic_shutdown_due(bool on_battery, bool keep_awake,
   return power_policy_.shutdown_after_display_off(now - off_since);
 }
 
+bool DisplayShell::visual_updates_suspended() const {
+  return content_hidden() || (quick_overlay_ != nullptr && lv_obj_is_valid(quick_overlay_) &&
+                             !lv_obj_has_flag(quick_overlay_, LV_OBJ_FLAG_HIDDEN));
+}
+
 void DisplayShell::suspend_visual_updates(bool suspended) {
+  // Waking the panel must not restart a reaction behind an open menu.
+  suspended = suspended || visual_updates_suspended();
   if (resin_status_timer_) {
     if (suspended) lv_timer_pause(resin_status_timer_);
     else if (resin_exposure_) { update_resin_status(); lv_timer_resume(resin_status_timer_); }

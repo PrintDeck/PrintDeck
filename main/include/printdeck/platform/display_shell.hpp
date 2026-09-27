@@ -183,8 +183,9 @@ class DisplayShell {
   void show_quick_menu();
   void show_brightness_overlay();
   void show_audio_overlay();
-  void show_set_overlay(bool audio, std::string family = {});
+  void show_set_overlay(bool audio, std::string family = {}, bool select_active = true);
   void update_set_overlay();
+  void update_set_carousel_page();
   static void set_carousel_event(lv_event_t* event);
   void start_selected_set();
   void show_theme_overlay();
@@ -645,6 +646,7 @@ class DisplayShell {
   std::uint8_t active_screen_saver_animation_ = core::kScreenSaverCircles;
   void set_screen_saver_visible(bool visible);
   void wake_display_locked(const char* reason, bool allow_manual = true);
+  bool visual_updates_suspended() const;
   void suspend_visual_updates(bool suspended);
   static void screen_saver_tick(lv_timer_t* timer);
   std::atomic<int> screen_power_mode_{0};
@@ -683,6 +685,8 @@ class DisplayShell {
   lv_obj_t* set_cancel_button_=nullptr;
   lv_obj_t* set_close_button_=nullptr;
   std::vector<lv_obj_t*> set_active_badges_;
+  std::vector<lv_obj_t*> set_position_dots_;
+  bool set_cancel_pending_=false;
   bool set_was_busy_=false;
   bool set_success_visible_=false;
   std::uint32_t set_success_tick_=0;

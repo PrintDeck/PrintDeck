@@ -3606,6 +3606,14 @@ esp_err_t WebConfig::serve_reaction_gif(httpd_req_t* request) const {
       return httpd_resp_send(request, reinterpret_cast<const char*>(image->data()), image->size());
     }
   }
+  if (scope == "set" || !reaction_assets_->custom_override(event)) {
+    const auto image = reaction_assets_->cached_set_gif(event);
+    if (image) {
+      httpd_resp_set_type(request, "image/gif");
+      httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+      return httpd_resp_send(request, reinterpret_cast<const char*>(image->data()), image->size());
+    }
+  }
   const std::string path = scope == "set" ? reaction_assets_->set_vfs_path(event)
                                            : reaction_assets_->preview_vfs_path(event);
   if (path.empty()) {

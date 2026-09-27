@@ -35,8 +35,11 @@ namespace {
 // Production origins remain fixed; development addresses are configured separately.
 constexpr char kPanelOrigin[] = "https://app.printdeck.xyz";
 constexpr char kApi[] = "https://api.printdeck.xyz/api/v1/device";
-// Networking uses PSRAM; acknowledged credential writes use the shared internal stack.
-constexpr unsigned kWorkerStackBytes = 7U * 1024U;
+// Live View recursively composes the complete LVGL tree on this caller's
+// stack. Nested reaction cards and their download overlay exceed the former
+// 7 KiB networking budget. Keep capture headroom in PSRAM; credential writes
+// still use the shared internal stack.
+constexpr unsigned kWorkerStackBytes = 16U * 1024U;
 constexpr char kLocalApi[] = PRINTDECK_LOCAL_CLOUD_API;
 constexpr char kLocalPanel[] = PRINTDECK_LOCAL_CLOUD_PANEL;
 constexpr char kLocalStorage[] = PRINTDECK_LOCAL_CLOUD_STORAGE;
@@ -284,7 +287,10 @@ void CloudPairingService::upload_screen() {
   };
   std::vector<std::uint8_t> bytes;
   if (!source || !current()) return;
-  if (!source(context, bytes)) {
+  const bool captured = source(context, bytes);
+  ESP_LOGI("cloud_screen", "Capture %s; stack free=%u", captured ? "complete" : "deferred",
+           unsigned(uxTaskGetStackHighWaterMark(nullptr)));
+  if (!captured) {
     // Local Web Config may own the shared capture cooldown. Retry between its
     // refreshes instead of repeatedly colliding at exact five-second multiples.
     std::lock_guard lock(mutex_);

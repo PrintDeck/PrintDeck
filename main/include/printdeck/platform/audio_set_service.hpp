@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include "printdeck/core/set_catalog.hpp"
+#include "printdeck/core/audio_pack.hpp"
+#include "printdeck/core/reaction_sd_store.hpp"
 #include "printdeck/platform/network_service.hpp"
 
 namespace printdeck::platform {
@@ -26,14 +28,19 @@ class AudioSetService {
   static std::size_t storage_bytes();
   static std::size_t storage_budget();
   static std::size_t storage_reserve();
+  // Called by the SD worker under the shared storage lock.
+  void select_storage(const std::string& directory);
  private:
   static void task_entry(void* context);
   void install();
-  bool load_current();
+  bool load_current(const std::string& directory = "/assets/audio/current");
   mutable std::mutex mutex_, file_mutex_;
   const NetworkService* network_=nullptr;
   AudioSetSnapshot state_;
   core::DownloadableSet requested_;
+  std::string active_directory_ = "/assets/audio/current";
+  core::ReactionGif sd_pack_;
+  std::unique_ptr<core::AudioPackIndex> sd_pack_index_;
   std::atomic<bool> pending_{false}, running_{false}, cancelled_{false};
   TaskHandle_t task_=nullptr;
   std::atomic<bool> finished_{false};
