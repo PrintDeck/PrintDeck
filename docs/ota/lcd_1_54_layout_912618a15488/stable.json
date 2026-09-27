@@ -2,7 +2,7 @@
   "schema": 1,
   "channel": "stable",
   "target": "lcd_1_54",
-  "version": "1.0.13",
-  "url": "https://github.com/PrintDeck/PrintDeck/releases/download/lcd_1_54-v1.0.13/printdeck_lcd_1_54_layout_912618a15488_ota-1.0.13.bin",
-  "sha256": "05ef5ddc40a1e89bf4a380884fc70f877fe0da802f23618c76d0931149170944"
+  "version": "1.0.14",
+  "url": "https://github.com/PrintDeck/PrintDeck/releases/download/lcd_1_54-v1.0.14/printdeck_lcd_1_54_layout_912618a15488_ota-1.0.14.bin",
+  "sha256": "dc1f8a772c3cf75028723569c380f36b6617f55ca0fc8f21ab7dc90c1e81b00f"
 }
