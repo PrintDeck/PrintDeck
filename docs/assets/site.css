@@ -6671,3 +6671,26 @@ body.site-page {
 .unified-story .home-unified-mqtt:hover span { color: #095b49; }
 .api-page .mqtt-feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 760px) { .api-page .mqtt-feature-grid { grid-template-columns: 1fr; } }
+
+/* Contextual links from product benefits to the animation collection. */
+.animation-catalog-link {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  max-width:100%;
+  color:inherit;
+  font-size:.9rem;
+  font-weight:650;
+  text-decoration:underline;
+  text-underline-offset:4px;
+}
+.home-feature-card .animation-catalog-link {margin-top:14px}
+.animation-catalog-link:hover {text-decoration-thickness:2px}
+.animation-catalog-link:focus-visible {outline:2px solid var(--accent-button);outline-offset:5px;border-radius:3px}
+.animation-catalog-prompt {display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:30px}
+.animation-catalog-prompt p {max-width:580px;margin:0;line-height:1.65}
+.animation-catalog-prompt .site-button {display:inline-flex;align-items:center;justify-content:center;gap:12px;flex:none;white-space:normal}
+@media(max-width:760px) {
+  .animation-catalog-prompt {align-items:flex-start;flex-direction:column;gap:18px}
+  .animation-catalog-prompt .site-button {max-width:100%}
+}

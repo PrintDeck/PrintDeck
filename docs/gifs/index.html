@@ -5,6 +5,7 @@
     <title>GIFs · PrintDeck</title>
     <link rel="stylesheet" href="/assets/site.css?v=20260910-1">
     <link rel="stylesheet" href="/assets/reactions.css?v=20260910-1">
+    <link rel="stylesheet" href="/assets/animation-sets.css?v=20260927-1">
     <link rel="stylesheet" href="/assets/gifs-hero.css?v=20260917-1">
     <link rel="stylesheet" href="/assets/hero-titles.css?v=20260910-1">
     <script>window.printDeckInstallerI18n={language:"en",t:(source,values={})=>{let result=({"Play":"Play","Pause":"Pause","Seek":"Seek","{currentTime} of {duration}":"{currentTime} of {duration}","Played":"Played","Buffered":"Buffered","Current time":"Current time","Volume":"Volume","Mute":"Mute","Unmute":"Unmute","Enter fullscreen":"Enter fullscreen","Exit fullscreen":"Exit fullscreen","Automatic appearance":"Automatic appearance"})[source]||source;for(const [key,value] of Object.entries(values))result=result.replaceAll('{'+key+'}',String(value));return result;}};</script><script src="/assets/site.js?v=20260905-3"></script>
@@ -69,7 +70,7 @@
     <meta name="twitter:description" content="Turn GIFs, animated WebP files and still images into custom PrintDeck reactions with browser-based cropping, clip selection, optimization and direct upload.">
     <meta name="twitter:image" content="https://printdeck.xyz/assets/marketing/competition-cover-v1.png">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"GIFs · PrintDeck","description":"Turn GIFs, animated WebP files and still images into custom PrintDeck reactions with browser-based cropping, clip selection, optimization and direct upload.","url":"https://printdeck.xyz/gifs/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"PrintDeck","url":"https://printdeck.xyz"}}</script>
-  </head>
+  <script id="animation-config" type="application/json">{"base":"/gifs/animation-sets/","known":["iris_palette","cartoon","clay_frenzy","cookie","pumpkin","spooky","timmy"],"familyId":"","labels":{"Animation sets":"Animation sets","Animation sets · PrintDeck":"Animation sets · PrintDeck","A little character.":"A little character.","For every print.":"For every print.","Pick a personality for your PrintDeck. Explore complete animation sets, from the first warm-up to the final celebration.":"Pick a personality for your PrintDeck. Explore complete animation sets, from the first warm-up to the final celebration.","Browse animation sets":"Browse animation sets","Find your favourite.":"Find your favourite.","One style. Every reaction.":"One style. Every reaction.","See how this set responds to each printer status. Choose it in Web Config or in the PrintDeck Cloud device panel.":"See how this set responds to each printer status. Choose it in Web Config or in the PrintDeck Cloud device panel.","All animation sets":"All animation sets","View reactions":"View reactions","Choose a color":"Choose a color","Ready for your PrintDeck.":"Ready for your PrintDeck.","Open Web Config or the PrintDeck Cloud device panel, go to Reactions and choose your animation set. You can still add your own GIFs to individual reactions.":"Open Web Config or the PrintDeck Cloud device panel, go to Reactions and choose your animation set. You can still add your own GIFs to individual reactions.","Make it your own":"Make it your own","The latest collection is temporarily unavailable. Showing the saved previews.":"The latest collection is temporarily unavailable. Showing the saved previews.","This set is currently unavailable. Explore the other animation sets.":"This set is currently unavailable. Explore the other animation sets.","Preview unavailable":"Preview unavailable","Loading reactions…":"Loading reactions…","Retry":"Retry","Printer reactions":"Printer reactions","Color variants":"Color variants","Preview unavailable. Try again in a moment.":"Preview unavailable. Try again in a moment.","Standby":"Standby","Preparing":"Preparing","Heating nozzle":"Heating nozzle","Heating bed":"Heating bed","Homing toolhead":"Homing toolhead","Leveling the bed":"Leveling the bed","Cleaning nozzle":"Cleaning nozzle","Calibrating":"Calibrating","Changing filament":"Changing filament","Unloading filament":"Unloading filament","Loading filament":"Loading filament","Purging filament":"Purging filament","Printing":"Printing","Paused":"Paused","Complete":"Complete","Failed":"Failed","Cancelled":"Cancelled","Unavailable":"Unavailable","Green":"Green","Blue":"Blue","Brown":"Brown","Amber":"Amber","Gray":"Gray","Hazel":"Hazel","Red":"Red","Violet":"Violet","Cyan":"Cyan","Back to animation sets":"Back to animation sets","Back to GIFs":"Back to GIFs","Prefer a ready-made look? Explore complete animation sets and find your favourite.":"Prefer a ready-made look? Explore complete animation sets and find your favourite."}}</script><script type="module" src="/assets/animation-sets.mjs"></script></head>
   <body class="site-page wide-hero-page reactions-page" data-page-title="GIFs · PrintDeck">
     <header class="site-header">
       <div class="site-header-inner">
@@ -97,7 +98,7 @@
             <h1>Your ideas.<br><strong>Your GIFs.</strong></h1>
             <p class="reactions-lead"><span>Turn your files into live PrintDeck reactions.</span><br><span>Drop, crop and make them yours.</span></p>
             <div class="site-actions">
-              <a class="site-button gifs-browse" href="#free-gallery"><span>Browse free GIFs</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg></a>
+              <a class="site-button gifs-browse" href="/gifs/animation-sets/"><span>Browse animation sets</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg></a>
               <a class="gifs-flow-link" href="#reaction-film"><span>See how it works</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"></path></svg></a>
             </div>
           </div>
@@ -297,34 +298,8 @@
 
       <section class="reactions-section reactions-gallery-section" id="free-gallery">
         <div class="reactions-inner">
-          <header class="reactions-section-head reactions-gallery-head">
-            <div>
-              <span class="reactions-kicker">FREE PRINTDECK STARTERS</span>
-              <h2>Try one now.<br><strong>Make the next one yours.</strong></h2>
-            </div>
-            <p>Save any example below and upload it into a reaction slot. They are ready-made samples from the PrintDeck reaction collection.</p>
-          </header>
-          <div class="reactions-gallery-grid">
-            <figure><img src="/assets/marketing/knomi2/reactions/standby.gif" alt="Standby reaction animation" loading="lazy"><figcaption><strong>Standby</strong></figcaption></figure>
-            <figure><img src="/assets/marketing/knomi2/reactions/printing.gif" alt="Printing reaction animation" loading="lazy"><figcaption><strong>Printing</strong></figcaption></figure>
-            <figure><img src="/assets/marketing/knomi2/reactions/nozzle-heating.gif" alt="Nozzle heating reaction animation" loading="lazy"><figcaption><strong>Nozzle heating</strong></figcaption></figure>
-            <figure><img src="/assets/marketing/knomi2/reactions/bed-heating.gif" alt="Bed heating reaction animation" loading="lazy"><figcaption><strong>Bed heating</strong></figcaption></figure>
-            <figure><img src="/assets/marketing/knomi2/reactions/homing.gif" alt="Homing reaction animation" loading="lazy"><figcaption><strong>Homing</strong></figcaption></figure>
-            <figure><img src="/assets/marketing/knomi2/reactions/filament-loading.gif" alt="Filament loading reaction animation" loading="lazy"><figcaption><strong>Filament loading</strong></figcaption></figure>
-          </div>
-
-          <div class="reactions-source-panel">
-            <div>
-              <span class="reactions-kicker">LOOKING FOR MORE?</span>
-              <h3>Two places to start exploring.</h3>
-              <p>GIPHY and Tenor can be useful sources of inspiration and downloadable GIFs.</p>
-            </div>
-            <div class="reactions-source-links">
-              <a href="https://giphy.com/" target="_blank" rel="noopener noreferrer"><strong>GIPHY</strong><span>Browse GIFs ↗</span></a>
-              <a href="https://tenor.com/search/free-gifs" target="_blank" rel="noopener noreferrer"><strong>Tenor</strong><span>Search free GIFs ↗</span></a>
-            </div>
-            <p class="reactions-rights-note"><strong>Check before you use.</strong> Availability on a GIF platform does not automatically grant reuse rights. Review the creator’s terms or licence for each file.</p>
-          </div>
+          <header class="animation-section-head"><div><span class="reactions-kicker">Animation sets</span><h2>Find your favourite.</h2></div><a href="/gifs/animation-sets/">All animation sets <span aria-hidden="true">↗</span></a></header>
+          <div class="animation-set-grid" data-animation-teaser=""><a class="animation-card" href="/gifs/animation-sets/iris-palette/"> <span class="animation-card-stage tone-0"><span class="animation-device"><span class="animation-display"><img src="https://raw.githubusercontent.com/PrintDeck/PrintDeck/main/reaction-sets/previews/alloy_iris_green.webp?v=4.0.0" alt="" width="466" height="466" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span class="animation-image-error" hidden="">Preview unavailable</span></span><span class="animation-device-mark" aria-hidden="true">PRINTDECK</span></span></span><span class="animation-card-copy"><strong translate="no">Iris Palette</strong><span>View reactions <span aria-hidden="true">↗</span></span><small><span>Color variants</span> <span translate="no">· 9</span></small></span></a><a class="animation-card" href="/gifs/animation-sets/cookie/"> <span class="animation-card-stage tone-1"><span class="animation-device"><span class="animation-display"><img src="https://raw.githubusercontent.com/PrintDeck/PrintDeck/main/reaction-sets/previews/cookie.webp?v=1.0.0" alt="" width="466" height="466" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span class="animation-image-error" hidden="">Preview unavailable</span></span><span class="animation-device-mark" aria-hidden="true">PRINTDECK</span></span></span><span class="animation-card-copy"><strong translate="no">Cookie</strong><span>View reactions <span aria-hidden="true">↗</span></span></span></a><a class="animation-card" href="/gifs/animation-sets/timmy/"> <span class="animation-card-stage tone-2"><span class="animation-device"><span class="animation-display"><img src="https://raw.githubusercontent.com/PrintDeck/PrintDeck/main/reaction-sets/previews/timmy.webp?v=1.0.0" alt="" width="466" height="466" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span class="animation-image-error" hidden="">Preview unavailable</span></span><span class="animation-device-mark" aria-hidden="true">PRINTDECK</span></span></span><span class="animation-card-copy"><strong translate="no">Timmy</strong><span>View reactions <span aria-hidden="true">↗</span></span></span></a></div>
         </div>
       </section>
 

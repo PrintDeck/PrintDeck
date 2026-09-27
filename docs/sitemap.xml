@@ -1,6 +1,486 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://printdeck.xyz/gifs/animation-sets/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/gifs/animation-sets/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/gifs/animation-sets/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/gifs/animation-sets/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/gifs/animation-sets/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/gifs/animation-sets/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/gifs/animation-sets/iris-palette/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/gifs/animation-sets/iris-palette/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/gifs/animation-sets/iris-palette/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/gifs/animation-sets/iris-palette/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/gifs/animation-sets/iris-palette/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/gifs/animation-sets/iris-palette/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/iris-palette/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/iris-palette/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/gifs/animation-sets/cartoon/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/gifs/animation-sets/cartoon/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/gifs/animation-sets/cartoon/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/gifs/animation-sets/cartoon/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/gifs/animation-sets/cartoon/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/gifs/animation-sets/cartoon/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cartoon/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cartoon/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/gifs/animation-sets/clay-frenzy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/gifs/animation-sets/clay-frenzy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/gifs/animation-sets/clay-frenzy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/gifs/animation-sets/clay-frenzy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/gifs/animation-sets/clay-frenzy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/gifs/animation-sets/clay-frenzy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/clay-frenzy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/clay-frenzy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/gifs/animation-sets/cookie/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/gifs/animation-sets/cookie/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/gifs/animation-sets/cookie/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/gifs/animation-sets/cookie/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/gifs/animation-sets/cookie/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/gifs/animation-sets/cookie/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/cookie/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/cookie/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/gifs/animation-sets/pumpkin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/gifs/animation-sets/pumpkin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/gifs/animation-sets/pumpkin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/gifs/animation-sets/pumpkin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/gifs/animation-sets/pumpkin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/gifs/animation-sets/pumpkin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/pumpkin/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/pumpkin/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/gifs/animation-sets/spooky/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/gifs/animation-sets/spooky/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/gifs/animation-sets/spooky/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/gifs/animation-sets/spooky/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/gifs/animation-sets/spooky/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/gifs/animation-sets/spooky/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/spooky/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/spooky/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/gifs/animation-sets/timmy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/pl/gifs/animation-sets/timmy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/es/gifs/animation-sets/timmy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/fr/gifs/animation-sets/timmy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/de/gifs/animation-sets/timmy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+  </url>
+  <url>
+    <loc>https://printdeck.xyz/zh-cn/gifs/animation-sets/timmy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://printdeck.xyz/es/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://printdeck.xyz/fr/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://printdeck.xyz/de/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://printdeck.xyz/zh-cn/gifs/animation-sets/timmy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://printdeck.xyz/gifs/animation-sets/timmy/"/>
+  </url>
+  <url>
     <loc>https://printdeck.xyz/knomi/choose-printdeck/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://printdeck.xyz/knomi/choose-printdeck/"/>
     <xhtml:link rel="alternate" hreflang="pl" href="https://printdeck.xyz/pl/knomi/choose-printdeck/"/>
