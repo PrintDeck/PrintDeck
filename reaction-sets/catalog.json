@@ -171,10 +171,10 @@
     },
     {
       "id": "pumkin_madness",
-      "name": "Pumkin Madness",
+      "name": "Pumpkin",
       "version": "1.0.0",
       "family_id": "pumkin_madness",
-      "family_name": "Pumkin Madness",
+      "family_name": "Pumpkin",
       "variant_name": "",
       "preview": "previews/pumkin_madness.webp",
       "available": true,
