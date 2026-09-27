@@ -170,20 +170,6 @@
       }
     },
     {
-      "id": "pumpkin",
-      "name": "Pumpkin",
-      "version": "1.0.0",
-      "family_id": "pumpkin",
-      "family_name": "Pumpkin",
-      "variant_name": "",
-      "preview": "previews/pumpkin.webp",
-      "available": true,
-      "device_previews": {
-        "192": "3f9b5e8cbb55ee3bef282746a13ae1bdd7609c8c86759ca408c85de874d1d26b",
-        "88": "2414c36c5a4b7ce13c99432e9c21e142f89881d57a3f8b11127ac94db5f851c4"
-      }
-    },
-    {
       "id": "pumkin_madness",
       "name": "Pumkin Madness",
       "version": "1.0.0",
