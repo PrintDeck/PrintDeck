@@ -468,6 +468,8 @@ html[data-appearance=light] #printer-modal{--form-error:#b32635}
 .pd-print-thumb:disabled{cursor:default;opacity:1}
 .pd-enlarged .pd-print-media{max-height:55vh}
 .pd-mini-screen canvas{display:block;width:100%;height:100%;border-radius:inherit}
+.pd-reaction-enlarged{display:block;width:min(100%,466px,55vh);aspect-ratio:1;height:auto;margin:0 auto;border-radius:50%;background:#000;object-fit:contain}
+.pd-reaction-enlarged[data-hardware=lcd_1_54]{border-radius:14px}
 .pd-resin-enlarged{display:block;width:min(100%,466px);aspect-ratio:1;height:auto;margin:0 auto;border-radius:50%;background:#000}
 .pd-mini-screen[data-resin=true]{border-color:#263346;background:#000}
 
@@ -3433,6 +3435,12 @@ function createAudioSetPicker(host, translate, send, locale) {
       const dialog=printerPreviewDialog(p.job?.name||translated('Print thumbnail'),trigger),large=document.createElement('div');large.className='pd-enlarged';
       const media=createPrintPreview(p);large.append(media);dialog.append(large);paintPrintPreview(media,p);dialog.showModal();
     }
+    function openFdmReaction(trigger){
+      const source=$('img',trigger);if(!source?.complete||!source.naturalWidth)return;
+      const dialog=printerPreviewDialog(translated('Reactions'),trigger),image=source.cloneNode(true);
+      image.className='pd-reaction-enlarged';image.dataset.hardware=trigger.dataset.hardware;
+      image.hidden=false;dialog.append(image);dialog.showModal();
+    }
     function resinReactionKind(p){
       const job=printerStatusFresh&&p.connection?.stale!==true&&p.reachability==='online'?p.job:null;
       if(!job)return 'unavailable';if(job.condition==='error'||job.phase==='failed')return 'error';
@@ -3526,7 +3534,7 @@ function createAudioSetPicker(host, translate, send, locale) {
     function refinePrinterDetail(detail,p){
       $('.printer-detail-head',detail).remove();$('.printer-detail-footer',detail).remove();
       const reaction=document.createElement('button');reaction.type='button';reaction.className='pd-mini-screen';reaction.innerHTML='<img alt="">';
-      reaction.setAttribute('aria-label',translated('Reactions'));reaction.title=translated('Reactions');reaction.addEventListener('click',()=>p.technology==='resin'?openResinReaction(p.id,reaction):setTab('reactions'));
+      reaction.setAttribute('aria-label',translated('Reactions'));reaction.title=translated('Reactions');reaction.addEventListener('click',()=>p.technology==='resin'?openResinReaction(p.id,reaction):openFdmReaction(reaction));
       const overview=document.createElement('section');overview.className='pd-print-overview';overview.innerHTML='<button type="button" class="pd-print-thumb"></button><div class="pd-print-copy"><h3></h3></div>';
       const thumb=$('button',overview);thumb.setAttribute('aria-label',translated('Enlarge thumbnail'));thumb.append(createPrintPreview(p));
       const visuals=document.createElement('div');visuals.className='pd-print-visuals';overview.prepend(visuals);visuals.append(thumb,reaction);const tabs=document.createElement('div');tabs.className='pd-media-switch';tabs.setAttribute('role','group');tabs.setAttribute('aria-label',translated('Preview mode'));

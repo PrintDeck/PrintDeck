@@ -257,6 +257,7 @@ const char* localized_text(std::string_view language, std::string_view english) 
       {"Fri", "Pt", "Vie", "Ven", "Fr", "周五"},
       {"Sat", "Sob", "Sáb", "Sam", "Sa", "周六"},
       {"New", "Nowa", "Nueva", "Nouvelle", "Neu", "新版本"},
+      {"Active set", "Aktywny zestaw", "Conjunto activo", "Ensemble actif", "Aktives Set", "当前套装"},
       {"Installed", "Zainstalowana", "Instalada", "Installée", "Installiert", "已安装"},
       {"Downloading", "Pobieranie", "Descargando", "Téléchargement", "Download", "下载中"},
       {"Standby", "Gotowa", "En espera", "En veille", "Bereit", "待机"},

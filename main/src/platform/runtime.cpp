@@ -193,6 +193,24 @@ void Runtime::start() {
     ESP_LOGE(kLogTag, "Power-key task could not be started");
   }
   verify_heap("power startup");
+  // Keep network, storage synchronization and voice initialization outside the
+  // startup cue. The audio task drains its final note before notifying us.
+  // Muted/unavailable audio skips the wait; a failed worker cannot block boot.
+  const auto startup_audio_begin = esp_timer_get_time();
+  if (audio_.play(AudioService::Event::startup, [](void* context) {
+        static_cast<Runtime*>(context)->startup_audio_finished_.store(true);
+      }, this)) {
+    while (!startup_audio_finished_.load() &&
+           esp_timer_get_time() - startup_audio_begin < 5'000'000) {
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    if (!startup_audio_finished_.load()) {
+      ESP_LOGW(kLogTag, "Startup audio wait timed out");
+    } else {
+      ESP_LOGI(kLogTag, "Startup audio completed before network startup (%lld ms)",
+               static_cast<long long>((esp_timer_get_time() - startup_audio_begin) / 1000));
+    }
+  }
   const esp_err_t orientation_result =
       orientation_.start(display_, settings_.rotation, settings_.last_auto_rotation,
                          rotation_feedback_entry, this);
@@ -345,7 +363,6 @@ void Runtime::start() {
                   esp_err_to_name(confirm_result));
   }
 #endif
-  audio_.play(AudioService::Event::startup);
 }
 
 void Runtime::monitor_entry(void* context) {
@@ -1405,7 +1422,8 @@ void Runtime::monitor_loop() {
       const auto audio_now=static_cast<std::uint64_t>(esp_timer_get_time()/1000);
       if(installed.generation!=audio_set_generation_) {
         audio_set_generation_=installed.generation;
-        audio_preset_changed_entry(this,installed.style.c_str());
+        if (installed.style != settings_.audio_preset)
+          audio_preset_changed_entry(this,installed.style.c_str());
         audio_set_check_after_ms_=audio_now+30000;
       } else if(audio_now>=audio_set_check_after_ms_ && !installed.busy && network_.status().station_connected &&
           (!installed.available || installed.style!=settings_.audio_preset)) {

@@ -13,6 +13,7 @@
 #include "printdeck/core/device_state.hpp"
 #include "printdeck/core/configuration_backup.hpp"
 #include "printdeck/core/settings.hpp"
+#include "printdeck/core/set_picker_gesture.hpp"
 #include "printdeck/core/screen_saver.hpp"
 #include "printdeck/core/resin_reactions.hpp"
 #include "printdeck/core/resin_controls.hpp"
@@ -184,9 +185,10 @@ class DisplayShell {
   void show_audio_overlay();
   void show_set_overlay(bool audio, std::string family = {});
   void update_set_overlay();
+  static void set_carousel_event(lv_event_t* event);
   void start_selected_set();
   void show_theme_overlay();
-  void create_quick_overlay_close_button();
+  lv_obj_t* create_quick_overlay_close_button();
   void request_theme_selection(const char* theme);
   void close_quick_overlay();
   void recover_failed_draw_locked();
@@ -593,6 +595,7 @@ class DisplayShell {
   lv_indev_t* touch_input_ = nullptr;
   bool touch_uses_interrupt_ = true;
   std::atomic<int> remote_input_state_{0};
+  std::atomic<bool> remote_input_is_drag_{false};
   std::int64_t remote_input_started_us_ = 0;
   std::atomic<std::int64_t> remote_activity_suppressed_until_us_{0};
   int remote_input_start_x_ = 0;
@@ -672,11 +675,17 @@ class DisplayShell {
   std::size_t set_carousel_index_=0;
   lv_point_t set_picker_press_point_{};
   bool set_picker_press_moved_=false;
+  core::SetPickerGesture set_picker_gesture_;
   std::vector<std::string> set_picker_ids_;
   std::vector<std::string> set_picker_versions_;
   std::string set_picker_selected_, set_picker_error_, set_picker_family_;
   lv_obj_t* set_progress_bar_=nullptr;
   lv_obj_t* set_cancel_button_=nullptr;
+  lv_obj_t* set_close_button_=nullptr;
+  std::vector<lv_obj_t*> set_active_badges_;
+  bool set_was_busy_=false;
+  bool set_success_visible_=false;
+  std::uint32_t set_success_tick_=0;
   lv_obj_t* set_tile_wait_=nullptr;
   std::string set_busy_id_;
   lv_obj_t* set_progress_label_=nullptr;

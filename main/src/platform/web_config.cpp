@@ -1068,6 +1068,7 @@ esp_err_t WebConfig::save_audio_preset(std::string_view preset) {
     const std::lock_guard<std::mutex> lock(mutex_);
     candidate = settings_;
   }
+  if (candidate.audio_preset == preset) return ESP_OK;
   candidate.audio_preset.assign(preset);
   const esp_err_t result = store_->save(candidate);
   if (result != ESP_OK) return result;

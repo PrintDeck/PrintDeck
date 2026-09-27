@@ -1602,8 +1602,8 @@ void DisplayShell::horizontal_transition_finished(lv_anim_t* animation) {
   shell->cancel_horizontal_transition_locked(false);
 }
 
-void DisplayShell::create_quick_overlay_close_button() {
-  if (quick_overlay_ == nullptr || !lv_obj_is_valid(quick_overlay_)) return;
+lv_obj_t* DisplayShell::create_quick_overlay_close_button() {
+  if (quick_overlay_ == nullptr || !lv_obj_is_valid(quick_overlay_)) return nullptr;
   lv_obj_t* close = lv_button_create(quick_overlay_);
   lv_obj_set_size(close, kDisplayUsesLargeLayout ? 62 : 34,
                   kDisplayUsesLargeLayout ? 62 : 34);
@@ -1628,6 +1628,7 @@ void DisplayShell::create_quick_overlay_close_button() {
     }
   }, LV_EVENT_CLICKED, this);
   lv_obj_move_foreground(close);
+  return close;
 }
 
 void DisplayShell::show_quick_menu() {
@@ -1933,14 +1934,53 @@ void DisplayShell::show_brightness_overlay() {
   create_quick_overlay_close_button();
 }
 
+void DisplayShell::set_carousel_event(lv_event_t* event) {
+  auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
+  if(!self || self->capture_overlay_name_!="reaction-sets" || !self->set_choices_ ||
+     lv_obj_has_flag(self->quick_overlay_,LV_OBJ_FLAG_HIDDEN) ||
+     lv_obj_has_state(self->set_choices_,LV_STATE_DISABLED) ||
+     lv_event_get_target_obj(event)!=lv_event_get_current_target_obj(event))return;
+  const auto code=lv_event_get_code(event);
+  auto* input=lv_indev_active();
+  if(!input)return;
+  lv_point_t point{};lv_indev_get_point(input,&point);
+  if(code==LV_EVENT_PRESSED) {
+    // Sparse remote samples must not turn an explicitly requested drag into a tap.
+    const bool remote_drag=self->remote_activity_suppressed_until_us_.load(std::memory_order_acquire)>esp_timer_get_time() &&
+        self->remote_input_is_drag_.load(std::memory_order_acquire);
+    self->set_picker_gesture_.press(point.x,point.y,remote_drag);return;
+  }
+  if(code==LV_EVENT_PRESSING) { self->set_picker_gesture_.move(point.x,point.y);return; }
+  if(code==LV_EVENT_PRESS_LOST) { self->set_picker_gesture_.cancel();return; }
+  if(code==LV_EVENT_GESTURE) {
+    self->set_picker_gesture_.mark_gesture();lv_event_stop_bubbling(event);return;
+  }
+  if(code!=LV_EVENT_RELEASED)return;
+  const auto result=self->set_picker_gesture_.release(point.x,point.y);
+  if(result!=core::SetPickerGesture::Result::next && result!=core::SetPickerGesture::Result::previous)return;
+  if(self->pending_quick_menu_action_!=-1 || self->set_picker_ids_.size()<2)return;
+  const auto count=self->set_picker_ids_.size();
+  self->set_carousel_index_=(self->set_carousel_index_+(result==core::SetPickerGesture::Result::next?1:count-1))%count;
+  self->pending_quick_menu_action_=8;
+  if(lv_async_call(quick_menu_action_async,self)!=LV_RESULT_OK)self->pending_quick_menu_action_=-1;
+  lv_event_stop_bubbling(event);
+}
+
 void DisplayShell::show_set_overlay(bool audio, std::string family) {
   if(!quick_overlay_ || !lv_obj_is_valid(quick_overlay_))return;
   set_picker_audio_=audio;set_picker_family_=std::move(family);set_picker_error_.clear();set_picker_selected_.clear();
   lv_obj_clean(quick_overlay_);set_picker_ids_.clear();set_picker_versions_.clear();
+  set_active_badges_.clear();set_was_busy_=false;set_success_visible_=false;set_picker_gesture_.cancel();
   set_capture_overlay_name(audio?"audio-sets":set_picker_family_.empty()?"reaction-sets":"reaction-colors");
   SetCatalogService::instance().request_refresh();
   const bool large=kDisplayUsesLargeLayout;
   const bool carousel=!audio && set_picker_family_.empty();
+  // The overlay survives navigation; never accumulate callbacks on reopening.
+  lv_obj_remove_event_cb(quick_overlay_,set_carousel_event);
+  if(carousel) {
+    lv_obj_add_flag(quick_overlay_,LV_OBJ_FLAG_PRESS_LOCK);
+    lv_obj_add_event_cb(quick_overlay_,set_carousel_event,LV_EVENT_ALL,this);
+  } else lv_obj_remove_flag(quick_overlay_,LV_OBJ_FLAG_PRESS_LOCK);
   auto* panel=lv_obj_create(quick_overlay_);
   lv_obj_set_size(panel,large?344:184,large?330:176);lv_obj_align(panel,LV_ALIGN_CENTER,0,large?-10:-10);
   lv_obj_set_style_pad_all(panel,0,0);lv_obj_set_style_border_width(panel,0,0);
@@ -1948,9 +1988,10 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
   lv_obj_add_event_cb(panel,[](lv_event_t* event){
     auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
     if(self->set_progress_timer_){lv_timer_delete(self->set_progress_timer_);self->set_progress_timer_=nullptr;}
-    self->set_progress_bar_=self->set_progress_label_=self->set_choices_=self->set_cancel_button_=self->set_tile_wait_=nullptr;
+    self->set_progress_bar_=self->set_progress_label_=self->set_choices_=self->set_cancel_button_=self->set_close_button_=self->set_tile_wait_=nullptr;
     self->set_busy_id_.clear();
   },LV_EVENT_DELETE,this);
+  if(carousel){lv_obj_add_flag(panel,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_add_event_cb(panel,set_carousel_event,LV_EVENT_ALL,this);}
   std::string heading=tr(audio?"SOUND SET":"REACTIONS");
   if(!audio && !set_picker_family_.empty()) {
     for(const auto& set:ReactionAssetService::sets())if(set.family_id==set_picker_family_){heading=set.family_name;break;}
@@ -1979,18 +2020,8 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     lv_obj_set_layout(set_choices_,LV_LAYOUT_NONE);
     lv_obj_remove_flag(set_choices_,LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(set_choices_,LV_OBJ_FLAG_GESTURE_BUBBLE);
-    lv_obj_add_event_cb(set_choices_,[](lv_event_t* event){
-      auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
-      auto* input=lv_indev_active();
-      if(!input || self->pending_quick_menu_action_!=-1 || self->set_picker_ids_.size()<2)return;
-      const auto direction=lv_indev_get_gesture_dir(input);
-      if(direction!=LV_DIR_LEFT && direction!=LV_DIR_RIGHT)return;
-      const auto count=self->set_picker_ids_.size();
-      self->set_carousel_index_=(self->set_carousel_index_+(direction==LV_DIR_LEFT?1:count-1))%count;
-      self->pending_quick_menu_action_=8;
-      if(lv_async_call(quick_menu_action_async,self)!=LV_RESULT_OK)self->pending_quick_menu_action_=-1;
-      lv_indev_wait_release(input);lv_event_stop_bubbling(event);
-    },LV_EVENT_GESTURE,this);
+    lv_obj_add_flag(set_choices_,LV_OBJ_FLAG_PRESS_LOCK);
+    lv_obj_add_event_cb(set_choices_,set_carousel_event,LV_EVENT_ALL,this);
   }
   const auto add=[&](const std::string& id,const std::string& name,bool active,std::uint32_t swatch=0,bool color=false,bool eye=false){
     const auto index=set_picker_ids_.size();set_picker_ids_.push_back(id);
@@ -1999,11 +2030,17 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     lv_obj_set_style_shadow_width(button,0,0);
     lv_obj_set_style_pad_all(button,large?8:3,0);
     lv_obj_set_style_bg_color(button,lv_color_hex(theme_style_.surface_raised),0);
-    lv_obj_set_style_border_width(button,active?2:1,0);
+    lv_obj_set_style_border_width(button,active?3:1,0);
     lv_obj_set_style_border_color(button,lv_color_hex(active?theme_style_.accent_secondary:theme_style_.surface_soft),0);
     lv_obj_set_user_data(button,reinterpret_cast<void*>(index));
     if(carousel) {
       lv_obj_set_size(button,large?196:92,large?196:92);lv_obj_center(button);
+      // Keep the rounded selection border above the square cover and name band.
+      lv_obj_set_style_border_post(button,true,LV_PART_MAIN);
+      lv_obj_set_style_clip_corner(button,true,LV_PART_MAIN);
+      lv_obj_remove_flag(button,LV_OBJ_FLAG_GESTURE_BUBBLE);
+      lv_obj_add_flag(button,LV_OBJ_FLAG_PRESS_LOCK);
+      lv_obj_add_event_cb(button,set_carousel_event,LV_EVENT_ALL,this);
       lv_obj_set_style_pad_all(button,0,0);
       lv_obj_remove_flag(button,LV_OBJ_FLAG_SCROLLABLE);
       if(index!=set_carousel_index_)lv_obj_add_flag(button,LV_OBJ_FLAG_HIDDEN);
@@ -2016,10 +2053,10 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     }
     lv_obj_t* label_parent=button;
     if(carousel) {
-      label_parent=lv_obj_create(button);lv_obj_set_size(label_parent,lv_pct(100),large?64:29);
+      label_parent=lv_obj_create(button);lv_obj_set_size(label_parent,lv_pct(100),large?43:20);
       lv_obj_align(label_parent,LV_ALIGN_BOTTOM_MID,0,0);
       lv_obj_set_style_bg_color(label_parent,lv_color_black(),0);lv_obj_set_style_bg_opa(label_parent,LV_OPA_70,0);
-      lv_obj_set_style_border_width(label_parent,0,0);lv_obj_set_style_pad_all(label_parent,4,0);
+      lv_obj_set_style_border_width(label_parent,0,0);lv_obj_set_style_pad_hor(label_parent,4,0);lv_obj_set_style_pad_ver(label_parent,0,0);
       lv_obj_set_style_radius(label_parent,0,0);
       lv_obj_remove_flag(label_parent,static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE));
     }
@@ -2033,34 +2070,43 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
       if(large){lv_obj_align(mark,LV_ALIGN_TOP_MID,0,-2);lv_obj_align(label,LV_ALIGN_BOTTOM_MID,0,0);}
       else {lv_obj_align(mark,LV_ALIGN_LEFT_MID,0,0);lv_obj_set_width(label,140);lv_obj_align(label,LV_ALIGN_RIGHT_MID,0,0);}
     }
+    lv_obj_t* badge=nullptr;
+    if(carousel) {
+      badge=lv_obj_create(button);lv_obj_set_size(badge,large?34:22,large?34:22);
+      lv_obj_align(badge,LV_ALIGN_TOP_RIGHT,large?-8:-3,large?8:3);
+      lv_obj_set_style_radius(badge,LV_RADIUS_CIRCLE,0);
+      lv_obj_set_style_bg_color(badge,lv_color_hex(0x167b45),0);
+      lv_obj_set_style_bg_opa(badge,LV_OPA_COVER,0);
+      lv_obj_set_style_border_width(badge,2,0);lv_obj_set_style_border_color(badge,lv_color_white(),0);
+      lv_obj_set_style_pad_all(badge,0,0);
+      lv_obj_remove_flag(badge,static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE));
+      auto* mark=lv_label_create(badge);lv_label_set_text(mark,LV_SYMBOL_OK);
+      apply_icon_text_style(mark,lv_color_white(),large?&lv_font_montserrat_16:&lv_font_montserrat_12);
+      lv_obj_center(mark);
+      if(!active)lv_obj_add_flag(badge,LV_OBJ_FLAG_HIDDEN);
+    }
+    set_active_badges_.push_back(badge);
     lv_obj_add_event_cb(button,[](lv_event_t* event){
       auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
       const auto code=lv_event_get_code(event);
       if(code!=LV_EVENT_PRESSED && code!=LV_EVENT_PRESSING &&
          code!=LV_EVENT_RELEASED && code!=LV_EVENT_SHORT_CLICKED)return;
-      auto* input=lv_indev_active();
-      lv_point_t point{};
-      if(input)lv_indev_get_point(input,&point);
-      if(code==LV_EVENT_PRESSED) {
-        self->set_picker_press_point_=point;self->set_picker_press_moved_=false;
-        return;
+      const bool carousel=!self->set_picker_audio_ && self->set_picker_family_.empty();
+      if(carousel && (code!=LV_EVENT_SHORT_CLICKED ||
+          self->set_picker_gesture_.result()!=core::SetPickerGesture::Result::tap))return;
+      if(!carousel) {
+        auto* input=lv_indev_active();
+        lv_point_t point{};
+        if(input)lv_indev_get_point(input,&point);
+        if(code==LV_EVENT_PRESSED) {
+          self->set_picker_press_point_=point;self->set_picker_press_moved_=false;
+          return;
+        }
+        const int dx=point.x-self->set_picker_press_point_.x;
+        const int dy=point.y-self->set_picker_press_point_.y;
+        if(input && (std::abs(dx)>12 || std::abs(dy)>12))self->set_picker_press_moved_=true;
       }
-      const int dx=point.x-self->set_picker_press_point_.x;
-      const int dy=point.y-self->set_picker_press_point_.y;
-      if(input && (std::abs(dx)>12 || std::abs(dy)>12))self->set_picker_press_moved_=true;
-      if(code==LV_EVENT_RELEASED && input && !self->set_picker_audio_ &&
-         self->set_picker_family_.empty() && self->set_picker_ids_.size()>1 &&
-         self->pending_quick_menu_action_==-1 && std::abs(dx)>=24 && std::abs(dx)>std::abs(dy)) {
-        // Slow drags may not reach LVGL's gesture velocity threshold. A
-        // released horizontal drag still changes the page and never installs.
-        const auto count=self->set_picker_ids_.size();
-        self->set_carousel_index_=(self->set_carousel_index_+(dx<0?1:count-1))%count;
-        self->pending_quick_menu_action_=8;
-        if(lv_async_call(quick_menu_action_async,self)!=LV_RESULT_OK)self->pending_quick_menu_action_=-1;
-        lv_event_stop_bubbling(event);
-        return;
-      }
-      if(code!=LV_EVENT_SHORT_CLICKED || self->set_picker_press_moved_)return;
+      if(code!=LV_EVENT_SHORT_CLICKED || (!carousel && self->set_picker_press_moved_))return;
       const auto index=reinterpret_cast<std::size_t>(lv_obj_get_user_data(lv_event_get_current_target_obj(event)));
       if(index>=self->set_picker_ids_.size() || self->pending_quick_menu_action_!=-1)return;
       lv_event_stop_bubbling(event);
@@ -2108,7 +2154,7 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     auto* dots=lv_obj_create(panel);lv_obj_set_size(dots,large?280:170,large?12:6);
     lv_obj_align(dots,LV_ALIGN_TOP_MID,0,large?244:120);
     lv_obj_set_style_bg_opa(dots,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(dots,0,0);lv_obj_set_style_pad_all(dots,0,0);
-    lv_obj_remove_flag(dots,LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(dots,static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE));
     lv_obj_set_flex_flow(dots,LV_FLEX_FLOW_ROW);lv_obj_set_flex_align(dots,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(dots,large?7:4,0);
     for(std::size_t i=0;i<set_picker_ids_.size();++i) {
@@ -2128,10 +2174,11 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     lv_obj_align(set_progress_label_,LV_ALIGN_BOTTOM_MID,0,large?-38:-31);
     lv_obj_align(set_progress_bar_,LV_ALIGN_BOTTOM_MID,0,large?-30:-26);
   }
-  auto* cancel=lv_button_create(panel);set_cancel_button_=cancel;lv_obj_set_size(cancel,large?132:94,large?26:24);
+  // Share the footer with Close so their touch targets cannot overlap.
+  auto* cancel=lv_button_create(quick_overlay_);set_cancel_button_=cancel;lv_obj_set_size(cancel,large?160:108,large?52:36);
   lv_obj_set_style_bg_color(cancel,lv_color_hex(theme_style_.surface_raised),0);
   lv_obj_set_style_border_width(cancel,1,0);lv_obj_set_style_border_color(cancel,lv_color_hex(theme_style_.text_muted),0);
-  lv_obj_set_style_radius(cancel,themed_radius(12),0);lv_obj_align(cancel,LV_ALIGN_BOTTOM_MID,0,0);
+  lv_obj_set_style_radius(cancel,themed_radius(12),0);lv_obj_align(cancel,LV_ALIGN_BOTTOM_MID,0,large?-21:-4);
   auto* label=lv_label_create(cancel);lv_label_set_text(label,tr("Cancel"));apply_text_style(label,lv_color_hex(theme_style_.text_primary),&lv_font_montserrat_12);lv_obj_center(label);
   lv_obj_add_event_cb(cancel,[](lv_event_t* event){
     auto* self=static_cast<DisplayShell*>(lv_event_get_user_data(event));
@@ -2140,7 +2187,8 @@ void DisplayShell::show_set_overlay(bool audio, std::string family) {
     lv_event_stop_bubbling(event);
   },LV_EVENT_CLICKED,this);
   set_progress_timer_=lv_timer_create([](lv_timer_t* timer){static_cast<DisplayShell*>(lv_timer_get_user_data(timer))->update_set_overlay();},300,this);
-  update_set_overlay();create_quick_overlay_close_button();
+  set_close_button_=create_quick_overlay_close_button();
+  update_set_overlay();
 }
 
 void DisplayShell::start_selected_set() {
@@ -2181,6 +2229,11 @@ void DisplayShell::update_set_overlay() {
     if(failed && (state.detail.find("storage")!=std::string::npos || state.detail.find("1.5 MB")!=std::string::npos))error="storage_unavailable";
     else if(failed && state.detail=="Another set download is in progress.")error="transfer_busy";
   }
+  if(set_was_busy_ && !busy && !failed && progress==100) {
+    set_success_visible_=true;set_success_tick_=lv_tick_get();
+  }
+  set_was_busy_=busy;
+  if(busy || (set_success_visible_ && lv_tick_elaps(set_success_tick_)>=3000))set_success_visible_=false;
   if(!set_picker_audio_ && set_picker_family_.empty()) {
     const auto sets=ReactionAssetService::sets();
     for(const auto& id:set_picker_ids_)if(id.rfind("family:",0)==0) {
@@ -2201,6 +2254,10 @@ void DisplayShell::update_set_overlay() {
     const bool active=i<set_picker_ids_.size() && set_picker_ids_[i]==active_id;
     lv_obj_set_style_border_width(button,active?2:1,0);
     lv_obj_set_style_border_color(button,lv_color_hex(active?theme_style_.accent_secondary:theme_style_.surface_soft),0);
+    if(i<set_active_badges_.size() && set_active_badges_[i]) {
+      if(active)lv_obj_remove_flag(set_active_badges_[i],LV_OBJ_FLAG_HIDDEN);
+      else lv_obj_add_flag(set_active_badges_[i],LV_OBJ_FLAG_HIDDEN);
+    }
     const bool installed=active && set_picker_audio_ && i<set_picker_versions_.size() && set_picker_versions_[i]==active_version;
     if(busy || installed)lv_obj_add_state(button,LV_STATE_DISABLED);else lv_obj_remove_state(button,LV_STATE_DISABLED);
     if(busy && !set_tile_wait_ && i<set_picker_ids_.size() && set_picker_ids_[i]==requested_id) {
@@ -2221,14 +2278,20 @@ void DisplayShell::update_set_overlay() {
   }
   if(busy){lv_obj_remove_flag(set_progress_bar_,LV_OBJ_FLAG_HIDDEN);lv_obj_remove_flag(set_cancel_button_,LV_OBJ_FLAG_HIDDEN);}
   else {lv_obj_add_flag(set_progress_bar_,LV_OBJ_FLAG_HIDDEN);lv_obj_add_flag(set_cancel_button_,LV_OBJ_FLAG_HIDDEN);}
+  if(set_close_button_) {
+    if(busy)lv_obj_add_flag(set_close_button_,LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_remove_flag(set_close_button_,LV_OBJ_FLAG_HIDDEN);
+  }
   lv_bar_set_value(set_progress_bar_,progress,LV_ANIM_OFF);
-  const char* message="Choose a set to download.";
+  const bool viewing_active=!set_picker_audio_ && set_picker_family_.empty() &&
+      set_carousel_index_<set_picker_ids_.size() && set_picker_ids_[set_carousel_index_]==active_id;
+  const char* message=viewing_active?"Active set":"Choose a set to download.";
   if(!SetCatalogService::instance().online())message="Connect to Wi-Fi to download sets.";
   else if(busy)message="Downloading";
   else if(failed && (error=="memory_unavailable" || error=="transfer_busy"))message="PrintDeck is busy. Try again shortly.";
   else if(error=="cancelled")message="Download cancelled.";
   else if(failed)message=error=="storage_unavailable"?"Not enough free space.":"Cannot download the set. Check internet access.";
-  else if(progress==100)message="Set installed.";
+  else if(set_success_visible_)message="Set installed.";
   else if(set_picker_ids_.empty())message=SetCatalogService::instance().busy()?"Loading available sets...":"Cannot download the set. Check internet access.";
   if(!set_picker_error_.empty())message=set_picker_error_.c_str();
   if(busy)lv_label_set_text_fmt(set_progress_label_,"%s %d%%",tr(message),progress);
@@ -2383,7 +2446,6 @@ void DisplayShell::show_theme_overlay() {
 }
 
 void DisplayShell::close_quick_overlay() {
-  release_reaction_cover();
   lv_async_call_cancel(quick_menu_action_async, this);
   pending_quick_menu_action_ = -1;
   if(set_progress_timer_){lv_timer_delete(set_progress_timer_);set_progress_timer_=nullptr;}
@@ -7257,6 +7319,7 @@ esp_err_t DisplayShell::queue_remote_input(int start_x, int start_y,
           expected, kRemoteInputPreparing, std::memory_order_acq_rel)) {
     return ESP_ERR_INVALID_STATE;
   }
+  remote_input_is_drag_.store(start_x!=end_x || start_y!=end_y,std::memory_order_release);
   remote_input_start_x_ = start_x;
   remote_input_start_y_ = start_y;
   remote_input_end_x_ = end_x;
@@ -7592,10 +7655,9 @@ void DisplayShell::service_resources() {
   const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
   const bool font_retry_due = localized_fonts_available_ && !localized_cjk_fonts_[0] &&
       embedded_cjk_font().data && now_ms >= cjk_font_retry_after_ms_;
-  const bool cover_work=reaction_cover_work_pending(now_ms);
   if (now_ms < resource_lock_retry_after_ms_ ||
       (!font_retry_due && !embedded_resources_need_preparation(now_ms) &&
-       !embedded_resources_need_publication() && !cover_work)) return;
+       !embedded_resources_need_publication())) return;
   // Avoid competing with camera decode/capture for their large workspaces.
   // The lock order is workspace -> display; a busy worker simply retries.
   ImageWorkspaceLock workspace(0);
@@ -7603,15 +7665,13 @@ void DisplayShell::service_resources() {
   // This method is called on the application core without a display lock.
   // Inflate may allocate PSRAM; neither LVGL events nor draw workers do it.
   prepare_requested_embedded_resources(now_ms);
-  if(cover_work)prepare_reaction_cover(now_ms);
-  if (!font_retry_due && !embedded_resources_need_publication() && !cover_work) return;
+  if (!font_retry_due && !embedded_resources_need_publication()) return;
   if (board_display_lock(1000) != ESP_OK) {
     resource_lock_retry_after_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000) + 100;
     return;
   }
   resource_lock_retry_after_ms_ = 0;
   publish_prepared_embedded_resources();
-  if(cover_work)publish_reaction_cover();
   const auto cjk = embedded_cjk_font();
   if (localized_fonts_available_ && !localized_cjk_fonts_[0] && cjk.data &&
       now_ms >= cjk_font_retry_after_ms_) {

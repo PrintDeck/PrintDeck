@@ -79,6 +79,10 @@ constexpr char kLogTag[] = "audio";
 constexpr int kSampleRate = 16000;
 constexpr float kPi = 3.14159265358979323846F;
 constexpr std::size_t kChunkSamples = 320;
+constexpr int kMaximumCodecVolume = 95;
+// Exceeds the board's six 240-frame DMA buffers (90 ms at 16 kHz), so a
+// startup completion callback cannot release boot work over the final note.
+constexpr std::size_t kStartupDrainSamples = 2560;
 struct Note {
   std::uint16_t frequency;
   std::uint16_t milliseconds;
@@ -217,13 +221,23 @@ SoundStyle style_for(AudioService::Preset preset) {
   return style_for(AudioService::Preset::oldschool);
 }
 
-void write_silence(esp_codec_dev_handle_t codec, std::size_t samples) {
+bool write_pcm(esp_codec_dev_handle_t codec, std::int16_t* samples, std::size_t count) {
+  const int result = esp_codec_dev_write(codec, samples, count * sizeof(*samples));
+  if (result != ESP_OK) {
+    ESP_LOGE(kLogTag, "Audio output failed: %d", result);
+    return false;
+  }
+  return true;
+}
+
+bool write_silence(esp_codec_dev_handle_t codec, std::size_t samples) {
   static std::array<std::int16_t, kChunkSamples> silence{};
   while (samples > 0) {
     const std::size_t count = std::min(samples, silence.size());
-    esp_codec_dev_write(codec, silence.data(), count * sizeof(silence[0]));
+    if (!write_pcm(codec, silence.data(), count)) return false;
     samples -= count;
   }
+  return true;
 }
 
 bool write_adpcm_sample(esp_codec_dev_handle_t codec, AdpcmSample sample, int volume,
@@ -349,42 +363,90 @@ void write_voice_duration(esp_codec_dev_handle_t codec, std::uint32_t seconds, i
 #endif
 
 
-void write_note(esp_codec_dev_handle_t codec, Note note, float volume,
-                const SoundStyle& style, const PlaybackControl& control) {
+int note_samples(Note note, const SoundStyle& style) {
   const int milliseconds = std::max(
       1, static_cast<int>(note.milliseconds) * style.duration_percent / 100);
+  return std::max(1, kSampleRate * milliseconds / 1000);
+}
+
+void render_note(std::int16_t* samples, int count, int written, Note note,
+                 float volume, const SoundStyle& style) {
   if (note.frequency == 0) {
-    write_silence(codec, static_cast<std::size_t>(kSampleRate * milliseconds / 1000));
+    std::fill_n(samples, count, 0);
     return;
   }
-  const int total = std::max(1, kSampleRate * milliseconds / 1000);
+  const int total = note_samples(note, style);
   const float amplitude = style.amplitude *
                           std::clamp(volume, 0.0F, 100.0F) / 100.0F;
   const float frequency = static_cast<float>(note.frequency) *
                           static_cast<float>(style.pitch_percent) / 100.0F;
   const float step = 2.0F * kPi * frequency /
                      static_cast<float>(kSampleRate);
+  for (int index = 0; index < count; ++index) {
+    const int position = written + index;
+    const int edge = std::min(position, total - position - 1);
+    const float envelope = std::clamp(
+        static_cast<float>(edge) / static_cast<float>(style.envelope_samples), 0.0F, 1.0F);
+    const float fundamental = std::sin(step * static_cast<float>(position));
+    const float harmonic =
+        style.second_harmonic * std::sin(step * 2.0F * static_cast<float>(position)) +
+        style.third_harmonic * std::sin(step * 3.0F * static_cast<float>(position));
+    const float normalizer = 1.0F + style.second_harmonic + style.third_harmonic;
+    samples[static_cast<std::size_t>(index)] = static_cast<std::int16_t>(
+        32767.0F * amplitude * envelope * (fundamental + harmonic) / normalizer);
+  }
+}
+
+bool write_note(esp_codec_dev_handle_t codec, Note note, float volume,
+                const SoundStyle& style, const PlaybackControl& control) {
+  const int total = note_samples(note, style);
   std::array<std::int16_t, kChunkSamples> samples{};
   int written = 0;
   while (written < total) {
-    if (control.cancelled()) return;
+    if (control.cancelled()) return false;
     const int count = std::min<int>(samples.size(), total - written);
-    for (int index = 0; index < count; ++index) {
-      const int position = written + index;
-      const int edge = std::min(position, total - position - 1);
-      const float envelope = std::clamp(
-          static_cast<float>(edge) / static_cast<float>(style.envelope_samples), 0.0F, 1.0F);
-      const float fundamental = std::sin(step * static_cast<float>(position));
-      const float harmonic =
-          style.second_harmonic * std::sin(step * 2.0F * static_cast<float>(position)) +
-          style.third_harmonic * std::sin(step * 3.0F * static_cast<float>(position));
-      const float normalizer = 1.0F + style.second_harmonic + style.third_harmonic;
-      samples[static_cast<std::size_t>(index)] = static_cast<std::int16_t>(
-          32767.0F * amplitude * envelope * (fundamental + harmonic) / normalizer);
-    }
-    esp_codec_dev_write(codec, samples.data(), static_cast<std::size_t>(count) * sizeof(samples[0]));
+    render_note(samples.data(), count, written, note, volume, style);
+    if (!write_pcm(codec, samples.data(), count)) return false;
     written += count;
   }
+  return true;
+}
+
+void write_startup(esp_codec_dev_handle_t codec, int volume, const PlaybackControl& control) {
+  const SoundStyle style = style_for(AudioService::Preset::oldschool);
+  const float gain = 100.0F * std::pow(10.0F, (std::clamp(volume, 1, 100) - 100) / 40.0F);
+  std::size_t count = 0;
+  for (const auto& note : kStartup) count += note_samples(note, style);
+  std::unique_ptr<std::int16_t, decltype(&heap_caps_free)> pcm(
+      static_cast<std::int16_t*>(allocate_audio_resource(count * sizeof(std::int16_t))),
+      &heap_caps_free);
+  if (!pcm) {
+    ESP_LOGE(kLogTag, "Startup audio buffer unavailable");
+    return;
+  }
+  // Finish synthesis before sending any sound. Playback only copies bounded
+  // chunks from PSRAM to the internal stack and then into I2S DMA.
+  std::size_t offset = 0;
+  for (const auto& note : kStartup) {
+    const int total = note_samples(note, style);
+    for (int position = 0; position < total;) {
+      if (control.cancelled()) return;
+      const int chunk = std::min<int>(kChunkSamples, total - position);
+      render_note(pcm.get() + offset + position, chunk, position, note, gain, style);
+      position += chunk;
+    }
+    offset += total;
+  }
+  if (control.cancelled() || !write_silence(codec, 320)) return;
+  std::array<std::int16_t, kChunkSamples> output{};
+  for (offset = 0; offset < count;) {
+    if (control.cancelled()) break;
+    const auto chunk = std::min(output.size(), count - offset);
+    std::copy_n(pcm.get() + offset, chunk, output.data());
+    if (!write_pcm(codec, output.data(), chunk)) return;
+    offset += chunk;
+  }
+  write_silence(codec, kStartupDrainSamples);
 }
 
 }  // namespace
@@ -410,7 +472,7 @@ esp_err_t AudioService::start(bool enabled, int volume_percent, std::string_view
     codec_ = nullptr;
     return result;
   }
-  result = esp_codec_dev_set_out_vol(codec, 100);
+  result = esp_codec_dev_set_out_vol(codec, kMaximumCodecVolume);
   if (result != ESP_OK) {
     esp_codec_dev_close(codec);
     codec_ = nullptr;
@@ -550,21 +612,14 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   if (!force) requested_volume = requested_volume * display_volume_scale_.load() / 100;
   auto codec = static_cast<esp_codec_dev_handle_t>(codec_);
   if (requested_volume <= 0) return;
-  write_silence(codec, 320);
   // Keep the Retro startup jingle with a perceptual -50..0 dB volume curve.
   // Attenuate samples before queueing: changing codec gain after playback can
   // amplify the last notes still buffered in I2S DMA.
   if (event == Event::startup) {
-    const float startup_volume = 100.0F * std::pow(10.0F,
-        (std::clamp(requested_volume, 1, 100) - 100) / 40.0F);
-    const SoundStyle startup_style = style_for(Preset::oldschool);
-    for (const auto& note : kStartup) {
-      if (control.cancelled()) break;
-      write_note(codec, note, startup_volume, startup_style, control);
-    }
-    write_silence(codec, 1024);
+    write_startup(codec, requested_volume, control);
     return;
   }
+  if (!write_silence(codec, 320)) return;
   const Melody selected = melody_for(event);
   const SoundStyle style = style_for(preset);
   const int sample_volume = std::min(requested_volume, style.maximum_volume);
@@ -599,7 +654,7 @@ void AudioService::play_now(Event event, Preset preset, int requested_volume, bo
   const int volume = std::min(sample_volume, selected.maximum_volume);
   for (std::size_t index = 0; index < selected.count; ++index) {
     if (control.cancelled()) return;
-    write_note(codec, selected.notes[index], volume, style, control);
+    if (!write_note(codec, selected.notes[index], volume, style, control)) return;
   }
   write_silence(codec, 1024);
 }
