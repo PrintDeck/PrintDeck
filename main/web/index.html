@@ -3527,6 +3527,13 @@ function createAudioSetPicker(host, translate, send, locale) {
       const dialog=printerPreviewDialog(p.job?.name||translated('Print thumbnail'),trigger),large=document.createElement('div');large.className='pd-enlarged';
       const media=createPrintPreview(p);large.append(media);dialog.append(large);paintPrintPreview(media,p);dialog.showModal();
     }
+    function printerReactionEvent(job){
+      const phase=job?.phase||'unknown',activity=job?.activity;
+      if(phase==='completed')return activity==='standby'?'standby':'completed';
+      if(['paused','failed','cancelled'].includes(phase))return phase;
+      if(['idle','preparing','printing'].includes(phase)&&typeof activity==='string'&&(['standby','preparing','printing'].includes(activity)||Object.hasOwn(printerActivityLabels,activity)))return activity.replaceAll('_','-');
+      return phase==='idle'?'standby':Object.hasOwn(printerJobLabels,phase)?phase:'unavailable';
+    }
     function openFdmReaction(trigger){
       const source=$('img',trigger);if(!source?.complete||!source.naturalWidth)return;
       const dialog=printerPreviewDialog(translated('Reactions'),trigger),image=source.cloneNode(true);
@@ -3775,7 +3782,7 @@ function createAudioSetPicker(host, translate, send, locale) {
       $$('.pd-print-command',detail).forEach(button=>{button.disabled=!printerActionAvailable(p,button.dataset.command)});
       // Speed execution is not implemented by this firmware interface yet.
       $$('.pd-speed-editor input,.pd-speed-editor button',detail).forEach(control=>{control.disabled=true});
-      const mini=$('.pd-mini-screen',detail),phase=p.job?.phase||'unknown',event=phase==='idle'?'standby':phase==='unknown'?'unavailable':phase;
+      const mini=$('.pd-mini-screen',detail),event=printerReactionEvent(p.job);
       mini.dataset.hardware=health.hardware||settings.hardware||'amoled_1_75';
       mini.dataset.resin=String(p.technology==='resin');
       if(p.technology==='resin'){
@@ -3783,7 +3790,7 @@ function createAudioSetPicker(host, translate, send, locale) {
         $('img',mini)?.remove();
         if(!$('canvas',mini))mini.append(createResinCanvas(p.id));
       }else{
-        mini.hidden=!p.selected||!d.online||!settings.printer_animations_enabled||!reactionData||reactionData.events?.find(item=>item.id===event)?.enabled===false;
+        mini.hidden=!p.selected||!d.online||p.connection?.stale===true||!settings.printer_animations_enabled||!reactionData||reactionData.events?.find(item=>item.id===event)?.enabled===false;
         const img=$('img',mini);img.alt=translated('Printer reaction');
         if(mini.hidden){img.removeAttribute('src')}else{const src=reactionPreviewUrl(event);if(img.getAttribute('src')!==src)img.src=src}
       }
