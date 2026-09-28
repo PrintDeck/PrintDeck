@@ -157,7 +157,7 @@ if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
     list(APPEND PRINTDECK_BOARD_REQUIRES espressif__esp-sr espressif__esp-tflite-micro esphome__esp-micro-speech-features)
     include("${CMAKE_CURRENT_LIST_DIR}/audio/voice_en/compressed/manifest.cmake")
     file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/generated/wake-word/hey-printdeck.tflite" wake_model_hash)
-    if(NOT wake_model_hash STREQUAL "e1490ba6b58951ff484716abbcd6745fc1b91de9b19fc745130ab18c9bd2d170")
+    if(NOT wake_model_hash STREQUAL "064aa8cb075ec551f02d68c5f7170523463d5e17627bd49f49c57af1198e507c")
         message(FATAL_ERROR "Hey PrintDeck model identity mismatch")
     endif()
     list(APPEND PRINTDECK_SRCS "src/platform/custom_wake_word.cpp")
