@@ -17,6 +17,9 @@ locked directly to git.
 | `espressif/esp-dl` 3.3.10 | Local speech inference dependency | MIT |
 | `espressif/esp-dsp` 1.8.0 | Local speech signal processing | Apache-2.0 |
 | `espressif/esp-sr` 2.5.1 | AMOLED/LCD local Hi ESP wake word and English commands | ESPRESSIF MIT License; use is restricted to Espressif Systems products |
+| `espressif/esp-tflite-micro` 1.3.3~1 | Optional experimental wake-word inference | Apache-2.0 |
+| `espressif/esp-nn` 1.4.1 | Optimized inference kernels for the experimental detector | Apache-2.0 |
+| `esphome/esp-micro-speech-features` 1.2.3 | Experimental wake-word audio frontend | Apache-2.0; bundled Kiss FFT retains its BSD notice |
 | `espressif/esp_codec_dev` 1.5.11 | ES8311 audio-codec support | Apache-2.0 |
 | `espressif/esp_h264` 1.3.8 | Baseline H.264 camera decoder | Apache-2.0 |
 | `espressif/esp_io_expander` 1.2.1 | Board I/O-expander abstraction | Apache-2.0 |

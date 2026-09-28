@@ -1051,8 +1051,9 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
                              audio_.preset() != requested_preset ||
                              audio_.muted_events() != settings.audio_muted_events;
 #if defined(PRINTDECK_LOCAL_VOICE)
-  if (settings_.voice_enabled != settings.voice_enabled) voice_retry_after_ms_ = 0;
-  if (!settings.voice_enabled) voice_.request_stop();
+  const bool wake_word_changed = settings_.voice_wake_word != settings.voice_wake_word;
+  if (settings_.voice_enabled != settings.voice_enabled || wake_word_changed) voice_retry_after_ms_ = 0;
+  if (!settings.voice_enabled || wake_word_changed) voice_.request_stop();
 #endif
   if (printer_configuration_changed) {
     // Invalidate the observed control state before clearing the queue. A
@@ -2071,7 +2072,7 @@ void Runtime::monitor_loop() {
         if (!runtime->display_.manual_display_sleep_active())
           runtime->audio_.set_display_volume_scale(100);
         if (runtime->monitor_task_ != nullptr) xTaskNotifyGive(runtime->monitor_task_);
-      }, this);
+      }, this, settings_.voice_wake_word == "hey_printdeck");
       if (result != ESP_OK)
         ESP_LOGW(kLogTag, "Could not start local voice worker: %s", esp_err_to_name(result));
     }

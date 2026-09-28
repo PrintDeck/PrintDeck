@@ -144,6 +144,8 @@ bool activate_voice_model(const char* name) {
   return valid;
 }
 
+void release_active_voice_model() { release_active(); }
+
 void close_voice_models() {
   release_active();
   if (mapped != nullptr) esp_partition_munmap(mapping);

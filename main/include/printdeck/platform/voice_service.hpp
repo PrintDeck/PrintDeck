@@ -19,7 +19,7 @@ class VoiceService {
   static constexpr bool wanted(bool voice_enabled, bool sound_enabled, int volume) {
     return voice_enabled && sound_enabled && volume > 0;
   }
-  esp_err_t start(AudioService& audio, WakeCallback wake, void* context);
+  esp_err_t start(AudioService& audio, WakeCallback wake, void* context, bool custom_wake_word = false);
   void request_stop() { stop_requested_.store(true); ready_.store(false); }
   bool running() const { return running_.load(); }
   // Called only by the core-0 runtime owner. Returns after the stopped task's
@@ -47,6 +47,8 @@ class VoiceService {
   [[noreturn]] void finish_task();
   std::uint32_t speak_command(int command_id);
 
+  bool custom_wake_word_ = false;
+  const char* wake_phrase_ = "Hi ESP";
   AudioService* audio_ = nullptr;
   void* microphone_ = nullptr;
   const char* wakenet_model_name_ = nullptr;

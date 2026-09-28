@@ -260,6 +260,7 @@ bool valid_device_name(std::string_view name) {
 
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
+  if (source_schema < 22) settings.voice_wake_word = "hey_printdeck";
   if (source_schema < 21) settings.screen_bar_enabled = kDefaultScreenBarEnabled;
   if (source_schema < 20) settings.printer_control_enabled = false;
   if (source_schema < 19) settings.printer_view = "list";
@@ -388,6 +389,9 @@ std::vector<ValidationIssue> validate(const DeviceSettings& settings) {
   }
   if (settings.audio_volume_percent > 100) {
     issues.push_back({"audio_volume_percent", "Audio volume must be between 0 and 100"});
+  }
+  if (settings.voice_wake_word != "hi_esp" && settings.voice_wake_word != "hey_printdeck") {
+    issues.push_back({"voice_wake_word", "Unsupported wake phrase"});
   }
   if (!supported_audio_preset(settings.audio_preset)) {
     issues.push_back({"audio_preset", "Unsupported sound preset"});

@@ -154,8 +154,14 @@ if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
     list(APPEND PRINTDECK_SRCS
         "src/platform/voice_service.cpp"
         "src/platform/voice_model_store.cpp")
-    list(APPEND PRINTDECK_BOARD_REQUIRES espressif__esp-sr)
+    list(APPEND PRINTDECK_BOARD_REQUIRES espressif__esp-sr espressif__esp-tflite-micro esphome__esp-micro-speech-features)
     include("${CMAKE_CURRENT_LIST_DIR}/audio/voice_en/compressed/manifest.cmake")
+    file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/generated/wake-word/hey-printdeck.tflite" wake_model_hash)
+    if(NOT wake_model_hash STREQUAL "e1490ba6b58951ff484716abbcd6745fc1b91de9b19fc745130ab18c9bd2d170")
+        message(FATAL_ERROR "Hey PrintDeck model identity mismatch")
+    endif()
+    list(APPEND PRINTDECK_SRCS "src/platform/custom_wake_word.cpp")
+    list(APPEND PRINTDECK_VOICE_ASSETS "generated/wake-word/hey-printdeck.tflite")
 endif()
 
 # Notification samples are installed in the asset partition as one audio set.

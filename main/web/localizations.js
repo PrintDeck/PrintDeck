@@ -1182,12 +1182,12 @@ Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
     "Frage nach deinem Druck. Deine Stimme bleibt auf PrintDeck.",
     "询问打印进度。你的语音只在 PrintDeck 上处理。"
   ],
-  "Listen for “Hi ESP!”": [
-    "Nasłuchuj „Hi ESP!”",
-    "Escuchar «Hi ESP!»",
-    "Écouter «Hi ESP!»",
-    "Auf „Hi ESP!“ hören",
-    "监听“Hi ESP!”"
+  "Listen for “Hey PrintDeck!”": [
+    "Nasłuchuj „Hey PrintDeck!”",
+    "Escuchar «Hey PrintDeck!»",
+    "Écouter «Hey PrintDeck!»",
+    "Auf „Hey PrintDeck!“ hören",
+    "监听“Hey PrintDeck!”"
   ],
   "When enabled, the microphone continuously listens for the wake phrase, even during the screen saver or with the display off.": [
     "Po włączeniu mikrofon stale nasłuchuje frazy wybudzającej, także podczas wygaszacza i przy wyłączonym ekranie.",
@@ -1196,36 +1196,36 @@ Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
     "Wenn aktiviert, hört das Mikrofon ständig auf das Aktivierungswort, auch beim Bildschirmschoner oder ausgeschaltetem Display.",
     "启用后，麦克风会持续监听唤醒词，即使正在显示屏保或屏幕已关闭。"
   ],
-  "Enable Hi ESP!": [
-    "Włącz Hi ESP!",
-    "Activar Hi ESP!",
-    "Activer Hi ESP!",
-    "Hi ESP! aktivieren",
-    "启用 Hi ESP!"
+  "Enable Hey PrintDeck!": [
+    "Włącz Hey PrintDeck!",
+    "Activar Hey PrintDeck!",
+    "Activer Hey PrintDeck!",
+    "Hey PrintDeck! aktivieren",
+    "启用 Hey PrintDeck!"
   ],
-  "Disable Hi ESP!": [
-    "Wyłącz Hi ESP!",
-    "Desactivar Hi ESP!",
-    "Désactiver Hi ESP!",
-    "Hi ESP! deaktivieren",
-    "停用 Hi ESP!"
+  "Disable Hey PrintDeck!": [
+    "Wyłącz Hey PrintDeck!",
+    "Desactivar Hey PrintDeck!",
+    "Désactiver Hey PrintDeck!",
+    "Hey PrintDeck! deaktivieren",
+    "停用 Hey PrintDeck!"
   ],
   "Paused while the camera is open": ["Wstrzymane podczas podglądu kamery", "En pausa mientras la cámara está abierta", "En pause pendant l’affichage de la caméra", "Während der Kameraansicht pausiert", "相机画面打开时暂停"],
-  "Hi ESP! paused while the camera is open": ["Hi ESP! wstrzymane podczas podglądu kamery", "Hi ESP! en pausa mientras la cámara está abierta", "Hi ESP! en pause pendant l’affichage de la caméra", "Hi ESP! während der Kameraansicht pausiert", "Hi ESP! 在相机画面打开时暂停"],
-  "Hi ESP! pauses while the camera is open and resumes when you leave it. Print notifications remain active.": ["Hi ESP! wstrzymuje nasłuch podczas podglądu kamery i wznawia go po wyjściu. Powiadomienia o druku pozostają aktywne.", "Hi ESP! pausa la escucha mientras la cámara está abierta y la reanuda al salir. Las notificaciones de impresión siguen activas.", "Hi ESP! suspend l’écoute pendant l’affichage de la caméra et la reprend à la fermeture. Les notifications d’impression restent actives.", "Hi ESP! pausiert die Spracherkennung während der Kameraansicht und setzt sie danach fort. Druckbenachrichtigungen bleiben aktiv.", "Hi ESP! 在相机画面打开时暂停聆听，退出后恢复。打印通知保持启用。"],
-  "Hi ESP! enabled": [
-    "Hi ESP! włączone",
-    "Hi ESP! activado",
-    "Hi ESP! activé",
-    "Hi ESP! aktiviert",
-    "Hi ESP! 已启用"
+  "Hey PrintDeck! paused while the camera is open": ["Hey PrintDeck! wstrzymane podczas podglądu kamery", "Hey PrintDeck! en pausa mientras la cámara está abierta", "Hey PrintDeck! en pause pendant l’affichage de la caméra", "Hey PrintDeck! während der Kameraansicht pausiert", "Hey PrintDeck! 在相机画面打开时暂停"],
+  "Hey PrintDeck! pauses while the camera is open and resumes when you leave it. Print notifications remain active.": ["Hey PrintDeck! wstrzymuje nasłuch podczas podglądu kamery i wznawia go po wyjściu. Powiadomienia o druku pozostają aktywne.", "Hey PrintDeck! pausa la escucha mientras la cámara está abierta y la reanuda al salir. Las notificaciones de impresión siguen activas.", "Hey PrintDeck! suspend l’écoute pendant l’affichage de la caméra et la reprend à la fermeture. Les notifications d’impression restent actives.", "Hey PrintDeck! pausiert die Spracherkennung während der Kameraansicht und setzt sie danach fort. Druckbenachrichtigungen bleiben aktiv.", "Hey PrintDeck! 在相机画面打开时暂停聆听，退出后恢复。打印通知保持启用。"],
+  "Hey PrintDeck! enabled": [
+    "Hey PrintDeck! włączone",
+    "Hey PrintDeck! activado",
+    "Hey PrintDeck! activé",
+    "Hey PrintDeck! aktiviert",
+    "Hey PrintDeck! 已启用"
   ],
-  "Saving Hi ESP! settings…": [
-    "Zapisywanie ustawień Hi ESP!…",
-    "Guardando los ajustes de Hi ESP!…",
-    "Enregistrement des réglages Hi ESP!…",
-    "Hi ESP!-Einstellungen werden gespeichert…",
-    "正在保存 Hi ESP! 设置…"
+  "Saving Hey PrintDeck! settings…": [
+    "Zapisywanie ustawień Hey PrintDeck!…",
+    "Guardando los ajustes de Hey PrintDeck!…",
+    "Enregistrement des réglages Hey PrintDeck!…",
+    "Hey PrintDeck!-Einstellungen werden gespeichert…",
+    "正在保存 Hey PrintDeck! 设置…"
   ],
   "How it works": [
     "Jak to działa",
@@ -1234,12 +1234,12 @@ Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
     "So funktioniert es",
     "使用方法"
   ],
-  "Say “Hi ESP!”": [
-    "Powiedz „Hi ESP!”",
-    "Di «Hi ESP!»",
-    "Dites «Hi ESP!»",
-    "Sage „Hi ESP!“",
-    "说出“Hi ESP!”"
+  "Say “Hey PrintDeck!”": [
+    "Powiedz „Hey PrintDeck!”",
+    "Di «Hey PrintDeck!»",
+    "Dites «Hey PrintDeck!»",
+    "Sage „Hey PrintDeck!“",
+    "说出“Hey PrintDeck!”"
   ],
   "PrintDeck wakes the display and restarts the screen saver countdown.": [
     "PrintDeck wybudza ekran i zaczyna od nowa odliczanie wygaszacza.",
@@ -1269,12 +1269,12 @@ Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
     "Höre die Antwort",
     "听取回答"
   ],
-  "PrintDeck answers in English, then listens for “Hi ESP!” again. If no command is recognized, simply start again.": [
-    "PrintDeck odpowiada po angielsku i ponownie nasłuchuje „Hi ESP!”. Jeśli nie rozpozna komendy, po prostu zacznij od nowa.",
-    "PrintDeck responde en inglés y vuelve a escuchar «Hi ESP!». Si no reconoce el comando, vuelve a empezar.",
-    "PrintDeck répond en anglais, puis écoute à nouveau «Hi ESP!». Si aucune commande n’est reconnue, recommencez simplement.",
-    "PrintDeck antwortet auf Englisch und hört wieder auf „Hi ESP!“. Wird kein Befehl erkannt, beginne einfach erneut.",
-    "PrintDeck 用英语回答，然后继续监听“Hi ESP!”。如果没有识别到指令，请重新开始。"
+  "PrintDeck answers in English, then listens for “Hey PrintDeck!” again. If no command is recognized, simply start again.": [
+    "PrintDeck odpowiada po angielsku i ponownie nasłuchuje „Hey PrintDeck!”. Jeśli nie rozpozna komendy, po prostu zacznij od nowa.",
+    "PrintDeck responde en inglés y vuelve a escuchar «Hey PrintDeck!». Si no reconoce el comando, vuelve a empezar.",
+    "PrintDeck répond en anglais, puis écoute à nouveau «Hey PrintDeck!». Si aucune commande n’est reconnue, recommencez simplement.",
+    "PrintDeck antwortet auf Englisch und hört wieder auf „Hey PrintDeck!“. Wird kein Befehl erkannt, beginne einfach erneut.",
+    "PrintDeck 用英语回答，然后继续监听“Hey PrintDeck!”。如果没有识别到指令，请重新开始。"
   ],
   "What you can ask": [
     "O co możesz zapytać",
@@ -1346,26 +1346,26 @@ Object.assign(PRINTDECK_EXTRA_TRANSLATIONS, {
     "Lass den Ton eingeschaltet und die Lautstärke über null, um „Yes“ und die Antworten zu hören.",
     "请开启声音并将音量设为大于零，以听到“Yes”和语音回答。"
   ],
-  "Choose a valid Hi ESP! action.": [
-    "Wybierz prawidłową czynność Hi ESP!.",
-    "Elige una acción válida para Hi ESP!.",
-    "Choisissez une action valide pour Hi ESP!.",
-    "Wähle eine gültige Hi ESP!-Aktion.",
-    "请选择有效的 Hi ESP! 操作。"
+  "Choose a valid Hey PrintDeck! action.": [
+    "Wybierz prawidłową czynność Hey PrintDeck!.",
+    "Elige una acción válida para Hey PrintDeck!.",
+    "Choisissez une action valide pour Hey PrintDeck!.",
+    "Wähle eine gültige Hey PrintDeck!-Aktion.",
+    "请选择有效的 Hey PrintDeck! 操作。"
   ],
-  "Hi ESP! is not available on this device.": [
-    "Hi ESP! nie jest dostępne na tym urządzeniu.",
-    "Hi ESP! no está disponible en este dispositivo.",
-    "Hi ESP! n’est pas disponible sur cet appareil.",
-    "Hi ESP! ist auf diesem Gerät nicht verfügbar.",
-    "此设备不支持 Hi ESP!。"
+  "Hey PrintDeck! is not available on this device.": [
+    "Hey PrintDeck! nie jest dostępne na tym urządzeniu.",
+    "Hey PrintDeck! no está disponible en este dispositivo.",
+    "Hey PrintDeck! n’est pas disponible sur cet appareil.",
+    "Hey PrintDeck! ist auf diesem Gerät nicht verfügbar.",
+    "此设备不支持 Hey PrintDeck!。"
   ],
-  "PrintDeck could not save the Hi ESP! setting. Please try again.": [
-    "PrintDeck nie mógł zapisać ustawienia Hi ESP!. Spróbuj ponownie.",
-    "PrintDeck no pudo guardar el ajuste de Hi ESP!. Inténtalo de nuevo.",
-    "PrintDeck n’a pas pu enregistrer le réglage Hi ESP!. Réessayez.",
-    "PrintDeck konnte die Hi ESP!-Einstellung nicht speichern. Bitte versuche es erneut.",
-    "PrintDeck 无法保存 Hi ESP! 设置。请重试。"
+  "PrintDeck could not save the Hey PrintDeck! setting. Please try again.": [
+    "PrintDeck nie mógł zapisać ustawienia Hey PrintDeck!. Spróbuj ponownie.",
+    "PrintDeck no pudo guardar el ajuste de Hey PrintDeck!. Inténtalo de nuevo.",
+    "PrintDeck n’a pas pu enregistrer le réglage Hey PrintDeck!. Réessayez.",
+    "PrintDeck konnte die Hey PrintDeck!-Einstellung nicht speichern. Bitte versuche es erneut.",
+    "PrintDeck 无法保存 Hey PrintDeck! 设置。请重试。"
   ]
 });
 for(const [source,values] of Object.entries(PRINTDECK_EXTRA_TRANSLATIONS)){
@@ -2138,3 +2138,7 @@ Object.assign(window.PRINTDECK_TRANSLATIONS["fr"],{"Preview Below": "Aperçu ci-
 Object.assign(window.PRINTDECK_TRANSLATIONS["de"],{"Preview Below": "Vorschau unten", "Installed on PrintDeck": "Auf PrintDeck installiert", "Browser preview: {set}. This set is not installed.": "Browser-Vorschau: {set}. Dieses Set ist nicht installiert.", "Back to installed set": "Zurück zum installierten Set"});
 
 Object.assign(window.PRINTDECK_TRANSLATIONS["zh-CN"],{"Preview Below": "在下方预览", "Installed on PrintDeck": "已安装到 PrintDeck", "Browser preview: {set}. This set is not installed.": "浏览器预览：{set}。此资源集尚未安装。", "Back to installed set": "返回已安装的资源集"});
+
+[["Wake phrase", "Hasło wybudzające", "Frase de activación", "Phrase d’activation", "Aktivierungswort", "唤醒词"], ["Hey PrintDeck (experimental)", "Hey PrintDeck (eksperymentalne)", "Hey PrintDeck (experimental)", "Hey PrintDeck (expérimental)", "Hey PrintDeck (experimentell)", "Hey PrintDeck（实验性）"], ["Voice activation", "Wybudzanie głosem", "Activación por voz", "Activation vocale", "Sprachaktivierung", "语音唤醒"], ["Only the selected wake phrase is active.", "Aktywne jest tylko wybrane hasło wybudzające.", "Solo está activa la frase de activación seleccionada.", "Seule la phrase d’activation sélectionnée est active.", "Nur das ausgewählte Aktivierungswort ist aktiv.", "仅所选唤醒词处于启用状态。"], ["Hey PrintDeck is experimental. It may miss a phrase or wake by mistake.", "Hey PrintDeck jest eksperymentalne. Może nie rozpoznać hasła lub wybudzić urządzenie przez pomyłkę.", "Hey PrintDeck es experimental. Puede no reconocer la frase o activarse por error.", "Hey PrintDeck est expérimental. Il peut manquer une phrase ou s’activer par erreur.", "Hey PrintDeck ist experimentell. Es kann ein Aktivierungswort überhören oder versehentlich reagieren.", "Hey PrintDeck 为实验性功能，可能漏识别唤醒词或误唤醒。"], ["Say the selected wake phrase", "Powiedz wybrane hasło wybudzające", "Di la frase de activación seleccionada", "Dites la phrase d’activation sélectionnée", "Sage das ausgewählte Aktivierungswort", "说出所选唤醒词"], ["PrintDeck answers in English, then listens for the selected wake phrase again. If no command is recognized, simply start again.", "PrintDeck odpowiada po angielsku, a następnie znów nasłuchuje wybranego hasła. Jeśli nie rozpozna polecenia, zacznij ponownie.", "PrintDeck responde en inglés y vuelve a escuchar la frase seleccionada. Si no reconoce el comando, vuelve a empezar.", "PrintDeck répond en anglais, puis écoute à nouveau la phrase sélectionnée. Si aucune commande n’est reconnue, recommencez.", "PrintDeck antwortet auf Englisch und wartet dann wieder auf das ausgewählte Aktivierungswort. Wird kein Befehl erkannt, beginne erneut.", "PrintDeck 用英语回答，然后继续监听所选唤醒词。如果未识别到指令，请重新开始。"], ["Enable voice listening", "Włącz nasłuchiwanie", "Activar escucha", "Activer l’écoute", "Spracherkennung einschalten", "开启语音监听"], ["Disable voice listening", "Wyłącz nasłuchiwanie", "Desactivar escucha", "Désactiver l’écoute", "Spracherkennung ausschalten", "关闭语音监听"], ["Voice listening enabled", "Nasłuchiwanie włączone", "Escucha activada", "Écoute activée", "Spracherkennung eingeschaltet", "语音监听已开启"], ["Voice listening paused while the camera is open", "Nasłuchiwanie wstrzymane podczas korzystania z kamery", "Escucha pausada mientras la cámara está abierta", "Écoute suspendue lorsque la caméra est ouverte", "Spracherkennung pausiert bei geöffneter Kamera", "相机开启时已暂停语音监听"]].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));
+
+[["Hey PrintDeck! is the default. Hi ESP! is also available. Voice commands and answers are in English only.", "Domyślne hasło to Hey PrintDeck! Możesz też wybrać Hi ESP! Polecenia i odpowiedzi głosowe są dostępne tylko po angielsku.", "La frase predeterminada es Hey PrintDeck! También puedes elegir Hi ESP! Los comandos y las respuestas de voz solo están disponibles en inglés.", "Hey PrintDeck! est la phrase par défaut. Hi ESP! est également disponible. Les commandes et réponses vocales sont uniquement en anglais.", "Hey PrintDeck! ist die Standardeinstellung. Hi ESP! ist ebenfalls verfügbar. Sprachbefehle und Antworten sind nur auf Englisch verfügbar.", "默认唤醒词为 Hey PrintDeck!，也可选择 Hi ESP!。语音指令和回答仅支持英语。"]].forEach(([source,...values])=>PRINTDECK_TRANSLATION_COLUMNS.forEach((language,index)=>window.PRINTDECK_TRANSLATIONS[language][source]=values[index]));

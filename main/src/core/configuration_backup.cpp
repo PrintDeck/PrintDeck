@@ -355,6 +355,7 @@ bool add_settings(cJSON* root, const DeviceSettings& settings) {
          add_bool(object, "screen_bar_enabled", settings.screen_bar_enabled) &&
          add_bool(object, "printer_control_enabled", settings.printer_control_enabled) &&
          add_bool(object, "voice_enabled", settings.voice_enabled) &&
+         add_string(object, "voice_wake_word", settings.voice_wake_word) &&
          add_bool(object, "unified_api_enabled", settings.unified_api_enabled) &&
          add_string(object, "unified_api_token", settings.unified_api_token) &&
          add_bool(object, "mqtt_enabled", settings.mqtt.enabled) &&
@@ -409,6 +410,7 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
          read_bool(object, "screen_bar_enabled", settings.screen_bar_enabled, source_schema >= 21) &&
          read_bool(object, "printer_control_enabled", settings.printer_control_enabled, source_schema >= 20) &&
          read_bool(object, "voice_enabled", settings.voice_enabled, source_schema >= 15) &&
+         read_string(object, "voice_wake_word", settings.voice_wake_word, 13, source_schema >= 22) &&
          read_bool(object, "unified_api_enabled", settings.unified_api_enabled,
                    source_schema >= 9) &&
          read_string(object, "unified_api_token", settings.unified_api_token,

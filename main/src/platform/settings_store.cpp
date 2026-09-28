@@ -172,6 +172,7 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
     if (result == ESP_OK && voice_enabled > 1) result = ESP_ERR_INVALID_ARG;
   }
   loaded.voice_enabled = voice_enabled == 1;
+  if (result == ESP_OK && schema >= 22) result = read_text(handle, "wake_word", loaded.voice_wake_word);
   if (result == ESP_OK && schema >= 21) {
     std::uint8_t enabled = loaded.screen_bar_enabled ? 1 : 0;
     result = read_optional_u8(handle, "screen_bar", enabled);
@@ -349,6 +350,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   write(nvs_set_u8(handle, "screen_bar", settings.screen_bar_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "printer_ctrl", settings.printer_control_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "voice_enabled", settings.voice_enabled ? 1 : 0));
+  write(nvs_set_str(handle, "wake_word", settings.voice_wake_word.c_str()));
   write(nvs_set_u8(handle, "api_enabled", settings.unified_api_enabled ? 1 : 0));
   write(write_text(handle, "api_token", settings.unified_api_token));
   write(nvs_set_u8(handle,"mqtt_on",settings.mqtt.enabled));

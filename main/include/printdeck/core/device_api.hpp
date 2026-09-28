@@ -242,9 +242,12 @@ inline bool is_device_timezone_command(std::string_view payload) {
 }
 inline bool is_device_voice_command(std::string_view payload) {
   DeviceCommand command;
-  return parse_device_command(payload, command) && command.action == "device.voice.set" &&
-      cJSON_GetArraySize(command.parameters.get()) == 1 &&
-      cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(command.parameters.get(), "enabled"));
+  if (!parse_device_command(payload, command) || command.action != "device.voice.set") return false;
+  const auto* word = cJSON_GetObjectItemCaseSensitive(command.parameters.get(), "wake_word");
+  return cJSON_GetArraySize(command.parameters.get()) == (word ? 2 : 1) &&
+      cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(command.parameters.get(), "enabled")) &&
+      (!word || (cJSON_IsString(word) && (std::strcmp(word->valuestring, "hi_esp") == 0 ||
+                                        std::strcmp(word->valuestring, "hey_printdeck") == 0)));
 }
 inline bool is_device_unified_api_command(std::string_view payload) {
   DeviceCommand command;

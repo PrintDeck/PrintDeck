@@ -7,6 +7,16 @@ dependencies:
       path: .
       type: git
     version: d6997586e68f65afd51baa775903df930db39821
+  esphome/esp-micro-speech-features:
+    component_hash: 2b720b4ed49fa9df14b24f35fd3ec8a012eddde1c8dd4709448e36a581eebd3e
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.2.3
   espressif/button:
     component_hash: ad64de1d1b8aa139564810a8519b2f1ac275a560a512479ee94c1b6983469d4b
     dependencies:
@@ -89,6 +99,16 @@ dependencies:
       registry_url: https://components.espressif.com
       type: service
     version: 1.8.0
+  espressif/esp-nn:
+    component_hash: 3b3411b0e4ad1717a72870fde9f9b67cef6f3f97491cc64fcfc1910a8fd8a246
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.1'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 1.4.1
   espressif/esp-sr:
     component_hash: 0f96f3a5579915a65a0ceb1c2183f9700f7986982f2be3964b75b2136333fc41
     dependencies:
@@ -115,6 +135,20 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 2.5.1
+  espressif/esp-tflite-micro:
+    component_hash: 78502e833b227ec15b917222ed046df1a46f2e5d3593d2a77a162012fa9a1aa0
+    dependencies:
+    - name: espressif/esp-nn
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^1.1.0
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.3.3~1
   espressif/esp_codec_dev:
     component_hash: df70f10af8d7b922add7b9d07372c9c97ab356e58d72b7a892050227c2d44348
     dependencies:
@@ -503,8 +537,10 @@ dependencies:
     version: 2.0.0
 direct_dependencies:
 - XPowersLib
+- esphome/esp-micro-speech-features
 - espressif/cjson
 - espressif/esp-sr
+- espressif/esp-tflite-micro
 - espressif/esp_codec_dev
 - espressif/esp_h264
 - espressif/esp_io_expander_tca9554
@@ -522,6 +558,6 @@ direct_dependencies:
 - lvgl/lvgl
 - waveshare/esp_lcd_touch_cst9217
 - waveshare/qmi8658
-manifest_hash: 225449fe2ad5d130c399b827467e3b9ab2054c1e28ad3c06dc9a9954f737d5d4
+manifest_hash: 933de16a7a368d5997ec7f64777465375558dbf88afa2337499e8d7df90400cb
 target: esp32s3
 version: 2.0.0

@@ -11,7 +11,7 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 21;
+constexpr std::uint8_t kSettingsSchemaVersion = 22;
 constexpr std::uint32_t kDisplayDurationUntilWake = 86401;
 constexpr std::uint8_t kScreenSaverCircles = 0;
 constexpr std::uint8_t kScreenSaverGoingToSleep = 1;
@@ -122,6 +122,7 @@ struct DeviceSettings {
   bool printer_control_enabled = false;
   bool screen_bar_enabled = kDefaultScreenBarEnabled;
   bool voice_enabled = false;
+  std::string voice_wake_word = "hey_printdeck";
   bool unified_api_enabled = false;
   std::string unified_api_token;
   MqttSettings mqtt;

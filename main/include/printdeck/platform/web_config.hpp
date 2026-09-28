@@ -271,7 +271,7 @@ class WebConfig {
   esp_err_t serve_settings(httpd_req_t* request) const;
   esp_err_t save_settings(httpd_req_t* request);
   esp_err_t voice_settings(httpd_req_t* request);
-  core::DeviceCommandResult set_voice_enabled(bool enabled);
+  core::DeviceCommandResult set_voice_enabled(bool enabled, std::string_view wake_word = {});
   esp_err_t serve_unified_api_settings(httpd_req_t* request) const;
   esp_err_t save_unified_api_settings(httpd_req_t* request);
   esp_err_t serve_unified_api_info(httpd_req_t* request) const;

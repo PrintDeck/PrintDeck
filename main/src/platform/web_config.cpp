@@ -1951,6 +1951,7 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   body += kBoardHasLocalVoice ? "true" : "false";
   body += ",\"printer_control_enabled\":";
   body += current.printer_control_enabled ? "true" : "false";
+  body += R"(,"voice_wake_word":)"; append_json_string(body, current.voice_wake_word);
   body += ",\"voice_enabled\":";
   body += kBoardHasLocalVoice && current.voice_enabled ? "true" : "false";
   body += ",\"voice_ready\":";
@@ -2296,6 +2297,7 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   body+=R"(,"display_sleep_available":)";body+=kBoardSupportsDisplaySleep?"true":"false";
   const auto voice_state = voice_state_.load();
   body+=R"(,"voice_available":)";body+=kBoardHasLocalVoice?"true":"false";
+  body+=R"(,"voice_wake_word":)";append_json_string(body,current.voice_wake_word);
   body+=R"(,"voice_enabled":)";body+=kBoardHasLocalVoice&&current.voice_enabled?"true":"false";
   body+=R"(,"voice_ready":)";body+=kBoardHasLocalVoice&&current.voice_enabled&&voice_state==1?"true":"false";
   body+=R"(,"voice_paused_for_camera":)";body+=kBoardHasLocalVoice&&current.voice_enabled&&voice_state==2?"true":"false";
@@ -2425,6 +2427,7 @@ esp_err_t WebConfig::device_state_entry(httpd_req_t* request){
   body+=R"(,"camera_mode":)";append_json_string(body,current.camera_mode);
   body+=R"(,"camera_snapshot_fps":)"+std::to_string(current.camera_snapshot_fps);
   body+=R"(,"voice_available":)";body+=kBoardHasLocalVoice?"true":"false";
+  body+=R"(,"voice_wake_word":)";append_json_string(body,current.voice_wake_word);
   body+=R"(,"voice_enabled":)";body+=kBoardHasLocalVoice&&current.voice_enabled?"true":"false";
   body+="}}";return send_json(request,"200 OK",body.c_str());
 }
@@ -2519,7 +2522,7 @@ core::DeviceCommandResult WebConfig::execute_device_command(std::string_view pay
   }
   if(command.action=="device.voice.set"){
     if(!core::is_device_voice_command(payload))return {};
-    return set_voice_enabled(cJSON_IsTrue(get("enabled")));
+    return set_voice_enabled(cJSON_IsTrue(get("enabled")), text("wake_word"));
   }
   if(command.action=="device.printer_view.set"||command.action=="device.reactions.patch"||command.action=="device.appearance.patch"||command.action=="settings.patch"||command.action=="local.settings.patch"||command.action=="device.name.set"||command.action=="device.timezone.set"){
     if(command.action=="local.settings.patch"&&!local)return {};
@@ -2661,6 +2664,7 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   body += kBoardHasLocalVoice ? "true" : "false";
   body += ",\"printer_control_enabled\":";
   body += current.printer_control_enabled ? "true" : "false";
+  body += R"(,"voice_wake_word":)"; append_json_string(body, current.voice_wake_word);
   body += ",\"voice_enabled\":";
   body += kBoardHasLocalVoice && current.voice_enabled ? "true" : "false";
   body += ",\"voice_ready\":";
@@ -2724,16 +2728,19 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   return send_json(request, "200 OK", body.c_str());
 }
 
-core::DeviceCommandResult WebConfig::set_voice_enabled(bool enabled) {
+core::DeviceCommandResult WebConfig::set_voice_enabled(bool enabled, std::string_view wake_word) {
+  if (!wake_word.empty() && wake_word != "hi_esp" && wake_word != "hey_printdeck")
+    return {400, R"({"error":"Choose a valid Hey PrintDeck! action."})"};
   if (!kBoardHasLocalVoice)
-    return {409, R"({"error":"Hi ESP! is not available on this device."})"};
+    return {409, R"({"error":"Hey PrintDeck! is not available on this device."})"};
   const std::lock_guard<std::mutex> write_lock(settings_write_mutex_);
   core::DeviceSettings candidate;
   { const std::lock_guard<std::mutex> lock(mutex_); candidate = settings_; }
-  if (candidate.voice_enabled != enabled) {
+  if (candidate.voice_enabled != enabled || (!wake_word.empty() && candidate.voice_wake_word != wake_word)) {
     candidate.voice_enabled = enabled;
+    if (!wake_word.empty()) candidate.voice_wake_word = wake_word;
     if (store_->save(candidate) != ESP_OK)
-      return {500, R"({"error":"PrintDeck could not save the Hi ESP! setting. Please try again."})"};
+      return {500, R"({"error":"PrintDeck could not save the Hey PrintDeck! setting. Please try again."})"};
     { const std::lock_guard<std::mutex> lock(mutex_); settings_ = candidate; }
     notify_settings_changed(candidate, true);
   }
@@ -2747,9 +2754,13 @@ esp_err_t WebConfig::voice_settings(httpd_req_t* request) {
     if (!receive_form(request, body) || !form_value(body, "action", action) ||
         (action != "enable" && action != "disable")) {
       return send_json(request, "400 Bad Request",
-                       "{\"error\":\"Choose a valid Hi ESP! action.\"}");
+                       "{\"error\":\"Choose a valid Hey PrintDeck! action.\"}");
     }
-    const auto result = set_voice_enabled(action == "enable");
+    std::string wake_word;
+    const bool has_word = form_value(body, "wake_word", wake_word);
+    if (has_word && wake_word != "hi_esp" && wake_word != "hey_printdeck")
+      return send_json(request, "400 Bad Request", R"({"error":"Choose a valid Hey PrintDeck! action."})");
+    const auto result = set_voice_enabled(action == "enable", wake_word);
     if (result.status != 200)
       return send_json(request, result.status == 409 ? "409 Conflict" : "500 Internal Server Error", result.body.c_str());
   }
@@ -2759,6 +2770,7 @@ esp_err_t WebConfig::voice_settings(httpd_req_t* request) {
   const auto voice_state = voice_state_.load();
   std::string body = "{\"available\":";
   body += kBoardHasLocalVoice ? "true" : "false";
+  body += R"(,"wake_word":)"; append_json_string(body, candidate.voice_wake_word);
   body += ",\"enabled\":";
   body += enabled ? "true" : "false";
   body += ",\"ready\":";

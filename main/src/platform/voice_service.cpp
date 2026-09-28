@@ -22,6 +22,7 @@
 // packaged models directly avoids retaining unrelated WakeNet10 and
 // MultiNet6/7 engines through the generic runtime dispatchers.
 extern "C" {
+extern const esp_wn_iface_t printdeck_custom_wake_word;
 extern const esp_wn_iface_t esp_sr_wakenet9_quantized;
 extern const esp_mn_iface_t esp_sr_multinet5_quantized8;
 }
@@ -39,7 +40,6 @@ namespace printdeck::platform {
 namespace {
 
 constexpr char kLogTag[] = "voice";
-constexpr char kWakeModel[] = "wn9_hiesp";
 constexpr char kCommandModel[] = "mn5q8_en";
 constexpr int kSampleRate = 16000;
 constexpr int kCommandTimeoutMs = 7000;
@@ -98,11 +98,14 @@ constexpr std::array<CommandAlias, 35> kAliases{{
 
 }  // namespace
 
-esp_err_t VoiceService::start(AudioService& audio, WakeCallback wake, void* context) {
+esp_err_t VoiceService::start(AudioService& audio, WakeCallback wake, void* context, bool custom_wake_word) {
   // Runtime is the single caller. A stopping worker retains ownership until all
   // models and the microphone have been released; a later pass can start again.
   if (running_.load()) return ESP_OK;
   if (!wanted(true, audio.enabled(), audio.volume())) return ESP_ERR_INVALID_STATE;
+  custom_wake_word_ = custom_wake_word;
+  wake_phrase_ = custom_wake_word_ ? "Hey PrintDeck" : "Hi ESP";
+  wakenet_model_name_ = custom_wake_word_ ? "hey-printdeck" : "wn9_hiesp";
   audio_ = &audio;
   wake_callback_ = wake;
   wake_context_ = context;
@@ -144,14 +147,13 @@ esp_err_t VoiceService::initialize_resources() {
   if (stop_requested_.load()) return ESP_ERR_INVALID_STATE;
   const esp_err_t result = open_voice_models();
   if (result != ESP_OK) return result;
-  if (!activate_voice_model(kWakeModel)) return ESP_FAIL;
+  if (!custom_wake_word_ && !activate_voice_model(wakenet_model_name_)) return ESP_FAIL;
   if (stop_requested_.load()) return ESP_ERR_INVALID_STATE;
-  wakenet_model_name_ = kWakeModel;
   multinet_model_name_ = kCommandModel;
-  const esp_wn_iface_t* wakenet = &esp_sr_wakenet9_quantized;
+  const esp_wn_iface_t* wakenet = custom_wake_word_ ? &printdeck_custom_wake_word : &esp_sr_wakenet9_quantized;
   wakenet_interface_ = wakenet;
   multinet_interface_ = &esp_sr_multinet5_quantized8;
-  auto* data = wakenet->create(kWakeModel, kWakeDetectionMode);
+  auto* data = wakenet->create(wakenet_model_name_, kWakeDetectionMode);
   wakenet_data_ = data;
   if (data == nullptr) return ESP_ERR_NO_MEM;
   frame_samples_ = wakenet->get_samp_chunksize(data);
@@ -181,16 +183,21 @@ bool VoiceService::activate_wakenet() {
   // A resident WakeNet instance is already in the listening state. Calling
   // clean() while the audio codec is playing is unnecessary and is unsafe
   // when another subsystem is simultaneously reserving internal DMA memory.
-  if (wakenet_data_ != nullptr) return true;
+  if (wakenet_data_ != nullptr) {
+    if (custom_wake_word_) wakenet->clean(static_cast<model_iface_data_t*>(wakenet_data_));
+    return true;
+  }
   ImageWorkspaceLock workspace(5000);
   if (!workspace || stop_requested_.load()) return false;
   deactivate_multinet();
-  if (!activate_voice_model(wakenet_model_name_)) return false;
+  if (custom_wake_word_) {
+    release_active_voice_model();
+  } else if (!activate_voice_model(wakenet_model_name_)) return false;
   auto* data = wakenet->create(wakenet_model_name_, kWakeDetectionMode);
   if (data == nullptr || wakenet->get_samp_rate(data) != kSampleRate ||
       wakenet->get_samp_chunksize(data) != frame_samples_) {
     if (data != nullptr) wakenet->destroy(data);
-    ESP_LOGE(kLogTag, "Could not restore the Hi ESP recognizer");
+    ESP_LOGE(kLogTag, "Could not restore the wake-word recognizer");
     return false;
   }
   wakenet_data_ = data;
@@ -333,7 +340,7 @@ void VoiceService::task_loop() {
   std::int64_t deadline_us = 0;
   bool suppressed_for_playback = false;
   unsigned consecutive_errors = 0;
-  ESP_LOGI(kLogTag, "Local voice ready: Hi ESP, %u English aliases",
+  ESP_LOGI(kLogTag, "Local voice ready: %s, %u English aliases", wake_phrase_,
            static_cast<unsigned>(kAliases.size()));
   while (!stop_requested_.load() && wanted(true, audio_->enabled(), audio_->volume())) {
     const int read_result = esp_codec_dev_read(
@@ -381,10 +388,13 @@ void VoiceService::task_loop() {
       continue;
     }
     if (state == ListenState::wake_word) {
-      if (wakenet->detect(static_cast<model_iface_data_t*>(wakenet_data_), input) ==
-          WAKENET_DETECTED) {
+      const auto wake_result = wakenet->detect(static_cast<model_iface_data_t*>(wakenet_data_), input);
+      // The single-channel adapter reserves this result for a fatal inference
+      // failure, so the owner can restart instead of advertising a dead listener.
+      if (custom_wake_word_ && wake_result == WAKENET_CHANNEL_VERIFIED) break;
+      if (wake_result == WAKENET_DETECTED) {
         if (stop_requested_.load()) break;
-        ESP_LOGI(kLogTag, "Hi ESP detected");
+        ESP_LOGI(kLogTag, "%s detected", wake_phrase_);
         if (wake_callback_ != nullptr) wake_callback_(wake_context_);
         acknowledgement_ticket = audio_->acknowledge_voice_command();
         if (acknowledgement_ticket == 0 || !activate_multinet()) {
