@@ -3357,12 +3357,14 @@ function createAudioSetPicker(host, translate, send, locale) {
     function printerActionAvailable(p,action){return (action==='light.set'||p.printer_control_enabled===true)&&printerStatusFresh&&p.connection?.stale!==true&&p.capabilities?.[action]?.available===true}
     function printerStatus(p){if(p.reachability==='online'&&p.connection?.stale)return translated('Status unavailable');return translated(p.reachability==='online'?'Online':p.reachability==='offline'?'Offline':'Connecting…')}
     const printerJobLabels={idle:'Standby',preparing:'Preparing',printing:'Printing',paused:'Paused',completed:'Print complete',failed:'Print failed',cancelled:'Cancelled'};
+    const printerActivityLabels={nozzle_heating:'Heating nozzle',bed_heating:'Heating bed',homing:'Homing toolhead',bed_leveling:'Leveling the bed',nozzle_cleaning:'Cleaning nozzle',calibrating:'Calibrating',filament_changing:'Changing filament',filament_unloading:'Unloading filament',filament_loading:'Loading filament',filament_purging:'Purging filament'};
     let printerStatusReceivedAt=0;
     const resinStageLabels={standby:'Standby',homing:'Homing',lowering:'Lowering',exposing:'Exposing',lifting:'Lifting',pausing:'Pausing',paused:'Paused',stopping:'Stopping',stopped:'Stopped',completed:'Print complete',checking_file:'Checking file',transferring_file:'Transferring file',exposure_test:'Exposure test',device_test:'Device test',finishing:'Finishing'};
     function printerJobLabel(p){
       const job=printerStatusFresh&&p.connection?.stale!==true&&p.reachability==='online'?p.job:null;
       const phase=job&&Object.hasOwn(printerJobLabels,job.phase)?job.phase:'';
       let label=translated(phase?printerJobLabels[phase]:!printerStatusFresh?'Status unavailable':p.reachability==='offline'?'Printer offline':p.reachability!=='online'?'Waiting for the printer to connect.':'Status unavailable');
+      if(p.selected===true&&p.technology!=='resin'&&['idle','preparing','printing'].includes(phase)&&Object.hasOwn(printerActivityLabels,job.activity))label=translated(printerActivityLabels[job.activity]);
       if(phase&&p.technology==='resin'&&Object.hasOwn(resinStageLabels,job.resin_stage)){
         let stage=translated(resinStageLabels[job.resin_stage]);
         const age=Math.max(0,performance.now()-(job?._receivedAt??printerStatusReceivedAt));
