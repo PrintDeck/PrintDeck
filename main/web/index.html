@@ -3361,12 +3361,14 @@ function createAudioSetPicker(host, translate, send, locale) {
     function printerActionAvailable(p,action){return (action==='light.set'||p.printer_control_enabled===true)&&printerStatusFresh&&p.connection?.stale!==true&&p.capabilities?.[action]?.available===true}
     function printerStatus(p){if(p.reachability==='online'&&p.connection?.stale)return translated('Status unavailable');return translated(p.reachability==='online'?'Online':p.reachability==='offline'?'Offline':'Connecting…')}
     const printerJobLabels={idle:'Standby',preparing:'Preparing',printing:'Printing',paused:'Paused',completed:'Print complete',failed:'Print failed',cancelled:'Cancelled'};
+    const printerActivityLabels={nozzle_heating:'Heating nozzle',bed_heating:'Heating bed',homing:'Homing toolhead',bed_leveling:'Leveling the bed',nozzle_cleaning:'Cleaning nozzle',calibrating:'Calibrating',filament_changing:'Changing filament',filament_unloading:'Unloading filament',filament_loading:'Loading filament',filament_purging:'Purging filament'};
     let printerStatusReceivedAt=0;
     const resinStageLabels={standby:'Standby',homing:'Homing',lowering:'Lowering',exposing:'Exposing',lifting:'Lifting',pausing:'Pausing',paused:'Paused',stopping:'Stopping',stopped:'Stopped',completed:'Print complete',checking_file:'Checking file',transferring_file:'Transferring file',exposure_test:'Exposure test',device_test:'Device test',finishing:'Finishing'};
     function printerJobLabel(p){
       const job=printerStatusFresh&&p.connection?.stale!==true&&p.reachability==='online'?p.job:null;
       const phase=job&&Object.hasOwn(printerJobLabels,job.phase)?job.phase:'';
       let label=translated(phase?printerJobLabels[phase]:!printerStatusFresh?'Status unavailable':p.reachability==='offline'?'Printer offline':p.reachability!=='online'?'Waiting for the printer to connect.':'Status unavailable');
+      if(p.selected===true&&p.technology!=='resin'&&['idle','preparing','printing'].includes(phase)&&Object.hasOwn(printerActivityLabels,job.activity))label=translated(printerActivityLabels[job.activity]);
       if(phase&&p.technology==='resin'&&Object.hasOwn(resinStageLabels,job.resin_stage)){
         let stage=translated(resinStageLabels[job.resin_stage]);
         const age=Math.max(0,performance.now()-(job?._receivedAt??printerStatusReceivedAt));
@@ -3528,6 +3530,13 @@ function createAudioSetPicker(host, translate, send, locale) {
       const p=printers.find(p=>p.id===id);if(!p)return;
       const dialog=printerPreviewDialog(p.job?.name||translated('Print thumbnail'),trigger),large=document.createElement('div');large.className='pd-enlarged';
       const media=createPrintPreview(p);large.append(media);dialog.append(large);paintPrintPreview(media,p);dialog.showModal();
+    }
+    function printerReactionEvent(job){
+      const phase=job?.phase||'unknown',activity=job?.activity;
+      if(phase==='completed')return activity==='standby'?'standby':'completed';
+      if(['paused','failed','cancelled'].includes(phase))return phase;
+      if(['idle','preparing','printing'].includes(phase)&&typeof activity==='string'&&(['standby','preparing','printing'].includes(activity)||Object.hasOwn(printerActivityLabels,activity)))return activity.replaceAll('_','-');
+      return phase==='idle'?'standby':Object.hasOwn(printerJobLabels,phase)?phase:'unavailable';
     }
     function openFdmReaction(trigger){
       const source=$('img',trigger);if(!source?.complete||!source.naturalWidth)return;
@@ -3777,7 +3786,7 @@ function createAudioSetPicker(host, translate, send, locale) {
       $$('.pd-print-command',detail).forEach(button=>{button.disabled=!printerActionAvailable(p,button.dataset.command)});
       // Speed execution is not implemented by this firmware interface yet.
       $$('.pd-speed-editor input,.pd-speed-editor button',detail).forEach(control=>{control.disabled=true});
-      const mini=$('.pd-mini-screen',detail),phase=p.job?.phase||'unknown',event=phase==='idle'?'standby':phase==='unknown'?'unavailable':phase;
+      const mini=$('.pd-mini-screen',detail),event=printerReactionEvent(p.job);
       mini.dataset.hardware=health.hardware||settings.hardware||'amoled_1_75';
       mini.dataset.resin=String(p.technology==='resin');
       if(p.technology==='resin'){
@@ -3785,7 +3794,7 @@ function createAudioSetPicker(host, translate, send, locale) {
         $('img',mini)?.remove();
         if(!$('canvas',mini))mini.append(createResinCanvas(p.id));
       }else{
-        mini.hidden=!p.selected||!d.online||!settings.printer_animations_enabled||!reactionData||reactionData.events?.find(item=>item.id===event)?.enabled===false;
+        mini.hidden=!p.selected||!d.online||p.connection?.stale===true||!settings.printer_animations_enabled||!reactionData||reactionData.events?.find(item=>item.id===event)?.enabled===false;
         const img=$('img',mini);img.alt=translated('Printer reaction');
         if(mini.hidden){img.removeAttribute('src')}else{const src=reactionPreviewUrl(event);if(img.getAttribute('src')!==src)img.src=src}
       }
