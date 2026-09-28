@@ -137,7 +137,7 @@ struct Detector {
       float mean = 0;
       for (float p : probabilities) mean += p * 0.2F;
       peak_score = std::max(peak_score, mean);
-      if (probability_index >= 5 && mean >= 0.92F) {
+      if (probability_index >= 5 && mean >= 0.97F) {
         ESP_LOGI(kTag, "Trigger score=%.3f", static_cast<double>(mean));
         detected = true;
       }

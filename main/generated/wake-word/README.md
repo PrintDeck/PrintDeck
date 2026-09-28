@@ -9,6 +9,6 @@ consented speech samples. Offline tests do not establish universal accuracy
 across speakers, microphones or rooms.
 
 Size: 36,472 bytes.
-SHA-256: `e1490ba6b58951ff484716abbcd6745fc1b91de9b19fc745130ab18c9bd2d170`.
+SHA-256: `064aa8cb075ec551f02d68c5f7170523463d5e17627bd49f49c57af1198e507c`.
 Input: three 40-channel feature frames, 10 ms step. Decision: mean of five
-outputs at threshold 0.92, after 84 startup inferences are discarded.
+outputs at threshold 0.97, after 84 startup inferences are discarded.
