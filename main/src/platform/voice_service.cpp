@@ -2,6 +2,7 @@
 #include "printdeck/platform/image_workspace.hpp"
 
 #include <array>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -37,6 +38,90 @@ extern "C" esp_mn_iface_t* __wrap_esp_mn_handle_from_name(char* model_name) {
 }
 
 namespace printdeck::platform {
+namespace {
+constexpr std::size_t kRecordingCapacity = 65536;
+constexpr std::uint32_t kRecordingBytes = 16000 * 2 * 180;
+struct RecordingBuffer {
+  std::mutex mutex;
+  std::uint8_t* data = nullptr;
+  std::string token;
+  std::size_t head = 0, size = 0;
+  std::uint32_t total = 0, delivered = 0, state = 0;
+  std::int64_t polled = 0, started = 0;
+  bool available = false;
+  void expire() {
+    const auto now = esp_timer_get_time();
+    if (state == 1 && now - started >= 180000000) state = 2;
+    if (state == 1 && now - polled > 3000000) state = 5;
+    if (data && now - polled > 10000000) {
+      std::free(data); data = nullptr; size = 0; token.clear(); state = 0;
+    }
+  }
+};
+RecordingBuffer recording;
+}
+
+bool VoiceRecording::start(std::string_view token) {
+  const std::lock_guard<std::mutex> lock(recording.mutex);
+  recording.expire();
+  if (!recording.available || (recording.state == 1 || recording.size != 0) || token.size() != 32) return false;
+  if (!recording.data) recording.data = static_cast<std::uint8_t*>(
+      heap_caps_malloc(kRecordingCapacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  if (!recording.data) return false;
+  recording.token = token;
+  recording.head = recording.size = recording.total = recording.delivered = 0;
+  recording.started = recording.polled = esp_timer_get_time();
+  recording.state = 1;
+  return true;
+}
+bool VoiceRecording::stop(std::string_view token) {
+  const std::lock_guard<std::mutex> lock(recording.mutex);
+  recording.expire();
+  if (token.empty() || token != recording.token) return false;
+  if (recording.state == 1) recording.state = 2;
+  return true;
+}
+void VoiceRecording::available(bool value) {
+  const std::lock_guard<std::mutex> lock(recording.mutex);
+  recording.available = value;
+  if (!value && recording.state == 1) recording.state = 3;
+  recording.expire();
+}
+bool VoiceRecording::capture(const std::int16_t* samples, std::size_t count) {
+  const std::lock_guard<std::mutex> lock(recording.mutex);
+  recording.expire();
+  if (recording.state != 1) return false;
+  const auto bytes = std::min(count * sizeof(std::int16_t),
+                              static_cast<std::size_t>(kRecordingBytes - recording.total));
+  if (bytes > kRecordingCapacity - recording.size) { recording.state = 4; return false; }
+  const auto* source = reinterpret_cast<const std::uint8_t*>(samples);
+  for (std::size_t i = 0; i < bytes; ++i)
+    recording.data[(recording.head + recording.size + i) % kRecordingCapacity] = source[i];
+  recording.size += bytes; recording.total += bytes;
+  if (recording.total == kRecordingBytes) recording.state = 2;
+  return true;
+}
+bool VoiceRecording::read(std::string_view token, std::string& packet) {
+  const std::lock_guard<std::mutex> lock(recording.mutex);
+  recording.expire();
+  if (token.empty() || token != recording.token) return false;
+  recording.polled = esp_timer_get_time();
+  const auto bytes = std::min(recording.size, std::size_t{8192});
+  packet.resize(16 + bytes);
+  const std::uint32_t fields[] = {0x31524450, recording.state, recording.delivered,
+                                static_cast<std::uint32_t>(recording.size - bytes)};
+  for (unsigned i = 0; i < 4; ++i)
+    for (unsigned j = 0; j < 4; ++j) packet[i*4+j] = static_cast<char>(fields[i] >> (j*8));
+  for (std::size_t i = 0; i < bytes; ++i)
+    packet[16+i] = recording.data[(recording.head+i) % kRecordingCapacity];
+  recording.head = (recording.head+bytes) % kRecordingCapacity;
+  recording.size -= bytes; recording.delivered += bytes;
+  if (recording.state != 1 && !recording.size && recording.data) {
+    std::free(recording.data); recording.data = nullptr;
+  }
+  return true;
+}
+
 namespace {
 
 constexpr char kLogTag[] = "voice";
@@ -272,6 +357,7 @@ bool VoiceService::return_to_wake_word() {
 }
 
 void VoiceService::release_resources() {
+  VoiceRecording::available(false);
   ready_.store(false);
   deactivate_multinet();
   if (wakenet_data_ != nullptr) {
@@ -333,12 +419,14 @@ void VoiceService::task_loop() {
     finish_task();
   }
   ready_.store(true);
+  VoiceRecording::available(true);
 
   ListenState state = ListenState::wake_word;
   std::uint32_t acknowledgement_ticket = 0;
   std::uint32_t reply_ticket = 0;
   std::int64_t deadline_us = 0;
   bool suppressed_for_playback = false;
+  bool suppressed_for_recording = false;
   unsigned consecutive_errors = 0;
   ESP_LOGI(kLogTag, "Local voice ready: %s, %u English aliases", wake_phrase_,
            static_cast<unsigned>(kAliases.size()));
@@ -355,6 +443,16 @@ void VoiceService::task_loop() {
     consecutive_errors = 0;
     if (stop_requested_.load() || !wanted(true, audio_->enabled(), audio_->volume())) break;
 
+    if (VoiceRecording::capture(input, static_cast<std::size_t>(samples))) {
+      suppressed_for_recording = true;
+      continue;
+    }
+    if (suppressed_for_recording) {
+      suppressed_for_recording = false;
+      suppressed_for_playback = false;
+      state = ListenState::wake_word;
+      if (!return_to_wake_word()) break;
+    }
     const bool playing = audio_->playback_active();
     if (playing && (state == ListenState::wake_word || state == ListenState::command)) {
       if (!suppressed_for_playback && !return_to_wake_word()) break;

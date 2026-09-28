@@ -37,6 +37,9 @@
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_random.h"
+#if defined(PRINTDECK_LOCAL_VOICE)
+#include "printdeck/platform/voice_service.hpp"
+#endif
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -649,7 +652,7 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
   // physical AMOLED target, so reserve a measured safety margin for the one
   // HTTP worker that serves both frames and controls.
   config.stack_size = 12288;
-  constexpr unsigned route_capacity = 92;
+  constexpr unsigned route_capacity = 94;
   preview_session_ = esp_random();
   restart_boot_id_ = generate_unified_api_token().substr(3, 32);
   config.max_uri_handlers = route_capacity;
@@ -702,6 +705,8 @@ esp_err_t WebConfig::start(const core::DeviceSettings& settings, const SettingsS
       {.uri = "/api/settings", .method = HTTP_POST, .handler = settings_post_entry, .user_ctx = this},
       {.uri = "/api/printer-control", .method = HTTP_POST, .handler = printer_control_settings_entry, .user_ctx = this},
 #if defined(PRINTDECK_LOCAL_VOICE)
+      {.uri = "/api/voice/recording", .method = HTTP_GET, .handler = voice_recording_entry, .user_ctx = this},
+      {.uri = "/api/voice/recording", .method = HTTP_POST, .handler = voice_recording_entry, .user_ctx = this},
       {.uri = "/api/voice", .method = HTTP_GET, .handler = voice_settings_entry, .user_ctx = this},
       {.uri = "/api/voice", .method = HTTP_POST, .handler = voice_settings_entry, .user_ctx = this},
 #endif
@@ -2746,6 +2751,43 @@ core::DeviceCommandResult WebConfig::set_voice_enabled(bool enabled, std::string
   }
   return {200, R"({"schema_version":1,"status":"applied","saved":true})"};
 }
+
+#if defined(PRINTDECK_LOCAL_VOICE)
+esp_err_t WebConfig::voice_recording_entry(httpd_req_t* request) {
+  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+  httpd_resp_set_hdr(request, "X-Content-Type-Options", "nosniff");
+  char token[33] = {};
+  if (httpd_req_get_hdr_value_len(request, "X-PrintDeck-Recording-Token") == 32)
+    httpd_req_get_hdr_value_str(request, "X-PrintDeck-Recording-Token", token, sizeof(token));
+  if (request->method == HTTP_GET) {
+    std::string packet;
+    if (!VoiceRecording::read(token, packet))
+      return send_json(request, "403 Forbidden", R"({"error":"recording_session"})");
+    httpd_resp_set_type(request, "application/octet-stream");
+    return httpd_resp_send(request, packet.data(), packet.size());
+  }
+  char explicit_start[2] = {};
+  if (httpd_req_get_hdr_value_len(request, "X-PrintDeck-Recording") != 1 ||
+      httpd_req_get_hdr_value_str(request, "X-PrintDeck-Recording", explicit_start, sizeof(explicit_start)) != ESP_OK ||
+      explicit_start[0] != '1' || request->content_len > 32)
+    return send_json(request, "400 Bad Request", R"({"error":"recording_request"})");
+  std::string body, action;
+  if (!receive_form(request, body) || !form_value(body, "action", action))
+    return send_json(request, "400 Bad Request", R"({"error":"recording_request"})");
+  if (action == "stop") {
+    if (!VoiceRecording::stop(token))
+      return send_json(request, "403 Forbidden", R"({"error":"recording_session"})");
+    return send_json(request, "200 OK", R"({"stopped":true})");
+  }
+  if (action != "start")
+    return send_json(request, "400 Bad Request", R"({"error":"recording_request"})");
+  for (unsigned i = 0; i < 4; ++i) snprintf(token + 8*i, 9, "%08lx", static_cast<unsigned long>(esp_random()));
+  if (!VoiceRecording::start(token))
+    return send_json(request, "409 Conflict", R"({"error":"recording_unavailable"})");
+  const std::string response = std::string("{\"token\":\"") + token + "\"}";
+  return send_json(request, "200 OK", response.c_str());
+}
+#endif
 
 esp_err_t WebConfig::voice_settings(httpd_req_t* request) {
   if (request->method == HTTP_POST) {

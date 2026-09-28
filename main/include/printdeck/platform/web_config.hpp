@@ -178,6 +178,7 @@ class WebConfig {
   static esp_err_t settings_post_entry(httpd_req_t* request);
   static esp_err_t printer_control_settings_entry(httpd_req_t* request);
   static esp_err_t voice_settings_entry(httpd_req_t* request);
+  static esp_err_t voice_recording_entry(httpd_req_t* request);
   static esp_err_t unified_api_settings_get_entry(httpd_req_t* request);
   static esp_err_t unified_api_settings_post_entry(httpd_req_t* request);
   static esp_err_t unified_api_info_entry(httpd_req_t* request);

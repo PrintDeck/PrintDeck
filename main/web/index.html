@@ -1339,7 +1339,15 @@ class Viewer{
                   <p class="micro">PrintDeck tells you when the printer is unavailable, no print is active or timing is unavailable.</p>
                 </section>
               </div>
-              <aside class="hi-esp-privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6Z"></path><path d="m8 12 3 3 5-6"></path></svg><div><h3>Private by design</h3><p class="micro">Speech is processed only on this device. No audio recordings are saved, sent or shared. No cloud service or account is used.</p><p class="micro">Disabled by default. Turning it off stops microphone listening.</p><p class="micro">Hey PrintDeck! pauses while the camera is open and resumes when you leave it. Print notifications remain active.</p></div></aside>
+
+              <section id="voice-recording-panel" style="border-top:1px solid var(--line);margin-top:24px;padding-top:20px">
+                <h3>Recording samples</h3>
+                <p class="micro">Record with PrintDeck’s microphone for up to 3 minutes. Audio goes to this browser over your local network, never to device storage or the cloud. Voice detection pauses during recording.</p>
+                <p class="micro">Enable voice listening and sound first. Repeat “Hey PrintDeck” with short pauses. Keep this page visible, then download the WAV before closing it.</p>
+                <div class="api-hero-controls" style="display:flex;gap:12px;flex-wrap:wrap"><button type="button" class="primary" id="voice-record-start" disabled>Start recording</button><button type="button" class="danger" id="voice-record-stop" disabled>Stop recording</button><a class="button secondary" id="voice-record-download" hidden>Download WAV</a></div>
+                <p class="status" id="voice-record-status" role="status" aria-live="polite"></p>
+              </section>
+              <aside class="hi-esp-privacy" style="margin-top:24px"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6Z"></path><path d="m8 12 3 3 5-6"></path></svg><div><h3>Private by design</h3><p class="micro">Normal voice control processes speech only on this device without saving or sending audio. Optional sample recording sends audio only to your local browser after you press Start recording.</p><p class="micro">Disabled by default. Turning it off stops microphone listening.</p><p class="micro">Hey PrintDeck! pauses while the camera is open and resumes when you leave it. Print notifications remain active.</p></div></aside>
               <p class="micro hi-esp-sound-note">Keep sound enabled and the volume above zero to hear “Yes” and spoken answers.</p>
             </article>
             <article class="card settings-pane" data-settings-pane="cloud" style="align-self:start" hidden>
@@ -2741,6 +2749,7 @@ function createAudioSetPicker(host, translate, send, locale) {
       state.dataset.enabled=String(enabled);state.textContent=translated(available?(enabled?(settings.voice_paused_for_camera?'Paused while the camera is open':'Enabled'):'Disabled'):'Unavailable');
       toggle.textContent=translated(enabled?'Disable voice listening':'Enable voice listening');toggle.className=enabled?'danger':'primary';toggle.disabled=voiceBusy||!available;
       $('[data-section="hey-printdeck"]').hidden=!available;badge.hidden=!enabled;
+      paintRecording();
       badge.title=translated(settings.voice_paused_for_camera?'Voice listening paused while the camera is open':'Voice listening enabled');badge.setAttribute('aria-label',badge.title);
     }
     async function changeVoice(wakeWord=null){
@@ -2753,6 +2762,72 @@ function createAudioSetPicker(host, translate, send, locale) {
     $('#hi-esp-toggle').addEventListener('click',()=>changeVoice());
     $('#hi-esp-wake-word').addEventListener('change',event=>changeVoice(event.target.value));
     $('#hi-esp-badge').addEventListener('click',event=>{if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();setTab('device','hey-printdeck')});
+
+
+    // Bounded PCM chunks stay in browser memory until the user downloads a WAV.
+    let recordingToken='',recordingBusy=false,recordingStopping=false,recordingChunks=[],recordingBytes=0,recordingUrl='',recordingMessage='',recordingSuffix='';
+    function paintRecording(){
+      $('#voice-record-status').textContent=translated(recordingMessage)+recordingSuffix;
+      $('#voice-record-start').disabled=recordingBusy||!!recordingToken||!settings.voice_ready||voiceBusy;
+      $('#voice-record-stop').disabled=!recordingToken||recordingStopping;
+      if(recordingToken||recordingBusy){$('#hi-esp-toggle').disabled=true;$('#hi-esp-wake-word').disabled=true;}
+    }
+    async function recordingRequest(action,token=recordingToken){
+      const response=await fetch('/api/voice/recording',{method:'POST',cache:'no-store',signal:AbortSignal.timeout(4000),headers:{'Content-Type':'application/x-www-form-urlencoded','X-PrintDeck-Recording':'1','X-PrintDeck-Recording-Token':token},body:new URLSearchParams({action})});
+      if(!response.ok)throw new Error('recording');return response.json();
+    }
+    function finishRecording(partial){
+      recordingToken='';recordingBusy=false;recordingStopping=false;
+      const status=$('#voice-record-status');status.classList.toggle('error',partial);
+      recordingMessage=partial?'Recording interrupted. Download the partial WAV and try again.':'Recording ready. Download the WAV before closing this page.';recordingSuffix=' '+(recordingBytes/32000).toFixed(1)+' s';
+      if(recordingBytes){
+        const header=new ArrayBuffer(44),view=new DataView(header);
+        const word=(offset,text)=>[...text].forEach((c,i)=>view.setUint8(offset+i,c.charCodeAt(0)));
+        word(0,'RIFF');view.setUint32(4,36+recordingBytes,true);word(8,'WAVE');word(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,16000,true);view.setUint32(28,32000,true);view.setUint16(32,2,true);view.setUint16(34,16,true);word(36,'data');view.setUint32(40,recordingBytes,true);
+        if(recordingUrl)URL.revokeObjectURL(recordingUrl);
+        recordingUrl=URL.createObjectURL(new Blob([header,...recordingChunks],{type:'audio/wav'}));
+        const download=$('#voice-record-download');download.href=recordingUrl;download.download='hey-printdeck-'+new Date().toISOString().replace(/[:.]/g,'-')+(partial?'-partial':'')+'.wav';download.hidden=false;
+      }
+      recordingChunks=[];paintVoice();
+    }
+    async function pollRecording(token){
+      try{
+        while(recordingToken===token){
+          const response=await fetch('/api/voice/recording',{cache:'no-store',signal:AbortSignal.timeout(4000),headers:{'X-PrintDeck-Recording-Token':token}});
+          if(!response.ok)throw new Error('recording');
+          const bytes=await response.arrayBuffer();if(bytes.byteLength<16)throw new Error('recording');
+          const view=new DataView(bytes),state=view.getUint32(4,true),remaining=view.getUint32(12,true);
+          if(view.getUint32(0,true)!==0x31524450||view.getUint32(8,true)!==recordingBytes||bytes.byteLength>8208||bytes.byteLength%2||state<1||state>5||remaining>65536||recordingBytes+bytes.byteLength-16>5760000)throw new Error('recording');
+          if(bytes.byteLength>16){recordingChunks.push(bytes.slice(16));recordingBytes+=bytes.byteLength-16;}
+          recordingMessage='Recording…';recordingSuffix=' '+(recordingBytes/32000).toFixed(1)+' / 180 s';paintRecording();
+          if(state!==1&&remaining===0){finishRecording(state!==2);return;}
+          await new Promise(resolve=>setTimeout(resolve,remaining?0:100));
+        }
+      }catch(_){if(recordingToken===token){recordingRequest('stop',token).catch(()=>{});finishRecording(true);}}
+    }
+    $('#voice-record-start').addEventListener('click',async()=>{
+      if(recordingBusy||recordingToken)return;
+      recordingBusy=true;paintRecording();
+      try{
+        const result=await recordingRequest('start','');
+        if(!/^[0-9a-f]{32}$/.test(result.token))throw new Error('recording');
+        recordingToken=result.token;recordingBytes=0;recordingChunks=[];recordingStopping=false;
+        $('#voice-record-download').hidden=true;$('#voice-record-status').classList.remove('error');
+        if(document.hidden||$('[data-settings-pane="hey-printdeck"]').hidden)recordingRequest('stop').catch(()=>{});
+        void pollRecording(recordingToken);
+      }catch(_){recordingMessage='Cannot start recording. Enable voice listening and sound, close the camera and check that no other recording is running.';recordingSuffix='';$('#voice-record-status').classList.add('error');}
+      finally{recordingBusy=false;paintVoice();}
+    });
+    async function stopRecording(){
+      if(!recordingToken||recordingStopping)return;
+      recordingStopping=true;paintRecording();
+      try{await recordingRequest('stop');}catch(_){/* The device lease stops capture when reads stop. */ recordingStopping=false;}
+      paintRecording();
+    }
+    $('#voice-record-stop').addEventListener('click',stopRecording);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)void stopRecording();});
+    window.addEventListener('pagehide',()=>{if(recordingToken)fetch('/api/voice/recording',{method:'POST',keepalive:true,headers:{'Content-Type':'application/x-www-form-urlencoded','X-PrintDeck-Recording':'1','X-PrintDeck-Recording-Token':recordingToken},body:'action=stop'}).catch(()=>{});});
+    new MutationObserver(()=>{if($('#voice-recording-panel').closest('[data-settings-pane]').hidden)void stopRecording();}).observe($('#voice-recording-panel').closest('[data-settings-pane]'),{attributes:true,attributeFilter:['hidden']});
 
     let mqttConfig=null,mqttBusy=false,mqttRevision=0,mqttLoading=false,mqttSetup=false;
     const mqttDirty=new Set(),mqttForm=$('#mqtt-form');

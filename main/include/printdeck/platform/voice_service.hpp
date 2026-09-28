@@ -3,6 +3,8 @@
 #include <atomic>
 #include <cstdint>
 #include <mutex>
+#include <string>
+#include <string_view>
 
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -11,8 +13,18 @@
 
 namespace printdeck::platform {
 
-// Fully local wake-word and fixed-grammar voice control. Audio
-// samples never leave the device and no network service is used by this class.
+// Explicit, temporary local-browser capture. No flash writes or cloud transport.
+class VoiceRecording {
+ public:
+  static bool start(std::string_view token);
+  static bool stop(std::string_view token);
+  static bool read(std::string_view token, std::string& packet);
+  static bool capture(const std::int16_t* samples, std::size_t count);
+  static void available(bool value);
+};
+
+// Local wake-word and fixed-grammar voice control. The explicit recording
+// session can export microphone samples to the local Web Config browser.
 class VoiceService {
  public:
   using WakeCallback = void (*)(void*);
