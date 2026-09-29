@@ -76,6 +76,7 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   std::uint8_t printer_animations_enabled = loaded.printer_animations_enabled ? 1 : 0;
   std::uint8_t reaction_progress_bar_enabled = 1;
   std::uint8_t reaction_progress_percent_enabled = 1;
+  std::uint8_t reaction_status_bar_enabled = 0;
   std::uint8_t unified_api_enabled = 0;
   std::uint8_t voice_enabled = 0;
   result = nvs_get_u8(handle, "schema", &schema);
@@ -145,6 +146,10 @@ esp_err_t SettingsStore::load(core::DeviceSettings& destination) const {
   if (result == ESP_OK && schema >= 8) {
     result = read_optional_u8(handle, "react_percent", reaction_progress_percent_enabled);
   }
+  if (result == ESP_OK && schema >= 23) {
+    result = read_optional_u8(handle, "react_status", reaction_status_bar_enabled);
+  }
+  loaded.reaction_status_bar_enabled = reaction_status_bar_enabled != 0;
   loaded.reaction_progress_bar_enabled = reaction_progress_bar_enabled != 0;
   loaded.reaction_progress_percent_enabled = reaction_progress_percent_enabled != 0;
   if (result == ESP_OK && schema >= 9) {
@@ -344,6 +349,7 @@ esp_err_t SettingsStore::save(const core::DeviceSettings& settings) const {
   write(nvs_set_u32(handle, "selected", settings.selected_profile));
   write(nvs_set_u8(handle, "brightness", settings.brightness_percent));
   write(nvs_set_u8(handle, "anim_enable", settings.printer_animations_enabled ? 1 : 0));
+  write(nvs_set_u8(handle, "react_status", settings.reaction_status_bar_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "react_bar", settings.reaction_progress_bar_enabled ? 1 : 0));
   write(nvs_set_u8(handle, "react_percent",
                    settings.reaction_progress_percent_enabled ? 1 : 0));

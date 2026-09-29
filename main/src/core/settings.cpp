@@ -260,6 +260,7 @@ bool valid_device_name(std::string_view name) {
 
 bool migrate_settings(std::uint8_t source_schema, DeviceSettings& settings) {
   if (source_schema > kSettingsSchemaVersion) return false;
+  if (source_schema < 23) settings.reaction_status_bar_enabled = false;
   if (source_schema < 22) settings.voice_wake_word = "hey_printdeck";
   if (source_schema < 21) settings.screen_bar_enabled = kDefaultScreenBarEnabled;
   if (source_schema < 20) settings.printer_control_enabled = false;

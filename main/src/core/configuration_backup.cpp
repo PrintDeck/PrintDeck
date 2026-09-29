@@ -334,6 +334,7 @@ bool add_settings(cJSON* root, const DeviceSettings& settings) {
          add_number(object, "selected_profile", settings.selected_profile) &&
          add_number(object, "brightness_percent", settings.brightness_percent) &&
          add_bool(object, "printer_animations_enabled", settings.printer_animations_enabled) &&
+         add_bool(object, "reaction_status_bar_enabled", settings.reaction_status_bar_enabled) &&
          add_bool(object, "reaction_progress_bar_enabled",
                   settings.reaction_progress_bar_enabled) &&
          add_bool(object, "reaction_progress_percent_enabled",
@@ -384,6 +385,7 @@ bool read_settings(const cJSON* root, std::uint8_t source_schema, DeviceSettings
                        required) &&
          read_bool(object, "printer_animations_enabled",
                    settings.printer_animations_enabled, required) &&
+         read_bool(object, "reaction_status_bar_enabled", settings.reaction_status_bar_enabled, source_schema >= 23) &&
          read_bool(object, "reaction_progress_bar_enabled",
                    settings.reaction_progress_bar_enabled, required) &&
          read_bool(object, "reaction_progress_percent_enabled",

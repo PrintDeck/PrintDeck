@@ -162,7 +162,8 @@ void Runtime::start() {
   display_.set_printer_control_enabled(settings_.printer_control_enabled);
   display_.set_reaction_progress_visibility(
       settings_.reaction_progress_bar_enabled,
-      settings_.reaction_progress_percent_enabled);
+      settings_.reaction_progress_percent_enabled,
+      settings_.reaction_status_bar_enabled);
   display_.set_clock_date_format(core::calendar_date_format(settings_.timezone));
   display_.set_brightness(settings_.brightness_percent);
   display_.set_power_save_policy(settings_.display_power);
@@ -1095,7 +1096,8 @@ void Runtime::apply_settings(const core::DeviceSettings& settings, bool play_fee
   display_.set_printer_control_enabled(settings.printer_control_enabled);
   display_.set_reaction_progress_visibility(
       settings.reaction_progress_bar_enabled,
-      settings.reaction_progress_percent_enabled);
+      settings.reaction_progress_percent_enabled,
+      settings.reaction_status_bar_enabled);
   display_.set_audio_state(settings.audio_enabled, settings.audio_volume_percent,
                            settings.audio_preset);
   display_.set_camera_preferences(settings.camera_mode == "live",

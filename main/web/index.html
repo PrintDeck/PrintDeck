@@ -968,6 +968,7 @@ class Viewer{
           <div class="reaction-layout"><section class="reaction-display-options" aria-labelledby="reaction-display-title"><h3 id="reaction-display-title">Display options</h3><div class="reaction-option-grid">
           <label class="reaction-option" data-reaction-child><span class="reaction-option-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="18" cy="24" r="11"></circle><path d="M18 13a11 11 0 0 1 11 11"></path><path d="M34 18h8M34 24h8M34 30h8"></path></svg></span><span class="reaction-option-copy"><strong>Show progress indicator</strong><span class="micro">Show a ring on round displays or a bar on square displays.</span></span><input class="reaction-switch-input" id="reaction_progress_bar_enabled" type="checkbox" role="switch"><span class="reaction-switch" aria-hidden="true"></span></label>
           <label class="reaction-option" data-reaction-child><span class="reaction-option-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="15" cy="15" r="5"></circle><circle cx="33" cy="33" r="5"></circle><path d="m34 10-20 28"></path></svg></span><span class="reaction-option-copy"><strong>Show percentage</strong><span class="micro">Show the print percentage above the reaction.</span></span><input class="reaction-switch-input" id="reaction_progress_percent_enabled" type="checkbox" role="switch"><span class="reaction-switch" aria-hidden="true"></span></label>
+          <label class="reaction-option" data-reaction-child><span class="reaction-option-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="6" y="16" width="36" height="16" rx="8"></rect><path d="M14 24h20"></path></svg></span><span class="reaction-option-copy"><strong>Show status bar</strong><span class="micro">Show the printer status over FDM reactions.</span></span><input class="reaction-switch-input" id="reaction_status_bar_enabled" type="checkbox" role="switch"><span class="reaction-switch" aria-hidden="true"></span></label>
           </div><div class="reaction-storage" id="reaction-storage" role="status"><div class="reaction-storage-head"><strong data-i18n="Animation storage">Active animation limit</strong><span id="reaction-storage-value"></span></div><div class="progress-track reaction-storage-track"><div class="progress-fill" id="reaction-storage-progress"></div></div><p><span class="reaction-storage-warning" id="reaction-storage-warning" data-i18n="Almost full" hidden>Near the limit</span><span id="reaction-storage-free"></span></p><p>This limit also applies to images stored on SD.</p></div></section>
           <section class="reaction-set-picker" aria-labelledby="reaction-set-title"><h3 id="reaction-set-title">Reaction set</h3><div id="reaction-set-grid" aria-busy="true"><div class="reaction-loading" id="reaction-set-loading" role="status"><span class="reaction-loading-spinner" aria-hidden="true"></span><span>Loading reaction sets…</span></div></div><p class="status" id="reaction-set-status"></p></section></div>
           <p class="status pane-status" role="status" aria-live="polite"></p>
@@ -2541,8 +2542,8 @@ function reactionTryControls(options) {
       Object.entries(powerNumbers).forEach(([id,key])=>settings[key]=Number($('#'+id).value));
       Object.entries(powerSwitches).forEach(([id,key])=>settings[key]=$('#'+id).checked);
     }
-    function fillSettings(b){settings=b;paintPrinterControlSetting();syncPrinterView(b.printer_view);applyLanguage();$('#device-name').value=b.device_name||'';paintDeviceNameAddress();$('#brightness').value=b.brightness;paintBrightness();$('#rotation').value=b.rotation;$('#printer-animations-enabled').checked=Boolean(b.printer_animations_enabled);$('#reaction_progress_bar_enabled').checked=b.reaction_progress_bar_enabled!==false;$('#reaction_progress_percent_enabled').checked=b.reaction_progress_percent_enabled!==false;paintReactionAvailability();const audioVolume=$('#audio-volume');if(audioVolume){const preset=$(`input[name="audio-preset"][value="${b.audio_preset||'modern'}"]`)||$('input[name="audio-preset"][value="modern"]');if(preset)preset.checked=true;const mutedEvents=Number(b.audio_muted_events)||0;$$('[data-audio-mute-bit]').forEach(input=>input.checked=Boolean(mutedEvents&(1<<Number(input.dataset.audioMuteBit))));const savedVolume=b.audio_enabled?b.audio_volume:0;if(b.audio_volume>0)previousAudioVolume=b.audio_volume;audioVolume.value=savedVolume;paintAudio()}applyHardwareSettings();$('#printer-list-poll').value=b.printer_list_poll_s;$('#camera-mode').value=b.camera_mode||'snapshots';$('#camera-snapshot-fps').value=String(b.camera_snapshot_fps||1);paintCameraSettings();fillScreenSaverSettings(b);const timezone=$('#timezone'),savedTimezone=b.timezone==='Etc/UTC'?'UTC':b.timezone;timezone.value=[...timezone.options].some(option=>option.value===savedTimezone)?savedTimezone:'UTC';renderThemeCards();renderColors()}
-    function readSettings(){settings.device_name=$('#device-name').value.trim();settings.brightness=Number($('#brightness').value);settings.rotation=$('#rotation').value;settings.printer_animations_enabled=$('#printer-animations-enabled').checked;settings.reaction_progress_bar_enabled=$('#reaction_progress_bar_enabled').checked;settings.reaction_progress_percent_enabled=$('#reaction_progress_percent_enabled').checked;const audioVolume=$('#audio-volume');if(audioVolume){settings.audio_volume=Number(audioVolume.value);settings.audio_enabled=settings.audio_volume>0;settings.audio_preset=$('input[name="audio-preset"]:checked')?.value||'modern';settings.audio_muted_events=$$('[data-audio-mute-bit]').reduce((mask,input)=>input.checked?mask|(1<<Number(input.dataset.audioMuteBit)):mask&~(1<<Number(input.dataset.audioMuteBit)),Number(settings.audio_muted_events)||0)}else{settings.audio_volume=0;settings.audio_enabled=false;settings.audio_preset=settings.audio_preset||'modern';settings.audio_muted_events=Number(settings.audio_muted_events)||0}settings.printer_list_poll_s=Number($('#printer-list-poll').value);settings.camera_mode=$('#camera-mode').value;settings.camera_snapshot_fps=Number($('#camera-snapshot-fps').value);readPowerSettings();settings.timezone=$('#timezone').value}
+    function fillSettings(b){settings=b;paintPrinterControlSetting();syncPrinterView(b.printer_view);applyLanguage();$('#device-name').value=b.device_name||'';paintDeviceNameAddress();$('#brightness').value=b.brightness;paintBrightness();$('#rotation').value=b.rotation;$('#printer-animations-enabled').checked=Boolean(b.printer_animations_enabled);$('#reaction_progress_bar_enabled').checked=b.reaction_progress_bar_enabled!==false;$('#reaction_progress_percent_enabled').checked=b.reaction_progress_percent_enabled!==false;$('#reaction_status_bar_enabled').checked=b.reaction_status_bar_enabled===true;refreshFdmDialogs();paintReactionAvailability();const audioVolume=$('#audio-volume');if(audioVolume){const preset=$(`input[name="audio-preset"][value="${b.audio_preset||'modern'}"]`)||$('input[name="audio-preset"][value="modern"]');if(preset)preset.checked=true;const mutedEvents=Number(b.audio_muted_events)||0;$$('[data-audio-mute-bit]').forEach(input=>input.checked=Boolean(mutedEvents&(1<<Number(input.dataset.audioMuteBit))));const savedVolume=b.audio_enabled?b.audio_volume:0;if(b.audio_volume>0)previousAudioVolume=b.audio_volume;audioVolume.value=savedVolume;paintAudio()}applyHardwareSettings();$('#printer-list-poll').value=b.printer_list_poll_s;$('#camera-mode').value=b.camera_mode||'snapshots';$('#camera-snapshot-fps').value=String(b.camera_snapshot_fps||1);paintCameraSettings();fillScreenSaverSettings(b);const timezone=$('#timezone'),savedTimezone=b.timezone==='Etc/UTC'?'UTC':b.timezone;timezone.value=[...timezone.options].some(option=>option.value===savedTimezone)?savedTimezone:'UTC';renderThemeCards();renderColors()}
+    function readSettings(){settings.device_name=$('#device-name').value.trim();settings.brightness=Number($('#brightness').value);settings.rotation=$('#rotation').value;settings.printer_animations_enabled=$('#printer-animations-enabled').checked;settings.reaction_progress_bar_enabled=$('#reaction_progress_bar_enabled').checked;settings.reaction_progress_percent_enabled=$('#reaction_progress_percent_enabled').checked;settings.reaction_status_bar_enabled=$('#reaction_status_bar_enabled').checked;const audioVolume=$('#audio-volume');if(audioVolume){settings.audio_volume=Number(audioVolume.value);settings.audio_enabled=settings.audio_volume>0;settings.audio_preset=$('input[name="audio-preset"]:checked')?.value||'modern';settings.audio_muted_events=$$('[data-audio-mute-bit]').reduce((mask,input)=>input.checked?mask|(1<<Number(input.dataset.audioMuteBit)):mask&~(1<<Number(input.dataset.audioMuteBit)),Number(settings.audio_muted_events)||0)}else{settings.audio_volume=0;settings.audio_enabled=false;settings.audio_preset=settings.audio_preset||'modern';settings.audio_muted_events=Number(settings.audio_muted_events)||0}settings.printer_list_poll_s=Number($('#printer-list-poll').value);settings.camera_mode=$('#camera-mode').value;settings.camera_snapshot_fps=Number($('#camera-snapshot-fps').value);readPowerSettings();settings.timezone=$('#timezone').value}
     function refreshSettingsDirty(){readSettings();settingsDirty=Object.keys(settingsDelta(settings,deviceSettingsBaseline)).length>0||Object.keys(settingsDelta(settings,localSettingsBaseline)).length>0}
     function saveAllSettings(status,silent=false){
       readSettings();const desired=structuredClone(settings);settingsWrites++;deviceSettingsRevision++;
@@ -2639,7 +2640,7 @@ function reactionTryControls(options) {
       });
       return screenSaverSaveQueue;
     }
-    ['dim','off'].forEach(mode=>$('#'+mode+'-audio').addEventListener('input',()=>paintScreenSaverSettings(false)));$('#brightness').addEventListener('input',paintBrightness);$('#brightness').addEventListener('change',saveDisplaySettings);$('#rotation').addEventListener('change',()=>{paintScreenSaverSettings();saveDisplaySettings()});$('#printer-animations-enabled').addEventListener('change',()=>{paintReactionAvailability();saveReactionSettings()});$('#reaction_progress_bar_enabled').addEventListener('change',saveReactionSettings);$('#reaction_progress_percent_enabled').addEventListener('change',saveReactionSettings);$('#camera-mode').addEventListener('change',paintCameraSettings);$('#audio-volume').addEventListener('input',paintAudio);$('#audio-volume').addEventListener('change',saveSoundSettings);$$('input[name="audio-preset"]').forEach(input=>input.addEventListener('change',saveSoundSettings));$('#audio-mute').addEventListener('click',()=>{const input=$('#audio-volume'),value=Number(input.value)||0;if(value>0){previousAudioVolume=value;input.value=0}else input.value=previousAudioVolume||80;paintAudio();settingsDirty=true;saveSoundSettings()});$$('.screen-saver-settings input,.screen-saver-settings select').forEach(input=>input.addEventListener('change',()=>changeScreenSaverSetting(input)));$('#printer-list-poll').addEventListener('change',()=>saveAllSettings($('#printer-list-status')));$$('.save-settings').forEach(b=>b.addEventListener('click',()=>{const section=b.closest('.settings-pane,.reaction-settings,.display-settings,.sound-settings,.screen-saver-settings');saveAllSettings($('.pane-status',section))}));document.querySelectorAll('.settings-pane input,.settings-pane select,.reaction-settings input,.reaction-settings select,.display-settings input,.display-settings select,.sound-settings input,.sound-settings select,.screen-saver-settings input,.screen-saver-settings select').forEach(el=>el.addEventListener('input',()=>{if(!el.closest('[data-settings-pane=firmware]'))settingsDirty=true}));
+    ['dim','off'].forEach(mode=>$('#'+mode+'-audio').addEventListener('input',()=>paintScreenSaverSettings(false)));$('#brightness').addEventListener('input',paintBrightness);$('#brightness').addEventListener('change',saveDisplaySettings);$('#rotation').addEventListener('change',()=>{paintScreenSaverSettings();saveDisplaySettings()});$('#printer-animations-enabled').addEventListener('change',()=>{paintReactionAvailability();saveReactionSettings()});$('#reaction_progress_bar_enabled').addEventListener('change',saveReactionSettings);$('#reaction_progress_percent_enabled').addEventListener('change',saveReactionSettings);$('#reaction_status_bar_enabled').addEventListener('change',saveReactionSettings);$('#camera-mode').addEventListener('change',paintCameraSettings);$('#audio-volume').addEventListener('input',paintAudio);$('#audio-volume').addEventListener('change',saveSoundSettings);$$('input[name="audio-preset"]').forEach(input=>input.addEventListener('change',saveSoundSettings));$('#audio-mute').addEventListener('click',()=>{const input=$('#audio-volume'),value=Number(input.value)||0;if(value>0){previousAudioVolume=value;input.value=0}else input.value=previousAudioVolume||80;paintAudio();settingsDirty=true;saveSoundSettings()});$$('.screen-saver-settings input,.screen-saver-settings select').forEach(input=>input.addEventListener('change',()=>changeScreenSaverSetting(input)));$('#printer-list-poll').addEventListener('change',()=>saveAllSettings($('#printer-list-status')));$$('.save-settings').forEach(b=>b.addEventListener('click',()=>{const section=b.closest('.settings-pane,.reaction-settings,.display-settings,.sound-settings,.screen-saver-settings');saveAllSettings($('.pane-status',section))}));document.querySelectorAll('.settings-pane input,.settings-pane select,.reaction-settings input,.reaction-settings select,.display-settings input,.display-settings select,.sound-settings input,.sound-settings select,.screen-saver-settings input,.screen-saver-settings select').forEach(el=>el.addEventListener('input',()=>{if(!el.closest('[data-settings-pane=firmware]'))settingsDirty=true}));
     const voiceTestLockMs={print_started:2220,print_paused:2190,print_finished:5060,print_error:3830,filament_attention:2610,shutdown:1470};let audioTestBusy=false;
 // Keep the sound-set picker and progress presentation aligned in Web Config and Cloud.
 function createAudioSetPicker(host, translate, send, locale) {
@@ -3613,11 +3614,102 @@ function createAudioSetPicker(host, translate, send, locale) {
       if(['idle','preparing','printing'].includes(phase)&&typeof activity==='string'&&(['standby','preparing','printing'].includes(activity)||Object.hasOwn(printerActivityLabels,activity)))return activity.replaceAll('_','-');
       return phase==='idle'?'standby':Object.hasOwn(printerJobLabels,phase)?phase:'unavailable';
     }
+function paintFdmOverlay(host, state) {
+    if (!host) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    let svg = host.querySelector(':scope > svg[data-fdm-overlay]');
+    if (!svg) {
+        svg = document.createElementNS(ns, 'svg');
+        svg.dataset.fdmOverlay = 'true';
+        svg.setAttribute('viewBox', '0 0 240 240');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden';
+        host.style.position = 'relative';
+        host.append(svg);
+    }
+    const square = state.hardware === 'lcd_1_54', large = state.hardware === 'amoled_1_75';
+    const known = typeof state.progress === 'number' && Number.isFinite(state.progress);
+    const progress = known ? Math.max(0, Math.min(100, Math.trunc(state.progress))) : 0;
+    const rotating = state.status && state.printing && Array.isArray(state.pages) && state.pages.length > 1;
+    if (!rotating) delete host.dataset.fdmRotationStart;
+    else if (!host.dataset.fdmRotationStart) host.dataset.fdmRotationStart = String(Date.now());
+    const pages = rotating ? state.pages : [state.label || '—'];
+    const slot = rotating ? Math.floor((Date.now() - Number(host.dataset.fdmRotationStart)) / 5000) % pages.length : 0;
+    const caption = pages[slot];
+    const registry = paintFdmOverlay.rotatingHosts ||= new Map();
+    if (rotating) registry.set(host, state); else registry.delete(host);
+    if (registry.size && !paintFdmOverlay.timer) paintFdmOverlay.timer = setInterval(() => {
+        for (const [target, current] of registry) {
+            if (!target.isConnected) { registry.delete(target); continue; }
+            if (!document.hidden && target.getClientRects().length) paintFdmOverlay(target, current);
+        }
+        if (!registry.size) { clearInterval(paintFdmOverlay.timer); paintFdmOverlay.timer = null; }
+    }, 250);
+    const signature = JSON.stringify([state, progress, caption]);
+    if (svg.dataset.state === signature) return;
+    svg.dataset.state = signature;
+    svg.replaceChildren();
+    const add = (tag, attributes, text) => {
+        const node = document.createElementNS(ns, tag);
+        for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
+        if (text !== undefined) node.textContent = text;
+        svg.append(node); return node;
+    };
+    const color = /^#[0-9a-f]{6}$/i.test(state.color || '') ? state.color : '#39c8ec';
+    const track = /^#[0-9a-f]{6}$/i.test(state.track || '') ? state.track : '#26343c';
+    if (state.bar) {
+        if (square) {
+            add('rect', {x:44,y:11,width:190,height:6,rx:3,fill:track});
+            add('rect', {x:44,y:11,width:190*progress/100,height:6,rx:3,fill:color});
+        } else {
+            const radius = large ? 114.3 : 112, radians = 13*Math.PI/180;
+            const x = radius*Math.sin(radians), y = 120-radius*Math.cos(radians);
+            const d = `M ${120+x} ${y} A ${radius} ${radius} 0 1 1 ${120-x} ${y}`;
+            const line = {d,fill:'none','stroke-width':large?11.3:8,'stroke-linecap':'round',pathLength:100};
+            add('path', {...line,stroke:track});
+            if (progress > 0) add('path', {...line,stroke:color,'stroke-dasharray':`${progress} 100`});
+        }
+    }
+    if (state.percent) add('text', {x:square?21:120,y:large?15:19,fill:color,'font-size':large?12.36:12,'font-family':'Arial,sans-serif','font-weight':600,'text-anchor':'middle'}, known?`${progress}%`:'--%');
+    if (state.status) {
+        add('rect', {x:45,y:185,width:150,height:24,rx:12,fill:'#09151e','fill-opacity':.7,stroke:'#39c8ec','stroke-opacity':.5,'stroke-width':1});
+        const clipId = `fdm-status-${paintFdmOverlay.sequence = (paintFdmOverlay.sequence || 0) + 1}`;
+        const clip = add('clipPath', {id:clipId});
+        const bounds = document.createElementNS(ns, 'rect');
+        for (const [key,value] of Object.entries({x:45,y:185,width:150,height:24,rx:12})) bounds.setAttribute(key, value);
+        clip.append(bounds);
+        add('rect', {x:45,y:185,width:150*progress/100,height:24,fill:'#39c8ec','fill-opacity':.4,'clip-path':`url(#${clipId})`,'data-status-fill':true});
+        const label = add('text', {x:120,y:197,fill:'#e7f5fd','font-size':large?8.24:12,'font-family':'Arial,sans-serif','text-anchor':'middle','dominant-baseline':'central'}, caption);
+        // Keep translated labels within the same horizontal inset as the device.
+        if (label.getComputedTextLength() > 134) { label.setAttribute('textLength','134'); label.setAttribute('lengthAdjust','spacingAndGlyphs'); }
+    }
+}
+    function paintFdmPreview(host,p){
+      const event=printerReactionEvent(p.job),label=reactionData?.events?.find(item=>item.id===event)?.label||printerActivityLabels[p.job?.activity]||printerJobLabels[p.job?.phase]||'Unavailable';
+      const colors=themePalette(settings.theme),job=p.job||{},pages=[translated(label)];
+      if(event==='printing'){
+        if(Number.isInteger(job.current_layer)&&Number.isInteger(job.total_layers)&&job.total_layers>0&&job.current_layer>=0&&job.current_layer<=job.total_layers)pages.push(translated('Layer')+': '+job.current_layer+'/'+job.total_layers);
+        if(typeof job.remaining_seconds==='number'&&Number.isFinite(job.remaining_seconds)&&job.remaining_seconds>=0)pages.push(translated('Time left')+': '+Math.floor(job.remaining_seconds/3600)+'h '+String(Math.floor(job.remaining_seconds/60)%60).padStart(2,'0')+'m');
+      }
+      paintFdmOverlay(host,{hardware:host.dataset.hardware||'amoled_1_75',progress:p.job?.progress,
+        bar:settings.reaction_progress_bar_enabled!==false,percent:settings.reaction_progress_percent_enabled!==false,
+        status:settings.reaction_status_bar_enabled===true,label:translated(label),printing:event==='printing',pages,
+        color:typeof colors.printing==='number'?'#'+colors.printing.toString(16).padStart(6,'0'):colors.printing,
+        track:typeof colors.track==='number'?'#'+colors.track.toString(16).padStart(6,'0'):colors.track});
+    }
+    function refreshFdmDialogs(){
+      $$('[data-fdm-printer]').forEach(host=>{const p=printers.find(p=>String(p.id)===host.dataset.fdmPrinter);if(!p)return;
+        const available=printerStatusFresh&&p.selected&&p.reachability==='online'&&p.connection?.stale!==true&&settings.printer_animations_enabled&&reactionData?.events?.find(item=>item.id===printerReactionEvent(p.job))?.enabled!==false;
+        if(!available){host.closest('dialog')?.close();return}
+        const img=$('img',host),url=reactionPreviewUrl(printerReactionEvent(p.job));if(img.getAttribute('src')!==url)img.src=url;
+        paintFdmPreview(host,p);
+      });
+    }
     function openFdmReaction(trigger){
-      const source=$('img',trigger);if(!source?.complete||!source.naturalWidth)return;
-      const dialog=printerPreviewDialog(translated('Reactions'),trigger),image=source.cloneNode(true);
-      image.className='pd-reaction-enlarged';image.dataset.hardware=trigger.dataset.hardware;
-      image.hidden=false;dialog.append(image);dialog.showModal();
+      const source=$('img',trigger),p=printers.find(p=>String(p.id)===trigger.dataset.printerId);if(!p||!source?.complete||!source.naturalWidth)return;
+      const dialog=printerPreviewDialog(translated('Reactions'),trigger),host=document.createElement('div'),image=source.cloneNode(true);
+      host.className='pd-reaction-enlarged';host.dataset.hardware=trigger.dataset.hardware;host.dataset.fdmPrinter=String(p.id);
+      image.hidden=false;image.style.cssText='display:block;width:100%;height:100%;object-fit:contain;border-radius:inherit';host.append(image);dialog.append(host);dialog.showModal();paintFdmPreview(host,p);
     }
     function resinReactionKind(p){
       const job=printerStatusFresh&&p.connection?.stale!==true&&p.reachability==='online'?p.job:null;
@@ -3863,14 +3955,14 @@ function createAudioSetPicker(host, translate, send, locale) {
       $$('.pd-speed-editor input,.pd-speed-editor button',detail).forEach(control=>{control.disabled=true});
       const mini=$('.pd-mini-screen',detail),event=printerReactionEvent(p.job);
       mini.dataset.hardware=health.hardware||settings.hardware||'amoled_1_75';
-      mini.dataset.resin=String(p.technology==='resin');
+      mini.dataset.resin=String(p.technology==='resin');mini.dataset.printerId=String(p.id);
       if(p.technology==='resin'){
         mini.hidden=!p.selected||!d.online;
         $('img',mini)?.remove();
         if(!$('canvas',mini))mini.append(createResinCanvas(p.id));
       }else{
         mini.hidden=!p.selected||!d.online||p.connection?.stale===true||!settings.printer_animations_enabled||!reactionData||reactionData.events?.find(item=>item.id===event)?.enabled===false;
-        const img=$('img',mini);img.alt=translated('Printer reaction');
+        const img=$('img',mini);img.alt=translated('Printer reaction');paintFdmPreview(mini,p);
         if(mini.hidden){img.removeAttribute('src')}else{const src=reactionPreviewUrl(event);if(img.getAttribute('src')!==src)img.src=src}
       }
       mini.dataset.available=String(!mini.hidden);paintPrinterMedia(detail,p);
@@ -3879,6 +3971,7 @@ function createAudioSetPicker(host, translate, send, locale) {
     function printerDetailsAvailable(p){return printerStatusFresh&&p.reachability==='online'&&p.dashboard_available!==false}
     function printerDetailsWaiting(p){return !!p&&p.dashboard_available!==false&&printerStatusFresh&&(p.reachability==='connecting'||p.reachability==='unknown'||p.reachability==='online'&&!p.job)}
     function paintPrinters(){
+      refreshFdmDialogs();
       if(!panelVisible('printers')){paintThemePrinterPreview();return}
       if(printerReactionVisible()&&!reactionData&&!reactionLoads)loadReactions().catch(()=>{});
       if(printerDrag||printerOrderSaving)return;

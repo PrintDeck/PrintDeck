@@ -2618,6 +2618,9 @@ void DisplayShell::clear_capture_overlay_name(const char* expected_screen_name) 
 }
 
 void DisplayShell::prepare_active_screen(const char* screen_name) {
+  reaction_status_bar_ = reaction_status_label_ = reaction_status_fill_ = nullptr;
+  reaction_status_printing_ = false;
+  if (reaction_status_timer_ != nullptr) { lv_timer_delete(reaction_status_timer_); reaction_status_timer_ = nullptr; }
   // Rebuilding a thumbnail or theme on the same page must not postpone rotation.
   if (capture_screen_name_ != (screen_name == nullptr ? "" : screen_name))
     print_time_view_started_ms_ = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
@@ -4058,6 +4061,41 @@ void DisplayShell::show_printer_reactions(const core::PrinterProfile& profile,
     if (progress_arc_ != nullptr) lv_obj_move_foreground(progress_arc_);
     if (progress_label_ != nullptr) lv_obj_move_foreground(progress_label_);
 
+    const auto status_px = [](int value) { return kDisplayUsesLargeLayout ? value * 466 / 240 : value; };
+    reaction_status_bar_ = lv_obj_create(lv_screen_active());
+    lv_obj_set_pos(reaction_status_bar_, status_px(45), status_px(185));
+    lv_obj_set_size(reaction_status_bar_, status_px(150), status_px(24));
+    lv_obj_set_style_pad_all(reaction_status_bar_, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(reaction_status_bar_, status_px(12), LV_PART_MAIN);
+    lv_obj_set_style_clip_corner(reaction_status_bar_, true, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(reaction_status_bar_, lv_color_hex(0x09151E), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(reaction_status_bar_, LV_OPA_70, LV_PART_MAIN);
+    lv_obj_set_style_border_width(reaction_status_bar_, status_px(1), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(reaction_status_bar_, LV_OPA_50, LV_PART_MAIN);
+    lv_obj_set_style_border_color(reaction_status_bar_, lv_color_hex(0x39C8EC), LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(reaction_status_bar_, status_px(5), LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(reaction_status_bar_, LV_OPA_20, LV_PART_MAIN);
+    make_gesture_passthrough(reaction_status_bar_);
+    reaction_status_fill_ = lv_obj_create(reaction_status_bar_);
+    lv_obj_remove_style_all(reaction_status_fill_);
+    lv_obj_set_pos(reaction_status_fill_, 0, 0);
+    lv_obj_set_size(reaction_status_fill_, 0, LV_PCT(100));
+    lv_obj_set_style_bg_color(reaction_status_fill_, lv_color_hex(0x39C8EC), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(reaction_status_fill_, LV_OPA_40, LV_PART_MAIN);
+    make_gesture_passthrough(reaction_status_fill_);
+    reaction_status_label_ = lv_label_create(reaction_status_bar_);
+    apply_text_style(reaction_status_label_, lv_color_hex(0xE7F5FD),
+                     kDisplayUsesLargeLayout ? &lv_font_montserrat_16 : &lv_font_montserrat_12);
+    lv_obj_set_width(reaction_status_label_, status_px(134));
+    lv_obj_set_style_text_align(reaction_status_label_, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_label_set_long_mode(reaction_status_label_, LV_LABEL_LONG_DOT);
+    lv_obj_center(reaction_status_label_);
+    make_gesture_passthrough(reaction_status_label_);
+    reaction_status_timer_ = lv_timer_create([](lv_timer_t* timer) {
+      auto* shell = static_cast<DisplayShell*>(lv_timer_get_user_data(timer));
+      if (!shell->visual_updates_suspended()) shell->update_reaction_status_readout();
+    }, 250, this);
+
     // GIF decoder objects can replace their internal image while a finger is
     // moving. Route reactions-page gestures through one stable, transparent
     // full-screen target above both the animation and progress chrome.
@@ -4090,6 +4128,22 @@ void DisplayShell::show_printer_reactions(const core::PrinterProfile& profile,
   }
   update_printer_progress(snapshot);
   update_printer_animation(snapshot.job);
+  const int status_progress = snapshot.job.completion_known
+      ? std::clamp(static_cast<int>(snapshot.job.completion), 0, 100) : 0;
+  lv_obj_set_width(reaction_status_fill_, LV_PCT(status_progress));
+  if (status_progress == 0) lv_obj_add_flag(reaction_status_fill_, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_remove_flag(reaction_status_fill_, LV_OBJ_FLAG_HIDDEN);
+  const bool printing = printer_animation_activity_ == core::PrinterActivity::printing;
+  if (printing != reaction_status_printing_) reaction_status_started_ms_ = lv_tick_get();
+  reaction_status_printing_ = printing;
+  reaction_status_page_count_ = 1;
+  reaction_status_pages_[0] = tr(core::printer_activity_label(printer_animation_activity_));
+  if (printing && snapshot.job.total_layers > 0 && snapshot.job.current_layer <= snapshot.job.total_layers)
+    reaction_status_pages_[reaction_status_page_count_++] = std::string(tr("Layer")) + ": " +
+        std::to_string(snapshot.job.current_layer) + "/" + std::to_string(snapshot.job.total_layers);
+  if (printing && snapshot.job.remaining_known)
+    reaction_status_pages_[reaction_status_page_count_++] = std::string(tr("Time left")) + ": " + duration_text(snapshot.job.remaining_seconds);
+  update_reaction_status_readout();
   board_display_unlock();
 }
 
@@ -4102,6 +4156,20 @@ void DisplayShell::printer_animation_tick(lv_timer_t* timer) {
   if (shell->visual_updates_suspended()) { lv_timer_pause(timer); return; }
   shell->printer_animation_frame_ = (shell->printer_animation_frame_ + 1U) % 240U;
   shell->render_printer_animation_frame();
+}
+
+void DisplayShell::update_reaction_status_readout() {
+  if (reaction_status_label_ == nullptr || !reaction_status_bar_enabled_) return;
+  const auto page = reaction_status_printing_
+      ? ((lv_tick_get() - reaction_status_started_ms_) / 5000U) % reaction_status_page_count_ : 0;
+  const auto& text = reaction_status_pages_[page];
+  if (text == lv_label_get_text(reaction_status_label_)) return;
+  const auto* font = status_fixed_field_font(reaction_status_label_, text.c_str(),
+      {localized_font(kDisplayUsesLargeLayout ? &lv_font_montserrat_16 : &lv_font_montserrat_12),
+       localized_font(&lv_font_montserrat_12, false)});
+  lv_obj_set_style_text_font(reaction_status_label_, font, LV_PART_MAIN);
+  set_label_text_if_changed(reaction_status_label_, text.c_str());
+  lv_obj_center(reaction_status_label_);
 }
 
 void DisplayShell::update_printer_animation(const core::JobState& job) {
@@ -7716,7 +7784,7 @@ void DisplayShell::set_printer_animations_enabled(bool enabled) {
 }
 
 void DisplayShell::set_reaction_progress_visibility(bool bar_enabled,
-                                                    bool percent_enabled) {
+                                                    bool percent_enabled, bool status_enabled) {
   const bool ready = display_ready_.load(std::memory_order_acquire);
   if (ready && board_display_lock(1000) != ESP_OK) {
     ESP_LOGW(kLogTag, "Reaction progress update deferred because the LVGL lock is busy");
@@ -7724,6 +7792,7 @@ void DisplayShell::set_reaction_progress_visibility(bool bar_enabled,
   }
   reaction_progress_bar_enabled_ = bar_enabled;
   reaction_progress_percent_enabled_ = percent_enabled;
+  reaction_status_bar_enabled_ = status_enabled;
   apply_reaction_progress_visibility();
   if (ready) board_display_unlock();
 }
@@ -7770,6 +7839,7 @@ void DisplayShell::apply_reaction_progress_visibility() {
   };
   apply(progress_arc_, reaction_progress_bar_enabled_);
   apply(progress_label_, reaction_progress_percent_enabled_);
+  apply(reaction_status_bar_, reaction_status_bar_enabled_);
 }
 
 void DisplayShell::set_theme(std::string_view theme, const core::ThemeColors& custom) {

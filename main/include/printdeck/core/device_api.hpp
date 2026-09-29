@@ -63,6 +63,7 @@ inline std::string device_settings_json(const DeviceSettings& s, bool audio_avai
   cJSON_AddBoolToObject(root.get(),"printer_animations_enabled",s.printer_animations_enabled);
   cJSON_AddBoolToObject(root.get(),"reaction_progress_bar_enabled",s.reaction_progress_bar_enabled);
   cJSON_AddBoolToObject(root.get(),"reaction_progress_percent_enabled",s.reaction_progress_percent_enabled);
+  cJSON_AddBoolToObject(root.get(),"reaction_status_bar_enabled",s.reaction_status_bar_enabled);
   cJSON_AddBoolToObject(root.get(),"screen_bar_enabled",s.screen_bar_enabled);
   cJSON_AddBoolToObject(root.get(),"audio_enabled",audio_available && s.audio_enabled);
   cJSON_AddBoolToObject(root.get(),"usb_power_save",s.display_power.usb_power_save_enabled);
@@ -112,6 +113,7 @@ inline bool apply_device_settings_patch(const cJSON* patch,DeviceSettings& desti
     if(key=="printer_animations_enabled"){if(!cJSON_IsBool(value))return false;candidate.printer_animations_enabled=cJSON_IsTrue(value);continue;}
     if(key=="reaction_progress_bar_enabled"){if(!cJSON_IsBool(value))return false;candidate.reaction_progress_bar_enabled=cJSON_IsTrue(value);continue;}
     if(key=="reaction_progress_percent_enabled"){if(!cJSON_IsBool(value))return false;candidate.reaction_progress_percent_enabled=cJSON_IsTrue(value);continue;}
+    if(key=="reaction_status_bar_enabled"){if(!cJSON_IsBool(value))return false;candidate.reaction_status_bar_enabled=cJSON_IsTrue(value);continue;}
     if(key=="screen_bar_enabled"){if(!cJSON_IsBool(value))return false;candidate.screen_bar_enabled=cJSON_IsTrue(value);continue;}
     if(key=="audio_enabled"){if(!cJSON_IsBool(value))return false;candidate.audio_enabled=cJSON_IsTrue(value);continue;}
     if(key=="usb_power_save"){if(!cJSON_IsBool(value))return false;candidate.display_power.usb_power_save_enabled=cJSON_IsTrue(value);continue;}
@@ -165,7 +167,7 @@ inline bool reaction_settings_patch(const cJSON* patch) {
   for (auto* item = patch->child; item; item = item->next) {
     const std::string_view key(item->string);
     if ((key != "printer_animations_enabled" && key != "reaction_progress_bar_enabled" &&
-         key != "reaction_progress_percent_enabled") || !cJSON_IsBool(item)) return false;
+         key != "reaction_progress_percent_enabled" && key != "reaction_status_bar_enabled") || !cJSON_IsBool(item)) return false;
   }
   return true;
 }

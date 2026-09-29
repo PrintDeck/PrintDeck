@@ -1949,6 +1949,8 @@ esp_err_t WebConfig::serve_health(httpd_req_t* request) const {
   body += current.reaction_progress_bar_enabled ? "true" : "false";
   body += ",\"reaction_progress_percent_enabled\":";
   body += current.reaction_progress_percent_enabled ? "true" : "false";
+  body += ",\"reaction_status_bar_enabled\":";
+  body += current.reaction_status_bar_enabled ? "true" : "false";
   body += ",\"camera_mode\":";
   append_json_string(body, current.camera_mode);
   body += ",\"camera_snapshot_fps\":" + std::to_string(current.camera_snapshot_fps);
@@ -2665,6 +2667,8 @@ esp_err_t WebConfig::serve_settings(httpd_req_t* request) const {
   body += current.reaction_progress_bar_enabled ? "true" : "false";
   body += ",\"reaction_progress_percent_enabled\":";
   body += current.reaction_progress_percent_enabled ? "true" : "false";
+  body += ",\"reaction_status_bar_enabled\":";
+  body += current.reaction_status_bar_enabled ? "true" : "false";
   body += ",\"voice_available\":";
   body += kBoardHasLocalVoice ? "true" : "false";
   body += ",\"printer_control_enabled\":";
@@ -3772,6 +3776,7 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
   std::string printer_animations_enabled_text;
   std::string reaction_progress_bar_enabled_text;
   std::string reaction_progress_percent_enabled_text;
+  std::string reaction_status_bar_enabled_text;
   std::string audio_enabled_text;
   std::string audio_volume_text;
   std::string audio_preset;
@@ -3806,6 +3811,8 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
       !parse_int(brightness_text, brightness) ||
       !form_value(body, "printer_animations_enabled", printer_animations_enabled_text) ||
       (printer_animations_enabled_text != "0" && printer_animations_enabled_text != "1") ||
+      (form_value(body, "reaction_status_bar_enabled", reaction_status_bar_enabled_text) &&
+       reaction_status_bar_enabled_text != "0" && reaction_status_bar_enabled_text != "1") ||
       !form_value(body, "reaction_progress_bar_enabled", reaction_progress_bar_enabled_text) ||
       (reaction_progress_bar_enabled_text != "0" &&
        reaction_progress_bar_enabled_text != "1") ||
@@ -3859,6 +3866,8 @@ esp_err_t WebConfig::save_settings(httpd_req_t* request) {
   candidate.device_name = std::move(device_name);
   candidate.brightness_percent = static_cast<std::uint8_t>(std::clamp(brightness, 5, 100));
   candidate.printer_animations_enabled = printer_animations_enabled_text == "1";
+  if (!reaction_status_bar_enabled_text.empty())
+    candidate.reaction_status_bar_enabled = reaction_status_bar_enabled_text == "1";
   candidate.reaction_progress_bar_enabled = reaction_progress_bar_enabled_text == "1";
   candidate.reaction_progress_percent_enabled =
       reaction_progress_percent_enabled_text == "1";

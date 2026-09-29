@@ -11,7 +11,7 @@
 namespace printdeck::core {
 
 constexpr std::size_t kMaximumProfiles = 10;
-constexpr std::uint8_t kSettingsSchemaVersion = 22;
+constexpr std::uint8_t kSettingsSchemaVersion = 23;
 constexpr std::uint32_t kDisplayDurationUntilWake = 86401;
 constexpr std::uint8_t kScreenSaverCircles = 0;
 constexpr std::uint8_t kScreenSaverGoingToSleep = 1;
@@ -105,6 +105,7 @@ struct DeviceSettings {
   bool printer_animations_enabled = true;
   bool reaction_progress_bar_enabled = true;
   bool reaction_progress_percent_enabled = true;
+  bool reaction_status_bar_enabled = false;
   std::string theme = "green";
   ThemeColors custom_theme;
   std::string timezone = "UTC";

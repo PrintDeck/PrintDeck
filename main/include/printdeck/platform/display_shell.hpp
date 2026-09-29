@@ -99,7 +99,7 @@ class DisplayShell {
   void set_brightness(int percent);
   void set_printer_animations_enabled(bool enabled);
   void set_printer_control_enabled(bool enabled);
-  void set_reaction_progress_visibility(bool bar_enabled, bool percent_enabled);
+  void set_reaction_progress_visibility(bool bar_enabled, bool percent_enabled, bool status_enabled);
   void set_reaction_asset_service(ReactionAssetService* service);
   void set_power_save_policy(const core::DisplayPowerPolicy& policy);
   void set_theme(std::string_view theme, const core::ThemeColors& custom);
@@ -174,6 +174,7 @@ class DisplayShell {
   static void display_draw_recovery_async(void* context);
   static void theme_selection_timer(lv_timer_t* timer);
   static void printer_animation_tick(lv_timer_t* timer);
+  void update_reaction_status_readout();
   static void printer_animation_source_async(void* context);
   static esp_err_t touch_read(esp_lcd_touch_handle_t touch,
                               esp_lcd_touch_point_data_t* points, uint8_t* count,
@@ -667,6 +668,15 @@ class DisplayShell {
   std::atomic<bool> printer_control_enabled_{false};
   bool reaction_progress_bar_enabled_ = true;
   bool reaction_progress_percent_enabled_ = true;
+  bool reaction_status_bar_enabled_ = false;
+  lv_obj_t* reaction_status_bar_ = nullptr;
+  lv_obj_t* reaction_status_label_ = nullptr;
+  lv_obj_t* reaction_status_fill_ = nullptr;
+  lv_timer_t* reaction_status_timer_ = nullptr;
+  std::array<std::string, 3> reaction_status_pages_{};
+  std::size_t reaction_status_page_count_ = 1;
+  std::uint32_t reaction_status_started_ms_ = 0;
+  bool reaction_status_printing_ = false;
   bool capture_animation_override_active_ = false;
   bool printer_animation_compact_ = false;
   std::string capture_animation_screen_name_;
