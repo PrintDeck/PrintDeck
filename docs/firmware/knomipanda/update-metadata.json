@@ -1,7 +1,7 @@
 {
   "target": "knomipanda",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "layout": "620eeab9a77e91ce5756ae42651b94007d2a7caecca0a1cb0a01b61fd6e05d58",
-  "sha256": "8966383359888e510dee299e190aac119196a179c01d1dcfaf65497ebb3662aa",
+  "sha256": "60f72c40b27a9944d9ffe26b0381e6f8712c091f7097b286864869c8897c48ee",
   "family": "knomipanda_layout_620eeab9a77e"
 }
