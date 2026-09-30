@@ -1,0 +1,12 @@
+{
+  "schema": 2,
+  "target": "lcd_1_28",
+  "latest": {
+    "version": "1.1.0",
+    "layout": "620eeab9a77e91ce5756ae42651b94007d2a7caecca0a1cb0a01b61fd6e05d58",
+    "sha256": "0b97f5ff8bb0dfc63c2f5eb3ad8b687239fce70ee890298710bc15e8ed67b1c7",
+    "url": "https://github.com/PrintDeck/PrintDeck/releases/download/lcd_1_28-v1.1.0/printdeck_lcd_1_28_layout_620eeab9a77e_ota-1.1.0.bin",
+    "install_manifest": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_28-v1.1.0/docs/manifests/manifest-install-lcd_1_28-1.1.0.json"
+  },
+  "factory_releases": []
+}
