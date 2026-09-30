@@ -42,7 +42,7 @@
       return {version:current,legacy:true};
     }
     const target=text(data,304,16),layout=text(data,320,65);
-    if(!digest(layout)||!['amoled_1_75','lcd_1_54','knomi2','knomipanda'].includes(target) || data[12] !== (target === 'knomipanda' ? 0 : 9))throw Error('identity');
+    if(!digest(layout)||!['amoled_1_75','lcd_1_54','knomi2','knomipanda','lcd_1_28'].includes(target) || data[12] !== (target === 'knomipanda' ? 0 : 9))throw Error('identity');
     return {version:current,target,layout,legacy:false};
   }
   function partitions(data) {

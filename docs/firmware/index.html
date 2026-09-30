@@ -378,7 +378,7 @@
         object-fit: cover;
       }
       .device { grid-column: 1 / -1; margin: 0; color: var(--body-copy); }
-      .device > strong { display: block; margin-bottom: 18px; color: var(--strong); font-size: 1.38rem; }
+      .hardware-heading > strong { display: block; margin-bottom: 18px; color: var(--strong); font-size: 1.38rem; }
       .knomi-model-picker { margin: 0; }
       .knomi-model-back { grid-column: 1 / -1; justify-self: start; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; text-align: left; }
       .knomi-model-back:hover { text-decoration: underline; }
@@ -422,6 +422,28 @@
         .knomi-model-name { font-size: .8rem; }
         .knomi-model-status { font-size: .7rem; }
         .knomi-model:disabled .knomi-model-visual::after { height: 4px; }
+      }
+
+      .hardware-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; }
+      .hardware-toggle { border: 0; padding: 4px 0; background: none; color: var(--accent); font: inherit; font-size: .88rem; font-weight: 650; cursor: pointer; white-space: nowrap; }
+      .hardware-toggle:hover { text-decoration: underline; text-underline-offset: 4px; }
+      .hardware-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 3px; }
+      .hardware-toggle [data-hardware-back] { display: none; }
+      .other-hardware-open .hardware-toggle [data-hardware-next] { display: none; }
+      .other-hardware-open .hardware-toggle [data-hardware-back] { display: inline; }
+      .hardware-viewport { overflow: hidden; padding: 4px; margin: -4px; transition: height .4s ease; }
+      .hardware-track { display: flex; gap: 8px; align-items: flex-start; transition: transform .45s cubic-bezier(.22,.68,0,1); }
+      .hardware-panel { flex: 0 0 100%; min-width: 0; }
+      .other-hardware-open .hardware-track { transform: translateX(calc(-100% - 8px)); }
+      .hardware-product-photo[data-hardware="lcd_1_28"] { aspect-ratio: 4 / 3; max-height: none; background: #fff; }
+      .hardware-product-photo[data-hardware="lcd_1_28"] .hardware-product-image { position: static; width: 100%; height: auto; transform: none; object-fit: contain; }
+      @media (max-width: 600px) {
+        .hardware-heading { gap: 10px; }
+        .hardware-heading > strong { font-size: 1.1rem; }
+        .hardware-toggle { font-size: .75rem; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .hardware-track, .hardware-viewport { transition: none; }
       }
       .hardware-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
       .hardware-option { position: relative; min-width: 0; min-height: 152px; display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 16px; align-items: center; padding: 22px 46px 22px 20px; border: 1px solid var(--line-strong); border-radius: 17px; background: var(--surface); color: var(--body-copy); cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
@@ -708,7 +730,14 @@
           </div>
           <p class="lead">Install PrintDeck from your computer with a guided USB setup. No programming tools or electronics experience required.</p>
           <div class="device">
-            <strong id="hardware-label">Choose your display</strong>
+            <div class="hardware-heading">
+              <strong id="hardware-label">Choose your display</strong>
+              <button class="hardware-toggle" id="other-hardware-toggle" type="button" aria-expanded="false" aria-controls="other-hardware-panel">
+                <span data-hardware-next="">Other hardware &gt;&gt;</span><span data-hardware-back="">&lt;&lt; Back</span>
+              </button>
+            </div>
+            <div class="hardware-viewport"><div class="hardware-track">
+            <div class="hardware-panel" id="standard-hardware-panel">
             <div class="hardware-options" role="radiogroup" aria-labelledby="hardware-label">
               <label class="hardware-option selected">
                 <input type="radio" name="hardware" value="amoled_1_75" checked="">
@@ -767,6 +796,26 @@
                 <a class="hardware-more" href="/knomi2/" aria-label="More about KNOMI">More →</a>
               </div>
             </div>
+            </div>
+            <div class="hardware-panel" id="other-hardware-panel" aria-hidden="true" inert="">
+              <div class="hardware-options">
+                <label class="hardware-option hardware-option--mini">
+                  <input type="radio" name="hardware" value="lcd_1_28">
+                  <span class="hardware-icon" aria-hidden="true">
+                    <svg viewBox="0 0 72 76">
+                      <path class="icon-frame" d="M29 63h14v9H29z" stroke-width="2.5"></path>
+                      <circle class="icon-frame" cx="36" cy="34" r="29" stroke-width="3"></circle>
+                      <text x="36" y="19" text-anchor="middle">PrintDeck</text>
+                      <rect class="icon-screen" x="20" y="25" width="32" height="22" rx="2" stroke-width="2"></rect>
+                      <path class="icon-screen" d="m25 41 7-7 6 4 8-9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                      <circle class="icon-detail" cx="29" cy="54" r="1.5"></circle><circle class="icon-detail" cx="36" cy="54" r="1.5"></circle><circle class="icon-detail" cx="43" cy="54" r="1.5"></circle>
+                    </svg>
+                  </span>
+                  <span class="hardware-copy"><b translate="no">Mini</b><small><span>Waveshare</span><span translate="no">ESP32-S3 Touch LCD 1.28″</span><span>240 × 240 · 16 MB</span></small></span>
+                </label>
+              </div>
+            </div>
+            </div></div>
           </div>
           <section class="knomi-model-picker" id="knomi-model-picker" aria-labelledby="knomi-model-heading" hidden="">
             <h2 id="knomi-model-heading">Choose your KNOMI model</h2>
@@ -933,16 +982,16 @@
             <h2>Prepare and connect your screen</h2>
             <ol class="steps">
               <li><strong>Get a USB-C data cable.</strong> It must transfer data, not only charge devices. The cable supplied with a phone or external drive usually works.</li>
-              <li data-hardware-instruction="waveshare"><strong>Connect the screen directly to your computer.</strong> Plug the USB-C end into the Waveshare display and the other end into your PC or Mac. Avoid a USB hub for the first installation.</li>
+              <li data-hardware-instruction="waveshare mini"><strong>Connect the screen directly to your computer.</strong> Plug the USB-C end into the Waveshare display and the other end into your PC or Mac. Avoid a USB hub for the first installation.</li>
               <li data-hardware-instruction="knomi2" hidden=""><strong>Connect KNOMI directly to your computer.</strong> Use a USB-C data cable and avoid a USB hub for the first installation.</li>
               <li data-hardware-instruction="waveshare"><strong>Start the installer below.</strong> Choose the serial device whose name contains ESP32, USB, UART, JTAG or CP210. Confirm the full erase when asked, then wait until installation reaches 100%.</li>
-              <li data-hardware-instruction="knomi2" hidden=""><strong>Start the installer below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB…. Confirm the full erase when asked, then wait until installation reaches 100%.</li>
+              <li data-hardware-instruction="knomi2 mini" hidden=""><strong>Start the installer below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB…. Confirm the full erase when asked, then wait until installation reaches 100%.</li>
             </ol>
             <esp-web-install-button id="install-button" manifest="../manifest-install.json">
               <button slot="activate" id="install-button-label">Install 1.1.0 or factory reset</button>
               <span slot="not-allowed">USB access requires this page to be opened over HTTPS.</span>
             </esp-web-install-button>
-            <div class="tip" data-hardware-instruction="waveshare"><strong>If no device appears:</strong> unplug the cable. Hold the display's <strong>BOOT</strong> button, reconnect USB-C, release BOOT after two seconds and try again.</div>
+            <div class="tip" data-hardware-instruction="waveshare mini"><strong>If no device appears:</strong> unplug the cable. Hold the display's <strong>BOOT</strong> button, reconnect USB-C, release BOOT after two seconds and try again.</div>
             <div class="tip" data-hardware-instruction="knomi2" hidden=""><strong>If KNOMI does not appear:</strong> close the device list, follow the USB driver instructions in the red section above, reconnect KNOMI and start the installation again.</div>
             <ol class="steps steps-continued">
               <li><strong>Wait for the Wi-Fi setup screen.</strong> The display will show a QR code and create a temporary network named <code>PrintDeck-XXXXXX</code>, with a unique ending for that screen.</li>
@@ -960,11 +1009,11 @@
             <h2 id="usb-update-heading">Update without losing your settings</h2>
             <p id="usb-update-intro">Update a working screen over USB without erasing saved Wi-Fi, printers, appearance or other configuration. This updater writes the application and boot selection only; the NVS settings partition is never erased.</p>
             <ol class="steps" id="usb-update-steps">
-              <li data-hardware-instruction="waveshare"><strong>Connect the screen directly to this computer with a USB-C data cable.</strong></li>
+              <li data-hardware-instruction="waveshare mini"><strong>Connect the screen directly to this computer with a USB-C data cable.</strong></li>
               <li data-hardware-instruction="knomi2" hidden=""><strong>Connect KNOMI directly to this computer with a USB-C data cable.</strong></li>
               <li><strong>Select the firmware version above.</strong> The newest release is selected by default; an older version can be chosen for rollback.</li>
               <li data-hardware-instruction="waveshare"><strong>Start the USB update below.</strong> Choose the ESP32, USB, UART, JTAG or CP210 serial device when prompted.</li>
-              <li data-hardware-instruction="knomi2" hidden=""><strong>Start the USB update below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB… when prompted.</li>
+              <li data-hardware-instruction="knomi2 mini" hidden=""><strong>Start the USB update below.</strong> Choose WCH USB Serial (cu.wchusbserial…), USB-SERIAL CH340 (COM…) or /dev/ttyUSB… when prompted.</li>
               <li><strong>Wait for the screen to restart.</strong> Do not disconnect USB while the update progress is visible.</li>
             </ol>
             <button class="usb-update-button" id="usb-update-button" type="button" disabled="">Update to 1.1.0 over USB</button>
@@ -1054,6 +1103,35 @@
       </footer>
     </div>
 
+
+    <script>
+      (() => {
+        const app = document.getElementById('installer-app');
+        const toggle = document.getElementById('other-hardware-toggle');
+        const viewport = document.querySelector('.hardware-viewport');
+        const standard = document.getElementById('standard-hardware-panel');
+        const other = document.getElementById('other-hardware-panel');
+        const resize = () => { viewport.style.height = `${(toggle.getAttribute('aria-expanded') === 'true' ? other : standard).offsetHeight + 8}px`; };
+        let previousHardware = 'amoled_1_75';
+        toggle.addEventListener('click', () => {
+          const open = toggle.getAttribute('aria-expanded') !== 'true';
+          toggle.setAttribute('aria-expanded', String(open));
+          app.classList.toggle('other-hardware-open', open);
+          standard.inert = open; other.inert = !open;
+          standard.setAttribute('aria-hidden', String(open));
+          other.setAttribute('aria-hidden', String(!open));
+          const checked = document.querySelector('input[name="hardware"]:checked');
+          if (open && checked?.value !== 'lcd_1_28') previousHardware = checked?.value || 'amoled_1_75';
+          const selected = document.querySelector(`input[name="hardware"][value="${open ? 'lcd_1_28' : previousHardware}"]`);
+          if (selected) { selected.checked = true; selected.dispatchEvent(new Event('change', {bubbles:true})); }
+          resize();
+        });
+        const observer = new ResizeObserver(resize);
+        observer.observe(standard); observer.observe(other);
+        if (new URLSearchParams(location.search).get('target') === 'lcd_1_28') toggle.click();
+        resize();
+      })();
+    </script>
     <script src="/localizations.js?v=20260925-1"></script>
     <script src="/firmware/update-policy.js"></script>
     <script type="module">
@@ -1282,6 +1360,7 @@
             releaseTag: 'amoled_1_75-v1.1.0', installManifest: '../manifest-install.json', application: '../firmware/printdeck.bin', otaData: '../firmware/ota_data_initial.bin',
             lcd_1_54: { releaseTag: 'lcd_1_54-v1.1.0', installManifest: '../manifest-install-lcd-1-54.json', application: '../firmware/lcd_1_54/printdeck.bin', otaData: '../firmware/lcd_1_54/ota_data_initial.bin' },
             knomi2: { releaseTag: 'knomi2-v1.1.0', installManifest: '../manifest-install-knomi2.json', application: '../firmware/knomi2/printdeck.bin', otaData: '../firmware/knomi2/ota_data_initial.bin' },
+            lcd_1_28: { releaseTag: 'lcd_1_28-v1.1.0', installManifest: '../manifest-install-lcd-1-28.json', application: '../firmware/lcd_1_28/printdeck.bin', otaData: '../firmware/lcd_1_28/ota_data_initial.bin' },
             knomipanda: { releaseTag: 'knomipanda-v1.1.0', installManifest: '../manifest-install-knomipanda.json', application: '../firmware/knomipanda/printdeck.bin', otaData: '../firmware/knomipanda/ota_data_initial.bin' },
           },
           '1.0.26': {
@@ -1724,7 +1803,7 @@
             if (configuration.application) configuration.application = makePageRelative(configuration.application);
             if (configuration.otaData) configuration.otaData = makePageRelative(configuration.otaData);
           }
-          ['lcd_1_54', 'knomi2', 'knomipanda'].forEach((hardware) => {
+          ['lcd_1_54', 'knomi2', 'knomipanda', 'lcd_1_28'].forEach((hardware) => {
             const targetConfiguration = configuration[hardware];
             if (!targetConfiguration) return;
             targetConfiguration.installManifest = makePageRelative(targetConfiguration.installManifest);
@@ -1736,7 +1815,7 @@
             configuration.application = `${firmwareBase}/printdeck.bin`;
             configuration.otaData = `${firmwareBase}/ota_data_initial.bin`;
           }
-          ['lcd_1_54', 'knomi2', 'knomipanda'].forEach((hardware) => {
+          ['lcd_1_54', 'knomi2', 'knomipanda', 'lcd_1_28'].forEach((hardware) => {
             const targetConfiguration = configuration[hardware];
             if (!targetConfiguration || targetConfiguration.application) return;
             const firmwareBase = `${releaseBase}/${targetConfiguration.releaseTag || configuration.releaseTag || `v${version}`}/docs/firmware`;
@@ -1908,6 +1987,7 @@
           window.printDeckInstallerI18n.refreshVersionLabels();
           productVisual.dataset.hardware = knomiFamily ? (selectedKnomiModel || 'knomi2') : activeHardware;
           const squareHardware = activeHardware === 'lcd_1_54';
+          const miniHardware = activeHardware === 'lcd_1_28';
           const knomi2Hardware = knomiFamily;
           knomiModelPicker.hidden = !knomiFamily || Boolean(selectedKnomiModel);
           knomiModelBack.hidden = !knomiFamily || !selectedKnomiModel;
@@ -1920,10 +2000,10 @@
           versionSelect.closest('.firmware-version-block').hidden = !selectedConfiguration();
           document.getElementById('knomi-preview-version').hidden = !knomiFamily || Boolean(selectedConfiguration());
           hardwareInstructions.forEach((element) => {
-            element.hidden = element.dataset.hardwareInstruction !== (knomi2Hardware ? 'knomi2' : 'waveshare');
+            element.hidden = !element.dataset.hardwareInstruction.split(' ').includes(miniHardware ? 'mini' : knomi2Hardware ? 'knomi2' : 'waveshare');
           });
           productVisual.hidden = false;
-          productVisualImage.src = knomi2Hardware
+          productVisualImage.src = miniHardware ? '/firmware/assets/mini-waveshare.jpg' : knomi2Hardware
             ? (selectedKnomiModel === 'knomipanda'
               ? '/firmware/assets/panda-knomi.png'
               : selectedKnomiModel === 'knomi2'
@@ -1932,8 +2012,8 @@
             : squareHardware
               ? '../assets/marketing/home/u1-mini-cutout.webp'
               : '../assets/marketing/home/riverstone-hero-green-cutout.webp';
-          productVisualScreen.hidden = squareHardware || knomi2Hardware;
-          productVisual.setAttribute('aria-label', knomi2Hardware
+          productVisualScreen.hidden = squareHardware || knomi2Hardware || miniHardware;
+          productVisual.setAttribute('aria-label', miniHardware ? 'Mini' : knomi2Hardware
             ? (selectedKnomiModel === 'knomipanda' ? 'Panda Knomi' : 'KNOMI')
             : window.printDeckInstallerI18n.t(squareHardware
               ? 'PrintDeck square status display'
@@ -1977,7 +2057,7 @@
           applySelectedHardware();
         });
         const requested = new URLSearchParams(location.search);
-        if (['amoled_1_75','lcd_1_54','knomi2','knomipanda'].includes(requested.get('target'))) {
+        if (['amoled_1_75','lcd_1_54','knomi2','knomipanda','lcd_1_28'].includes(requested.get('target'))) {
           const target = requested.get('target');
           selectedKnomiModel = ['knomi2','knomipanda'].includes(target) ? target : null;
           hardwareInputs.forEach(input=>input.checked=input.value===(target === 'knomipanda' ? 'knomi2' : target));

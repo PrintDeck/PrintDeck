@@ -1,0 +1,32 @@
+{
+  "name": "PrintDeck Mini",
+  "version": "1.1.0",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_28-v1.1.0/docs/firmware/lcd_1_28/bootloader.bin",
+          "offset": 0
+        },
+        {
+          "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_28-v1.1.0/docs/firmware/lcd_1_28/partition-table.bin",
+          "offset": 32768
+        },
+        {
+          "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_28-v1.1.0/docs/firmware/lcd_1_28/nvs-reset.bin",
+          "offset": 36864
+        },
+        {
+          "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_28-v1.1.0/docs/firmware/lcd_1_28/ota_data_initial.bin",
+          "offset": 61440
+        },
+        {
+          "path": "https://raw.githubusercontent.com/PrintDeck/PrintDeck/lcd_1_28-v1.1.0/docs/firmware/lcd_1_28/printdeck.bin",
+          "offset": 131072
+        }
+      ]
+    }
+  ]
+}
