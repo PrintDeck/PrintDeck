@@ -21,11 +21,14 @@ struct CtbHeader {
 std::optional<std::string> ctb_preview_path(std::string_view path);
 bool ctb_preview_header(const CtbRead&, std::uint64_t size, CtbHeader&);
 // Output is a bounded top-down BGR24 BMP accepted by the existing image path.
-std::vector<std::uint8_t> ctb_model_preview(const CtbRead&, const CtbHeader&, const CtbCancel&);
-std::vector<std::uint8_t> ctb_layer_preview(const CtbRead&, const CtbHeader&, std::uint32_t index, const CtbCancel&);
+std::vector<std::uint8_t> ctb_model_preview(const CtbRead&, const CtbHeader&, const CtbCancel&,
+    std::size_t memory_budget = 2 * 1024 * 1024, unsigned maximum_edge = 320);
+std::vector<std::uint8_t> ctb_layer_preview(const CtbRead&, const CtbHeader&, std::uint32_t index, const CtbCancel&,
+    std::size_t memory_budget = 2 * 1024 * 1024, unsigned maximum_edge = 320);
 // Binary occupancy, least-significant bit first, row-major. At most 128 KiB.
 std::vector<std::uint8_t> ctb_layer_mask(const CtbRead&, const CtbHeader&, std::uint32_t index,
-    unsigned width, unsigned height, const CtbCancel&);
+    unsigned width, unsigned height, const CtbCancel&,
+    std::size_t memory_budget = 2 * 1024 * 1024);
 bool ctb_preview_range(std::string_view header, std::uint64_t offset, std::size_t length, std::uint64_t size);
 bool ctb_exposure_preview_matches(std::string_view source, std::string_view current,
     unsigned source_index, unsigned current_index, bool exposing,

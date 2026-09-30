@@ -68,8 +68,7 @@ std::vector<std::uint8_t> bitmap(unsigned w, unsigned h) {
   result[26] = 1; result[28] = 24;
   return result;
 }
-void output_size(unsigned w, unsigned h, unsigned& ow, unsigned& oh) {
-  constexpr unsigned maximum = 320;
+void output_size(unsigned w, unsigned h, unsigned& ow, unsigned& oh, unsigned maximum) {
   ow = w; oh = h;
   if (w > maximum || h > maximum) {
     if (w >= h) { ow = maximum; oh = std::max(1U, h * maximum / w); }
@@ -136,7 +135,9 @@ bool ctb_preview_header(const CtbRead& read, std::uint64_t size, CtbHeader& out)
   out = value; return true;
 }
 
-std::vector<std::uint8_t> ctb_model_preview(const CtbRead& read, const CtbHeader& h, const CtbCancel& cancelled) {
+std::vector<std::uint8_t> ctb_model_preview(const CtbRead& read, const CtbHeader& h, const CtbCancel& cancelled,
+    std::size_t memory_budget, unsigned maximum_edge) {
+  if (!maximum_edge || maximum_edge > 320) return {};
   const auto descriptor = h.model[0] ? h.model[0] : h.model[1];
   if (cancelled() || descriptor < 336 || !within(descriptor, 16, h.table)) return {};
   std::array<std::uint8_t, 16> raw{}; if (!read(descriptor, raw)) return {};
@@ -147,8 +148,11 @@ std::vector<std::uint8_t> ctb_model_preview(const CtbRead& read, const CtbHeader
   if (other && (other < 336 || !within(other, 16, h.table) ||
       !(other + 16 <= descriptor || descriptor + 16 <= other) ||
       !(other + 16 <= offset || offset + length <= other))) return {};
+  unsigned ow, oh; output_size(w, height, ow, oh, maximum_edge);
+  const std::size_t output_bytes = 54 + ((ow * 3 + 3) & ~3U) * oh;
+  if (output_bytes > memory_budget || length > memory_budget - output_bytes) return {};
   std::vector<std::uint8_t> bytes(length); if (!read(offset, bytes)) return {};
-  unsigned ow, oh; output_size(w, height, ow, oh); auto result = bitmap(ow, oh);
+  auto result = bitmap(ow, oh);
   const auto stride = (ow * 3 + 3) & ~3U;
   std::uint32_t position = 0, runs = 0;
   for (std::size_t i = 0; i < bytes.size();) {
@@ -174,7 +178,7 @@ std::vector<std::uint8_t> ctb_model_preview(const CtbRead& read, const CtbHeader
 }
 
 static std::vector<std::uint8_t> layer_image(const CtbRead& read, const CtbHeader& h, std::uint32_t index,
-    const CtbCancel& cancelled, unsigned ow, unsigned oh, bool packed) {
+    const CtbCancel& cancelled, unsigned ow, unsigned oh, bool packed, std::size_t memory_budget) {
   if (cancelled() || index >= h.layers) return {};
   std::array<std::uint8_t, 32> pointers{};
   const auto count = index + 1 < h.layers ? 32 : 16;
@@ -193,6 +197,8 @@ static std::vector<std::uint8_t> layer_image(const CtbRead& read, const CtbHeade
   const auto length = u32(record.data() + 24), aes_offset = u32(record.data() + 32), aes_length = u32(record.data() + 36);
   if (!length || length > kCtbImageLimit || image < offset + 88 || !within(image, length, next) ||
       aes_length % 16 || !within(aes_offset, aes_length, length) || (aes_length && length < 512 && length % 16)) return {};
+  const std::size_t output_bytes = packed ? (ow * oh + 7) / 8 : 54 + ((ow * 3 + 3) & ~3U) * oh;
+  if (output_bytes > memory_budget || length > memory_budget - output_bytes) return {};
   std::vector<std::uint8_t> bytes(length);
   if (!read(image, bytes) || (aes_length && !decrypt(std::span(bytes).subspan(aes_offset, aes_length)))) return {};
   if (h.seed) {
@@ -244,14 +250,16 @@ static std::vector<std::uint8_t> layer_image(const CtbRead& read, const CtbHeade
   }
   return position == pixels && !cancelled() ? result : std::vector<std::uint8_t>{};
 }
-std::vector<std::uint8_t> ctb_layer_preview(const CtbRead& read, const CtbHeader& h, std::uint32_t index, const CtbCancel& cancel) {
-  unsigned w, height; output_size(h.width, h.height, w, height);
-  return layer_image(read, h, index, cancel, w, height, false);
+std::vector<std::uint8_t> ctb_layer_preview(const CtbRead& read, const CtbHeader& h, std::uint32_t index, const CtbCancel& cancel,
+    std::size_t memory_budget, unsigned maximum_edge) {
+  if (!maximum_edge || maximum_edge > 320) return {};
+  unsigned w, height; output_size(h.width, h.height, w, height, maximum_edge);
+  return layer_image(read, h, index, cancel, w, height, false, memory_budget);
 }
 std::vector<std::uint8_t> ctb_layer_mask(const CtbRead& read, const CtbHeader& h, std::uint32_t index,
-    unsigned w, unsigned height, const CtbCancel& cancel) {
+    unsigned w, unsigned height, const CtbCancel& cancel, std::size_t memory_budget) {
   if (!w || !height || w > 1536 || height > 1536 || w * height > 1048576 ||
       !h.width || !h.height || w > h.width || height > h.height) return {};
-  return layer_image(read, h, index, cancel, w, height, true);
+  return layer_image(read, h, index, cancel, w, height, true, memory_budget);
 }
 }  // namespace printdeck::platform

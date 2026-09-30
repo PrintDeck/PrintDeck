@@ -668,7 +668,7 @@ bool uniformation_valid_task_id(std::string_view value) {
 
 bool uniformation_decode_preview_bmp(const std::vector<std::uint8_t>& encoded,
     std::vector<std::uint8_t>& pixels, std::uint16_t& width, std::uint16_t& height,
-    std::size_t maximum_decoded_bytes) {
+    std::size_t maximum_decoded_bytes, unsigned maximum_edge) {
   pixels.clear(); width = height = 0;
   if (encoded.size() < 54 || encoded.size() > 1048576 || encoded[0] != 'B' || encoded[1] != 'M') return false;
   const auto u16 = [&](std::size_t at) -> std::uint16_t { return encoded[at] | (encoded[at + 1] << 8); };
@@ -677,7 +677,11 @@ bool uniformation_decode_preview_bmp(const std::vector<std::uint8_t>& encoded,
   const auto signed_h = static_cast<std::int32_t>(u32(22));
   if (dib != 40 || w == 0 || w > 512 || signed_h == 0 || signed_h < -512 || signed_h > 512 || u16(26) != 1) return false;
   const std::uint32_t h = signed_h < 0 ? -signed_h : signed_h;
-  if (w * h * 4 > maximum_decoded_bytes) return false;
+  if (!maximum_edge || maximum_edge > 512) return false;
+  const unsigned edge = std::max(w, h);
+  const unsigned ow = edge > maximum_edge ? std::max<unsigned>(1U, w * maximum_edge / edge) : w;
+  const unsigned oh = edge > maximum_edge ? std::max<unsigned>(1U, h * maximum_edge / edge) : h;
+  if (ow * oh * 4 > maximum_decoded_bytes) return false;
   const auto bpp = u16(28); const auto compression = u32(30);
   if ((bpp != 24 && bpp != 32 && bpp != 16) || (compression != 0 && !(bpp == 16 && compression == 3))) return false;
   std::size_t offset = u32(10);
@@ -693,10 +697,11 @@ bool uniformation_decode_preview_bmp(const std::vector<std::uint8_t>& encoded,
   }
   const std::size_t stride = ((w * bpp + 31) / 32) * 4;
   if (stride * h > encoded.size() - offset) return false;
-  std::vector<std::uint8_t> decoded(w * h * 4);
-  for (std::size_t y = 0; y < h; ++y) for (std::size_t x = 0; x < w; ++x) {
-    const auto source = offset + (signed_h < 0 ? y : h - 1 - y) * stride + x * (bpp / 8);
-    const auto destination = (y * w + x) * 4;
+  std::vector<std::uint8_t> decoded(ow * oh * 4);
+  for (std::size_t y = 0; y < oh; ++y) for (std::size_t x = 0; x < ow; ++x) {
+    const auto sy = y * h / oh, sx = x * w / ow;
+    const auto source = offset + (signed_h < 0 ? sy : h - 1 - sy) * stride + sx * (bpp / 8);
+    const auto destination = (y * ow + x) * 4;
     if (bpp == 16) {
       const auto pixel = u16(source); const bool rgb565 = green_mask == 0x7e0;
       decoded[destination] = (pixel & blue_mask) * 255 / 31;
@@ -707,6 +712,6 @@ bool uniformation_decode_preview_bmp(const std::vector<std::uint8_t>& encoded,
     }
     decoded[destination + 3] = 255;
   }
-  width = w; height = h; pixels = std::move(decoded); return true;
+  width = ow; height = oh; pixels = std::move(decoded); return true;
 }
 }  // namespace printdeck::platform

@@ -91,7 +91,7 @@ bool uniformation_valid_task_id(std::string_view value);
 // Decode only bounded, uncompressed printer BMP previews; output is BGRA.
 bool uniformation_decode_preview_bmp(const std::vector<std::uint8_t>& encoded,
     std::vector<std::uint8_t>& pixels, std::uint16_t& width, std::uint16_t& height,
-    std::size_t maximum_decoded_bytes = 1048576);
+    std::size_t maximum_decoded_bytes = 1048576, unsigned maximum_edge = 512);
 ElegooPollResult uniformation_sdcp_probe(const core::PrinterProfile& profile,
     std::uint64_t deadline_ms, const std::function<bool()>& cancelled,
     ElegooIdentity* identity = nullptr);

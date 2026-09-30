@@ -2354,16 +2354,16 @@ std::string WebConfig::device_state_json(bool include_catalog, bool cloud) const
   body+=R"(,"boot_id":)";append_json_string(body,restart_boot_id_);body+="}";
   const auto reactions=reaction_assets_?reaction_assets_->snapshot():ReactionAssetSnapshot{};
   for(const auto action:{"reactions.set.install","reactions.set.cancel","reactions.event.set","reactions.event.reset"}){
-    body+=",\""+std::string(action)+R"(":{"supported":true,"available":)";
+    body+=",\""+std::string(action)+R"(":{"supported":)";body+=kBoardHasReactionStorage?"true":"false";body+=R"(,"available":)";
     const bool available=reactions.available&&(std::string_view(action)=="reactions.set.cancel"?reactions.cancellable:!reactions.busy);
     body+=available?"true":"false";
     if(std::string_view(action)=="reactions.set.install"||std::string_view(action)=="reactions.set.cancel")body+=R"(,"request_id_supported":true)";
     body+="}";
   }
-  body+=R"(,"reactions.event.try":{"supported":true,"available":)";
+  body+=R"(,"reactions.event.try":{"supported":)";body+=kBoardHasReactionStorage?"true":"false";body+=R"(,"available":)";
   body+=display_&&reactions.available&&!reactions.busy&&!reactions.sd_busy&&!update.busy?"true":"false";
   body+="}";
-  body+=R"(,"reactions.image.upload":{"supported":true,"available":)";
+  body+=R"(,"reactions.image.upload":{"supported":)";body+=kBoardHasReactionStorage?"true":"false";body+=R"(,"available":)";
   body+=reactions.available&&!reactions.busy&&!reactions.sd_busy&&!reactions.sd_missing&&(!reactions.sd_selected||reactions.sd_ready)?"true":"false";
   body+="}";
   body+=R"(,"device.reactions.patch":{"supported":true,"available":true},"reactions.storage.set":{"supported":)";

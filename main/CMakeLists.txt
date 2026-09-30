@@ -44,6 +44,7 @@ set(PRINTDECK_SRCS
         "src/platform/moonraker_adapter.cpp"
         "src/platform/print_preview_cache.cpp"
         "src/platform/print_preview_service.cpp"
+        "src/platform/preview_png.cpp"
         "src/platform/persistence_worker.cpp"
         "src/platform/display_snapshot.cpp"
         "src/platform/live_view_png.cpp"
@@ -106,6 +107,20 @@ if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
         espressif__esp_lcd_touch_cst816s
         esp_driver_spi
     )
+elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
+    list(APPEND PRINTDECK_SRCS
+        "src/platform/audio_service_knomi2.cpp"
+        "src/platform/board_lcd_1_28.cpp"
+        "src/platform/display_shell_lcd_1_54.cpp"
+        "src/platform/power_service_knomi2.cpp"
+        "src/platform/usb_developer_service_knomi2.cpp"
+    )
+    list(APPEND PRINTDECK_BOARD_REQUIRES
+        espressif__esp_lcd_gc9a01
+        espressif__esp_lcd_touch_cst816s
+        esp_driver_ledc
+        esp_driver_spi
+    )
 elseif(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
     list(APPEND PRINTDECK_SRCS
         "src/platform/audio_service_knomi2.cpp"
@@ -150,7 +165,8 @@ endif()
 
 # Share one speech implementation, model binding and compressed audio bank.
 if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
-   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
     list(APPEND PRINTDECK_SRCS
         "src/platform/voice_service.cpp"
         "src/platform/voice_model_store.cpp")
@@ -318,6 +334,8 @@ if(PRINTDECK_K2_UDP_PREFETCH)
 endif()
 if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_KNOMI2=1)
+elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_LCD_1_28=1)
 elseif(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_KNOMIPANDA=1)
 elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54")
@@ -326,7 +344,8 @@ else()
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_AMOLED_1_75=1)
 endif()
 if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
-   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
     target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_LOCAL_VOICE=1)
     target_link_libraries(${COMPONENT_LIB} INTERFACE
         "-Wl,--wrap=esp_mn_handle_from_name"

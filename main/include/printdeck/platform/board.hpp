@@ -28,6 +28,22 @@ inline constexpr char kFirmwareOtaAssetPrefix[] = "printdeck_knomi2_ota-";
 inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_knomi2_full-";
 inline constexpr char kLegacyFirmwareOtaAssetPrefix[] = "";
 inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
+#elif defined(PRINTDECK_BOARD_LCD_1_28)
+inline constexpr int kDisplayWidth = 240;
+inline constexpr int kDisplayHeight = 240;
+inline constexpr bool kDisplayIsRound = true;
+inline constexpr bool kDisplayUsesCompactLayout = true;
+inline constexpr bool kDisplayRequiresEvenInvalidation = false;
+inline constexpr bool kBoardHasAudio = false;
+inline constexpr bool kBoardHasPowerSourceDetection = false;
+inline constexpr bool kBoardHasPowerButton = false;
+inline constexpr char kBoardVariant[] = "lcd_1_28";
+inline constexpr char kBoardReactionAssetFamily[] = "240x240-round";
+inline constexpr char kFirmwareStableChannel[] = "lcd_1_28";
+inline constexpr char kFirmwareOtaAssetPrefix[] = "printdeck_lcd_1_28_ota-";
+inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_lcd_1_28_full-";
+inline constexpr char kLegacyFirmwareOtaAssetPrefix[] = "";
+inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
 #elif defined(PRINTDECK_BOARD_KNOMIPANDA)
 inline constexpr int kDisplayWidth = 240;
 inline constexpr int kDisplayHeight = 240;
@@ -89,7 +105,9 @@ inline constexpr bool kBoardHasMotionSensor = std::string_view(kBoardVariant) !=
 // Automatic display sleep requires a physical way to wake the panel.
 inline constexpr bool kBoardSupportsDisplaySleep = kBoardHasTouch || kBoardHasPowerButton;
 inline constexpr bool kDisplayUsesLargeLayout = !kDisplayUsesCompactLayout;
+inline constexpr bool kBoardHasReactionStorage = std::string_view(kBoardVariant) != "lcd_1_28";
 inline constexpr bool kBoardHasSdCard =
+    std::string_view(kBoardVariant) != "lcd_1_28" &&
     std::string_view(kBoardVariant) != "knomi2" &&
     std::string_view(kBoardVariant) != "knomipanda";
 inline constexpr bool kDisplayUsesCompactRoundLayout =

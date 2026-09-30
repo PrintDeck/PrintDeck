@@ -74,9 +74,6 @@ constexpr int kRemoteInputPreparing = -1;
 constexpr int kRemoteInputActive = 1;
 constexpr std::uint32_t kRemoteInputMinimumDurationMs = 80;
 constexpr std::uint32_t kRemoteInputMaximumDurationMs = 2000;
-constexpr std::size_t kMaximumPreviewDimension = 512;
-constexpr std::size_t kMaximumDecodedPreviewBytes =
-    kMaximumPreviewDimension * kMaximumPreviewDimension * 4U;
 constexpr std::size_t kPreviewDecodeHeapMarginBytes = 64U * 1024U;
 constexpr char kMdiClock[] = "\xF3\xB1\x91\x8E";
 constexpr char kMdiNozzle[] = "\xF3\xB0\xB9\x9B";
@@ -339,73 +336,42 @@ void make_gesture_passthrough(lv_obj_t* object) {
 }
 
 bool decode_preview_png(const std::shared_ptr<std::vector<std::uint8_t>>& encoded,
-                        std::shared_ptr<std::vector<std::uint8_t>>& pixels,
+                        std::shared_ptr<PreviewPixels>& pixels,
                         lv_image_dsc_t& descriptor) {
   if (!encoded || encoded->empty()) return false;
-  if (encoded->size() >= 2 && (*encoded)[0] == 'B' && (*encoded)[1] == 'M') {
-    const auto available = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (available <= kPreviewDecodeHeapMarginBytes) return false;
-    auto decoded = std::make_shared<std::vector<std::uint8_t>>();
-    std::uint16_t width = 0, height = 0;
-    if (!uniformation_decode_preview_bmp(*encoded, *decoded, width, height,
-        available - kPreviewDecodeHeapMarginBytes)) return false;
-    descriptor = {};
-    descriptor.header.magic = LV_IMAGE_HEADER_MAGIC;
-    descriptor.header.cf = LV_COLOR_FORMAT_ARGB8888;
-    descriptor.header.w = width; descriptor.header.h = height;
-    descriptor.header.stride = width * 4;
-    descriptor.data_size = decoded->size(); descriptor.data = decoded->data();
-    pixels = std::move(decoded); return true;
-  }
-  png_image image{};
-  image.version = PNG_IMAGE_VERSION;
-  if (!png_image_begin_read_from_memory(&image, encoded->data(), encoded->size())) return false;
-  image.format = PNG_FORMAT_BGRA;
-  if (image.width == 0 || image.height == 0 || image.width > kMaximumPreviewDimension ||
-      image.height > kMaximumPreviewDimension) {
-    ESP_LOGW(kLogTag, "Preview PNG dimensions are unsupported: %ux%u",
-             static_cast<unsigned>(image.width), static_cast<unsigned>(image.height));
-    png_image_free(&image);
-    return false;
-  }
-  const std::size_t decoded_size = PNG_IMAGE_SIZE(image);
-  if (decoded_size == 0 || decoded_size > kMaximumDecodedPreviewBytes) {
-    ESP_LOGW(kLogTag, "Preview PNG decoded size is unsupported: %u bytes",
-             static_cast<unsigned>(decoded_size));
-    png_image_free(&image);
-    return false;
-  }
-  const std::size_t largest_psram_block =
-      heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-  if (largest_psram_block < decoded_size + kPreviewDecodeHeapMarginBytes) {
-    ESP_LOGW(kLogTag,
-             "Preview PNG skipped: need %u bytes, largest PSRAM block is %u bytes",
-             static_cast<unsigned>(decoded_size),
-             static_cast<unsigned>(largest_psram_block));
-    png_image_free(&image);
-    return false;
-  }
+  const auto available = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (available <= kPreviewDecodeHeapMarginBytes) return false;
+  const std::size_t budget = available - kPreviewDecodeHeapMarginBytes;
+  auto decoded = std::make_shared<PreviewPixels>();
   mark_reset_checkpoint(ResetCheckpoint::kPreviewDecode);
-  auto decoded = std::make_shared<std::vector<std::uint8_t>>(decoded_size);
-  const std::size_t stride = static_cast<std::size_t>(image.width) * 4U;
-  if (!png_image_finish_read(&image, nullptr, decoded->data(),
-                             static_cast<png_int_32>(stride), nullptr)) {
-    ESP_LOGW(kLogTag, "Preview PNG decode failed: %s", image.message);
-    png_image_free(&image);
-    mark_reset_checkpoint(ResetCheckpoint::kRunning);
+  bool ready = false;
+  if (encoded->size() >= 2 && (*encoded)[0] == 'B' && (*encoded)[1] == 'M') {
+    std::vector<std::uint8_t> bmp;
+    if (uniformation_decode_preview_bmp(*encoded, bmp, decoded->width, decoded->height,
+                                       budget / 2, kDisplayWidth)) {
+      decoded->storage.reset(static_cast<std::uint8_t*>(std::malloc(bmp.size())));
+      if (decoded->storage) {
+        std::memcpy(decoded->storage.get(), bmp.data(), bmp.size());
+        decoded->bytes = bmp.size(); ready = true;
+      }
+    }
+  } else {
+    ready = decode_bounded_preview_png(*encoded, *decoded, kDisplayWidth,
+        std::min<std::size_t>(budget, kDisplayWidth * kDisplayHeight * 4U + 192U * 1024U));
+  }
+  mark_reset_checkpoint(ResetCheckpoint::kRunning);
+  if (!ready) {
+    ESP_LOGW(kLogTag, "Preview decode deferred or rejected within bounded memory");
     return false;
   }
-  png_image_free(&image);
   descriptor = {};
   descriptor.header.magic = LV_IMAGE_HEADER_MAGIC;
   descriptor.header.cf = LV_COLOR_FORMAT_ARGB8888;
-  descriptor.header.w = static_cast<std::uint16_t>(image.width);
-  descriptor.header.h = static_cast<std::uint16_t>(image.height);
-  descriptor.header.stride = static_cast<std::uint16_t>(stride);
-  descriptor.data_size = static_cast<std::uint32_t>(decoded->size());
-  descriptor.data = decoded->data();
+  descriptor.header.w = decoded->width;
+  descriptor.header.h = decoded->height;
+  descriptor.header.stride = decoded->width * 4;
+  descriptor.data_size = decoded->size(); descriptor.data = decoded->data();
   pixels = std::move(decoded);
-  mark_reset_checkpoint(ResetCheckpoint::kRunning);
   return true;
 }
 
@@ -4595,7 +4561,7 @@ void DisplayShell::update_printer_preview(const core::PrinterSnapshot& snapshot)
   if (now < preview_retry_at_ms_) return;
   // Decode on the core-0 display-state worker. Retire the old LVGL source and
   // cache under the display lock before releasing its backing pixels.
-  std::shared_ptr<std::vector<std::uint8_t>> decoded;
+  std::shared_ptr<PreviewPixels> decoded;
   lv_image_dsc_t descriptor{};
   if (snapshot.job.preview && !snapshot.job.preview->empty())
     decode_preview_png(snapshot.job.preview, decoded, descriptor);
@@ -4613,10 +4579,10 @@ void DisplayShell::update_printer_preview(const core::PrinterSnapshot& snapshot)
   lv_image_cache_drop(&preview_image_dsc_);
   preview_encoded_ = snapshot.job.preview;
   preview_retry_at_ms_ = 0;
-  if (replace_in_place && snapshot.job.preview && !decoded) {
+  if (snapshot.job.preview && !decoded) {
     // A capture or decode workspace may temporarily exhaust a contiguous
     // block. Keep the view open, clear the stale image and retry shortly.
-    preview_encoded_.reset(); preview_retry_at_ms_ = now + 500;
+    preview_encoded_.reset(); preview_retry_at_ms_ = now + 5000;
   }
   preview_task_ = snapshot.job.preview_hint;
   preview_pixels_ = std::move(decoded);

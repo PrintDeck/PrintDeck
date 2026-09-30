@@ -369,6 +369,7 @@ std::string_view ReactionAssetService::embedded_version(std::string_view id) {
 }
 
 std::vector<ReactionSetDefinition> ReactionAssetService::sets() {
+  if (!kBoardHasReactionStorage) return {};
   const auto catalog=SetCatalogService::instance().sets(false);
   if(!SetCatalogService::instance().reaction_catalog_ready())return {kSets.begin(),kSets.end()};
   std::vector<ReactionSetDefinition> result;result.reserve(catalog.size());
@@ -377,6 +378,10 @@ std::vector<ReactionSetDefinition> ReactionAssetService::sets() {
 }
 
 esp_err_t ReactionAssetService::start(const NetworkService& network) {
+  if (!kBoardHasReactionStorage) {
+    ESP_LOGI(kTag, "Built-in reactions only; external asset storage disabled");
+    return ESP_OK;
+  }
   if (network_ != nullptr || reaper_task_ != nullptr) return ESP_ERR_INVALID_STATE;
   network_ = &network;
   snapshot_.preview_session = esp_random();

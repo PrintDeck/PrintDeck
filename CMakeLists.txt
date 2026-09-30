@@ -15,14 +15,15 @@ endif()
 # continue to produce the exact same target unless a caller opts in to another
 # board with -DPRINTDECK_HW_VARIANT=<target>.
 set(PRINTDECK_HW_VARIANT "amoled_1_75" CACHE STRING "PrintDeck hardware variant")
-set_property(CACHE PRINTDECK_HW_VARIANT PROPERTY STRINGS amoled_1_75 lcd_1_54 knomi2 knomipanda)
+set_property(CACHE PRINTDECK_HW_VARIANT PROPERTY STRINGS amoled_1_75 lcd_1_54 knomi2 knomipanda lcd_1_28)
 if(NOT PRINTDECK_HW_VARIANT STREQUAL "amoled_1_75" AND
    NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54" AND
    NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
-   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
     message(FATAL_ERROR
         "Unsupported PRINTDECK_HW_VARIANT='${PRINTDECK_HW_VARIANT}'. "
-        "Choose amoled_1_75, lcd_1_54, knomi2 or knomipanda.")
+        "Choose amoled_1_75, lcd_1_54, knomi2, knomipanda or lcd_1_28.")
 endif()
 if(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
     set(IDF_TARGET esp32)
@@ -49,13 +50,20 @@ if(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
     list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.knomipanda.defaults")
 endif()
 
+if(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
+    list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.lcd_1_28.defaults")
+endif()
+
 # Each hardware target has an independent release stream. Never align one
 # target to the other target's version merely because both share this source.
 set(PRINTDECK_AMOLED_1_75_VERSION "1.1.0")
 set(PRINTDECK_LCD_1_54_VERSION "1.1.0")
 set(PRINTDECK_KNOMI2_VERSION "1.1.0")
 set(PRINTDECK_KNOMIPANDA_VERSION "1.1.0")
-if(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
+set(PRINTDECK_LCD_1_28_VERSION "1.1.0")
+if(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
+    set(PROJECT_VER "${PRINTDECK_LCD_1_28_VERSION}")
+elseif(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     set(PROJECT_VER "${PRINTDECK_KNOMI2_VERSION}")
     set(PRINTDECK_REACTION_SEED_DIR "main/reaction_seed/knomi2")
 elseif(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
@@ -74,7 +82,8 @@ message(STATUS "PrintDeck reaction seed: ${PRINTDECK_REACTION_SEED_DIR}")
 # The two Waveshare targets share local speech models and their flash layout.
 # KNOMI2 has no audio hardware and keeps the original asset partition.
 if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
-   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
     list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.defaults.voice")
 endif()
 
@@ -89,13 +98,16 @@ project(printdeck)
 # Factory/full flashes receive one validated default reaction set. OTA keeps
 # the existing LittleFS partition, so user overrides and the selected set are
 # not replaced by an application update.
-littlefs_create_partition_image(assets ${PRINTDECK_REACTION_SEED_DIR} FLASH_IN_PROJECT)
+if(NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
+    littlefs_create_partition_image(assets ${PRINTDECK_REACTION_SEED_DIR} FLASH_IN_PROJECT)
+endif()
 
 if(NOT CONFIG_LV_USE_FONT_COMPRESSED)
     message(FATAL_ERROR "PrintDeck requires CONFIG_LV_USE_FONT_COMPRESSED=y for lossless Montserrat glyphs")
 endif()
 if(NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
-   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
+   NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
     include("${CMAKE_CURRENT_LIST_DIR}/main/generated/voice-models/manifest.cmake")
     set(voice_model_image "${CMAKE_CURRENT_LIST_DIR}/main/generated/voice-models/models.bin")
     partition_table_get_partition_info(voice_model_size "--partition-name voice_models" "size")

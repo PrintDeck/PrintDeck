@@ -3,6 +3,7 @@
 #include <atomic>
 #include <array>
 #include <memory>
+#include "printdeck/platform/preview_png.hpp"
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -526,7 +527,7 @@ class DisplayShell {
   std::shared_ptr<std::vector<std::uint8_t>> preview_encoded_;
   std::string preview_task_;
   std::uint64_t preview_retry_at_ms_ = 0;
-  std::shared_ptr<std::vector<std::uint8_t>> preview_pixels_;
+  std::shared_ptr<PreviewPixels> preview_pixels_;
   core::CameraFrame camera_pixels_;
   std::int64_t camera_activity_updated_until_us_ = 0;
   bool camera_was_refreshing_ = false;

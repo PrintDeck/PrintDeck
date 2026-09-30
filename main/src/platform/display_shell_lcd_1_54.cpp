@@ -494,11 +494,15 @@ void DisplayShell::square_show_quick_menu() {
     if constexpr (!kBoardHasAudio) {
       if (index == 1) continue;
     }
+    if constexpr (!kBoardHasReactionStorage) {
+      if (index == 3) continue;
+    }
     lv_obj_t* button = lv_button_create(quick_overlay_);
     const int column=index==0||index==1?0:1;
     const int row=index==0||index==3?0:1;
     lv_obj_set_size(button,kDisplayUsesCompactRoundLayout?86:100,60);
-    lv_obj_align(button,LV_ALIGN_CENTER,column==0?-50:50,row==0?-37:33);
+    lv_obj_align(button,LV_ALIGN_CENTER,column==0?-50:50,
+                 kBoardHasReactionStorage ? (row==0?-37:33) : 0);
     lv_obj_set_style_radius(button, themed_radius(16), LV_PART_MAIN);
     lv_obj_set_style_bg_color(button, lv_color_hex(theme_style_.surface_raised), LV_PART_MAIN);
     lv_obj_set_style_border_width(button, 2, LV_PART_MAIN);

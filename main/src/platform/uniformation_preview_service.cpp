@@ -1,5 +1,6 @@
 #include "printdeck/platform/uniformation_preview_service.hpp"
 #include "printdeck/platform/ctb_preview.hpp"
+#include "printdeck/platform/board.hpp"
 #include "printdeck/platform/uniformation_sdcp_parser.hpp"
 #include "printdeck/platform/image_workspace.hpp"
 #include "printdeck/platform/task_affinity.hpp"
@@ -102,7 +103,7 @@ class RangeReader {
   esp_http_client_handle_t client_ = nullptr;
 };
 
-std::vector<std::uint8_t> history_preview(const std::string& origin, const std::string& task, const CtbCancel& cancel) {
+std::vector<std::uint8_t> history_preview(const std::string& origin, const std::string& task, const CtbCancel& cancel, std::size_t memory_budget) {
   if (!uniformation_valid_task_id(task) || cancel()) return {};
   const auto url = origin + "/media/emmc0/history_image/" + task + ".bmp";
   esp_http_client_config_t config{}; config.url = url.c_str(); config.timeout_ms = 350;
@@ -114,6 +115,9 @@ std::vector<std::uint8_t> history_preview(const std::string& origin, const std::
   if (esp_http_client_open(client, 0) != ESP_OK) return {};
   const auto size = esp_http_client_fetch_headers(client);
   if (esp_http_client_get_status_code(client) != 200 || size < 54 || size > 1048576) return {};
+  constexpr unsigned validation_edge = 64;
+  if (memory_budget < validation_edge * validation_edge * 4U ||
+      std::uint64_t(size) > memory_budget - validation_edge * validation_edge * 4U) return {};
   std::vector<std::uint8_t> bytes(size); std::size_t read = 0;
   while (read < bytes.size() && now_ms() < deadline && !cancel()) {
     const auto count = esp_http_client_read(client, reinterpret_cast<char*>(bytes.data() + read), std::min<std::size_t>(8192, bytes.size() - read));
@@ -122,7 +126,7 @@ std::vector<std::uint8_t> history_preview(const std::string& origin, const std::
   }
   std::vector<std::uint8_t> pixels; std::uint16_t w = 0, h = 0;
   if (read != bytes.size() || now_ms() >= deadline || cancel() ||
-      !uniformation_decode_preview_bmp(bytes, pixels, w, h)) return {};
+      !uniformation_decode_preview_bmp(bytes, pixels, w, h, validation_edge * validation_edge * 4U, validation_edge)) return {};
   unsigned visible = 0;
   for (std::size_t i = 0; i < pixels.size(); i += 4)
     if (pixels[i] > 8 || pixels[i + 1] > 8 || pixels[i + 2] > 8) ++visible;
@@ -269,7 +273,12 @@ void UniformationPreviewService::run() {
     };
     if (cancel()) continue;
     ImageWorkspaceLock workspace(20);
-    if (!workspace || heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < kCtbImageLimit + 512 * 1024) continue;
+    if (!workspace) continue;
+    const auto available = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    constexpr std::size_t reserve = 128 * 1024;
+    if (available <= reserve) continue;
+    const std::size_t memory_budget = available - reserve;
+    constexpr unsigned preview_edge = std::min<unsigned>(320, kDisplayWidth);
     if (model) { ++model_attempts; next_model = now_ms() + 30000; }
     else if (!volume) { attempted_layer = request.layer; next_layer = now_ms() + 5000; }
     const auto origin = "http://" + request.address + ":" + std::to_string(request.port);
@@ -292,12 +301,12 @@ void UniformationPreviewService::run() {
             volume_header_ok = std::isfinite(header.layer_mm) && header.layer_mm > 0 && header.layer_mm <= 1;
             for (const auto mm : header.size_mm) volume_header_ok &= std::isfinite(mm) && mm > 0 && mm <= 2000;
             if (volume_header_ok && !volume_work.metadata)
-              image = ctb_layer_mask(read, header, volume_work.index, volume_work.width, volume_work.height, stop);
-          } else image = model ? ctb_model_preview(read, header, stop) : ctb_layer_preview(read, header, request.layer, stop);
+              image = ctb_layer_mask(read, header, volume_work.index, volume_work.width, volume_work.height, stop, memory_budget);
+          } else image = model ? ctb_model_preview(read, header, stop, memory_budget, preview_edge) : ctb_layer_preview(read, header, request.layer, stop, memory_budget, preview_edge);
         }
       }
     }
-    if (model && image.empty() && !cancel()) image = history_preview(origin, request.task, cancel);
+    if (model && image.empty() && !cancel()) image = history_preview(origin, request.task, cancel, memory_budget);
     if (cancel()) continue;
     if (volume) {
       const std::lock_guard lock(mutex_);
