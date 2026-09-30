@@ -1333,6 +1333,26 @@
         const productVisual = document.getElementById('product-visual');
         const productVisualImage = document.getElementById('product-visual-image');
         const productVisualScreen = document.getElementById('product-visual-screen');
+        const miniPhotoFront = '/firmware/assets/mini-waveshare-front.jpg';
+        const miniPhotoBack = '/firmware/assets/mini-waveshare.jpg';
+        const miniPhotoMotion = matchMedia('(prefers-reduced-motion: reduce)');
+        const miniPhotoPreload = new Image();
+        let miniPhotoTimer;
+        const syncMiniPhotoRotation = () => {
+          clearInterval(miniPhotoTimer);
+          if (activeHardware !== 'lcd_1_28' || document.hidden || miniPhotoMotion.matches) return;
+          if (!miniPhotoPreload.src) miniPhotoPreload.src = miniPhotoFront;
+          miniPhotoTimer = setInterval(() => {
+            if (!miniPhotoPreload.complete || !miniPhotoPreload.naturalWidth) return;
+            productVisualImage.src = productVisualImage.getAttribute('src') === miniPhotoFront
+              ? miniPhotoBack : miniPhotoFront;
+          }, 5000);
+        };
+        document.addEventListener('visibilitychange', syncMiniPhotoRotation);
+        miniPhotoMotion.addEventListener('change', syncMiniPhotoRotation);
+        window.addEventListener('pagehide', () => clearInterval(miniPhotoTimer));
+        window.addEventListener('pageshow', syncMiniPhotoRotation);
+
         const installButton = document.getElementById('install-button');
         const installButtonLabel = document.getElementById('install-button-label');
         const usbUpdateButton = document.getElementById('usb-update-button');
@@ -2012,6 +2032,7 @@
             : squareHardware
               ? '../assets/marketing/home/u1-mini-cutout.webp'
               : '../assets/marketing/home/riverstone-hero-green-cutout.webp';
+          syncMiniPhotoRotation();
           productVisualScreen.hidden = squareHardware || knomi2Hardware || miniHardware;
           productVisual.setAttribute('aria-label', miniHardware ? 'Mini' : knomi2Hardware
             ? (selectedKnomiModel === 'knomipanda' ? 'Panda Knomi' : 'KNOMI')

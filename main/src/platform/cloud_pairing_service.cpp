@@ -272,10 +272,19 @@ void CloudPairingService::upload_screen() {
   if (!workspace) return;
   const auto internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   const auto internal_block = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  // Compact captures need smaller frame and PNG buffers. Requiring 2 MiB free
+  // permanently excludes boards whose entire PSRAM is 2 MiB. Reserve three
+  // RGBA buffers plus 512 KiB for composition, encoding and network headroom.
+  constexpr std::size_t frame_bytes = std::size_t(kDisplayWidth) * kDisplayHeight * 4;
+  constexpr bool compact = kDisplayWidth <= 240 && kDisplayHeight <= 240;
+  constexpr std::size_t required_free = compact ? frame_bytes * 3 + 512 * 1024 : 2 * 1024 * 1024;
+  constexpr std::size_t required_block = compact ? frame_bytes + 64 * 1024 : 1024 * 1024;
+  const auto psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  const auto psram_block = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (internal_free < 8 * 1024 || internal_block < 3 * 1024 ||
-      heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 2 * 1024 * 1024 ||
-      heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) < 1024 * 1024) {
-    ESP_LOGW("cloud_screen", "Capture deferred: internal free=%u, block=%u", unsigned(internal_free), unsigned(internal_block));
+      psram_free < required_free || psram_block < required_block) {
+    ESP_LOGW("cloud_screen", "Capture deferred: internal free=%u, block=%u; PSRAM free=%u, block=%u",
+             unsigned(internal_free), unsigned(internal_block), unsigned(psram_free), unsigned(psram_block));
     return;
   }
   { std::lock_guard lock(mutex_); screen_due_ = millis() + 5000; }

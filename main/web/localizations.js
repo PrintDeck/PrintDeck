@@ -553,7 +553,6 @@ const PRINTDECK_EXTRA_TRANSLATIONS={
   "Upload an official .bin file":["Wgraj oficjalny plik .bin","Subir un archivo .bin oficial","Téléverser un fichier .bin officiel","Offizielle .bin-Datei hochladen","上传官方 .bin 文件"],
   "Connect PrintDeck to the same local network as your printers.":["Połącz PrintDeck z tą samą siecią lokalną co drukarki.","Conecta PrintDeck a la misma red local que tus impresoras.","Connectez PrintDeck au même réseau local que vos imprimantes.","PrintDeck mit demselben lokalen Netzwerk wie die Drucker verbinden.","将 PrintDeck 连接到打印机所在的同一本地网络。"],
   "Connected to:":["Połączono z:","Conectado a:","Connecté à :","Verbunden mit:","已连接到："],
-  "Preparing nearby networks…":["Przygotowywanie pobliskich sieci…","Preparando redes cercanas…","Préparation des réseaux proches…","Netzwerke in der Nähe werden vorbereitet…","正在准备附近的网络…"],
   "Language":["Język","Idioma","Langue","Sprache","语言"],
   "Page appearance":["Wygląd strony","Apariencia de la página","Apparence de la page","Seitendarstellung","页面外观"],
   "Light appearance":["Jasny wygląd","Apariencia clara","Apparence claire","Helle Darstellung","浅色外观"],

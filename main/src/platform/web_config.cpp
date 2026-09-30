@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "esp_log.h"
+#include "esp_app_desc.h"
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_heap_caps.h"
@@ -93,12 +94,50 @@ constexpr std::uint32_t kLiveViewLongPressDurationMs = 1100;
 constexpr std::uint32_t kLiveViewSwipeDurationMs = 260;
 constexpr std::uint64_t kLiveViewInputCooldownMs = 150;
 
+// Validators are scoped to a resource URL and the exact firmware image, including
+// local builds that retain the same version. Dynamic API responses remain uncached.
+bool web_asset_validator_matches(std::string_view validators, std::string_view tag) {
+  while (!validators.empty()) {
+    const auto comma = validators.find(',');
+    auto value = validators.substr(0, comma);
+    while (!value.empty() && (value.front() == ' ' || value.front() == '\t')) value.remove_prefix(1);
+    while (!value.empty() && (value.back() == ' ' || value.back() == '\t')) value.remove_suffix(1);
+    if (value == "*") return true;
+    if (value.starts_with("W/")) value.remove_prefix(2);
+    if (value == tag) return true;
+    if (comma == std::string_view::npos) break;
+    validators.remove_prefix(comma + 1);
+  }
+  return false;
+}
+
 esp_err_t send_gzip_asset(httpd_req_t* request,
                           std::string_view asset,
                           const char* content_type) {
+  std::array<char, 67> tag{};
+  tag[0] = '"';
+  constexpr char hex[] = "0123456789abcdef";
+  const auto* description = esp_app_get_description();
+  for (std::size_t i = 0; i < 32; ++i) {
+    tag[1 + i * 2] = hex[description->app_elf_sha256[i] >> 4];
+    tag[2 + i * 2] = hex[description->app_elf_sha256[i] & 15];
+  }
+  tag[65] = '"';
   httpd_resp_set_type(request, content_type);
   httpd_resp_set_hdr(request, "Content-Encoding", "gzip");
-  httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+  httpd_resp_set_hdr(request, "Cache-Control", "private, no-cache");
+  httpd_resp_set_hdr(request, "ETag", tag.data());
+  // Oversized or unreadable validators safely fall back to a complete response.
+  std::array<char, 512> validators{};
+  const auto length = httpd_req_get_hdr_value_len(request, "If-None-Match");
+  if (length > 0 && length < validators.size() &&
+      httpd_req_get_hdr_value_str(request, "If-None-Match", validators.data(), validators.size()) == ESP_OK &&
+      web_asset_validator_matches(std::string_view(validators.data(), length), tag.data())) {
+    httpd_resp_set_status(request, "304 Not Modified");
+    // ESP-IDF 5.5.4 emits Content-Length from this size, but sends no body
+    // for a null buffer. A 304 length must describe the selected representation.
+    return httpd_resp_send(request, nullptr, asset.size());
+  }
   return httpd_resp_send(request, asset.data(), asset.size());
 }
 
