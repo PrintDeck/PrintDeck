@@ -35,13 +35,6 @@ constexpr size_t kMaximumPreviewBytes = 512U * 1024U;
 constexpr int64_t kRetryIntervalUs = 15000000;
 constexpr uint8_t kMaximumAttemptsPerJob = 4;
 
-uint32_t decode_u32_be(const uint8_t* bytes) {
-  return (static_cast<uint32_t>(bytes[0]) << 24U) |
-         (static_cast<uint32_t>(bytes[1]) << 16U) |
-         (static_cast<uint32_t>(bytes[2]) << 8U) |
-         static_cast<uint32_t>(bytes[3]);
-}
-
 bool has_png_signature(const uint8_t* bytes, size_t size) {
   constexpr std::array<uint8_t, 8> signature{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
   return size >= signature.size() && std::equal(signature.begin(), signature.end(), bytes);
@@ -89,36 +82,15 @@ std::string active_plate_png_from_archive(const std::vector<uint8_t>& bytes) {
 
 std::shared_ptr<std::vector<uint8_t>> find_complete_png(const std::vector<uint8_t>& bytes,
                                                         const std::string& target_name) {
-  constexpr std::array<uint8_t, 8> signature{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
-  auto cursor = bytes.begin();
-  const std::string resolved_target =
-      target_name.empty() ? active_plate_png_from_archive(bytes) : target_name;
-  if (resolved_target.empty()) return {};
-  if (!resolved_target.empty()) {
-    cursor = std::search(bytes.begin(), bytes.end(), resolved_target.begin(),
-                         resolved_target.end());
-    if (cursor == bytes.end()) return {};
-    cursor += static_cast<ptrdiff_t>(resolved_target.size());
-  }
-  while (cursor != bytes.end()) {
-    cursor = std::search(cursor, bytes.end(), signature.begin(), signature.end());
-    if (cursor == bytes.end()) return {};
-    const size_t start = static_cast<size_t>(cursor - bytes.begin());
-    size_t offset = start + signature.size();
-    while (offset + 12 <= bytes.size()) {
-      const uint32_t chunk_size = decode_u32_be(bytes.data() + offset);
-      if (chunk_size > kMaximumPreviewBytes || offset + 12U + chunk_size > bytes.size()) break;
-      const uint8_t* type = bytes.data() + offset + 4;
-      offset += 12U + chunk_size;
-      if (std::memcmp(type, "IEND", 4) == 0) {
-        if (offset - start > kMaximumPreviewBytes) return {};
-        return std::make_shared<std::vector<uint8_t>>(bytes.begin() + start,
-                                                      bytes.begin() + offset);
-      }
-    }
-    ++cursor;
-  }
-  return {};
+  const std::string target = target_name.empty() ? active_plate_png_from_archive(bytes) : target_name;
+  if (target.empty()) return {};
+  // Read only the named ZIP entry, including deflate and descriptor streams.
+  // Searching for the next PNG signature can accidentally select another plate.
+  const std::string_view prefix(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+  auto png = bambu_metadata::read_prefix_entry(prefix, target, nullptr, kMaximumPreviewBytes);
+  if (png.empty() || png.size() > kMaximumPreviewBytes ||
+      !has_png_signature(reinterpret_cast<const uint8_t*>(png.data()), png.size())) return {};
+  return std::make_shared<std::vector<uint8_t>>(png.begin(), png.end());
 }
 
 std::string basename(std::string value) {
@@ -171,10 +143,18 @@ std::vector<std::string> archive_paths(const std::string& file_hint,
                                        const std::string& job_name,
                                        const std::string& plate_hint) {
   std::vector<std::string> names;
+  // An explicit archive is authoritative. Never substitute an older file
+  // merely because it shares a slicer profile name.
   add_archive_variants(&names, file_hint);
-  if (ends_with_case_insensitive(plate_hint, ".3mf")) add_archive_variants(&names, plate_hint);
-  add_archive_variants(&names, job_name);
+  if (names.empty() && ends_with_case_insensitive(plate_hint, ".3mf"))
+    add_archive_variants(&names, plate_hint);
+  if (names.empty()) add_archive_variants(&names, job_name);
   std::vector<std::string> paths;
+  // Preserve a reported local directory instead of preferring /cache blindly.
+  if (!file_hint.empty() && file_hint.front() == '/' &&
+      (file_hint == "/" + basename(file_hint) || file_hint == "/cache/" + basename(file_hint) ||
+       file_hint == "/model/" + basename(file_hint)) && ends_with_case_insensitive(file_hint, ".3mf"))
+    return {file_hint};
   for (const std::string& name : names) {
     add_unique(&paths, "/cache/" + name);
     add_unique(&paths, "/model/" + name);
@@ -414,15 +394,27 @@ BambuJobMetadata fetch_archive_metadata(const BambuLocalConnection& connection,
   if (stopped() || !open_ftps_control(connection, &initial)) return {};
   Tls control(initial, esp_tls_conn_destroy);
   std::string response;
-  if (!ftp_command(control.get(), "SIZE " + path, 213, -1, &response) || response.size() < 5) return {};
+  const auto unsupported = [](const std::string& reply) {
+    return reply.starts_with("500 ") || reply.starts_with("502 ") || reply.starts_with("504 ");
+  };
+  if (!ftp_command(control.get(), "SIZE " + path, 213, -1, &response)) {
+    const bool fallback = unsupported(response);
+    control.reset();
+    return fallback ? fetch_metadata_prefix(connection, path, stopped) : BambuJobMetadata{};
+  }
+  if (response.size() < 5) return {};
   std::uint64_t size = 0;
   for (std::size_t i = 4; i < response.size(); ++i) {
     const char c = response[i];
     if (c < '0' || c > '9' || size > 512ULL * 1024 * 1024 / 10) return {};
     size = size * 10 + c - '0';
   }
-  if (size < 22 || size > 512ULL * 1024 * 1024 ||
-      !ftp_command(control.get(), "MDTM " + path, 213, -1, &response)) return {};
+  if (size < 22 || size > 512ULL * 1024 * 1024) return {};
+  if (!ftp_command(control.get(), "MDTM " + path, 213, -1, &response)) {
+    const bool fallback = unsupported(response);
+    control.reset();
+    return fallback ? fetch_metadata_prefix(connection, path, stopped) : BambuJobMetadata{};
+  }
   const auto modified = response;
   if (modified.size() < 18 || modified.size() > 28) return {};
   std::string cache;
@@ -585,6 +577,7 @@ void BambuA1PreviewClient::publish_status(bool configured, bool fetching,
   if (clear_image) {
     snapshot_.image.reset();
     snapshot_.job_key.clear();
+    snapshot_.archive_path.clear();
     snapshot_.model_title.clear();
     snapshot_.profile_title.clear();
   }
@@ -592,12 +585,13 @@ void BambuA1PreviewClient::publish_status(bool configured, bool fetching,
 
 void BambuA1PreviewClient::publish_image(
     const std::string& job_key, std::shared_ptr<std::vector<uint8_t>> image,
-    std::string model_title, std::string profile_title) {
+    std::string model_title, std::string profile_title, std::string archive_path) {
   std::lock_guard<std::mutex> lock(snapshot_mutex_);
   snapshot_.configured = true;
   snapshot_.fetching = false;
   snapshot_.detail = "Local print preview loaded";
   snapshot_.job_key = job_key;
+  snapshot_.archive_path = std::move(archive_path);
   snapshot_.image = std::move(image);
   snapshot_.model_title = std::move(model_title);
   snapshot_.profile_title = std::move(profile_title);
@@ -605,8 +599,11 @@ void BambuA1PreviewClient::publish_image(
 
 bool BambuA1PreviewClient::fetch(const BambuLocalConnection& connection, const JobRequest& job,
                                  std::shared_ptr<std::vector<uint8_t>>* image,
-                                 std::string* model_title, std::string* profile_title) {
-  const std::vector<std::string> paths = archive_paths(job.file_hint, job.job_name, job.plate_hint);
+                                 std::string* model_title, std::string* profile_title,
+                                 std::string* archive_path) {
+  const auto paths = archive_path->empty()
+      ? archive_paths(job.file_hint, job.job_name, job.plate_hint)
+      : std::vector<std::string>{*archive_path};
   const std::string target_name = plate_png_name(job.plate_hint);
   if (paths.empty() || image == nullptr) return false;
   ESP_LOGI(kTag, "Fetching a bounded local Bambu print preview");
@@ -624,6 +621,7 @@ bool BambuA1PreviewClient::fetch(const BambuLocalConnection& connection, const J
       *profile_title = core::bounded_job_name(metadata.profile);
     }
     if (found_image || !model_title->empty()) {
+      *archive_path = path;
       ESP_LOGI(kTag, "Loaded local Bambu job data (preview=%d, title=%d)",
                found_image, !model_title->empty());
       return true;
@@ -706,12 +704,14 @@ void BambuA1PreviewClient::task_loop() {
     auto image = same_job ? cached.image : nullptr;
     std::string model_title = same_job ? cached.model_title : "";
     std::string profile_title = same_job ? cached.profile_title : "";
-    if (fetch(current_connection, job, &image, &model_title, &profile_title) &&
+    std::string archive_path = same_job ? cached.archive_path : "";
+    if (fetch(current_connection, job, &image, &model_title, &profile_title, &archive_path) &&
         !stop_requested_.load(std::memory_order_acquire) && (preview_requested_.load() || metadata_requested_.load()) &&
         connection_generation_.load() == connection_generation &&
         job_request().key == job.key) {
       const bool complete = image && !model_title.empty();
-      publish_image(job.key, std::move(image), std::move(model_title), std::move(profile_title));
+      publish_image(job.key, std::move(image), std::move(model_title), std::move(profile_title),
+                    std::move(archive_path));
       // Retry only missing data. Successful cover/title reads survive worker
       // suspension and never spend another TLS session for the same job.
       if (complete) attempts = kMaximumAttemptsPerJob;

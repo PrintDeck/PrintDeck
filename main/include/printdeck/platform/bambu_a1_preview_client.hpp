@@ -19,6 +19,7 @@ struct BambuA1PreviewSnapshot {
   bool fetching = false;
   std::string detail = "Print preview idle";
   std::string job_key;
+  std::string archive_path;
   std::string model_title;
   std::string profile_title;
   std::shared_ptr<std::vector<uint8_t>> image;
@@ -65,10 +66,10 @@ class BambuA1PreviewClient {
                       bool clear_image = false);
   void publish_image(const std::string& job_key,
                      std::shared_ptr<std::vector<uint8_t>> image,
-                     std::string model_title, std::string profile_title);
+                     std::string model_title, std::string profile_title, std::string archive_path);
   bool fetch(const BambuLocalConnection& connection, const JobRequest& job,
              std::shared_ptr<std::vector<uint8_t>>* image,
-             std::string* model_title, std::string* profile_title);
+             std::string* model_title, std::string* profile_title, std::string* archive_path);
 
   mutable std::mutex config_mutex_{};
   BambuLocalConnection connection_{};

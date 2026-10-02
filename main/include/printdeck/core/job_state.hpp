@@ -205,6 +205,10 @@ struct JobState {
   std::string subtitle;
   // Protocol job identity, used only to bind local metadata to this job.
   std::string source_job_id;
+  // Adapter-local media boundary, never serialized as printer telemetry.
+  // Distinguishes repeated filenames/IDs and coalesced finish/start observations.
+  std::uint32_t preview_generation = 0;
+  bool preview_pending_start = false;
   std::string gcode_file;
   // Adapter-owned local download reference; never serialized to browser/cloud state.
   std::string preview_hint;

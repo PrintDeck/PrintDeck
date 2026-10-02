@@ -11,6 +11,7 @@ namespace printdeck::platform {
 struct BambuReportParseResult {
   bool parsed = false;
   bool status_report = false;
+  bool job_metadata_report = false;
   bool identity_report = false;
   bool restricted_commands = false;
   bool chamber_light_confirmed = false;

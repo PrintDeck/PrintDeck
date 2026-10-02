@@ -473,8 +473,11 @@ void BambuLanAdapter::handle_report(const char* payload, std::size_t length) {
     status_ready_.store(true);
     last_status_report_ms_.store(received_at);
     recovery_request_ms_.store(0);
-    snapshots_.replace(std::move(parsed.snapshot));
   }
+  // File/task fields also arrive without temperatures or progress. Retain those
+  // deltas without pretending they are a fresh live status or reconnect success.
+  if (parsed.status_report || parsed.job_metadata_report)
+    snapshots_.replace(std::move(parsed.snapshot));
 }
 
 }  // namespace printdeck::platform

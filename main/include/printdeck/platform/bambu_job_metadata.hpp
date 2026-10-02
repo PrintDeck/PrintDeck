@@ -100,10 +100,11 @@ struct PrefixDiagnostic {
   bool incomplete = true;
   std::size_t needed = 30;
 };
-inline BambuJobMetadata read_prefix(std::string_view prefix, PrefixDiagnostic* diagnostic = nullptr) {
+inline std::string read_prefix_entry(std::string_view prefix, std::string_view target,
+    PrefixDiagnostic* diagnostic = nullptr, std::size_t compressed_limit = 128 * 1024) {
   PrefixDiagnostic state;
   const auto reject = [&](const char* reason, bool incomplete = false,
-                          std::size_t needed = 0) -> BambuJobMetadata {
+                          std::size_t needed = 0) -> std::string {
     state.reason = reason; state.incomplete = incomplete; state.needed = needed;
     if (diagnostic) *diagnostic = state;
     return {};
@@ -132,7 +133,7 @@ inline BambuJobMetadata read_prefix(std::string_view prefix, PrefixDiagnostic* d
     const auto data_offset = at + 30 + name_size + extra_size;
     state.flags = flags; state.compressed = compressed; state.raw = raw;
     if (data_offset > prefix.size()) return reject("entry-header-incomplete", true, data_offset);
-    state.root_model = prefix.substr(at + 30, name_size) == "3D/3dmodel.model";
+    state.root_model = prefix.substr(at + 30, name_size) == target;
     if (flags & ~0x808ULL) return reject("unsupported-flags");
     auto extra = prefix.substr(at + 30 + name_size, extra_size);
     for (std::size_t pos = 0; pos + 4 <= extra.size();) {
@@ -173,7 +174,7 @@ inline BambuJobMetadata read_prefix(std::string_view prefix, PrefixDiagnostic* d
           checksum = crc32(checksum, output.data(), produced);
           // Validate skipped entries without retaining their expanded content.
           over_limit = stream.total_out + inflated_total > 4 * 1024 * 1024 ||
-              (state.root_model && (stream.total_out > 512 * 1024 || stream.total_in > 128 * 1024));
+              (state.root_model && (stream.total_out > 512 * 1024 || stream.total_in > compressed_limit));
           if (over_limit) break;
           if (state.root_model) xml.append(reinterpret_cast<const char*>(output.data()), produced);
           if (stream.total_in == before_in && stream.total_out == before_out) break;
@@ -215,7 +216,7 @@ inline BambuJobMetadata read_prefix(std::string_view prefix, PrefixDiagnostic* d
         }
         if (!found) return more("stored-descriptor-incomplete", data_offset);
         if (state.root_model) {
-          if (raw > 128 * 1024) return reject("root-model-compressed-limit");
+          if (raw > compressed_limit) return reject("root-model-compressed-limit");
           xml.assign(data.substr(0, raw));
         }
       } else return reject("compression-unsupported");
@@ -225,7 +226,7 @@ inline BambuJobMetadata read_prefix(std::string_view prefix, PrefixDiagnostic* d
       if (state.root_model) {
         if (!raw || !compressed) return reject("root-model-empty");
         if (raw > 512 * 1024) return reject("root-model-raw-limit");
-        if (compressed > 128 * 1024) return reject("root-model-compressed-limit");
+        if (compressed > compressed_limit) return reject("root-model-compressed-limit");
         auto data = prefix.substr(data_offset, compressed);
         if (method == 0) {
           if (raw != compressed) return reject("stored-size-mismatch");
@@ -247,16 +248,22 @@ inline BambuJobMetadata read_prefix(std::string_view prefix, PrefixDiagnostic* d
       }
     }
     if (state.root_model) {
-      auto metadata = parse(xml);
       state.compressed = compressed; state.raw = raw;
-      state.reason = metadata.title.empty() ? "root-title-empty" : "complete";
+      state.reason = "complete";
       state.incomplete = false;
       if (diagnostic) *diagnostic = state;
-      return metadata;
+      return xml;
     }
     at = data_offset + compressed + descriptor_bytes;
   }
   return reject("entry-count-limit");
+}
+
+inline BambuJobMetadata read_prefix(std::string_view prefix, PrefixDiagnostic* diagnostic = nullptr) {
+  auto bytes = read_prefix_entry(prefix, "3D/3dmodel.model", diagnostic);
+  auto metadata = parse(bytes);
+  if (diagnostic && !bytes.empty() && metadata.title.empty()) diagnostic->reason = "root-title-empty";
+  return metadata;
 }
 
 // Bounded range reads avoid downloading geometry or G-code. ZIP64 offsets are

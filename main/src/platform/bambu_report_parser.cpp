@@ -694,6 +694,43 @@ BambuReportParseResult parse_bambu_report(const char* payload, std::size_t lengt
     next.job.reachable = true;
     next.updated_at_ms = updated_at_ms;
   }
+  // Reports are deltas, but media references must never cross a task boundary.
+  // A new task can arrive before its file/plate fields, or without an ID in LAN mode.
+  std::string incoming_id, incoming_name, incoming_file, incoming_gcode, incoming_phase;
+  const bool has_id = read_text(print, "subtask_id", incoming_id);
+  const bool has_name = read_text(print, "subtask_name", incoming_name);
+  const bool has_file = read_text(print, "file", incoming_file);
+  const bool has_gcode = read_text(print, "gcode_file", incoming_gcode);
+  const bool has_phase = read_text(print, "gcode_state", incoming_phase);
+  std::string incoming_plate;
+  result.job_metadata_report = has_id || has_name || has_file || has_gcode ||
+      read_text(print, "param", incoming_plate);
+  const auto active = [](core::JobPhase phase) {
+    return phase == core::JobPhase::preparing || phase == core::JobPhase::printing ||
+           phase == core::JobPhase::paused;
+  };
+  const bool new_id = has_id && incoming_id != next.job.source_job_id;
+  const bool new_file = has_file && !incoming_file.empty() &&
+      !next.job.preview_hint.empty() && incoming_file != next.job.preview_hint;
+  const bool new_gcode = has_gcode && !incoming_gcode.empty() &&
+      !next.job.gcode_file.empty() && incoming_gcode != next.job.gcode_file;
+  const bool new_name = has_name && !incoming_name.empty() && !next.job.name.empty() &&
+      incoming_name != next.job.name;
+  const bool starting = has_phase && active(phase_for(incoming_phase)) &&
+      next.job.phase != core::JobPhase::unknown && !active(next.job.phase);
+  const bool announced = new_id || new_file || new_gcode || new_name;
+  if (announced || (starting && !next.job.preview_pending_start)) {
+    next.job.name.clear();
+    next.job.subtitle.clear();
+    next.job.gcode_file.clear();
+    next.job.preview_hint.clear();
+    next.job.preview_plate_hint.clear();
+    next.job.preview.reset();
+    ++next.job.preview_generation;
+    if (starting && !has_id) next.job.source_job_id.clear();
+    next.job.preview_pending_start = !active(next.job.phase) && !starting;
+  }
+  if (has_phase && active(phase_for(incoming_phase))) next.job.preview_pending_start = false;
   std::string text;
   if (read_text(print, "gcode_state", text)) {
     next.job.phase = phase_for(text);
@@ -707,6 +744,8 @@ BambuReportParseResult parse_bambu_report(const char* payload, std::size_t lengt
     if (next.job.phase == core::JobPhase::idle) {
       next.job.kind = core::JobKind::print;
       next.job.name.clear();
+      next.job.subtitle.clear();
+      next.job.preview_pending_start = false;
       next.job.source_job_id.clear();
       next.job.gcode_file.clear();
       next.job.preview_hint.clear();

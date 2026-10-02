@@ -15,6 +15,14 @@ std::string printer_key(const core::PrinterProfile& profile) {
 std::string PrintPreviewService::key(const core::PrinterProfile& profile,
                                     const core::JobState& job) {
   if (job.preview_hint.empty() && job.gcode_file.empty() && job.name.empty()) return {};
+  if (profile.protocol == core::PrinterProtocol::bambu_lan) {
+    // Retire prior cache identities, which ignored corrected archive locations.
+    // The display title is resolved separately and must not change this key.
+    const auto name = job.preview_hint.empty() && job.gcode_file.empty() ? job.name : "";
+    return printer_key(profile) + "\nbambu-job-v3\n" + job.source_job_id + "\n" +
+        std::to_string(job.preview_generation) + "\n" + job.preview_hint + "\n" +
+        job.gcode_file + "\n" + job.preview_plate_hint + "\n" + name;
+  }
   // A resolved display title is presentation, not job identity. Bambu task IDs
   // also distinguish successive cloud prints reusing the same archive filename.
   if (!job.source_job_id.empty() && job.source_job_id != "0")
@@ -48,6 +56,7 @@ void PrintPreviewService::update(const core::PrinterProfile* profile,
   if (profile && state.profile_id == profile->id) {
     next.key = key(*profile, state.job);
     next.printer = printer_key(*profile);
+    next.verify_bambu_source = profile->protocol == core::PrinterProtocol::bambu_lan;
     next.phase = state.job.phase;
     next.online = state.link == core::LinkState::online;
     next.visible = visible;
@@ -109,6 +118,10 @@ std::uint32_t PrintPreviewService::process() {
   }
   if (request.key != current_key_) {
     if (request.printer == current_printer_) cache_.remove(current_key_);
+    // After a restart/reconnection, an absent or reused Bambu task ID cannot
+    // prove that a persisted filename still belongs to this print. Verify it
+    // once from the printer; ordinary view changes retain the current entry.
+    if (request.verify_bambu_source) cache_.remove(request.key);
     current_key_ = request.key;
     current_printer_ = request.printer;
     resident_.reset();

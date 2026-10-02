@@ -1312,7 +1312,8 @@ core::PrinterSnapshot Runtime::update_bambu_snapshot() {
   }
   const bool preview_allowed = active &&
       (a1_preview_not_before_ms_ == 0 || now_ms >= a1_preview_not_before_ms_);
-  const auto source_job_id = std::to_string(snapshot.profile_id) + ":" + snapshot.job.source_job_id;
+  const auto source_job_id = std::to_string(snapshot.profile_id) + ":" + snapshot.job.source_job_id +
+      ":" + std::to_string(snapshot.job.preview_generation);
   const auto job_key = BambuA1PreviewClient::job_key(snapshot.job.preview_hint,
       snapshot.job.name, snapshot.job.preview_plate_hint, source_job_id);
   if (snapshot.job.phase != core::JobPhase::unknown &&
@@ -1337,7 +1338,7 @@ core::PrinterSnapshot Runtime::update_bambu_snapshot() {
   }
   if (active && preview.job_key == job_key && preview.image && !preview.image->empty()) {
     snapshot.job.preview = preview.image;
-  } else if (!active) {
+  } else {
     snapshot.job.preview.reset();
   }
   const BambuA1CameraSnapshot camera = bambu_a1_camera_.snapshot();

@@ -29,7 +29,7 @@ class PrintPreviewService {
   struct Request {
     std::string key, printer;
     core::JobPhase phase = core::JobPhase::unknown;
-    bool online = false, visible = false;
+    bool online = false, visible = false, verify_bambu_source = false;
     std::shared_ptr<std::vector<std::uint8_t>> image;
   };
   static std::uint32_t work_entry(void*);
