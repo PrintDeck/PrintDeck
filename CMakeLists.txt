@@ -15,15 +15,16 @@ endif()
 # continue to produce the exact same target unless a caller opts in to another
 # board with -DPRINTDECK_HW_VARIANT=<target>.
 set(PRINTDECK_HW_VARIANT "amoled_1_75" CACHE STRING "PrintDeck hardware variant")
-set_property(CACHE PRINTDECK_HW_VARIANT PROPERTY STRINGS amoled_1_75 lcd_1_54 knomi2 knomipanda lcd_1_28)
+set_property(CACHE PRINTDECK_HW_VARIANT PROPERTY STRINGS amoled_1_75 amoled_1_75c lcd_1_54 knomi2 knomipanda lcd_1_28)
 if(NOT PRINTDECK_HW_VARIANT STREQUAL "amoled_1_75" AND
+   NOT PRINTDECK_HW_VARIANT STREQUAL "amoled_1_75c" AND
    NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_54" AND
    NOT PRINTDECK_HW_VARIANT STREQUAL "knomi2" AND
    NOT PRINTDECK_HW_VARIANT STREQUAL "knomipanda" AND
    NOT PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
     message(FATAL_ERROR
         "Unsupported PRINTDECK_HW_VARIANT='${PRINTDECK_HW_VARIANT}'. "
-        "Choose amoled_1_75, lcd_1_54, knomi2, knomipanda or lcd_1_28.")
+        "Choose amoled_1_75, amoled_1_75c, lcd_1_54, knomi2, knomipanda or lcd_1_28.")
 endif()
 if(PRINTDECK_HW_VARIANT STREQUAL "knomipanda")
     set(IDF_TARGET esp32)
@@ -57,11 +58,15 @@ endif()
 # Each hardware target has an independent release stream. Never align one
 # target to the other target's version merely because both share this source.
 set(PRINTDECK_AMOLED_1_75_VERSION "1.1.0")
+set(PRINTDECK_AMOLED_1_75C_VERSION "1.0.0")
 set(PRINTDECK_LCD_1_54_VERSION "1.1.0")
 set(PRINTDECK_KNOMI2_VERSION "1.1.0")
 set(PRINTDECK_KNOMIPANDA_VERSION "1.1.0")
 set(PRINTDECK_LCD_1_28_VERSION "1.1.0")
-if(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
+if(PRINTDECK_HW_VARIANT STREQUAL "amoled_1_75c")
+    set(PROJECT_VER "${PRINTDECK_AMOLED_1_75C_VERSION}")
+    set(PRINTDECK_REACTION_SEED_DIR "main/reaction_seed/amoled_1_75")
+elseif(PRINTDECK_HW_VARIANT STREQUAL "lcd_1_28")
     set(PROJECT_VER "${PRINTDECK_LCD_1_28_VERSION}")
 elseif(PRINTDECK_HW_VARIANT STREQUAL "knomi2")
     set(PROJECT_VER "${PRINTDECK_KNOMI2_VERSION}")

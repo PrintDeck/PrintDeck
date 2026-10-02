@@ -191,3 +191,10 @@ from the per-image sources listed in the thumbnail notice. Their backgrounds
 are removed and the photographs are scaled for display; rights remain with
 the respective owners. The OrcaSlicer license statement above applies only
 to the OrcaSlicer artwork.
+
+The experimental `amoled_1_75c` profile uses this same reviewed BSP override
+with the Waveshare C-board pin mapping: panel reset GPIO1, touch reset GPIO2
+and audio MCLK GPIO16. Its conditioned POWER input is GPIO3 rather than
+TCA9554 EXIO4, and no SD-card slot is exposed. The display controller, QSPI
+geometry, touch driver and DMA/rotation implementation remain shared.
+Hardware reference: https://docs.waveshare.com/ESP32-S3-Touch-AMOLED-1.75C

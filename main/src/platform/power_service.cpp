@@ -8,6 +8,7 @@
 
 #include "bsp/esp32_s3_touch_amoled_1_75.h"
 #include "driver/i2c_master.h"
+#include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -26,11 +27,21 @@ constexpr std::uint8_t kPressStableSamples = 2;
 constexpr std::uint8_t kReleaseStableSamples = 3;
 constexpr std::uint8_t kHeldReleaseStableSamples = 25;
 constexpr std::uint64_t kButtonErrorLogIntervalMs = 5000;
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+// The C schematic routes inverted PWRON through BSS138 SYS_OUT to GPIO3.
+// Released is low; pressed is high. Its external 10 kOhm pull-up is sufficient.
+constexpr gpio_num_t kPowerButtonGpio = GPIO_NUM_3;
+constexpr char kPowerButtonSource[] = "GPIO3";
+#else
 constexpr std::uint32_t kPowerButtonPin = IO_EXPANDER_PIN_NUM_4;
+constexpr char kPowerButtonSource[] = "EXIO4";
+#endif
 
 XPowersPMU s_pmu;
 i2c_master_dev_handle_t s_pmu_device = nullptr;
+#if !defined(PRINTDECK_BOARD_AMOLED_1_75C)
 esp_io_expander_handle_t s_expander = nullptr;
+#endif
 
 esp_err_t read_register_bytes(std::uint8_t address, std::uint8_t* data, std::uint8_t length) {
   if (s_pmu_device == nullptr) return ESP_ERR_INVALID_STATE;
@@ -72,12 +83,25 @@ esp_err_t PowerService::start() {
   }
   if (!s_pmu.begin(AXP2101_SLAVE_ADDRESS, read_register, write_register)) return ESP_FAIL;
 
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+  const gpio_config_t button_config = {
+      .pin_bit_mask = 1ULL << kPowerButtonGpio,
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_DISABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  ESP_RETURN_ON_ERROR(gpio_config(&button_config), kLogTag,
+                      "Power-key GPIO initialization failed");
+#else
   s_expander = bsp_io_expander_init();
   if (s_expander == nullptr ||
       esp_io_expander_set_dir(s_expander, kPowerButtonPin, IO_EXPANDER_INPUT) != ESP_OK) {
     ESP_LOGE(kLogTag, "Conditioned power-key level unavailable; software POWER disabled");
     s_expander = nullptr;
   }
+
+#endif
 
   s_pmu.enableVbusVoltageMeasure();
   s_pmu.enableBattVoltageMeasure();
@@ -107,8 +131,8 @@ esp_err_t PowerService::start() {
   ready_ = true;
   ESP_LOGI(
       kLogTag,
-      "AXP2101 ready; POWER uses stable EXIO4 samples, graceful off at %llu ms, "
-      "emergency at 6 seconds",
+      "AXP2101 ready; POWER uses stable %s samples, graceful off at %llu ms, "
+      "emergency at 6 seconds", kPowerButtonSource,
       static_cast<unsigned long long>(
           core::kPowerButtonShutdownCountdownStartMs +
           3 * core::kPowerButtonShutdownCountdownStepMs));
@@ -116,8 +140,12 @@ esp_err_t PowerService::start() {
 }
 
 PowerButtonAction PowerService::poll_button() {
-  if (!ready_ || s_expander == nullptr) return PowerButtonAction::none;
+  if (!ready_) return PowerButtonAction::none;
   const std::uint64_t now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000ULL);
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+  const bool raw_pressed = gpio_get_level(kPowerButtonGpio) != 0;
+#else
+  if (s_expander == nullptr) return PowerButtonAction::none;
   std::uint32_t levels = 0;
   const esp_err_t read_result =
       esp_io_expander_get_level(s_expander, kPowerButtonPin, &levels);
@@ -128,7 +156,7 @@ PowerButtonAction PowerService::poll_button() {
     release_pending_ = false;
     if (last_button_read_error_log_ms_ == 0 ||
         now_ms - last_button_read_error_log_ms_ >= kButtonErrorLogIntervalMs) {
-      ESP_LOGW(kLogTag, "PWR EXIO4 read failed: %s (total errors: %lu); keeping state",
+      ESP_LOGW(kLogTag, "PWR %s read failed: %s (total errors: %lu); keeping state", kPowerButtonSource,
                esp_err_to_name(read_result),
                static_cast<unsigned long>(button_read_error_count_));
       last_button_read_error_log_ms_ = now_ms;
@@ -137,6 +165,7 @@ PowerButtonAction PowerService::poll_button() {
   }
 
   const bool raw_pressed = (levels & kPowerButtonPin) != 0;
+#endif
   if (raw_pressed == button_pressed_) {
     if (transition_candidate_valid_) {
       if (button_pressed_ && !transition_candidate_pressed_) {
@@ -178,7 +207,7 @@ PowerButtonAction PowerService::poll_button() {
         button_pressed_ = true;
         button_pressed_at_ms_ = transition_at_ms;
         countdown_stage_ = 0;
-        ESP_LOGI(kLogTag, "POWER pressed (stable EXIO4)");
+        ESP_LOGI(kLogTag, "POWER pressed (stable %s)", kPowerButtonSource);
         return PowerButtonAction::pressed;
       }
 
@@ -187,7 +216,7 @@ PowerButtonAction PowerService::poll_button() {
       button_pressed_ = false;
       button_pressed_at_ms_ = 0;
       countdown_stage_ = 0;
-      ESP_LOGI(kLogTag, "POWER released after %llu ms (stable EXIO4)", held_ms);
+      ESP_LOGI(kLogTag, "POWER released after %llu ms (stable %s)", held_ms, kPowerButtonSource);
       switch (core::power_button_release_action(held_ms, visible)) {
         case core::PowerButtonReleaseAction::home: return PowerButtonAction::released;
         case core::PowerButtonReleaseAction::cancel_shutdown:

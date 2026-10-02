@@ -89,8 +89,22 @@ esp_err_t OrientationService::start_auto_tracking() {
   if constexpr (!kBoardHasMotionSensor) return ESP_OK;
   if (task_ != nullptr) return ESP_OK;
   if (sensor_ != nullptr) return ESP_ERR_INVALID_STATE;
+  std::uint8_t address = kMotionSensorI2cAddress;
+  if constexpr (kMotionSensorAlternateI2cAddress != 0) {
+    // Resolve the two documented C addresses before allocating a driver handle.
+    // Bus failures and an invalid responding chip must not trigger a fallback.
+    const auto primary = i2c_master_probe(board_i2c_handle(), address, 50);
+    if (primary == ESP_ERR_NOT_FOUND) {
+      const auto alternate = i2c_master_probe(
+          board_i2c_handle(), kMotionSensorAlternateI2cAddress, 50);
+      if (alternate != ESP_OK) return alternate;
+      address = kMotionSensorAlternateI2cAddress;
+    } else if (primary != ESP_OK) {
+      return primary;
+    }
+  }
   auto* sensor = new qmi8658_dev_t{};
-  esp_err_t result = qmi8658_init(sensor, board_i2c_handle(), QMI8658_ADDRESS_HIGH);
+  esp_err_t result = qmi8658_init(sensor, board_i2c_handle(), address);
   if (result == ESP_OK) result = qmi8658_set_accel_range(sensor, QMI8658_ACCEL_RANGE_8G);
   if (result == ESP_OK) result = qmi8658_set_accel_odr(sensor, QMI8658_ACCEL_ODR_500HZ);
   if (result != ESP_OK) {

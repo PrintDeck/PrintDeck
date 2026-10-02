@@ -570,7 +570,7 @@ void Runtime::power_loop() {
       case PowerButtonAction::shutdown: perform_shutdown();
       case PowerButtonAction::none: break;
     }
-    vTaskDelay(pdMS_TO_TICKS(std::string_view(kBoardVariant) == "amoled_1_75" ? 20 : 50));
+    vTaskDelay(pdMS_TO_TICKS(kDisplayUsesLargeLayout ? 20 : 50));
   }
 }
 

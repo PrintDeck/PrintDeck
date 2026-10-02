@@ -37,7 +37,11 @@
 #define BSP_I2C_SDA           (GPIO_NUM_15)
 
 #define BSP_I2S_SCLK          (GPIO_NUM_9)
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+#define BSP_I2S_MCLK          (GPIO_NUM_16)
+#else
 #define BSP_I2S_MCLK          (GPIO_NUM_42)
+#endif
 #define BSP_I2S_LCLK          (GPIO_NUM_45)
 #define BSP_I2S_DOUT          (GPIO_NUM_8)
 #define BSP_I2S_DSIN          (GPIO_NUM_10)
@@ -52,8 +56,13 @@
 #define BSP_LCD_DATA3     (GPIO_NUM_7)
 
 #define BSP_LCD_BACKLIGHT     (GPIO_NUM_NC)
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+#define BSP_LCD_RST           (GPIO_NUM_1)
+#define BSP_LCD_TOUCH_RST     (GPIO_NUM_2)
+#else
 #define BSP_LCD_RST           (GPIO_NUM_39)
 #define BSP_LCD_TOUCH_RST     (GPIO_NUM_40)
+#endif
 #define BSP_LCD_TOUCH_INT     (GPIO_NUM_11)
 
 /* uSD card */

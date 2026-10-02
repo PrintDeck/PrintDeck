@@ -497,6 +497,10 @@ esp_err_t bsp_spiffs_unmount(void)
 
 esp_err_t bsp_sdcard_mount(void)
 {
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+    // C reuses the original SD pins for panel/touch reset and Power.
+    return ESP_ERR_NOT_SUPPORTED;
+#else
     const esp_vfs_fat_sdmmc_mount_config_t mount_config = {
 #ifdef CONFIG_BSP_SD_FORMAT_ON_MOUNT_FAIL
         .format_if_mount_failed = true,
@@ -529,11 +533,16 @@ esp_err_t bsp_sdcard_mount(void)
 #endif
 
     return esp_vfs_fat_sdmmc_mount(BSP_SD_MOUNT_POINT, &host, &slot_config, &mount_config, &bsp_sdcard);
+#endif
 }
 
 esp_err_t bsp_sdcard_unmount(void)
 {
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+    return ESP_ERR_NOT_SUPPORTED;
+#else
     return esp_vfs_fat_sdcard_unmount(BSP_SD_MOUNT_POINT, bsp_sdcard);
+#endif
 }
 
 /**************************************************************************************************
@@ -856,12 +865,16 @@ esp_err_t bsp_touch_new(const bsp_display_cfg_t *cfg, esp_lcd_touch_handle_t *re
  **************************************************************************************************/
 esp_io_expander_handle_t bsp_io_expander_init(void)
 {
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+    return NULL; // This board has no TCA9554.
+#else
     BSP_ERROR_CHECK_RETURN_ERR(bsp_i2c_init());
     if (!io_expander)
     {
         BSP_ERROR_CHECK_RETURN_NULL(esp_io_expander_new_i2c_tca9554(i2c_handle, BSP_IO_EXPANDER_I2C_ADDRESS, &io_expander));
     }
     return io_expander;
+#endif
 }
 
 static lv_display_t *bsp_display_lcd_init(const bsp_display_cfg_t *cfg)

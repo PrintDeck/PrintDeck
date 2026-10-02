@@ -17,3 +17,9 @@ idf_component_register(
     REQUIRES ${REQ} esp_lcd
     PRIV_REQUIRES ${PRIV_REQ} esp_timer spiffs esp_psram fatfs
 )
+
+# Preserve the reviewed panel/rotation path while selecting the C board wiring.
+idf_build_get_property(printdeck_variant PRINTDECK_HW_VARIANT)
+if(printdeck_variant STREQUAL "amoled_1_75c")
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC PRINTDECK_BOARD_AMOLED_1_75C=1)
+endif()

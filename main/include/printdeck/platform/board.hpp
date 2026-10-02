@@ -88,14 +88,24 @@ inline constexpr bool kDisplayRequiresEvenInvalidation = true;
 inline constexpr bool kBoardHasAudio = true;
 inline constexpr bool kBoardHasPowerSourceDetection = true;
 inline constexpr bool kBoardHasPowerButton = true;
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+inline constexpr char kBoardVariant[] = "amoled_1_75c";
+#else
 inline constexpr char kBoardVariant[] = "amoled_1_75";
+#endif
 inline constexpr char kBoardReactionAssetFamily[] = "466x466";
 // Keep this flash layout on its own update channel and release asset family so
 // an application-only image is never offered to an incompatible partition map.
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+inline constexpr char kFirmwareStableChannel[] = "amoled_1_75c";
+inline constexpr char kFirmwareOtaAssetPrefix[] = "printdeck_amoled_1_75c_ota-";
+inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_amoled_1_75c_full-";
+#else
 inline constexpr char kFirmwareStableChannel[] = "amoled_1_75_voice";
 inline constexpr char kFirmwareOtaAssetPrefix[] =
     "printdeck_amoled_1_75_voice_ota-";
 inline constexpr char kFirmwareFullAssetPrefix[] = "printdeck_amoled_1_75_voice_full-";
+#endif
 inline constexpr char kLegacyFirmwareOtaAssetPrefix[] = "";
 inline constexpr char kLegacyFirmwareFullAssetPrefix[] = "";
 #endif
@@ -105,8 +115,16 @@ inline constexpr bool kBoardHasMotionSensor = std::string_view(kBoardVariant) !=
 // Automatic display sleep requires a physical way to wake the panel.
 inline constexpr bool kBoardSupportsDisplaySleep = kBoardHasTouch || kBoardHasPowerButton;
 inline constexpr bool kDisplayUsesLargeLayout = !kDisplayUsesCompactLayout;
+inline constexpr std::uint8_t kMotionSensorI2cAddress = 0x6b;
+#if defined(PRINTDECK_BOARD_AMOLED_1_75C)
+// C schematic specifies 0x6b; the official Arduino demo uses 0x6a.
+inline constexpr std::uint8_t kMotionSensorAlternateI2cAddress = 0x6a;
+#else
+inline constexpr std::uint8_t kMotionSensorAlternateI2cAddress = 0;
+#endif
 inline constexpr bool kBoardHasReactionStorage = std::string_view(kBoardVariant) != "lcd_1_28";
 inline constexpr bool kBoardHasSdCard =
+    std::string_view(kBoardVariant) != "amoled_1_75c" &&
     std::string_view(kBoardVariant) != "lcd_1_28" &&
     std::string_view(kBoardVariant) != "knomi2" &&
     std::string_view(kBoardVariant) != "knomipanda";
